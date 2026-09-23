@@ -284,13 +284,13 @@ describe("agmux-handoff-store", () => {
     let ownerReleased = false;
     withHandoffStore(handoffEnv(), (store) =>
       upsertSession(store, { id: "outer", title: "Outer", summary: "after withdrawal" }),
-    fastLockOptions({
+    fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS,
       isProcessAlive: () => false,
       onReclaimGuardAcquiredForTest: ({ release }) => {
         hookCalled = true;
         withHandoffStore(handoffEnv(), (store) =>
           upsertSession(store, { id: "inner", title: "Inner", summary: "during recovery" }),
-        fastLockOptions({
+        fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS,
           staleMs: 0,
           isProcessAlive: () => {
             ownerReleased = release() || ownerReleased;
@@ -403,7 +403,7 @@ describe("agmux-handoff-store", () => {
     let ownerReleased = false;
     withHandoffStore(handoffEnv(), (store) =>
       upsertSession(store, { id: "outer", title: "Outer", summary: "after contender" }),
-    fastLockOptions({
+    fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS,
       onReclaimGuardAcquiredForTest: ({ release }) => {
         if (contender) return;
         contender = spawn(
@@ -857,6 +857,10 @@ describe("agmux-handoff-store", () => {
       AGMUX_PROJECT_ID: "p1",
     };
   }
+
+  // Success-path tests that spawn a process or nest a store call while
+  // holding the guard need more than 60ms on slower (CI) machines.
+  const SLOW_RUNNER_RETRY_MS = 2_000;
 
   function fastLockOptions(overrides = {}) {
     return { retryMs: 60, staleMs: 30, ...overrides };

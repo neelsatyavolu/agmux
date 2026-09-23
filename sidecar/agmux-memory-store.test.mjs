@@ -433,13 +433,13 @@ describe("agmux-memory-store", () => {
     let ownerReleased = false;
     withStore(memoryEnv(), (store) =>
       addEntry(store, { title: "Outer", content: "after withdrawal" }),
-    fastLockOptions({
+    fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS,
       isProcessAlive: () => false,
       onReclaimGuardAcquiredForTest: ({ release }) => {
         hookCalled = true;
         withStore(memoryEnv(), (store) =>
           addEntry(store, { title: "Inner", content: "during recovery" }),
-        fastLockOptions({
+        fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS,
           staleMs: 0,
           isProcessAlive: () => {
             ownerReleased = release() || ownerReleased;
@@ -552,7 +552,7 @@ describe("agmux-memory-store", () => {
     let ownerReleased = false;
     withStore(memoryEnv(), (store) =>
       addEntry(store, { title: "Outer", content: "after contender" }),
-    fastLockOptions({
+    fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS,
       onReclaimGuardAcquiredForTest: ({ release }) => {
         if (contender) return;
         contender = spawn(
@@ -1307,6 +1307,10 @@ describe("agmux-memory-store", () => {
       AGMUX_PROJECT_ID: "p1",
     };
   }
+
+  // Success-path tests that spawn a process or nest a store call while
+  // holding the guard need more than 60ms on slower (CI) machines.
+  const SLOW_RUNNER_RETRY_MS = 2_000;
 
   function fastLockOptions(overrides = {}) {
     return { retryMs: 60, staleMs: 30, ...overrides };
