@@ -70,3 +70,4 @@ coverage/
 .claude/scheduled_tasks.lock
 /memory.json
 /handoffs.json
+__pycache__/

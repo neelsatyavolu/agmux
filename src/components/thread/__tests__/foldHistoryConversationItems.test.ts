@@ -77,11 +77,14 @@ describe("foldHistoryConversationItems", () => {
       },
     ]);
     const tools = out.filter((i) => i.type === "tool");
-    // exec + its ToolResult are code-mode internal — dropped so history matches live.
+    // An unparseable exec stays one visible "Code execution" row carrying its
+    // result (live renders the same row); its ToolResult is never a bare row.
     expect(tools.map((t) => t.toolName)).toEqual([
       "CollabAgent.spawn_agent",
       "CollabAgent.spawn_agent",
+      "Code execution",
     ]);
+    expect(tools[2].content).toBe("failed to spawn code-mode host");
     expect(tools[0].toolInput?.agentNickname).toBe("frontend_perf");
     expect(tools[1].toolInput?.agentNickname).toBe("backend_perf");
     // Reading history is not evidence that a child finished.
@@ -108,7 +111,6 @@ describe("foldHistoryConversationItems", () => {
         id: "h-out",
         type: "tool",
         content: JSON.stringify([
-          { type: "input_text", text: "status" },
           { type: "input_text", text: JSON.stringify({ content: [{ type: "text", text: "Docs" }] }) },
           { type: "input_text", text: JSON.stringify({ output: "Created out.html", exit_code: 0 }) },
         ]),
@@ -124,6 +126,36 @@ describe("foldHistoryConversationItems", () => {
     expect(out[1].content).toBe("Created out.html");
     expect(out[0].execGroupId).toBe("call_build");
     expect(out[1].execGroupId).toBe("call_build");
+  });
+
+  it("keeps a raw Code execution row when outputs don't match the printed calls", () => {
+    const out = foldHistoryConversationItems([
+      {
+        id: "h-exec",
+        type: "tool",
+        content: "",
+        timestamp: 1,
+        toolName: "exec",
+        toolInput: {
+          callId: "call_mixed",
+          input: 'text(await tools.mcp__docs__search({query:"cache"})); text(await tools.exec_command({cmd:"ls"}));',
+        },
+      },
+      {
+        id: "h-out",
+        type: "tool",
+        content: JSON.stringify([
+          { type: "input_text", text: "status" },
+          { type: "input_text", text: JSON.stringify({ content: [{ type: "text", text: "Docs" }] }) },
+          { type: "input_text", text: JSON.stringify({ output: "file.txt", exit_code: 0 }) },
+        ]),
+        timestamp: 2,
+        toolName: "ToolResult",
+        toolInput: { callId: "call_mixed" },
+      },
+    ]);
+    // Never pair outputs by scanning around an unrecognized print.
+    expect(out.map((item) => [item.type, item.toolName])).toEqual([["tool", "Code execution"]]);
   });
 
   it("does not duplicate an exec command with the same call identity", () => {
@@ -161,7 +193,7 @@ describe("foldHistoryConversationItems", () => {
     expect(out.filter((item) => item.type === "command")).toHaveLength(1);
   });
 
-  it("marks yielded exec commands complete in history", () => {
+  it("records yielded exec commands without inventing an exit status", () => {
     const out = foldHistoryConversationItems([
       {
         id: "h-exec",
@@ -187,7 +219,9 @@ describe("foldHistoryConversationItems", () => {
     ]);
     expect(out).toHaveLength(1);
     expect(out[0].type).toBe("command");
-    expect(out[0].exitCode).toBe(0);
+    // A yielded session has no exit status yet; it is not exit 0.
+    expect(out[0].exitCode).toBeUndefined();
+    expect(out[0].commandResultIncomplete).toBe(true);
     expect(out[0].commandName).toBe("npx tsc --noEmit");
   });
 });
@@ -281,5 +315,11 @@ it("hides shell polling in history and expanded exec while preserving async ques
   ]);
   expect(out).toHaveLength(1);
   expect(codexAsyncQuestions(out[0])).toEqual([{ id: "0", question: "Ready?", options: [{ label: "Done", description: "" }] }]);
-  expect(conversationItemsFromExec({ callId: "exec", timestamp: 1, source: 'text(await tools.write_stdin({session_id: 123}));' })).toEqual([]);
+  // Expansion always runs with the saved/live output; a pure poll is hidden.
+  expect(conversationItemsFromExec({
+    callId: "exec",
+    timestamp: 1,
+    source: 'text(await tools.write_stdin({session_id: 123}));',
+    result: JSON.stringify([{ type: "input_text", text: JSON.stringify({ output: "done" }) }]),
+  })).toEqual([]);
 });

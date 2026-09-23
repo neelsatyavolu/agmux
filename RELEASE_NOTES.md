@@ -57,6 +57,8 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 
+- **Older chats reopen again** — Chats started before the previous update open in chat view again instead of showing “This session is not known to have been created in agmux.” Teams usage still counts only sessions started in agmux.
+
 - **Home usage card** — Provider usage rows, including Gemini, stay fully visible instead of getting cut off at the bottom.
 
 - **Codex conversations** — Tool results remain visible when commands run in batches or use unfamiliar formats. Expanded commands retain their full text with Show more for long output, missing or unfinished results no longer look successful, repeated patch reports count once, and more bulk file edits contribute to change counts.

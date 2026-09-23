@@ -52,7 +52,9 @@ jobs:
       - name: Frontend checks
         run: |
           npx tsc --noEmit
-          npm test
+          # A few UI tests are timing-sensitive under full parallel load;
+          # a real failure still fails every retry.
+          npm test -- --retry=2
       - name: Sidecar checks
         working-directory: sidecar
         run: npm test

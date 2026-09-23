@@ -212,7 +212,12 @@ pub async fn record_thread_session_start(
         .bind(&thread.provider).bind(id).fetch_one(pool).await.map_err(|e| e.to_string())?;
     if let Some(sid) = resume_session_id.filter(|s| !s.is_empty()) {
         let owned = crate::teams::ownership::is_native_owned(pool, &thread.provider, sid).await?;
-        if !owned && (origin == Some(true) || (origin.is_none() && legacy)) {
+        // A legacy owner may resume its own frozen binding. Admission is not
+        // creation proof: no origin is recorded, so Teams ownership stays unknown.
+        let own_legacy_binding: bool = origin.is_none() && legacy && sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM session_legacy_bindings WHERE provider=? AND session_id=? AND owner_id=?)")
+            .bind(&thread.provider).bind(sid).bind(id).fetch_one(pool).await.map_err(|e| e.to_string())?;
+        if !owned && !own_legacy_binding && (origin == Some(true) || (origin.is_none() && legacy)) {
             return Err("This session is not known to have been created in agmux. Open it in a separate imported thread to keep this chat's history separate.".into());
         }
         if origin.is_some() || legacy { return Ok(()); }
