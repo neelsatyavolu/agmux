@@ -4,13 +4,13 @@
 #
 # Requires:
 #   - GH_TOKEN with push access to neel-xanom/homebrew-agmux
-#   - The release DMGs must already be published to neel-xanom/agmux-releases
+#   - The release DMGs must already be published to neelsatyavolu/agmux
 
 set -euo pipefail
 
 TAG="${1:?Usage: update-homebrew-cask.sh <tag>}"
 VERSION="${TAG#v}"
-REPO="neel-xanom/agmux-releases"
+REPO="neelsatyavolu/agmux"
 TAP_REPO="neel-xanom/homebrew-agmux"
 WORK_DIR=$(mktemp -d)
 trap 'rm -rf "${WORK_DIR}"' EXIT

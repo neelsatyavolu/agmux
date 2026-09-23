@@ -10,7 +10,8 @@ Source: https://github.com/neelsatyavolu/agmux (MIT). Every commit pushed is pub
 - Local tool/agent state stays gitignored: `.agmux/`, `.wrangler/`, `.playwright-cli/`, `.superset/`, `.grok/config.toml`, `memory.json`, `handoffs.json`.
 - No hardcoded API keys and no unauthenticated endpoints that spend the owner's keys. Users bring their own keys.
 - Tests and docs use placeholder data (example.com, fake IDs), never real users, emails, or account IDs.
-- `private` remote = `neel-xanom/agmux`: pre-open-source history plus the signed release pipeline (secrets, self-hosted runners). Never push private history (any branch based on it) to `origin`; `.git/hooks/pre-push` blocks it. Releases: see `.claude/commands/release.md`.
+- `private` remote = `neel-xanom/agmux`: pre-open-source history only. Never push private history (any branch based on it) to `origin`; `.git/hooks/pre-push` blocks it.
+- Releases, downloads and in-app updates all come from this repo's GitHub releases (built on GitHub-hosted Macs). `neel-xanom/agmux-releases` keeps releases up to v4.1.3 and receives only a mirrored `latest.json` (old builds' fallback update URL) — never delete it. Steps: `.claude/commands/release.md`.
 
 ## Package manager
 

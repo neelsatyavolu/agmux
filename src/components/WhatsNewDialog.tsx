@@ -14,7 +14,7 @@ import agmuxIcon from "../assets/xanom-icon.png";
 import { useSettingsStore } from "../stores/settingsStore";
 
 const STORAGE_KEY = "xanom_last_seen_version";
-const GITHUB_REPO = "neel-xanom/agmux-releases";
+const GITHUB_REPO = "neelsatyavolu/agmux";
 const CHANGELOG_URL = `https://github.com/${GITHUB_REPO}/releases`;
 
 type Category = "new" | "improved" | "fixed";

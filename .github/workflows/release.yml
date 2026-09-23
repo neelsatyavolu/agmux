@@ -18,16 +18,20 @@ permissions:
 #   APPLE_API_KEY_P8_BASE64      base64 of AuthKey_<KeyID>.p8
 # Also required:
 #   TAURI_SIGNING_PRIVATE_KEY    updater minisign private key
-#   RELEASES_PAT                 push to agmux-releases + homebrew-agmux
+#   NEEL_XANOM_REPOS_TOKEN       fine-grained token: contents write on
+#                                neel-xanom/homebrew-agmux + neel-xanom/agmux-releases
 # See ~/Documents/GitHub/APPLE_SIGNING.md
+#
+# Flow: /release creates vX as a prerelease (so releases/latest keeps serving
+# the previous version), this workflow uploads signed assets + latest.json to
+# that release, then `publish` promotes it to the latest release.
 
 jobs:
   verify:
-    # Signing secrets and self-hosted runners exist only on the private release
-    # repo; tags on the public source repo skip the whole pipeline.
-    if: github.repository == 'neel-xanom/agmux'
+    # Signing secrets exist only on the canonical repo; forks skip the pipeline.
+    if: github.repository == 'neelsatyavolu/agmux'
     # Tests write app-owned preferences and bind local sockets. Use a disposable
-    # hosted Mac, never the signing runners' persistent user data.
+    # hosted Mac.
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,7 +70,7 @@ jobs:
 
   build:
     needs: [verify]
-    runs-on: self-hosted
+    runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
@@ -80,15 +84,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Isolate rustup/cargo dirs (per-job)
-        # Two self-hosted runners share $HOME, so parallel jobs would race over
-        # ~/.rustup/toolchains/stable-*. Pin RUSTUP_HOME and CARGO_HOME to
-        # $RUNNER_TEMP, which is unique per job.
-        run: |
-          echo "RUSTUP_HOME=$RUNNER_TEMP/.rustup" >> "$GITHUB_ENV"
-          echo "CARGO_HOME=$RUNNER_TEMP/.cargo" >> "$GITHUB_ENV"
-          echo "$RUNNER_TEMP/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -277,82 +272,47 @@ jobs:
 
   publish:
     needs: [build]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update release notes
+      - name: Promote release to latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           TAG="${{ github.ref_name }}"
-          # Get the body from the existing draft release (created by /update command)
-          BODY=$(gh release view "$TAG" --repo neel-xanom/agmux --json body -q '.body' 2>/dev/null || echo "")
-          if [ -z "$BODY" ]; then
-            BODY="See the assets below to download and install this version."
+          # Never promote a release the in-app updater can't use.
+          if ! gh release view "$TAG" --json assets -q '.assets[].name' | grep -qx latest.json; then
+            echo "error: $TAG has no latest.json; not promoting" >&2
+            exit 1
           fi
-          echo "$BODY" > release-notes.md
-          gh release edit "$TAG" \
-            --repo neel-xanom/agmux \
-            --notes-file release-notes.md
+          if [ -z "$(gh release view "$TAG" --json body -q .body)" ]; then
+            gh release edit "$TAG" --notes "See the assets below to download and install this version."
+          fi
+          gh release edit "$TAG" --draft=false --prerelease=false --latest
 
-      - name: Publish updater assets to public repo
+      - name: Mirror updater manifest for older app versions
+        # Builds up to v4.1.3 fall back to neel-xanom/agmux-releases when
+        # agmux.dev is unreachable, so keep its latest.json current. The
+        # manifest's download URLs already point at this repo's assets.
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
+          GH_TOKEN: ${{ secrets.NEEL_XANOM_REPOS_TOKEN }}
         run: |
+          set -euo pipefail
           TAG="${{ github.ref_name }}"
-          SOURCE_REPO="neel-xanom/agmux"
-          PUBLIC_REPO="neel-xanom/agmux-releases"
-
-          # Download updater artifacts from private/source release
-          mkdir -p updater-assets
-          gh release download "$TAG" \
-            --repo "$SOURCE_REPO" \
-            --pattern "latest.json" \
-            --pattern "*.tar.gz" \
-            --pattern "*.tar.gz.sig" \
-            --pattern "*.dmg" \
-            --dir updater-assets
-
-          # Rewrite download URLs in latest.json to point to the public releases repo.
-          # Handle current names plus legacy xanom names so a partial rebrand can't
-          # ship a latest.json that 404s on the private source repo.
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          path = Path("updater-assets/latest.json")
-          data = json.loads(path.read_text())
-          replacements = (
-              ("neel-xanom/agmux/releases", "neel-xanom/agmux-releases/releases"),
-              ("neel-xanom/xanom/releases", "neel-xanom/agmux-releases/releases"),
-              ("neel-xanom/xanom-releases/releases", "neel-xanom/agmux-releases/releases"),
-          )
-          for meta in data.get("platforms", {}).values():
-              url = meta.get("url", "")
-              for old, new in replacements:
-                  url = url.replace(old, new)
-              meta["url"] = url
-          path.write_text(json.dumps(data, indent=2) + "\n")
-          print("latest.json platform urls:")
-          for name, meta in data.get("platforms", {}).items():
-              print(f"  {name}: {meta.get('url')}")
-          PY
-
-          # Get release notes from source repo release
-          NOTES=$(gh release view "$TAG" --repo "$SOURCE_REPO" --json body -q '.body' 2>/dev/null || echo "Updater artifacts for agmux $TAG")
-
-          # Create release on public repo (or update if exists)
-          gh release create "$TAG" \
-            --repo "$PUBLIC_REPO" \
-            --title "agmux $TAG" \
-            --notes "$NOTES" \
-            updater-assets/* \
-            || gh release upload "$TAG" \
-              --repo "$PUBLIC_REPO" \
-              --clobber \
-              updater-assets/*
+          LEGACY="neel-xanom/agmux-releases"
+          gh release download "$TAG" -R "${{ github.repository }}" -p latest.json -D mirror
+          {
+            echo "Downloads: https://github.com/${{ github.repository }}/releases/tag/$TAG"
+            echo
+            gh release view "$TAG" -R "${{ github.repository }}" --json body -q .body
+          } > mirror/notes.md
+          gh release create "$TAG" -R "$LEGACY" --title "agmux $TAG" \
+            --notes-file mirror/notes.md mirror/latest.json \
+            || gh release upload "$TAG" -R "$LEGACY" --clobber mirror/latest.json
 
       - name: Update Homebrew cask
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
+          GH_TOKEN: ${{ secrets.NEEL_XANOM_REPOS_TOKEN }}
         run: ./scripts/update-homebrew-cask.sh "${{ github.ref_name }}"

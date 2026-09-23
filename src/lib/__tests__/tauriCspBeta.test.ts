@@ -12,7 +12,7 @@ describe("tauri updater / CSP for beta", () => {
   it("checks the website first, GitHub second", () => {
     expect(conf.plugins.updater.endpoints).toEqual([
       "https://agmux.dev/api/updates/latest.json",
-      "https://github.com/neel-xanom/agmux-releases/releases/latest/download/latest.json",
+      "https://github.com/neelsatyavolu/agmux/releases/latest/download/latest.json",
     ]);
   });
 
