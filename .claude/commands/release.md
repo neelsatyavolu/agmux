@@ -44,11 +44,16 @@ The argument `$ARGUMENTS` is the version number (e.g. `0.4.8`).
 6. Assemble the final release notes (see Format section below): a tagline + summary (write these fresh — `RELEASE_NOTES.md` doesn't carry them), followed by the `### New` / `### Improved` / `### Fixed` bullets from `RELEASE_NOTES.md`'s `## Unreleased` section plus any gap-fill bullets drafted in step 3. Lightly edit for clarity/tone but don't re-derive content that's already there.
 7. **Reset `RELEASE_NOTES.md`**: move the (now finalized) `## Unreleased` content into a new dated section below it — `## v<version> — <YYYY-MM-DD>` — and clear the `## Unreleased` section back to empty `### New` / `### Improved` / `### Fixed` stubs.
 8. Stage all changed files (including `RELEASE_NOTES.md`) and commit with message: `chore: bump version to v<version>`
-9. Push to remote: `git push origin master`
-10. Create the GitHub release:
+9. Push the source to the public repo, then mirror it to the private release repo (signing secrets and self-hosted runners live there):
     ```
-    gh release create v<version> --title "v<version>" --notes "<release notes>"
+    git push origin master
+    git push --force private master:public-main
     ```
+10. Create the GitHub release on the private repo (its tag triggers the signed build workflow):
+    ```
+    gh release create v<version> -R neel-xanom/agmux --target public-main --title "v<version>" --notes "<release notes>"
+    ```
+    Optionally tag the public repo too (`git tag v<version> && git push origin v<version>`); the workflow skips itself outside `neel-xanom/agmux`.
 11. Return the release URL to the user.
 
 ## Release Notes Format (CRITICAL)
@@ -85,7 +90,7 @@ One-paragraph summary sentence that expands the tagline. Shown in zinc under the
 
 ## Rules
 
-- The release is ONLY created in the agmux repo, not agmux-releases.
+- The release is ONLY created in the private `neel-xanom/agmux` repo, not agmux-releases. The workflow publishes updater assets to agmux-releases.
 - Release notes are written for END USERS, not developers.
 - `RELEASE_NOTES.md`'s `## Unreleased` section is the source of truth for what shipped — agents log entries there as they work (see `CLAUDE.md` → Workflow → Mandatory). Don't discard it and reconstruct from the diff; use the diff only to catch gaps.
 - If there are uncommitted changes beyond the version bump, include them in the release commit.
