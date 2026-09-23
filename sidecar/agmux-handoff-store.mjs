@@ -169,6 +169,7 @@ function lockOptions(options = {}) {
     onReclaimGuardAcquiredForTest: options.onReclaimGuardAcquiredForTest,
     onRecoveryClaimRenamedForReleaseForTest:
       options.onRecoveryClaimRenamedForReleaseForTest,
+    onLockQuarantinedForTest: options.onLockQuarantinedForTest,
   };
 }
 
@@ -395,6 +396,7 @@ function reclaimAbandonedLock(lockPath, options) {
   } catch {
     return false;
   }
+  options.onLockQuarantinedForTest?.();
   let quarantinedOwner;
   try {
     quarantinedOwner = readLockOwner(quarantinePath, lockPath);

@@ -350,7 +350,7 @@ describe("agmux-memory-store", () => {
 
     const outcome = withStore(memoryEnv(), (store) =>
       addEntry(store, { title: "Recovered guard", content: "written" }),
-    fastLockOptions());
+    fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS }));
 
     assert.equal(outcome.changed, true);
     assert.equal(existsSync(guardPath), false);
@@ -375,7 +375,7 @@ describe("agmux-memory-store", () => {
 
     const outcome = withStore(memoryEnv(), (store) =>
       addEntry(store, { title: "Recovered claimant", content: "written" }),
-    fastLockOptions());
+    fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS }));
 
     assert.equal(outcome.changed, true);
     assert.equal(existsSync(guardPath), false);
@@ -468,14 +468,14 @@ describe("agmux-memory-store", () => {
     let ownerReleased = false;
     withStore(memoryEnv(), (store) =>
       addEntry(store, { title: "Outer", content: "after withdrawal" }),
-    fastLockOptions({
+    fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS,
       isProcessAlive: () => false,
       onReclaimGuardAcquiredForTest: ({ release }) => {
         if (hookCalled) return;
         hookCalled = true;
         withStore(memoryEnv(), (store) =>
           addEntry(store, { title: "Inner", content: "during recovery release" }),
-        fastLockOptions({
+        fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS,
           staleMs: 0,
           isProcessAlive: (pid) => pid === process.pid,
           onRecoveryClaimRenamedForReleaseForTest: () => {
@@ -585,7 +585,7 @@ describe("agmux-memory-store", () => {
 
     const outcome = withStore(memoryEnv(), (store) =>
       addEntry(store, { title: "Recovered", content: "written" }),
-    fastLockOptions());
+    fastLockOptions({ retryMs: SLOW_RUNNER_RETRY_MS }));
 
     assert.equal(outcome.changed, true);
     assert.equal(loadStore(storePath, "p1").entries[0].title, "Recovered");
@@ -842,9 +842,27 @@ describe("agmux-memory-store", () => {
       acquiredAt: new Date(Date.now() - 31_000).toISOString(),
       token: "observed-memory-lock",
     }));
-    const racer = canonicalLockRacer(lockPath, "canonical-memory-lock");
-    await racer.ready;
-    const isProcessAlive = () => {
+    const canonicalPid = await exitedPid();
+    let canonicalCreated = false;
+    // Deterministically do what a racing acquirer would: publish a canonical
+    // lock while the observed one sits in quarantine.
+    const onLockQuarantinedForTest = () => {
+      if (canonicalCreated) return;
+      canonicalCreated = true;
+      mkdirSync(lockPath);
+      writeFileSync(join(lockPath, "owner.json"), JSON.stringify({
+        pid: canonicalPid,
+        acquiredAt: new Date().toISOString(),
+        token: "canonical-memory-lock",
+      }));
+    };
+    // Only the observed owner is dead, and it is replaced once while being
+    // reclaimed. The replacement and the racing acquirer stay alive, so
+    // neither lock ages into cleanup however slowly this runs.
+    let replaced = false;
+    const isProcessAlive = (pid) => {
+      if (pid === canonicalPid || replaced) return true;
+      replaced = true;
       writeFileSync(join(lockPath, "owner.json"), JSON.stringify({
         pid: process.pid,
         acquiredAt: new Date().toISOString(),
@@ -854,10 +872,11 @@ describe("agmux-memory-store", () => {
       return false;
     };
     assert.throws(
-      () => withStore(memoryEnv(), () => null, fastLockOptions({ isProcessAlive })),
+      () => withStore(memoryEnv(), () => null,
+        fastLockOptions({ isProcessAlive, onLockQuarantinedForTest })),
       /timed out/i,
     );
-    await racer.exited;
+    assert.equal(canonicalCreated, true);
 
     const canonical = JSON.parse(readFileSync(join(lockPath, "owner.json"), "utf8"));
     const quarantines = readdirSync(dir).filter((name) =>
@@ -1308,8 +1327,8 @@ describe("agmux-memory-store", () => {
     };
   }
 
-  // Success-path tests that spawn a process or nest a store call while
-  // holding the guard need more than 60ms on slower (CI) machines.
+  // Success-path lock tests (not the ones that expect a timeout) do real
+  // recovery work or spawn processes; that exceeds 60ms on slower (CI) machines.
   const SLOW_RUNNER_RETRY_MS = 2_000;
 
   function fastLockOptions(overrides = {}) {
@@ -1345,37 +1364,5 @@ describe("agmux-memory-store", () => {
       if (Date.now() >= deadline) throw new Error(`timed out waiting for ${path}`);
       Atomics.wait(sleeper, 0, 0, 5);
     }
-  }
-
-  function canonicalLockRacer(lockPath, token) {
-    const script = `
-      import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
-      const lockPath = process.argv[1];
-      const token = process.argv[2];
-      const stagedPath = lockPath + ".racer-" + process.pid;
-      mkdirSync(stagedPath);
-      writeFileSync(stagedPath + "/owner.json", JSON.stringify({
-        pid: process.pid, acquiredAt: new Date().toISOString(), token
-      }));
-      process.stdout.write("ready\\n");
-      const deadline = Date.now() + 2_000;
-      while (existsSync(lockPath) && Date.now() < deadline) {}
-      if (existsSync(lockPath)) throw new Error("canonical lock never became available");
-      renameSync(stagedPath, lockPath);
-    `;
-    const child = spawn(process.execPath, ["--input-type=module", "-e", script, lockPath, token], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const ready = new Promise((resolve, reject) => {
-      child.once("error", reject);
-      child.stdout.once("data", resolve);
-    });
-    const exited = new Promise((resolve, reject) => {
-      let stderr = "";
-      child.stderr.on("data", (chunk) => { stderr += chunk; });
-      child.once("error", reject);
-      child.once("exit", (code) => code === 0 ? resolve() : reject(new Error(stderr || `exit ${code}`)));
-    });
-    return { ready, exited };
   }
 });
