@@ -468,6 +468,10 @@ impl StoreLock {
         label: &str,
         options: LockOptions,
     ) -> Result<Self, String> {
+        // The lock lives beside the store; a new project's directory may not exist yet.
+        if let Some(parent) = store_file.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
         let lock_path = PathBuf::from(format!("{}.lock", store_file.display()));
         let guard_path = PathBuf::from(format!("{}.reclaiming", lock_path.display()));
         let deadline = Instant::now() + options.retry;
@@ -4311,6 +4315,20 @@ mod tests {
             }
             Err(e) => eprintln!("skip grok mcp test: {e}"),
         }
+    }
+
+    #[test]
+    fn ensure_creates_a_new_projects_store_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let store_file = dir.path().join("projects").join("new-project").join("memory.json");
+        let repo = dir.path().join("repo");
+        fs::create_dir_all(&repo).unwrap();
+        let repo_s = repo.to_string_lossy().to_string();
+
+        ensure_memory_at(&store_file, "new-project", &[&repo_s]).unwrap();
+
+        assert!(store_file.exists());
+        assert!(markdown_path(&repo_s).exists());
     }
 
     #[test]

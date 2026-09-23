@@ -30,8 +30,6 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 
-- **New Claude terminals no longer disappear** — On long-used installs, a newly created Claude terminal could vanish from the sidebar before you typed into it, and titles for new sessions were not kept after a restart. agmux now keeps its saved title history compact so there is always room, and a new terminal stays in the list even if saving fails. Terminals that already disappeared come back once you have sent them a message.
-
 ## v4.2.0 — 2026-09-23
 
 ### New
@@ -68,6 +66,10 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ### Fixed
 
 - **Older chats reopen again** — Chats started before the previous update open in chat view again instead of showing “This session is not known to have been created in agmux.” Teams usage still counts only sessions started in agmux.
+
+- **New Claude terminals no longer disappear** — On long-used installs, a newly created Claude terminal could vanish from the sidebar before you typed into it, and titles for new sessions were not kept after a restart. agmux now keeps its saved title history compact so there is always room, and a new terminal stays in the list even if saving fails. Terminals that already disappeared come back once you have sent them a message.
+
+- **Project memory in new projects** — Agents started in a brand-new project get shared project memory from their very first session, not only from the second one.
 
 - **Home usage card** — Provider usage rows, including Gemini, stay fully visible instead of getting cut off at the bottom.
 
