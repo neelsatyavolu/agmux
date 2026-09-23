@@ -30,6 +30,8 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 
+- **New Claude terminals no longer disappear** — On long-used installs, a newly created Claude terminal could vanish from the sidebar before you typed into it, and titles for new sessions were not kept after a restart. agmux now keeps its saved title history compact so there is always room, and a new terminal stays in the list even if saving fails. Terminals that already disappeared come back once you have sent them a message.
+
 ## v4.2.0 — 2026-09-23
 
 ### New

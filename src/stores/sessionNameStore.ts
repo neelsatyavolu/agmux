@@ -185,12 +185,31 @@ function loadPreviews(): Record<string, string> {
   }
 }
 
+/**
+ * Previews and prompt history only feed the title pack (LOCAL_PACK_BUDGET), so
+ * anything longer is dead weight. These caches share WebKit's 5 MiB
+ * localStorage quota with the created-session list; left unbounded they filled
+ * it and new Claude terminals dropped out of the sidebar.
+ */
+export const MAX_STORED_TITLE_TEXT = 1000;
+/** Most recently written sessions whose preview / prompt history are kept. */
+export const MAX_STORED_TITLE_SESSIONS = 500;
+
+/** Copy of `all` with `id` set as the most recent entry (objects keep insertion
+ *  order for non-numeric keys) and the oldest entries past the cap dropped. */
+function withRecentEntry<T>(all: Record<string, T>, id: string, value: T): Record<string, T> {
+  const entries = Object.entries(all).filter(([key]) => key !== id);
+  entries.push([id, value]);
+  return Object.fromEntries(entries.slice(-MAX_STORED_TITLE_SESSIONS));
+}
+
 function savePreview(id: string, preview: string): void {
   try {
-    const all = loadPreviews();
-    all[id] = preview;
+    const all = withRecentEntry(loadPreviews(), id, preview.slice(0, MAX_STORED_TITLE_TEXT));
     localStorage.setItem(PREVIEW_KEY, JSON.stringify(all));
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.warn("[sessionNames] could not save title preview", err);
+  }
 }
 
 // ── Multi-prompt history (end-biased packing for tiny local models) ─────────
@@ -226,7 +245,9 @@ function loadAllHistory(): Record<string, string[]> {
 function saveAllHistory(all: Record<string, string[]>): void {
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(all));
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.warn("[sessionNames] could not save prompt history", err);
+  }
 }
 
 function loadHistory(id: string): string[] {
@@ -234,16 +255,17 @@ function loadHistory(id: string): string[] {
 }
 
 function saveHistory(id: string, prompts: string[]): void {
-  const all = loadAllHistory();
-  all[id] = prompts;
-  saveAllHistory(all);
+  const stored = prompts.map((p) => p.slice(0, MAX_STORED_TITLE_TEXT));
+  saveAllHistory(withRecentEntry(loadAllHistory(), id, stored));
 }
 
 /**
  * Append a cleaned user prompt to history. Consecutive identical prompts are
  * ignored (duplicate hooks / dual id paths with same text).
  */
-function appendPromptHistory(id: string, prompt: string): string[] {
+function appendPromptHistory(id: string, rawPrompt: string): string[] {
+  // Compare in stored form so a repeated long prompt still dedupes.
+  const prompt = rawPrompt.slice(0, MAX_STORED_TITLE_TEXT);
   const hist = loadHistory(id);
   if (hist[hist.length - 1] === prompt) return hist;
   hist.push(prompt);

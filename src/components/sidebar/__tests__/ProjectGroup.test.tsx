@@ -705,13 +705,16 @@ describe("ProjectGroup", () => {
     expect(screen.getByText("Selected")).toBeTruthy();
   });
 
-  it("does NOT render claude sessions whose IDs are in claudeSessionMap (already represented by xanom thread)", () => {
+  it("renders a mapped claude session once, under its agmux id, even without a saved created-session record", () => {
+    // A full localStorage dropped the created-session record while the
+    // agmux → Claude mapping had already been saved. The transcript must not
+    // be hidden with no agmux row left to represent it.
     const realId = "real-claude-id";
     const xanomId = "xanom-id";
     useUiStore.setState({ claudeSessionMap: { [xanomId]: [realId] } } as Partial<ReturnType<typeof useUiStore.getState>>);
     const session: ClaudeSession = {
       id: realId,
-      preview: "Should be hidden",
+      preview: "Landing page work",
       updated_at: new Date().toISOString(),
       cwd: "/tmp/repo",
       model: null,
@@ -720,7 +723,29 @@ describe("ProjectGroup", () => {
       files_changed: 0,
     };
     render(<ProjectGroup {...baseProps} claudeSessions={[session]} />);
-    expect(screen.queryByText("Should be hidden")).toBeNull();
+    const rows = screen.getAllByText("Landing page work");
+    expect(rows).toHaveLength(1);
+    fireEvent.click(rows[0]);
+    expect(useUiStore.getState().selectedClaudeSessionId).toBe(xanomId);
+  });
+
+  it("keeps a deleted mapped claude session hidden", () => {
+    localStorage.setItem("xanom:hidden-sessions:p1", JSON.stringify(["xanom-deleted"]));
+    useUiStore.setState({
+      claudeSessionMap: { "xanom-deleted": ["real-deleted"] },
+    } as Partial<ReturnType<typeof useUiStore.getState>>);
+    const session: ClaudeSession = {
+      id: "real-deleted",
+      preview: "Deleted work",
+      updated_at: new Date().toISOString(),
+      cwd: "/tmp/repo",
+      model: null,
+      lines_added: 0,
+      lines_removed: 0,
+      files_changed: 0,
+    };
+    render(<ProjectGroup {...baseProps} claudeSessions={[session]} />);
+    expect(screen.queryByText("Deleted work")).toBeNull();
   });
 
   it("renders multiple providers' sessions side-by-side", () => {

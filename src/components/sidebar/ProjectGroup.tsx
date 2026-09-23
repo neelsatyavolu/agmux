@@ -679,7 +679,19 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     // exclude their IDs so they don't get duplicate Claude placeholders.
     const threadIds = new Set(threads.map((t) => t.id));
     const existingClaudeIds = new Set(items.filter((i) => i.kind === "claude").map((i) => i.data.id));
-    for (const cid of createdClaudeSessionIdsRef.current) {
+    // Mapped agmux ids whose transcript is in this project's list also get a
+    // placeholder: their real id is hidden above, so a session whose
+    // created-session record failed to save (full localStorage) otherwise
+    // vanished from the sidebar entirely.
+    const mappedOwnerIds = Object.keys(claudeSessionMap).filter((owner) => {
+      const realIds = claudeSessionMap[owner];
+      const latest = realIds[realIds.length - 1];
+      return latest != null &&
+        realSessionById.has(latest) &&
+        !hiddenSessionIdsRef.current.has(owner) &&
+        !hiddenSessionIdsRef.current.has(latest);
+    });
+    for (const cid of new Set([...createdClaudeSessionIdsRef.current, ...mappedOwnerIds])) {
       if (!existingClaudeIds.has(cid) && !threadIds.has(cid)) {
         const realIds = claudeSessionMap[cid];
         const realId = realIds?.[realIds.length - 1]; // latest session (after /clear)

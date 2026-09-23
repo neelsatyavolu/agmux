@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { installLocalStorage } from "./_localStorage";
 import {
   addCreatedClaudeSession,
@@ -40,6 +40,24 @@ describe("createdSessions", () => {
     addCreatedClaudeSession("p1", "x");
     expect(() => removeCreatedClaudeSession("p1", "missing")).not.toThrow();
     expect(loadCreatedClaudeSessions("p1")).toEqual(new Set(["x"]));
+  });
+
+  it("keeps created ids for this app run when localStorage is full", () => {
+    const quota = () => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const setItem = vi.spyOn(localStorage, "setItem").mockImplementation(quota);
+    try {
+      addCreatedClaudeSession("p1", "new-terminal");
+      expect(loadCreatedClaudeSessions("p1")).toEqual(new Set(["new-terminal"]));
+      expect(warn).toHaveBeenCalled();
+      removeCreatedClaudeSession("p1", "new-terminal");
+      expect(loadCreatedClaudeSessions("p1").size).toBe(0);
+    } finally {
+      setItem.mockRestore();
+      warn.mockRestore();
+    }
   });
 
   it("returns empty set on corrupt payload", () => {
