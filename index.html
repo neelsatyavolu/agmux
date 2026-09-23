@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" style="color-scheme: dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>agmux</title>
+  </head>
+
+  <body>
+    <!-- Splash screen — visible immediately, removed by React once app is ready -->
+    <div id="splash">
+      <div class="splash-logo-wrap">
+        <img
+          id="splash-logo"
+          src="/xanom-icon.png"
+          alt=""
+          width="72"
+          height="72"
+          draggable="false"
+        />
+        <div id="splash-glow"></div>
+      </div>
+      <p id="splash-wordmark">agmux</p>
+    </div>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="tileDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1a1d" />
+      <stop offset="1" stop-color="#050506" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="96" height="96" rx="23" fill="url(#tileDark)" />
+  <g transform="rotate(45 50 50)">
+    <polygon points="50,11 59,25 59,75 50,89 41,75 41,25" fill="#ffffff" stroke="#050506" stroke-width="2.4" stroke-linejoin="round" />
+  </g>
+  <g transform="rotate(-45 50 50)">
+    <polygon points="50,11 59,25 59,75 50,89 41,75 41,25" fill="#ffffff" stroke="#050506" stroke-width="2.4" stroke-linejoin="round" />
+  </g>
+</svg>

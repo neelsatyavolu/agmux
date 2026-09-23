@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+dist/
+*.log
+# CocoaPods — regenerate with `npx cap sync ios` / `pod install`
+ios/App/Pods/
+ios/App/App/public/
+ios/capacitor-cordova-ios-plugins/
+ios/DerivedData/
+*.xcuserstate
+xcuserdata/

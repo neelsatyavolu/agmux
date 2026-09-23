@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="Components · Sidebar Item" subtitle="Session rows with provider avatar + status" viewport="320x240" -->
+<html lang="en" data-surface="app">
+<head>
+<meta charset="UTF-8">
+<title>Xanom — Sidebar Item</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body { margin:0; padding:0; background:#111113; }
+  .card {
+    width:320px; padding:18px; background:#0a0a0b; color:#fff;
+    font-family: var(--font-sans); letter-spacing:-0.015em; box-sizing:border-box;
+    border-right:1px solid rgba(255,255,255,0.06);
+  }
+  .label { font-size:10px; font-family:var(--font-mono); color:#71717a; text-transform:uppercase; letter-spacing:0.2em; margin:8px 6px 8px; display:block; }
+
+  .item {
+    display:flex; align-items:center; gap:10px;
+    padding:8px 10px; border-radius:7px;
+    font-size:13px; color:#d4d4d8;
+    transition: all 150ms cubic-bezier(0.16,1,0.3,1);
+  }
+  .item.active { background: rgba(255,255,255,0.06); color:#fff; }
+  .item:hover:not(.active) { background: rgba(255,255,255,0.03); }
+
+  .avatar {
+    width:20px; height:20px; border-radius:5px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-family:var(--font-mono); font-size:10px; font-weight:700;
+  }
+  .avatar.claude   { background: #C15F3C; }
+  .avatar.codex    { background: #10a37f; }
+  .avatar.droid    { background: #7c3aed; }
+  .avatar.opencode { background: #0891b2; }
+  .avatar.mlx      { background: #52525b; }
+  .avatar.grok     { background: #0a0a0a; }
+
+  .text { flex:1; min-width:0; }
+  .title { font-size:13px; color:#fff; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; letter-spacing:-0.015em;}
+  .meta { font-size:11px; color:#71717a; font-family:var(--font-mono); margin-top:1px; }
+
+  .dot {
+    width:6px; height:6px; border-radius:9999px; flex-shrink:0;
+  }
+  /* Status dots mirror ThreadItem.tsx + --status-* tokens */
+  .dot.running { background: #fbbf24; box-shadow: 0 0 0 4px rgba(245,158,11,0.10); }
+  .dot.done { background: #34d399; }
+  .dot.idle { background: #71717a; }
+  .dot.error { background: #f87171; }
+</style>
+</head>
+<body>
+<div class="card">
+  <span class="label">Sessions</span>
+
+  <div class="item active">
+    <div class="avatar claude">C</div>
+    <div class="text">
+      <div class="title">xanom-website</div>
+      <div class="meta">sonnet-4.5 · 14m</div>
+    </div>
+    <div class="dot running" title="running"></div>
+  </div>
+
+  <div class="item">
+    <div class="avatar codex">X</div>
+    <div class="text">
+      <div class="title">rust-backend refactor</div>
+      <div class="meta">gpt-5 · 2h</div>
+    </div>
+    <div class="dot done" title="done"></div>
+  </div>
+
+  <div class="item">
+    <div class="avatar droid">D</div>
+    <div class="text">
+      <div class="title">factory-ci audit</div>
+      <div class="meta">droid · yesterday</div>
+    </div>
+    <div class="dot idle" title="idle"></div>
+  </div>
+
+  <div class="item">
+    <div class="avatar opencode">O</div>
+    <div class="text">
+      <div class="title">opencode-sdk wiring</div>
+      <div class="meta">grok-code · 3h</div>
+    </div>
+    <div class="dot error" title="error"></div>
+  </div>
+
+  <div class="item">
+    <div class="avatar grok">G</div>
+    <div class="text">
+      <div class="title">grok acp bridge</div>
+      <div class="meta">grok-4 · 5m</div>
+    </div>
+    <div class="dot done" title="done"></div>
+  </div>
+
+  <div class="item">
+    <div class="avatar mlx">M</div>
+    <div class="text">
+      <div class="title">local qwen run</div>
+      <div class="meta">qwen2.5-coder · 1m</div>
+    </div>
+    <div class="dot running" title="running"></div>
+  </div>
+</div>
+</body>
+</html>

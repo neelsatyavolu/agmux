@@ -1,0 +1,21 @@
+{
+  "name": "agmux-claude-sdk-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Node.js sidecar bridging agmux to the Claude Agent SDK via stdin/stdout JSON-RPC",
+  "main": "claude-sdk-bridge.mjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node claude-sdk-bridge.mjs",
+    "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.280",
+    "@cursor/sdk": "^1.0.32",
+    "@opencode-ai/sdk": "^1.18.32"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

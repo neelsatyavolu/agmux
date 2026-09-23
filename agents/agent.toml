@@ -1,0 +1,101 @@
+# Code Review Agent Configuration
+version = "1.0"
+[commands.code_review]
+description = "Analyze code changes using Qodo Merge and provide categorized feedback"
+
+instructions = """
+You are an expert code reviewer. Your task is to:
+
+1. Analyze the provided code changes using Qodo Merge improve tool
+2. Categorize findings into: Critical, High, Medium, Low priority
+3. Provide specific, actionable feedback for each issue
+4. Suggest concrete improvements with code examples
+5. Check for security vulnerabilities, performance issues, and maintainability concerns
+6. Ensure code follows best practices and team standards
+
+Focus on:
+- Security vulnerabilities and potential exploits
+- Performance bottlenecks and optimization opportunities  
+- Code maintainability and readability
+- Adherence to coding standards and conventions
+- Proper error handling and edge cases
+- Test coverage for new functionality
+
+Provide constructive feedback that helps developers improve their code quality.
+"""
+
+# Arguments that can be passed to the agent
+arguments = [
+    { name = "target_branch", type = "string", required = false, default = "main", description = "Target branch to compare against" },
+    { name = "severity_threshold", type = "string", required = false, default = "medium", description = "Minimum severity level to report (low, medium, high, critical)" },
+    { name = "include_suggestions", type = "boolean", required = false, default = true, description = "Include improvement suggestions" },
+    { name = "focus_areas", type = "string", required = false, description = "Comma-separated list of focus areas (security, performance, maintainability)" },
+    { name = "exclude_files", type = "string", required = false, description = "Comma-separated list of file patterns to exclude" }
+]
+
+# Tools available to this agent
+tools = ["qodo_merge", "git", "filesystem"]
+
+# Execution strategy: "act" for immediate execution, "plan" for multi-step planning
+execution_strategy = "act"
+
+# Expected output structure for integration
+output_schema = """
+{
+    "type": "object",
+    "properties": {
+        "summary": {
+            "type": "object",
+            "description": "Summary statistics of the code review",
+            "properties": {
+                "total_issues": {"type": "number", "description": "Total number of issues found"},
+                "critical_issues": {"type": "number", "description": "Number of critical severity issues"},
+                "high_issues": {"type": "number", "description": "Number of high severity issues"},
+                "medium_issues": {"type": "number", "description": "Number of medium severity issues"},
+                "low_issues": {"type": "number", "description": "Number of low severity issues"},
+                "files_reviewed": {"type": "number", "description": "Number of files reviewed"},
+                "overall_score": {"type": "number", "minimum": 0, "maximum": 10, "description": "Overall code quality score (0-10)"}
+            },
+            "required": ["total_issues", "critical_issues", "high_issues", "medium_issues", "low_issues", "files_reviewed", "overall_score"]
+        },
+        "issues": {
+            "type": "array",
+            "description": "List of issues found during code review",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "file": {"type": "string", "description": "File path where issue was found"},
+                    "line": {"type": "number", "description": "Line number where issue occurs"},
+                    "severity": {"type": "string", "enum": ["critical", "high", "medium", "low"], "description": "Severity level of the issue"},
+                    "category": {"type": "string", "description": "Category of the issue (e.g., security, performance)"},
+                    "title": {"type": "string", "description": "Brief title of the issue"},
+                    "description": {"type": "string", "description": "Detailed description of the issue"},
+                    "suggestion": {"type": "string", "description": "Suggested fix for the issue"},
+                    "code_example": {"type": "string", "description": "Example code showing the fix"}
+                },
+                "required": ["file", "severity", "category", "title", "description"]
+            }
+        },
+        "suggestions": {
+            "type": "array",
+            "description": "List of improvement suggestions",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "file": {"type": "string", "description": "File path for the suggestion"},
+                    "type": {"type": "string", "description": "Type of suggestion (e.g., refactoring, optimization)"},
+                    "description": {"type": "string", "description": "Description of the suggestion"},
+                    "implementation": {"type": "string", "description": "How to implement the suggestion"}
+                },
+                "required": ["file", "type", "description"]
+            }
+        },
+        "approved": {"type": "boolean", "description": "Whether the code is approved for merge"},
+        "requires_changes": {"type": "boolean", "description": "Whether changes are required before approval"}
+    },
+    "required": ["summary", "issues", "approved", "requires_changes"]
+}
+"""
+
+# Success condition for CI/CD integration
+exit_expression = "approved"

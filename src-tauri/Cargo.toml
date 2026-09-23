@@ -1,0 +1,85 @@
+[package]
+name = "xanom"
+version = "4.1.3"
+description = "AI Coding Agent Manager for macOS"
+authors = ["Neel"]
+edition = "2021"
+
+[lib]
+name = "xanom_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# Strip symbols + LTO for release: harder static analysis, smaller binary.
+# Not full obfuscation (UPX breaks notarization/codesign) — standard macOS practice.
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+
+# Proc-macros are host dylibs rustc dlopens. `strip = true` on macOS 26/27
+# leaves a mis-aligned LINKEDIT string pool, so sqlx_macros (and others)
+# fail to load. Build scripts / proc-macros are not shipped in the app.
+[profile.release.build-override]
+strip = false
+
+[build-dependencies]
+tauri-build = { version = "2.5", features = [] }
+# Compiles native/send_event_guard.m (AppKit exception guard for sendEvent:).
+cc = "1"
+
+[dependencies]
+# `unstable` enables multi-webview (child Webview + add_child) for the side browser panel.
+# `devtools` stays on so authorized machines can open the inspector via the hardware-gated
+# toggle; the ungated Tauri hotkey is denied in capabilities/default.json.
+tauri = { version = "2.10", features = ["macos-private-api", "devtools", "unstable"] }
+tauri-plugin-opener = "2.5"
+tauri-plugin-dialog = "2.6"
+tauri-plugin-updater = "2.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
+portable-pty = "0.8"
+notify = { version = "7", features = ["macos_fsevent"] }
+walkdir = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs = "6"
+nix = { version = "0.29", features = ["signal", "process"] }
+base64 = "0.22"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+axum = { version = "0.7", default-features = false, features = ["http1", "json", "tokio"] }
+futures-util = "0.3"
+async-trait = "0.1"
+regex = "1"
+toml = "0.8"
+toml_edit = "0.22"
+window-vibrancy = "0.5"
+tauri-plugin-process = "2.3.1"
+tauri-plugin-notification = "2"
+tauri-plugin-clipboard-manager = "2.3.2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-window-state = "2"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+iana-time-zone = "0.1"
+url = "2"
+sha2 = "0.10"
+thiserror = "2.0.18"
+tokio-util = "0.7.18"
+unicode-normalization = "0.1"
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+rand = "0.8"
+
+[dev-dependencies]
+tempfile = "3"
+
+# wry 0.54.x panics on macOS during drag-enter when the pasteboard advertises
+# NSFilenamesPboardType but propertyListForType is nil / wrong type (common on
+# macOS 26/27 and some Finder/Claude-session drops). That aborts the app because
+# release uses panic="abort". Vendor patch: safe collect_paths only.
+[patch.crates-io]
+wry = { path = "vendor/wry" }

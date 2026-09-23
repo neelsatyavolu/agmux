@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="Agent Complete Toast" subtitle="Emerald completion toast · auto-dismiss 5s" viewport="1000x420" -->
+<html lang="en" data-surface="app">
+<head>
+<meta charset="UTF-8"><title>Xanom — Agent Complete Toast</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body { margin:0; padding:0; background:#111113; }
+  .page { padding: 40px 0; display:flex; flex-direction:column; align-items:center; gap:28px; }
+  .card { width:700px; padding:24px 28px; background:#0a0a0b; color:#fff; font-family: var(--font-sans); letter-spacing:-0.015em; box-sizing:border-box; }
+  .label { font-size:10.5px; font-family:var(--font-mono); color:#71717a; text-transform:uppercase; letter-spacing:0.2em; margin-bottom:10px; display:block; }
+  .banner { position: relative; background: rgba(52,211,153,0.06); border:1px solid rgba(52,211,153,0.25); border-radius:10px; padding:14px 16px; display:flex; align-items:center; gap:14px; overflow: hidden; }
+  .progress { position:absolute; left:0; bottom:0; height:1.5px; background: rgba(52,211,153,0.55); width: 100%; transform-origin: left center; }
+  .banner.run .progress { animation: drain 5000ms linear forwards; }
+  @keyframes drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  .banner.dismissing { animation: slideOut 220ms var(--ease-out, cubic-bezier(0.16,1,0.3,1)) forwards; }
+  @keyframes slideOut { to { opacity: 0; transform: translateY(-6px); } }
+  .glyph { width:28px; height:28px; border-radius:9999px; background: rgba(52,211,153,0.15); color: rgb(52,211,153); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .body { flex:1; min-width:0; }
+  .title { font-size:13px; font-weight:500; color:#fff; }
+  .title .agent { font-family:var(--font-mono); color:#e4e4e7; }
+  .title .done-chip { display:inline-block; margin-left:6px; font-family:var(--font-mono); font-size:10.5px; color: #34d399; letter-spacing:0.08em; padding:1px 6px; border-radius:4px; background: rgba(52,211,153,0.10); border:1px solid rgba(52,211,153,0.22); vertical-align: 1.5px; text-transform: uppercase; }
+  .sub { font-size:12px; color:#a1a1aa; margin-top:2px; font-family:var(--font-mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sub .dot { opacity:0.5; padding:0 4px; }
+  .sub .num { color:#e4e4e7; }
+  .actions { display:flex; gap:6px; align-items:center; }
+  .dismiss { padding:6px 12px; border-radius:7px; background: rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color: rgba(255,255,255,0.50); font-size:12px; font-weight:500; letter-spacing:-0.015em; font-family: var(--font-sans); cursor:pointer; }
+  .view { padding:6px 14px; border-radius:7px; background:rgba(52,211,153,0.12); border:1px solid rgba(52,211,153,0.35); color:#34d399; font-size:12px; font-weight:500; letter-spacing:-0.015em; font-family: var(--font-sans); cursor:pointer; }
+  .stage { display:flex; gap:10px; align-items:center; justify-content:flex-end; width:700px; }
+  .stage button { font-family:var(--font-mono); font-size:10.5px; color:#a1a1aa; background:transparent; border:1px solid rgba(255,255,255,0.08); padding:5px 10px; border-radius:6px; cursor:pointer; text-transform:uppercase; letter-spacing:0.15em; }
+  .stage button:hover { color:#fff; border-color: rgba(255,255,255,0.18); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="card">
+    <span class="label">Agent toast · complete · auto-dismiss 5s</span>
+    <div class="banner run" id="toast1">
+      <div class="glyph"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <div class="body">
+        <div class="title"><span class="agent">migrate-worker</span> finished <span class="done-chip">Done</span></div>
+        <div class="sub">worker <span class="dot">·</span> <span class="num">14</span> lines added <span class="dot">·</span> <span class="num">3</span> lines removed <span class="dot">·</span> <span class="num">1m 42s</span></div>
+      </div>
+      <div class="actions">
+        <button class="dismiss" onclick="dismiss('toast1')">Dismiss</button>
+        <button class="view" onclick="restart('toast1')">View</button>
+      </div>
+      <div class="progress"></div>
+    </div>
+  </div>
+  <div class="stage"><button onclick="restart('toast1')">Replay</button></div>
+</div>
+<script>
+  function dismiss(id){const el=document.getElementById(id);el.classList.add('dismissing');}
+  function restart(id){const el=document.getElementById(id);el.classList.remove('dismissing');el.classList.remove('run');void el.offsetWidth;el.classList.add('run');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.add('dismissing'),5000);}
+  const t=document.getElementById('toast1');t._t=setTimeout(()=>t.classList.add('dismissing'),5000);
+</script>
+</body>
+</html>

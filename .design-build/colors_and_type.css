@@ -1,0 +1,346 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Xanom Design System — Colors & Type
+   Single source of truth for tokens. Import at the top of every Xanom mock:
+     <link rel="stylesheet" href="colors_and_type.css" />
+
+   Two product surfaces share this system but diverge in one key place:
+     • Marketing site  → accent is CYAN  (oklch(0.72 0.15 195))
+     • Desktop app     → accent is EMERALD (#34d399) by default;
+                         app supports 12 theme presets & custom accents.
+   Both accents are defined; choose via `data-surface="app" | "web"` on <html>.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Fonts — Geist + Geist Mono are the primary type pair.
+   Hack is a secondary mono used in the terminal + code blocks.
+   Loaded from Google Fonts CDN; swap for bundled .woff2 in production. */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Hack&display=swap");
+
+:root {
+  /* ── Typography stacks ──────────────────────────────────────────────── */
+  --font-sans:
+    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono:
+    "Geist Mono", "JetBrains Mono", "SF Mono", "Hack", monospace;
+  --font-terminal: "Hack", "Geist Mono", monospace;
+
+  /* ── Type scale (px, reflecting what ships in-product) ─────────────── */
+  --fs-xxs: 10px;   /* status pill labels, footnotes */
+  --fs-xs:  11px;   /* sidebar meta, badges */
+  --fs-sm:  12px;   /* button labels, dialog helper copy */
+  --fs-md:  13px;   /* dialog body, secondary UI */
+  --fs-base:14px;   /* default UI text */
+  --fs-chat:15px;   /* chat prose default (tunable in settings) */
+  --fs-lg: 18px;
+  --fs-xl: 20px;    /* dialog titles */
+  --fs-2xl:24px;
+  --fs-3xl:36px;
+  --fs-4xl:48px;    /* marketing h2 */
+  --fs-5xl:72px;    /* marketing hero */
+
+  /* Weights used */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Leading / tracking (mirrors index.css defaults) */
+  --lh-tight: 1.2;
+  --lh-snug: 1.4;
+  --lh-normal: 1.5;
+  --lh-loose: 1.6;    /* prose-modern default */
+  --tracking-body: -0.015em;  /* body letter-spacing */
+  --tracking-wide: 0.3em;     /* wordmark, uppercase labels */
+  --tracking-widest: 0.2em;   /* section eyebrow */
+
+  /* ── Color primitives — neutrals (zinc scale) ──────────────────────── */
+  --zinc-50:  #fafafa;
+  --zinc-100: #f5f5f7;
+  --zinc-200: #e5e5e7;
+  --zinc-300: #d4d4d8;
+  --zinc-400: #a1a1aa;
+  --zinc-500: #71717a;
+  --zinc-600: #52525b;
+  --zinc-700: #374151;
+  --zinc-800: #27272a;
+  --zinc-900: #1a1a1a;
+  --zinc-950: #0a0a0b;   /* app background */
+
+  /* ── Accents ───────────────────────────────────────────────────────── */
+  /* Emerald — desktop app default accent (from index.css) */
+  --accent-emerald:        #34d399;
+  --accent-emerald-dim:    rgba(52, 211, 153, 0.15);
+  --accent-emerald-border: rgba(52, 211, 153, 0.40);
+
+  /* Cyan — marketing / website accent (from globals.css) */
+  --accent-cyan:           oklch(0.72 0.15 195);
+  --accent-cyan-dim:       oklch(0.72 0.15 195 / 15%);
+  --accent-cyan-border:    oklch(0.72 0.15 195 / 40%);
+
+  /* ── Semantic colors ───────────────────────────────────────────────── */
+  /* Tool-use / state colors mapped to Tailwind palette used in-product */
+  --ok:      rgb(52, 211, 153);    /* emerald-400  — done, success */
+  --ok-bg:   rgba(52, 211, 153, 0.10);
+  --ok-border: rgba(52, 211, 153, 0.20);
+
+  --warn:    rgb(251, 191, 36);    /* amber-400 — running, attention */
+  --warn-bg: rgba(245, 158, 11, 0.10);
+  --warn-border: rgba(245, 158, 11, 0.25);
+
+  --error:   rgb(248, 113, 113);   /* red-400 — failed, destructive */
+  --error-bg:   rgba(239, 68, 68, 0.10);
+  --error-border: rgba(239, 68, 68, 0.20);
+
+  --info:    rgb(96, 165, 250);    /* blue-400 — approvals, pending */
+  --info-bg:   rgba(96, 165, 250, 0.10);
+  --info-border: rgba(96, 165, 250, 0.20);
+
+  --stopped: rgb(161, 161, 170);   /* zinc-400 */
+  --stopped-bg: rgba(161, 161, 170, 0.10);
+  --stopped-border: rgba(161, 161, 170, 0.20);
+
+  /* Agent / tool category accents (border-left bars on tool blocks) */
+  --tool-edit:   rgba(96, 165, 250, 0.50);  /* blue */
+  --tool-write:  rgba(52, 211, 153, 0.50);  /* emerald */
+  --tool-read:   rgba(161, 161, 170, 0.35); /* zinc */
+  --tool-bash:   rgba(74, 222, 128, 0.50);  /* green */
+  --tool-search: rgba(167, 139, 250, 0.50); /* violet */
+  --tool-agent:  rgba(96, 165, 250, 0.50);  /* blue */
+
+  /* User-bubble indigo (SDK/chat mode) */
+  --user-bubble-bg:     rgba(99, 102, 241, 0.12);
+  --user-bubble-border: rgba(129, 140, 248, 0.18);
+
+  /* ── Glass surface tokens (DARK mode default) ─────────────────────── */
+  --glass-blur: 12px;
+
+  --bg-app:          var(--zinc-950);
+  --bg-panel:        rgba(0, 0, 0, 0.50);
+  --bg-panel-heavy:  rgba(0, 0, 0, 0.40);
+  --bg-sidebar:      rgba(0, 0, 0, 0.30);
+  --bg-header:       rgba(0, 0, 0, 0.35);
+  --bg-card:         rgba(0, 0, 0, 0.25);
+  --bg-input:        rgba(0, 0, 0, 0.20);
+
+  --border-subtle:    rgba(255, 255, 255, 0.06);
+  --border-default:   rgba(255, 255, 255, 0.10);
+  --border-strong:    rgba(255, 255, 255, 0.16);
+
+  --surface-hover:   rgba(255, 255, 255, 0.05);
+  --surface-active:  rgba(255, 255, 255, 0.10);
+
+  /* ── App surface tokens (verbatim from src/index.css) ───────────────
+     The shipping app names its glass surfaces with these exact vars.
+     They map onto the abstract --bg-* tokens above but are kept here so
+     mocks can match production 1:1. Values are DARK mode. */
+  --surface-1: rgba(255, 255, 255, 0.03);   /* faint hover fill */
+  --surface-2: rgba(255, 255, 255, 0.05);   /* resting card fill */
+  --surface-3: rgba(255, 255, 255, 0.08);   /* active / selected fill */
+  --surface-popover:               #0c0c0c; /* dropdown / menu base */
+  --surface-popover-gradient-from: #18181b; /* menu top (≈ zinc-900) */
+  --surface-popover-gradient-to:   #0a0a0b; /* menu bottom */
+  --surface-popover-arrow:         #0a0a0b;
+  --surface-code-panel:            #0a0a0b; /* code / diff panel bg */
+  --surface-commit-dialog: rgba(12, 12, 14, 0.82); /* CommitDialog sheet */
+  --surface-modal:                 #0f0f10; /* opaque dialog bg */
+  --surface-tab-inactive:               #0e0e10; /* PaneTabBar idle tab */
+  --surface-tab-inactive-hover:         #15151a;
+  --surface-tab-inactive-border:        rgba(255, 255, 255, 0.06);
+  --surface-tab-inactive-border-hover:  rgba(255, 255, 255, 0.10);
+
+  /* ── Foreground / text ─────────────────────────────────────────────── */
+  --fg-primary:   #ffffff;    /* page titles, primary labels */
+  --fg-secondary: #e4e4e7;    /* body copy in prose-modern */
+  --fg-tertiary:  #a1a1aa;    /* sublabels, meta */
+  --fg-muted:     #71717a;    /* placeholders, disabled */
+  --fg-subtle:    rgba(255, 255, 255, 0.30); /* ghost-button idle */
+
+  /* ── Radii ─────────────────────────────────────────────────────────── */
+  --r-xs: 4px;    /* inline code, tiny chips */
+  --r-sm: 6px;
+  --r-md: 7px;    /* GlassButton (odd 7px — keep exact)        */
+  --r-lg: 10px;   /* SegmentedControl outer */
+  --r-xl: 12px;  /* card-modern */
+  --r-2xl: 16px;  /* chat bubble */
+  --r-3xl: 37px;  /* app icon */
+  --r-full: 9999px;
+
+  /* ── Shadow system ────────────────────────────────────────────────── */
+  --shadow-card:
+    0 4px 20px -5px rgba(0, 0, 0, 0.30);
+  --shadow-pill-inset:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-subtle:
+    0 1px 6px rgba(0, 0, 0, 0.08);
+  --shadow-dialog:
+    0 20px 50px -10px rgba(0, 0, 0, 0.50);
+
+  /* ── Spacing (matches Tailwind scale used in product) ─────────────── */
+  --sp-0-5: 2px;
+  --sp-1:   4px;
+  --sp-1-5: 6px;
+  --sp-2:   8px;
+  --sp-2-5: 10px;
+  --sp-3:   12px;
+  --sp-4:   16px;
+  --sp-5:   20px;
+  --sp-6:   24px;
+  --sp-8:   32px;
+  --sp-10:  40px;
+  --sp-12:  48px;
+  --sp-16:  64px;
+  --sp-20:  80px;
+  --sp-28:  112px;  /* marketing section padding */
+
+  /* ── Motion ────────────────────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);     /* primary easing */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.6, 1);
+  --dur-fast: 150ms;    /* hover state colour shifts */
+  --dur-base: 200ms;    /* button press, tab switch */
+  --dur-slow: 300ms;    /* sidebar collapse, dialog */
+  --dur-long: 400ms;    /* fade-in sequences */
+}
+
+/* ── Surface switch: Marketing website (cyan accent, solid bg) ─────── */
+html[data-surface="web"] {
+  --accent:        var(--accent-cyan);
+  --accent-dim:    var(--accent-cyan-dim);
+  --accent-border: var(--accent-cyan-border);
+  --bg-app: oklch(0.08 0 0);
+}
+
+/* ── Surface switch: Desktop app (emerald accent, glass bg) ────────── */
+html[data-surface="app"], html:not([data-surface]) {
+  --accent:        var(--accent-emerald);
+  --accent-dim:    var(--accent-emerald-dim);
+  --accent-border: var(--accent-emerald-border);
+  --bg-app: var(--zinc-950);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   App theme presets. The real desktop app has 11 named themes + custom,
+   each setting a TINT (glass surface rgb) and an ACCENT. Apply with
+   `html[data-surface="app"][data-theme="forest-green"]` etc.
+   Default is midnight-glass (pure black tint + emerald accent).
+   Formula: bg = rgba(tint, 0.30 × intensity × 2).
+   ──────────────────────────────────────────────────────────────────── */
+html[data-theme="midnight-glass"]  { --accent:#34d399; --accent-dim:rgba(52,211,153,.15); --accent-border:rgba(52,211,153,.40); --tint-r:0;   --tint-g:0;   --tint-b:0;   }
+html[data-theme="forest-green"]    { --accent:#22c55e; --accent-dim:rgba(34,197,94,.15);  --accent-border:rgba(34,197,94,.40);  --tint-r:5;   --tint-g:30;  --tint-b:10;  }
+html[data-theme="frosted-indigo"]  { --accent:#3b82f6; --accent-dim:rgba(59,130,246,.15); --accent-border:rgba(59,130,246,.40); --tint-r:15;  --tint-g:23;  --tint-b:42;  }
+html[data-theme="obsidian-gold"]   { --accent:#fbbf24; --accent-dim:rgba(251,191,36,.15); --accent-border:rgba(251,191,36,.40); --tint-r:30;  --tint-g:25;  --tint-b:5;   }
+html[data-theme="violet-haze"]     { --accent:#a78bfa; --accent-dim:rgba(167,139,250,.15);--accent-border:rgba(167,139,250,.40);--tint-r:30;  --tint-g:10;  --tint-b:60;  }
+html[data-theme="sunset-ember"]    { --accent:#fb923c; --accent-dim:rgba(251,146,60,.15); --accent-border:rgba(251,146,60,.40); --tint-r:60;  --tint-g:15;  --tint-b:5;   }
+html[data-theme="rose-quartz"]     { --accent:#fb7185; --accent-dim:rgba(251,113,133,.15);--accent-border:rgba(251,113,133,.40);--tint-r:50;  --tint-g:10;  --tint-b:30;  }
+html[data-theme="arctic-frost"]    { --accent:#22d3ee; --accent-dim:rgba(34,211,238,.15); --accent-border:rgba(34,211,238,.40); --tint-r:5;   --tint-g:30;  --tint-b:50;  }
+html[data-theme="neon-noir"]       { --accent:#00ffaa; --accent-dim:rgba(0,255,170,.15);  --accent-border:rgba(0,255,170,.40);  --tint-r:0;   --tint-g:25;  --tint-b:18;  }
+html[data-theme="mocha-latte"]     { --accent:#d4a574; --accent-dim:rgba(212,165,116,.15);--accent-border:rgba(212,165,116,.40);--tint-r:40;  --tint-g:25;  --tint-b:15;  }
+html[data-theme="slate-steel"]     { --accent:#94a3b8; --accent-dim:rgba(148,163,184,.15);--accent-border:rgba(148,163,184,.40);--tint-r:20;  --tint-g:22;  --tint-b:28;  }
+
+/* ── Light mode overrides (matches app's html[data-mode=light]) ───── */
+html[data-mode="light"] {
+  --bg-app:         var(--zinc-100);
+  --bg-panel:       rgba(255, 255, 255, 0.50);
+  --bg-sidebar:     rgba(255, 255, 255, 0.60);
+  --bg-card:        rgba(255, 255, 255, 0.60);
+  --bg-input:       rgba(255, 255, 255, 0.60);
+
+  --border-subtle:  rgba(0, 0, 0, 0.06);
+  --border-default: rgba(0, 0, 0, 0.10);
+  --border-strong:  rgba(0, 0, 0, 0.16);
+
+  --surface-hover:  rgba(0, 0, 0, 0.04);
+  --surface-active: rgba(0, 0, 0, 0.07);
+
+  /* App surface tokens — light mode (from src/index.css) */
+  --surface-1: rgba(0, 0, 0, 0.03);
+  --surface-2: rgba(0, 0, 0, 0.05);
+  --surface-3: rgba(0, 0, 0, 0.08);
+  --surface-popover:               #ffffff;
+  --surface-popover-gradient-from: rgba(255, 255, 255, 0.98);
+  --surface-popover-gradient-to:   #f4f4f5;
+  --surface-popover-arrow:         #f4f4f5;
+  --surface-code-panel:            #f0f0f2;
+  --surface-commit-dialog: rgba(248, 248, 250, 0.92);
+  --surface-modal:                 #f5f5f7;
+  --surface-tab-inactive:               #e8e8ec;
+  --surface-tab-inactive-hover:         #dddde3;
+  --surface-tab-inactive-border:        rgba(0, 0, 0, 0.08);
+  --surface-tab-inactive-border-hover:  rgba(0, 0, 0, 0.12);
+
+  --fg-primary:   #1a1a1a;
+  --fg-secondary: #27272a;
+  --fg-tertiary:  #52525b;
+  --fg-muted:     #71717a;
+  --fg-subtle:    rgba(0, 0, 0, 0.30);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Semantic element styling. These are the "source of truth" rules for
+   headings, body, code, etc — mirrors `.prose-modern` and the marketing
+   type scale.
+   ────────────────────────────────────────────────────────────────────── */
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  color: var(--fg-primary);
+  letter-spacing: var(--tracking-body);
+  background: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1 {
+  font-size: var(--fs-5xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+  color: var(--fg-primary);
+}
+
+h2 {
+  font-size: var(--fs-4xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+}
+
+h3 {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+}
+
+h4 {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+}
+
+p { color: var(--fg-tertiary); line-height: var(--lh-loose); }
+
+code, kbd, pre {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+/* Eyebrow label — the uppercase mono label used above every marketing h2 */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  color: var(--accent);
+}
+
+/* Wordmark — the small "XANOM" below the splash logo */
+.wordmark {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+}

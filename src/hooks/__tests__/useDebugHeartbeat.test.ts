@@ -1,0 +1,28 @@
+import { act, cleanup, renderHook } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import { useDebugHeartbeat } from "../useDebugHeartbeat";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
+vi.mock("../../lib/appVisibility", () => ({ subscribeAppVisibility: vi.fn(() => () => {}) }));
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks(); });
+it("only sends heartbeats while enabled and cleans up on unmount", async () => {
+  vi.useFakeTimers();
+  let callback: ((event: { payload: { enabled: boolean } }) => void) | undefined;
+  const stop = vi.fn();
+  vi.mocked(listen).mockImplementation(async (_event, cb) => { callback = cb as typeof callback; return stop; });
+  vi.mocked(invoke).mockResolvedValue({ enabled: false, recordCount: 0, lastError: null });
+  const { unmount } = renderHook(() => useDebugHeartbeat());
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+  expect(invoke).toHaveBeenCalledTimes(1);
+  act(() => callback?.({ payload: { enabled: true } }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(vi.mocked(invoke).mock.calls.filter(c => c[0] === "debug_heartbeat")).toHaveLength(2);
+  act(() => callback?.({ payload: { enabled: false } }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+  expect(vi.mocked(invoke).mock.calls.filter(c => c[0] === "debug_heartbeat")).toHaveLength(2);
+  unmount();
+  expect(stop).toHaveBeenCalledOnce();
+});

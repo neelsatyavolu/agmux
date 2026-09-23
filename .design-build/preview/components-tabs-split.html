@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="Components · Tab Bar & Split View" subtitle="Tab chips with status, split view, overview, drag-reorder" viewport="1200x1400" -->
+<html lang="en" data-surface="app">
+<head>
+<meta charset="UTF-8"><title>Xanom — Tabs & Split View</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-base, #0a0a0b);
+    color: var(--text-primary, #e4e4e7);
+    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif);
+    letter-spacing: -0.015em;
+    padding: 40px 0;
+  }
+  .page {
+    width: 1200px;
+    margin: 0 auto;
+    padding: 0 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 44px;
+  }
+  .section { display: flex; flex-direction: column; gap: 14px; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted, #71717a);
+  }
+  .section-sub {
+    font-size: 12px;
+    color: var(--text-tertiary, #8b8b93);
+    margin-top: -8px;
+  }
+
+  /* ---- App frame chrome ---- */
+  .app-frame {
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.07));
+    border-radius: 12px;
+    background: var(--bg-surface, #141416);
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  }
+  .titlebar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 38px;
+    padding: 0 14px;
+    background: var(--bg-elevated, #1a1a1d);
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+  }
+  .traffic { display: flex; gap: 8px; }
+  .traffic span {
+    width: 12px; height: 12px; border-radius: 50%;
+    display: inline-block;
+  }
+  .traffic .r { background: #ff5f57; }
+  .traffic .y { background: #febc2e; }
+  .traffic .g { background: #28c840; }
+  .win-title {
+    font-size: 12px;
+    color: var(--text-tertiary, #8b8b93);
+    font-weight: 500;
+  }
+
+  /* ---- Tab strip ---- */
+  .tabstrip {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 8px 10px 0;
+    background: var(--bg-elevated, #19191c);
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    min-height: 56px;
+  }
+  .tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: 46px;
+    padding: 0 11px;
+    border-radius: 8px 8px 0 0;
+    background: transparent;
+    cursor: default;
+    max-width: 240px;
+    transition: background 0.15s;
+  }
+  .tab:hover { background: rgba(255,255,255,0.03); }
+  .tab.active {
+    background: var(--bg-surface, #141416);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .tab .status {
+    width: 7px; height: 7px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .tab.running .status { background: #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.7); animation: pulse 1.4s ease-in-out infinite; }
+  .tab.await   .status { background: #60a5fa; box-shadow: 0 0 6px rgba(96,165,250,0.6); }
+  .tab.done    .status { background: #34d399; }
+  .tab.error   .status { background: #f87171; }
+  .tab.idle    .status { background: #52525b; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .tab .agent {
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .agent.claude   { background: #C15F3C; }
+  .agent.codex    { background: #10a37f; }
+  .agent.droid    { background: #7c3aed; }
+  .agent.opencode { background: #0891b2; }
+  .agent.grok     { background: #0a0a0a; color: #e4e4e7; }
+  .agent.mlx      { background: #52525b; }
+  .agent.cursor   { background: #ffffff; color: #0a0a0b; }
+
+  .tab .tab-title {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-tertiary, #a1a1aa);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+  }
+  .tab.active .tab-title { color: var(--text-primary, #f4f4f5); }
+  .tab.running.active .tab-title { color: #93c5fd; }
+
+  .tab .progress-track {
+    position: absolute;
+    left: 8px; right: 8px; bottom: 4px;
+    height: 2px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+  .tab .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #fbbf24, #f59e0b);
+    border-radius: 2px;
+  }
+  .tab.pinned { max-width: 44px; padding: 0 9px; }
+  .tab .pin {
+    color: var(--text-muted, #71717a);
+    font-size: 11px;
+  }
+  .tab.dragging { opacity: 0.5; transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+
+  .overflow-chip, .new-tab {
+    display: flex; align-items: center; justify-content: center;
+    height: 30px;
+    border-radius: 7px;
+    font-size: 12px;
+    color: var(--text-muted, #71717a);
+    margin-bottom: 8px;
+    cursor: default;
+  }
+  .overflow-chip { padding: 0 9px; background: rgba(255,255,255,0.04); font-weight: 600; }
+  .new-tab { width: 30px; font-size: 18px; font-weight: 300; }
+  .new-tab:hover, .overflow-chip:hover { background: rgba(255,255,255,0.07); color: var(--text-tertiary, #a1a1aa); }
+
+  .tabstrip-actions {
+    display: flex; align-items: center; gap: 4px;
+    margin-left: auto;
+    margin-bottom: 8px;
+  }
+  .tabstrip-actions .act {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 7px;
+    color: var(--text-muted, #71717a);
+    font-size: 14px;
+  }
+  .tabstrip-actions .act:hover { background: rgba(255,255,255,0.07); color: var(--text-tertiary, #a1a1aa); }
+
+  /* ---- Breadcrumb ---- */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 14px;
+    background: var(--bg-surface, #141416);
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.05));
+    font-size: 12px;
+    color: var(--text-tertiary, #8b8b93);
+  }
+  .breadcrumb .proj-dot { width: 8px; height: 8px; border-radius: 2px; background: #C15F3C; }
+  .breadcrumb .sep { color: var(--text-muted, #52525b); }
+  .breadcrumb .branch { display: inline-flex; align-items: center; gap: 6px; }
+  .breadcrumb .dirty { width: 6px; height: 6px; border-radius: 50%; background: #fbbf24; }
+  .breadcrumb .ahead {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-muted, #71717a);
+  }
+  .breadcrumb .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .breadcrumb .pill {
+    font-size: 11px; font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .breadcrumb .pill.primary { background: #34d399; color: #06231a; }
+  .breadcrumb .pill.ghost { background: rgba(255,255,255,0.06); color: var(--text-tertiary, #a1a1aa); }
+  .breadcrumb .ibtn {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    color: var(--text-muted, #71717a);
+    font-size: 13px;
+  }
+
+  .body-fake {
+    height: 120px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted, #52525b);
+    font-size: 12px;
+    background:
+      repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.012) 10px, rgba(255,255,255,0.012) 20px);
+  }
+
+  /* ---- Drop slot (drag reorder) ---- */
+  .drop-slot {
+    width: 3px;
+    height: 46px;
+    align-self: flex-end;
+    margin-bottom: 0;
+    border-radius: 2px;
+    background: #34d399;
+    box-shadow: 0 0 10px rgba(52,211,153,0.9);
+  }
+
+  /* ---- Split view ---- */
+  .split-frame {
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.07));
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg-surface, #141416);
+  }
+  .split { display: flex; height: 260px; }
+  .pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    opacity: 0.85;
+  }
+  .pane.active { opacity: 1; }
+  .splitter {
+    width: 1px;
+    background: var(--border-subtle, rgba(255,255,255,0.08));
+    position: relative;
+  }
+  .splitter::after {
+    content: "";
+    position: absolute;
+    inset: 0 -3px;
+  }
+  .pane-header {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 40px;
+    padding: 6px 8px 0;
+    background: var(--bg-elevated, #19191c);
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.05));
+  }
+  .pane.active .pane-header { background: rgba(52,211,153,0.04); }
+  .tab-mini {
+    display: flex; align-items: center; gap: 6px;
+    height: 30px;
+    padding: 0 9px;
+    border-radius: 6px 6px 0 0;
+    font-size: 11.5px;
+    color: var(--text-tertiary, #a1a1aa);
+    max-width: 170px;
+  }
+  .tab-mini.active { background: var(--bg-surface, #141416); color: var(--text-primary, #f4f4f5); }
+  .tab-mini .status { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .tab-mini.running .status { background: #fbbf24; animation: pulse 1.4s ease-in-out infinite; }
+  .tab-mini.await   .status { background: #60a5fa; }
+  .tab-mini.done    .status { background: #34d399; }
+  .tab-mini.idle    .status { background: #52525b; }
+  .tab-mini .mt {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mini-new { color: var(--text-muted, #71717a); font-size: 15px; padding: 0 8px 6px; align-self: flex-end; }
+
+  .pane-toolbar {
+    display: flex; align-items: center; gap: 8px;
+    height: 30px;
+    padding: 0 12px;
+    font-size: 11px;
+    color: var(--text-tertiary, #8b8b93);
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.04));
+  }
+  .pane-toolbar .mini { display: inline-flex; align-items: center; gap: 6px; }
+  .pane-toolbar .dot-sep { color: var(--text-muted, #52525b); }
+  .focus-badge {
+    margin-left: auto;
+    font-size: 10px; font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 5px;
+    background: rgba(52,211,153,0.14);
+    color: #6ee7b7;
+    border: 1px solid rgba(52,211,153,0.3);
+  }
+  .pane-body {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted, #52525b);
+    font-size: 12px;
+    background:
+      repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.012) 10px, rgba(255,255,255,0.012) 20px);
+  }
+
+  /* ---- Tab overview (exposé) ---- */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .ov-card {
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.07));
+    border-radius: 10px;
+    background: var(--bg-elevated, #19191c);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 120px;
+  }
+  .ov-card.active-ring { border-color: rgba(52,211,153,0.5); box-shadow: 0 0 0 1px rgba(52,211,153,0.3); }
+  .ov-head { display: flex; align-items: center; gap: 8px; }
+  .ov-head .status { width: 7px; height: 7px; border-radius: 50%; }
+  .ov-head.running .status { background: #fbbf24; }
+  .ov-head.await   .status { background: #60a5fa; }
+  .ov-head.done    .status { background: #34d399; }
+  .ov-head.error   .status { background: #f87171; }
+  .ov-title { font-size: 12.5px; font-weight: 600; color: var(--text-primary, #f4f4f5); margin-top: auto; }
+  .ov-meta { font-size: 11px; color: var(--text-muted, #71717a); }
+  .ov-thumb {
+    flex: 1;
+    border-radius: 6px;
+    background:
+      repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255,255,255,0.015) 8px, rgba(255,255,255,0.015) 16px);
+    min-height: 36px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 01 · Tab strip -->
+  <div class="section">
+    <div class="section-label">01 · Tab strip</div>
+    <div class="section-sub">Provider avatar · status dot · live progress rail · breadcrumb</div>
+    <div class="app-frame">
+      <div class="titlebar">
+        <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+        <div class="win-title">xanom — /Users/neel/Code/xanom</div>
+      </div>
+
+      <div class="tabstrip">
+        <!-- pinned Claude done tab (icon-only) -->
+        <div class="tab done pinned">
+          <span class="status"></span>
+          <span class="agent claude">C</span>
+          <span class="pin">📌</span>
+        </div>
+
+        <!-- done Codex tab -->
+        <div class="tab done">
+          <span class="status"></span>
+          <span class="agent codex">X</span>
+          <span class="tab-title">Fetch this design file, read…</span>
+        </div>
+
+        <!-- ACTIVE running Claude tab + progress -->
+        <div class="tab running active">
+          <span class="status"></span>
+          <span class="agent claude">C</span>
+          <span class="tab-title">Git commit &amp;&amp; git push</span>
+          <div class="progress-track"><div class="progress-fill" style="width:62%"></div></div>
+        </div>
+
+        <!-- await (needs-attention) Droid tab -->
+        <div class="tab await">
+          <span class="status"></span>
+          <span class="agent droid">D</span>
+          <span class="tab-title">Refactor EditorPanel.tsx</span>
+        </div>
+
+        <!-- idle OpenCode tab -->
+        <div class="tab idle">
+          <span class="status"></span>
+          <span class="agent opencode">O</span>
+          <span class="tab-title">Explore hooks directory</span>
+        </div>
+
+        <div class="overflow-chip">+3</div>
+        <div class="new-tab">+</div>
+
+        <div class="tabstrip-actions">
+          <div class="act" title="Split">⊟</div>
+          <div class="act" title="Search">⌕</div>
+          <div class="act" title="Overview">▦</div>
+        </div>
+      </div>
+
+      <div class="breadcrumb">
+        <span class="proj-dot"></span>
+        <span>xanom</span>
+        <span class="sep">›</span>
+        <span class="branch">master <span class="dirty" title="uncommitted changes"></span></span>
+        <span class="sep">›</span>
+        <span class="ahead">3 commits ahead</span>
+        <div class="right">
+          <span class="pill primary">Commit</span>
+          <span class="pill ghost">Z · Zed</span>
+          <span class="ibtn">⤢</span>
+          <span class="ibtn">⋯</span>
+        </div>
+      </div>
+
+      <div class="body-fake">session body</div>
+    </div>
+  </div>
+
+  <!-- 02 · Drag to reorder -->
+  <div class="section">
+    <div class="section-label">02 · Drag to reorder</div>
+    <div class="section-sub">Emerald drop slot marks the insertion point; the lifted tab dims to 50%</div>
+    <div class="app-frame">
+      <div class="tabstrip">
+        <div class="tab done">
+          <span class="status"></span>
+          <span class="agent codex">X</span>
+          <span class="tab-title">Fetch this design file, read…</span>
+        </div>
+
+        <div class="drop-slot"></div>
+
+        <div class="tab running active dragging">
+          <span class="status"></span>
+          <span class="agent claude">C</span>
+          <span class="tab-title">Git commit &amp;&amp; git push</span>
+          <div class="progress-track"><div class="progress-fill" style="width:62%"></div></div>
+        </div>
+
+        <div class="tab await">
+          <span class="status"></span>
+          <span class="agent droid">D</span>
+          <span class="tab-title">Refactor EditorPanel.tsx</span>
+        </div>
+
+        <div class="tab idle">
+          <span class="status"></span>
+          <span class="agent opencode">O</span>
+          <span class="tab-title">Explore hooks directory</span>
+        </div>
+
+        <div class="new-tab">+</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 · Split view -->
+  <div class="section">
+    <div class="section-label">03 · Split view</div>
+    <div class="section-sub">Two panes, independent tab strips; focused pane gets the emerald badge. Toolbar = kind · model · context</div>
+    <div class="split-frame">
+      <div class="split">
+
+        <!-- Left pane (focused) -->
+        <div class="pane active">
+          <div class="pane-header">
+            <div class="tab-mini running active">
+              <span class="status"></span>
+              <span class="mt">Git commit &amp;&amp; push</span>
+            </div>
+            <div class="tab-mini done">
+              <span class="status"></span>
+              <span class="mt">hooks audit</span>
+            </div>
+            <div class="mini-new">+</div>
+          </div>
+          <div class="pane-toolbar">
+            <span class="mini"><span class="agent claude" style="width:14px;height:14px;font-size:8px;border-radius:4px;">C</span> Claude</span>
+            <span class="dot-sep">·</span>
+            <span>Opus 4.8</span>
+            <span class="dot-sep">·</span>
+            <span>62% ctx</span>
+            <span class="focus-badge">Focused</span>
+          </div>
+          <div class="pane-body">left pane · /commit</div>
+        </div>
+
+        <div class="splitter"></div>
+
+        <!-- Right pane -->
+        <div class="pane">
+          <div class="pane-header">
+            <div class="tab-mini await active">
+              <span class="status"></span>
+              <span class="mt">Refactor Editor</span>
+            </div>
+            <div class="tab-mini idle">
+              <span class="status"></span>
+              <span class="mt">docs pass</span>
+            </div>
+          </div>
+          <div class="pane-toolbar">
+            <span class="mini"><span class="agent droid" style="width:14px;height:14px;font-size:8px;border-radius:4px;">D</span> Droid</span>
+            <span class="dot-sep">·</span>
+            <span>Sonnet 4.6</span>
+            <span class="dot-sep">·</span>
+            <span>21% ctx</span>
+          </div>
+          <div class="pane-body">right pane · await approval</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 04 · Tab overview (exposé) -->
+  <div class="section">
+    <div class="section-label">04 · Tab overview</div>
+    <div class="section-sub">Expose all tabs at a glance — status, provider, elapsed/progress</div>
+    <div class="overview-grid">
+
+      <div class="ov-card">
+        <div class="ov-head done">
+          <span class="status"></span>
+          <span class="agent codex" style="width:16px;height:16px;font-size:9px;">X</span>
+        </div>
+        <div class="ov-thumb"></div>
+        <div class="ov-title">Fetch design file</div>
+        <div class="ov-meta">14m · GPT-5.4</div>
+      </div>
+
+      <div class="ov-card active-ring">
+        <div class="ov-head running">
+          <span class="status"></span>
+          <span class="agent claude" style="width:16px;height:16px;font-size:9px;">C</span>
+        </div>
+        <div class="ov-thumb"></div>
+        <div class="ov-title">Git commit &amp;&amp; push</div>
+        <div class="ov-meta">running · 62%</div>
+      </div>
+
+      <div class="ov-card">
+        <div class="ov-head await">
+          <span class="status"></span>
+          <span class="agent droid" style="width:16px;height:16px;font-size:9px;">D</span>
+        </div>
+        <div class="ov-thumb"></div>
+        <div class="ov-title">Refactor EditorPanel</div>
+        <div class="ov-meta">await approval</div>
+      </div>
+
+      <div class="ov-card">
+        <div class="ov-head error">
+          <span class="status"></span>
+          <span class="agent opencode" style="width:16px;height:16px;font-size:9px;">O</span>
+        </div>
+        <div class="ov-thumb"></div>
+        <div class="ov-title">Tauri build</div>
+        <div class="ov-meta">error · 2m ago</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

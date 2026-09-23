@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>agmux · Claude Cowork — Tasks panel (mock)</title>
+  <style>
+    :root {
+      --bg: #09090b;
+      --bg-elevated: #0c0c0e;
+      --surface-1: rgba(255, 255, 255, 0.03);
+      --surface-2: rgba(255, 255, 255, 0.05);
+      --surface-3: rgba(255, 255, 255, 0.08);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-soft: rgba(255, 255, 255, 0.05);
+      --text-primary: #fafafa;
+      --text-secondary: #e4e4e7;
+      --text-tertiary: #a1a1aa;
+      --text-muted: #71717a;
+      --text-faint: #52525b;
+      --accent: #60a5fa;
+      --accent-soft: rgba(96, 165, 250, 0.12);
+      --amber: #fbbf24;
+      --amber-soft: rgba(251, 191, 36, 0.12);
+      --emerald: #34d399;
+      --emerald-soft: rgba(52, 211, 153, 0.15);
+      --violet: #a78bfa;
+      --violet-soft: rgba(167, 139, 250, 0.12);
+      --violet-border: rgba(167, 139, 250, 0.28);
+      --user-bubble: rgba(255, 255, 255, 0.08);
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      --chat-max: 720px;
+      --panel-w: 288px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* ── App shell ── */
+    .app {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      border-right: 1px solid var(--border-soft);
+      background: #08080a;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 10px;
+      gap: 4px;
+    }
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-secondary);
+    }
+    .sidebar-brand .mark {
+      width: 20px; height: 20px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    }
+    .sidebar-section {
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--text-faint);
+      padding: 12px 8px 6px;
+    }
+    .thread {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      color: var(--text-tertiary);
+      cursor: default;
+    }
+    .thread.active {
+      background: var(--surface-2);
+      color: var(--text-secondary);
+    }
+    .thread .badge {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--violet);
+      background: var(--violet-soft);
+      border: 1px solid var(--violet-border);
+      padding: 2px 6px;
+      border-radius: 999px;
+    }
+    .thread .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--text-faint);
+      flex-shrink: 0;
+    }
+    .thread.active .dot { background: var(--emerald); box-shadow: 0 0 0 3px rgba(52,211,153,0.15); }
+
+    /* ── Main ── */
+    .main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      position: relative;
+      background:
+        radial-gradient(1200px 600px at 50% -10%, rgba(96,165,250,0.04), transparent 55%),
+        var(--bg);
+    }
+
+    /* Top bar */
+    .topbar {
+      height: 48px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border-soft);
+      background: rgba(9, 9, 11, 0.7);
+      backdrop-filter: blur(12px);
+    }
+    .topbar-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: -0.01em;
+    }
+    .topbar-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-1);
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .pill.cowork {
+      border-color: var(--violet-border);
+      background: var(--violet-soft);
+      color: var(--violet);
+    }
+    .pill .live {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--emerald);
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    .topbar-spacer { flex: 1; }
+    .icon-btn {
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .icon-btn:hover {
+      background: var(--surface-2);
+      color: var(--text-secondary);
+      border-color: var(--border-soft);
+    }
+
+    /* ── Chat + floating panel stage ── */
+    .stage {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      display: flex;
+    }
+
+    .chat-scroll {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      padding: 28px 24px 12px;
+      /* leave room for floating plan panel on wide screens */
+      padding-right: calc(var(--panel-w) + 40px);
+      scroll-behavior: smooth;
+    }
+    .chat-scroll::-webkit-scrollbar { width: 8px; }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.08);
+      border-radius: 4px;
+    }
+
+    .chat-col {
+      max-width: var(--chat-max);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    /* Messages */
+    .user-row {
+      display: flex;
+      justify-content: flex-end;
+      margin: 18px 0 10px;
+    }
+    .user-bubble {
+      max-width: 85%;
+      background: var(--user-bubble);
+      border: 1px solid var(--border-soft);
+      border-radius: 18px;
+      padding: 10px 16px;
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .meta-line {
+      font-size: 12px;
+      color: var(--text-faint);
+      margin: 14px 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .meta-line .chev { opacity: 0.5; font-size: 10px; }
+
+    .assistant {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      letter-spacing: -0.01em;
+      margin-bottom: 10px;
+    }
+    .assistant p + p { margin-top: 10px; }
+    .assistant strong { color: var(--text-primary); font-weight: 560; }
+
+    /* Cowork tool lines (status, not full cards) */
+    .tool-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      margin: 4px 0 10px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+    .tool-line {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 24px;
+      padding: 1px 0;
+    }
+    .tool-line .ico {
+      width: 14px; height: 14px;
+      flex-shrink: 0;
+      opacity: 0.75;
+      color: var(--text-tertiary);
+    }
+    .tool-line.running .ico { color: var(--amber); }
+    .tool-line .lead { color: var(--text-tertiary); white-space: nowrap; }
+    .tool-line .subject {
+      color: var(--text-secondary);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tool-line .subject.dim { color: var(--text-muted); }
+    .tool-line .spin {
+      width: 11px; height: 11px;
+      border: 1.5px solid rgba(251,191,36,0.25);
+      border-top-color: var(--amber);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-left: 2px;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Floating Tasks panel (Codex-style right card) ── */
+    .tasks-panel {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: var(--panel-w);
+      max-height: calc(100% - 32px);
+      display: flex;
+      flex-direction: column;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(14, 14, 16, 0.92);
+      backdrop-filter: blur(20px) saturate(1.2);
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.4),
+        0 18px 50px rgba(0,0,0,0.55),
+        0 2px 8px rgba(0,0,0,0.3);
+      overflow: hidden;
+      z-index: 5;
+    }
+    .tasks-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 12px 10px;
+      border-bottom: 1px solid var(--border-soft);
+      background: rgba(255,255,255,0.02);
+    }
+    .tasks-panel-header .title {
+      font-size: 12.5px;
+      font-weight: 560;
+      letter-spacing: -0.01em;
+      color: var(--text-secondary);
+    }
+    .tasks-panel-header .count {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      background: var(--surface-2);
+      border: 1px solid var(--border-soft);
+      border-radius: 999px;
+      padding: 1px 7px;
+    }
+    .tasks-panel-header .count b {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .tasks-panel-header .spacer { flex: 1; }
+    .tasks-panel-header .icon-btn { width: 24px; height: 24px; }
+
+    /* Progress rail */
+    .progress-rail {
+      height: 2px;
+      background: rgba(255,255,255,0.06);
+      position: relative;
+    }
+    .progress-rail > i {
+      display: block;
+      height: 100%;
+      width: 33%;
+      background: linear-gradient(90deg, var(--violet), #60a5fa);
+      box-shadow: 0 0 12px rgba(167,139,250,0.45);
+    }
+
+    .tasks-list {
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-height: 420px;
+    }
+    .tasks-list::-webkit-scrollbar { width: 6px; }
+    .tasks-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 9px;
+      border: 1px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .task-item:hover { background: var(--surface-1); }
+    .task-item.active {
+      background: var(--amber-soft);
+      border-color: rgba(251, 191, 36, 0.18);
+    }
+    .task-item.done .task-text {
+      color: var(--text-faint);
+      text-decoration: line-through;
+      text-decoration-color: rgba(113, 113, 122, 0.45);
+    }
+
+    .status {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      margin-top: 1px;
+      border-radius: 5px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .status.pending {
+      border: 1.5px solid rgba(255,255,255,0.2);
+      background: transparent;
+    }
+    .status.active {
+      background: rgba(251, 191, 36, 0.18);
+      color: var(--amber);
+    }
+    .status.done {
+      background: var(--emerald-soft);
+      color: var(--emerald);
+    }
+    .status svg { width: 9px; height: 9px; }
+
+    .task-body { min-width: 0; flex: 1; }
+    .task-text {
+      font-size: 12.5px;
+      line-height: 1.4;
+      letter-spacing: -0.01em;
+      color: var(--text-secondary);
+    }
+    .task-item.active .task-text { color: #fde68a; }
+    .task-sub {
+      margin-top: 3px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-faint);
+      letter-spacing: 0.02em;
+    }
+    .task-item.active .task-sub { color: rgba(251, 191, 36, 0.65); }
+
+    /* Callout arrow annotation (for the mock) */
+    .annotation {
+      position: absolute;
+      top: 18px;
+      right: calc(var(--panel-w) + 28px);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 6;
+      opacity: 0.9;
+    }
+    .annotation-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      padding: 4px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .annotation-arrow {
+      width: 48px;
+      height: 2px;
+      background: #f87171;
+      position: relative;
+    }
+    .annotation-arrow::after {
+      content: "";
+      position: absolute;
+      right: -1px; top: -4px;
+      border: 5px solid transparent;
+      border-left-color: #f87171;
+      border-right: 0;
+    }
+
+    /* Composer */
+    .composer-wrap {
+      flex-shrink: 0;
+      padding: 0 24px 18px;
+      padding-right: calc(var(--panel-w) + 40px);
+    }
+    .composer-inner {
+      max-width: var(--chat-max);
+      margin: 0 auto;
+    }
+    .composer {
+      border: 1px solid var(--border);
+      background: rgba(20, 20, 22, 0.85);
+      border-radius: 16px;
+      padding: 12px 14px 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+    .composer textarea {
+      width: 100%;
+      resize: none;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--text-primary);
+      font-family: var(--sans);
+      font-size: 14.5px;
+      line-height: 1.45;
+      min-height: 44px;
+      max-height: 140px;
+    }
+    .composer textarea::placeholder { color: var(--text-faint); }
+    .composer-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .composer-bar .pill { cursor: default; }
+    .composer-bar .spacer { flex: 1; }
+    .send-btn {
+      width: 30px; height: 30px;
+      border-radius: 999px;
+      border: 0;
+      background: var(--text-primary);
+      color: #09090b;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .send-btn:hover { opacity: 0.9; }
+
+    /* Mock chrome note */
+    .mock-tag {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      z-index: 50;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-faint);
+      background: rgba(0,0,0,0.55);
+      border: 1px solid var(--border-soft);
+      padding: 4px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(8px);
+    }
+
+    /* Narrow: panel docks under top as a strip (optional) */
+    @media (max-width: 1100px) {
+      .chat-scroll, .composer-wrap { padding-right: 24px; }
+      .tasks-panel {
+        width: min(var(--panel-w), 42vw);
+      }
+      .annotation { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="mark"></span>
+        agmux
+      </div>
+      <div class="sidebar-section">Cowork</div>
+      <div class="thread active">
+        <span class="dot"></span>
+        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">College supplements research</span>
+        <span class="badge">Cowork</span>
+      </div>
+      <div class="thread">
+        <span class="dot"></span>
+        <span>Weekly inbox triage</span>
+      </div>
+      <div class="sidebar-section">Code</div>
+      <div class="thread">
+        <span class="dot"></span>
+        <span>fix ClaudeSdkSessionView</span>
+      </div>
+      <div class="thread">
+        <span class="dot"></span>
+        <span>Ship release notes</span>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <section class="main">
+      <header class="topbar">
+        <span class="topbar-title">College supplements research</span>
+        <span class="pill cowork">Cowork</span>
+        <span class="pill"><span class="live"></span> Claude · Sonnet 4</span>
+        <div class="topbar-spacer"></div>
+        <span class="topbar-meta">~/Documents/Projects/college-apps</span>
+        <button class="icon-btn" title="More" aria-label="More">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+      </header>
+
+      <div class="stage">
+        <!-- Mock annotation pointing at the panel -->
+        <div class="annotation" aria-hidden="true">
+          <span class="annotation-label">Tasks live here · same stage as chat</span>
+          <span class="annotation-arrow"></span>
+        </div>
+
+        <!-- Chat -->
+        <div class="chat-scroll">
+          <div class="chat-col">
+
+            <div class="user-row">
+              <div class="user-bubble">
+                Research which of my top schools still need supplements for first-year 2026, and draft a short checklist I can work through this week.
+              </div>
+            </div>
+
+            <div class="meta-line">Worked for 42s <span class="chev">›</span></div>
+
+            <div class="tool-lines">
+              <div class="tool-line">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <span class="lead">Found tools</span>
+                <span class="subject dim">TaskCreate, TaskUpdate</span>
+              </div>
+              <div class="tool-line">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+                <span class="lead">Created task</span>
+                <span class="subject">Confirm Common App vs Coalition</span>
+              </div>
+              <div class="tool-line">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+                <span class="lead">Created task</span>
+                <span class="subject">UMN Twin Cities supplements</span>
+              </div>
+              <div class="tool-line">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+                <span class="lead">Created task</span>
+                <span class="subject">UT Knoxville supplements</span>
+              </div>
+              <div class="tool-line">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+                <span class="lead">Created task</span>
+                <span class="subject">Draft weekly checklist</span>
+              </div>
+              <div class="tool-line">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <span class="lead">Searched Firecrawl for</span>
+                <span class="subject">University of Minnesota Twin Cities 2026 first-year application</span>
+              </div>
+              <div class="tool-line">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <span class="lead">Searched Firecrawl for</span>
+                <span class="subject">University of Tennessee Knoxville 2026 application no supplement</span>
+              </div>
+              <div class="tool-line running">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+                <span class="lead">Fetching</span>
+                <span class="subject">admissions.tc.umn.edu/apply/freshman</span>
+                <span class="spin"></span>
+              </div>
+            </div>
+
+            <div class="assistant">
+              <p>I’ve set up a short plan on the right and started verifying each school against the official admissions pages.</p>
+              <p><strong>So far:</strong> UMN Twin Cities appears to use Common App with a short “Why Minnesota” prompt for some colleges; UT Knoxville still looks supplement-light for many majors — I’m confirming that from the source page now.</p>
+              <p>I’ll mark each task complete as I lock the answer, then draft a compact weekly checklist you can work through without reopening tabs.</p>
+            </div>
+
+            <div class="user-row">
+              <div class="user-bubble">Also flag anything due before Nov 1.</div>
+            </div>
+
+            <div class="meta-line">Working…</div>
+            <div class="tool-lines">
+              <div class="tool-line running">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+                <span class="lead">Updating task</span>
+                <span class="subject">in_progress · UMN Twin Cities supplements</span>
+                <span class="spin"></span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- RIGHT: Tasks panel (Codex Environment-style placement) -->
+        <aside class="tasks-panel" aria-label="Conversation tasks">
+          <div class="tasks-panel-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--violet)">
+              <path d="M9 11l3 3L22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            <span class="title">Tasks</span>
+            <span class="count"><b>1</b> / 4</span>
+            <span class="spacer"></span>
+            <button class="icon-btn" title="Collapse" aria-label="Collapse">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="progress-rail"><i></i></div>
+          <div class="tasks-list">
+            <div class="task-item done">
+              <span class="status done" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+              </span>
+              <div class="task-body">
+                <div class="task-text">Confirm Common App vs Coalition for each school</div>
+                <div class="task-sub">Completed</div>
+              </div>
+            </div>
+            <div class="task-item active">
+              <span class="status active" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/>
+                </svg>
+              </span>
+              <div class="task-body">
+                <div class="task-text">UMN Twin Cities — required supplements &amp; word counts</div>
+                <div class="task-sub">In progress</div>
+              </div>
+            </div>
+            <div class="task-item">
+              <span class="status pending" aria-hidden="true"></span>
+              <div class="task-body">
+                <div class="task-text">UT Knoxville — confirm no major supplements</div>
+                <div class="task-sub">Pending</div>
+              </div>
+            </div>
+            <div class="task-item">
+              <span class="status pending" aria-hidden="true"></span>
+              <div class="task-body">
+                <div class="task-text">Draft weekly checklist (deadlines before Nov 1)</div>
+                <div class="task-sub">Pending</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Composer -->
+      <div class="composer-wrap">
+        <div class="composer-inner">
+          <div class="composer">
+            <textarea rows="2" placeholder="Message Cowork…"></textarea>
+            <div class="composer-bar">
+              <span class="pill">Sonnet 4</span>
+              <span class="pill">Default</span>
+              <span class="spacer"></span>
+              <span style="font-size:11px;color:var(--text-faint);font-family:var(--mono)">42% context</span>
+              <button class="send-btn" aria-label="Send">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="mock-tag">Mock · not live UI · opendesign/mockups/cowork-task-panel</div>
+</body>
+</html>

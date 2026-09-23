@@ -1,0 +1,10 @@
+{
+  "name": "agmux Remote",
+  "short_name": "agmux",
+  "description": "Control Claude, Codex, and Grok agents from your phone",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#081410",
+  "theme_color": "#081410",
+  "orientation": "portrait-primary"
+}

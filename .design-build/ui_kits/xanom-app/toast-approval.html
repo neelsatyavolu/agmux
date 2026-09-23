@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<!-- @dsCard group="UI Kit — Xanom App" name="Approval Toast — Variants" subtitle="Six takes on the “agent needs permission” toast" -->
+<html lang="en" data-surface="app" data-theme="midnight-glass">
+<head>
+<meta charset="UTF-8">
+<title>Xanom — Approval Toast · variants</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  html, body, #root { height: 100%; margin: 0; padding: 0; background: #0a0a0b; }
+  body {
+    font-family: var(--font-sans); letter-spacing: -0.015em; color: #fff;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 70% 50% at 15% -10%, rgba(52,211,153,0.05), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 110% 110%, rgba(96,165,250,0.035), transparent 60%),
+      #0a0a0b;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+
+  @keyframes toastSlideIn {
+    from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes xanom-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  @keyframes ring-sweep {
+    from { stroke-dashoffset: 62.8; }
+    to   { stroke-dashoffset: 0; }
+  }
+  @keyframes amber-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.35); }
+    50%      { box-shadow: 0 0 0 8px rgba(245,158,11,0); }
+  }
+  .pulse-dot { animation: xanom-pulse 1.6s cubic-bezier(0.16,1,0.3,1) infinite; }
+  .amber-glow { animation: amber-pulse 2.2s cubic-bezier(0.16,1,0.3,1) infinite; }
+  .toast-in { animation: toastSlideIn .28s cubic-bezier(0.16,1,0.3,1); }
+
+  .desktop-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 55% 45% at 50% 35%, rgba(52,211,153,0.06), transparent 60%),
+      linear-gradient(135deg, #0c1a14 0%, #0a0a0b 50%, #0a0f14 100%);
+    filter: blur(0);
+  }
+  .app-chrome {
+    position: absolute; inset: 24px;
+    border-radius: 12px;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.06);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@0.544.0/dist/umd/lucide.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+/* ───────────────────────── TWEAKS ─────────────────────────────── */
+const TWEAKS = /*EDITMODE-BEGIN*/{
+  "variant": "A",
+  "stack": "stacked",
+  "density": "comfortable"
+}/*EDITMODE-END*/;
+
+/* ────────────────────────── Sample data ──────────────────────────
+   The real ApprovalToast collapses approvals per-session. We mirror
+   its shape and add a couple of fields (tool kind, path, arg) so the
+   designs can speak to the specific permission being requested.
+   ──────────────────────────────────────────────────────────────── */
+const SAMPLE_APPROVALS = [
+  {
+    id: "s1",
+    session: "xanom-website",
+    provider: "claude",
+    model: "sonnet-4.6",
+    project: "~/src/xanom-website",
+    tool: "bash",
+    toolLabel: "Bash",
+    summary: "pnpm migrate",
+    detail: "apps/worker",
+    risk: "write",            // read | write | network | shell
+    extra: 0,
+  },
+  {
+    id: "s2",
+    session: "rust-backend refactor",
+    provider: "codex",
+    model: "gpt-5.4",
+    project: "~/src/rust-backend",
+    tool: "edit",
+    toolLabel: "Edit file",
+    summary: "src/queue/worker.rs",
+    detail: "3 edits · +41 −12",
+    risk: "write",
+    extra: 2,
+  },
+  {
+    id: "s3",
+    session: "factory-ci audit",
+    provider: "droid",
+    model: "droid",
+    project: "~/src/factory-ci",
+    tool: "fetch",
+    toolLabel: "WebFetch",
+    summary: "api.github.com/repos/…",
+    detail: "rate-limit 45/60",
+    risk: "network",
+    extra: 0,
+  },
+];
+
+/* ────────────────────── Shared tiny bits ────────────────────── */
+const AgentAvatar = ({ provider, size = 22 }) => {
+  const map = {
+    claude:   { bg: "#C15F3C", src: "../../assets/agents/claude-white-icon.svg" },
+    codex:    { bg: "#10a37f", src: "../../assets/agents/chatgpt-icon.svg" },
+    droid:    { bg: "#7c3aed", src: "../../assets/agents/droid-icon.svg" },
+  };
+  const p = map[provider] || map.claude;
+  const icon = Math.round(size * 0.63);
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: 5, background: p.bg,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0, overflow: "hidden",
+    }}>
+      <img src={p.src} alt="" style={{ width: icon, height: icon, filter: "brightness(0) invert(1)" }}/>
+    </div>
+  );
+};
+
+const Kbd = ({ children }) => (
+  <span style={{
+    fontFamily: "var(--font-mono)", fontSize: 10, opacity: 0.75,
+    padding: "1px 5px", borderRadius: 3,
+    background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)",
+    color: "#e4e4e7",
+  }}>{children}</span>
+);
+
+const RiskMeta = {
+  write:   { fg: "rgb(251,191,36)",  bg: "rgba(245,158,11,0.10)", bd: "rgba(245,158,11,0.28)", icon: "pencil",     label: "Write" },
+  read:    { fg: "#60a5fa",          bg: "rgba(96,165,250,0.10)", bd: "rgba(96,165,250,0.22)", icon: "eye",        label: "Read" },
+  network: { fg: "#a78bfa",          bg: "rgba(167,139,250,0.10)", bd: "rgba(167,139,250,0.22)", icon: "globe",    label: "Network" },
+  shell:   { fg: "rgb(251,191,36)",  bg: "rgba(245,158,11,0.10)", bd: "rgba(245,158,11,0.28)", icon: "terminal",  label: "Shell" },
+};
+const toolIcon = { bash: "terminal", edit: "pencil", write: "file-plus-2", read: "eye", fetch: "globe" };
+
+/* ═════════════════════════════════════════════════════════════════
+   VARIANT A · "Classic +" — a faithful refinement of the shipping
+   toast. Adds: amber status dot (pulsing), risk pill, tool chip, a
+   dedicated Approve/Deny pair, persistent shortcut hints. Keeps the
+   single-card shape & minWidth 300.
+   ═════════════════════════════════════════════════════════════════ */
+const ToastA = ({ a }) => {
+  const r = RiskMeta[a.risk];
+  return (
+    <div className="toast-in" style={{
+      minWidth: 320, maxWidth: 380,
+      borderRadius: 12, overflow: "hidden",
+      border: "1px solid rgba(255,255,255,0.10)",
+      background: "rgba(10,10,11,0.70)", backdropFilter: "blur(20px) saturate(140%)",
+      boxShadow: "0 18px 40px -12px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.3)",
+      fontFamily: "var(--font-sans)", letterSpacing: "-0.015em",
+    }}>
+      <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <AgentAvatar provider={a.provider} size={26}/>
+          <span className="amber-glow" style={{
+            position: "absolute", bottom: -2, right: -2,
+            width: 10, height: 10, borderRadius: 9999,
+            background: "rgb(251,191,36)", border: "2px solid #0a0a0b",
+          }}/>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9.5, fontFamily: "var(--font-mono)", color: "rgb(251,191,36)", textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 600 }}>
+              Action required{a.extra > 0 ? ` · +${a.extra}` : ""}
+            </span>
+          </div>
+          <div style={{ fontSize: 13, color: "#fff", marginTop: 1, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {a.session}
+          </div>
+        </div>
+        <button style={{
+          width: 22, height: 22, borderRadius: 6, background: "transparent",
+          border: "1px solid rgba(255,255,255,0.06)", color: "#71717a", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <i data-lucide="x" style={{ width: 11, height: 11 }}></i>
+        </button>
+      </div>
+
+      <div style={{ padding: "0 12px 10px" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "7px 9px", borderRadius: 7,
+          background: "rgba(0,0,0,0.30)", border: "1px solid rgba(255,255,255,0.06)",
+          fontFamily: "var(--font-mono)", fontSize: 11.5,
+        }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            color: r.fg,
+          }}>
+            <i data-lucide={r.icon} style={{ width: 10, height: 10 }}></i>
+            {a.toolLabel}
+          </span>
+          <span style={{ color: "#3f3f46" }}>·</span>
+          <span style={{ color: "#e4e4e7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{a.summary}</span>
+        </div>
+        {a.detail && (
+          <div style={{ fontSize: 10.5, color: "#71717a", fontFamily: "var(--font-mono)", marginTop: 4 }}>
+            {a.detail}
+          </div>
+        )}
+      </div>
+
+      <div style={{
+        display: "flex", gap: 6, padding: "8px 10px",
+        borderTop: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(0,0,0,0.20)",
+      }}>
+        <button style={{
+          flex: 1, padding: "6px 10px", borderRadius: 7,
+          background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+          color: "rgba(255,255,255,0.65)", fontSize: 11.5, fontWeight: 500, cursor: "pointer",
+          display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+        }}>Deny <Kbd>⌘⌫</Kbd></button>
+        <button style={{
+          flex: 1, padding: "6px 10px", borderRadius: 7,
+          background: "rgba(52,211,153,0.15)", border: "1px solid rgba(52,211,153,0.40)",
+          color: "#34d399", fontSize: 11.5, fontWeight: 500, cursor: "pointer",
+          display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+        }}>Approve <Kbd>⌘↵</Kbd></button>
+      </div>
+    </div>
+  );
+};
+
+/* ═════════════════════════════════════════════════════════════════
+   VARIANT B · "Split rail" — vertical amber rail on the left like
+   the approval banner inside thread view. One card, very dense.
+   ═════════════════════════════════════════════════════════════════ */
+const ToastB = ({ a }) => {
+  const r = RiskMeta[a.risk];
+  return (
+    <div className="toast-in" style={{
+      minWidth: 340, maxWidth: 380,
+      display: "flex",
+      borderRadius: 10, overflow: "hidden",
+      background: "rgba(10,10,11,0.72)", backdropFilter: "blur(20px) saturate(140%)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      boxShadow: "0 18px 40px -12px rgba(0,0,0,0.55)",
+    }}>
+      <div style={{
+        width: 4, background: "linear-gradient(180deg, rgb(251,191,36), rgba(245,158,11,0.5))",
+      }}/>
+      <div style={{ flex: 1, padding: "10px 12px 10px 14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <i data-lucide="shield-alert" style={{ width: 13, height: 13, color: "rgb(251,191,36)" }}></i>
+          <span style={{ fontSize: 9.5, fontFamily: "var(--font-mono)", color: "rgb(251,191,36)", textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 600 }}>
+            Permission
+          </span>
+          <div style={{ flex: 1 }}/>
+          <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "#71717a" }}>2s ago</span>
+        </div>
+
+        <div style={{
+          marginTop: 7,
+          display: "flex", alignItems: "flex-start", gap: 9,
+        }}>
+          <AgentAvatar provider={a.provider} size={22}/>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, color: "#fff", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.session}</div>
+            <div style={{ fontSize: 10.5, fontFamily: "var(--font-mono)", color: "#71717a", marginTop: 1 }}>
+              {a.model} · wants to run
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          marginTop: 9,
+          padding: "7px 9px", borderRadius: 7,
+          background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.06)",
+          fontFamily: "var(--font-mono)", fontSize: 12,
+          color: "#e4e4e7",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <i data-lucide={toolIcon[a.tool]} style={{ width: 11, height: 11, color: r.fg, flexShrink: 0 }}></i>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.summary}</span>
+        </div>
+
+        <div style={{
+          marginTop: 9, display: "flex", gap: 6,
+        }}>
+          <button style={{
+            padding: "5px 10px", borderRadius: 7,
+            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+            color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 500, cursor: "pointer",
+          }}>Deny</button>
+          <button style={{
+            padding: "5px 10px", borderRadius: 7,
+            background: "rgba(52,211,153,0.15)", border: "1px solid rgba(52,211,153,0.40)",
+            color: "#34d399", fontSize: 11, fontWeight: 500, cursor: "pointer",
+          }}>Approve</button>
+          <button style={{
+            padding: "5px 10px", borderRadius: 7,
+            background: "transparent", border: "1px solid rgba(255,255,255,0.06)",
+            color: "#71717a", fontSize: 11, fontWeight: 500, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", gap: 4,
+          }}>
+            Always
+            <i data-lucide="chevron-down" style={{ width: 10, height: 10 }}></i>
+          </button>
+          <div style={{ flex: 1 }}/>
+          <button title="Open session" style={{
+            width: 26, height: 26, borderRadius: 6,
+            background: "transparent", border: "1px solid rgba(255,255,255,0.06)",
+            color: "#71717a", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <i data-lucide="arrow-up-right" style={{ width: 12, height: 12 }}></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ═════════════════════════════════════════════════════════════════
+   VARIANT C · "Command one-liner" — the most Xanom-ish take. One
+   horizontal strip that reads like a slash-command prompt:
+     [avatar] name · wants: `pnpm migrate`   [Deny] [Approve]
+   Tight, dense, chat-bar vibes. Collapsed +N badge when many.
+   ═════════════════════════════════════════════════════════════════ */
+const ToastC = ({ a }) => {
+  const r = RiskMeta[a.risk];
+  return (
+    <div className="toast-in" style={{
+      minWidth: 360, maxWidth: 520,
+      borderRadius: 9999,
+      background: "rgba(10,10,11,0.78)", backdropFilter: "blur(22px) saturate(150%)",
+      border: "1px solid rgba(245,158,11,0.22)",
+      boxShadow: "0 20px 40px -12px rgba(0,0,0,0.6), inset 0 0.5px 0 rgba(255,255,255,0.06)",
+      padding: "5px 6px 5px 10px",
+      display: "flex", alignItems: "center", gap: 9,
+      fontFamily: "var(--font-sans)", letterSpacing: "-0.015em",
+    }}>
+      <i data-lucide="shield-alert" className="amber-glow" style={{
+        width: 13, height: 13, color: "rgb(251,191,36)", borderRadius: 9999, padding: 3,
+      }}></i>
+      <AgentAvatar provider={a.provider} size={20}/>
+      <span style={{ fontSize: 12.5, color: "#fff", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140 }}>{a.session}</span>
+      <span style={{ fontSize: 11, color: "#71717a", fontFamily: "var(--font-mono)" }}>wants</span>
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: 5,
+        padding: "3px 8px", borderRadius: 9999,
+        background: r.bg, border: `1px solid ${r.bd}`, color: r.fg,
+        fontFamily: "var(--font-mono)", fontSize: 11, maxWidth: 200,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        <i data-lucide={toolIcon[a.tool]} style={{ width: 10, height: 10 }}></i>
+        {a.summary}
+      </span>
+      {a.extra > 0 && (
+        <span style={{
+          fontSize: 10, fontFamily: "var(--font-mono)", color: "#71717a",
+          padding: "2px 6px", borderRadius: 9999,
+          background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
+        }}>+{a.extra}</span>
+      )}
+      <div style={{ flex: 1 }}/>
+      <button style={{
+        padding: "5px 10px", borderRadius: 9999,
+        background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+        color: "rgba(255,255,255,0.65)", fontSize: 11, fontWeight: 500, cursor: "pointer",
+      }}>Deny</button>
+      <button style={{
+        padding: "5px 12px", borderRadius: 9999,
+        background: "rgba(52,211,153,0.18)", border: "1px solid rgba(52,211,153,0.45)",
+        color: "#34d399", fontSize: 11, fontWeight: 500, cursor: "pointer",
+        display: "inline-flex", alignItems: "center", gap: 5,
+      }}>Approve <Kbd>⌘↵</Kbd></button>
+    </div>
+  );
+};
+
+/* ═════════════════════════════════════════════════════════════════
+   VARIANT D · "Ring" — circular ring around the avatar counts down
+   an auto-deny timer. Compact card, context-dense. Inspired by the
+   ContextRing already in repo.
+   ═════════════════════════════════════════════════════════════════ */
+const ToastD = ({ a, progress = 0.62 }) => {
+  const r = RiskMeta[a.risk];
+  const radius = 18, c = 2 * Math.PI * radius;
+  return (
+    <div className="toast-in" style={{
+      minWidth: 320, maxWidth: 380,
+      borderRadius: 12, padding: "11px 12px",
+      background: "rgba(10,10,11,0.72)", backdropFilter: "blur(22px) saturate(150%)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      boxShadow: "0 18px 40px -12px rgba(0,0,0,0.55)",
+      display: "flex", gap: 12, alignItems: "center",
+      fontFamily: "var(--font-sans)", letterSpacing: "-0.015em",
+    }}>
+      <div style={{ position: "relative", width: 44, height: 44, flexShrink: 0 }}>
+        <svg width="44" height="44" style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
+          <circle cx="22" cy="22" r={radius} stroke="rgba(255,255,255,0.08)" strokeWidth="2" fill="none"/>
+          <circle cx="22" cy="22" r={radius}
+            stroke="rgb(251,191,36)" strokeWidth="2" fill="none"
+            strokeDasharray={c} strokeDashoffset={c * (1 - progress)}
+            strokeLinecap="round"
+          />
+        </svg>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <AgentAvatar provider={a.provider} size={26}/>
+        </div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 12.5, color: "#fff", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.session}</span>
+          <span style={{
+            padding: "1px 6px", borderRadius: 9999, fontSize: 9,
+            background: r.bg, border: `1px solid ${r.bd}`, color: r.fg,
+            fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.1em",
+          }}>{r.label}</span>
+        </div>
+        <div style={{
+          marginTop: 4,
+          fontFamily: "var(--font-mono)", fontSize: 11.5, color: "#e4e4e7",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          <span style={{ color: r.fg }}>$</span> {a.summary}
+        </div>
+        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+          <button style={{
+            padding: "4px 10px", borderRadius: 6,
+            background: "transparent", border: "1px solid rgba(255,255,255,0.08)",
+            color: "#a1a1aa", fontSize: 11, cursor: "pointer",
+          }}>Deny</button>
+          <button style={{
+            padding: "4px 10px", borderRadius: 6,
+            background: "rgba(52,211,153,0.15)", border: "1px solid rgba(52,211,153,0.40)",
+            color: "#34d399", fontSize: 11, fontWeight: 500, cursor: "pointer",
+          }}>Approve</button>
+          <div style={{ flex: 1 }}/>
+          <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "#71717a" }}>
+            auto-deny 18s
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ═════════════════════════════════════════════════════════════════
+   VARIANT E · "Expandable" — collapsed by default, click to expand
+   into full context (diff preview for edits, command preview for
+   shell). Here we show it already expanded with a diff.
+   ═════════════════════════════════════════════════════════════════ */
+const ToastE = ({ a }) => {
+  const r = RiskMeta[a.risk];
+  return (
+    <div className="toast-in" style={{
+      minWidth: 380, maxWidth: 420,
+      borderRadius: 12, overflow: "hidden",
+      background: "rgba(10,10,11,0.76)", backdropFilter: "blur(22px) saturate(140%)",
+      border: "1px solid rgba(255,255,255,0.10)",
+      boxShadow: "0 20px 44px -10px rgba(0,0,0,0.6)",
+      fontFamily: "var(--font-sans)", letterSpacing: "-0.015em",
+    }}>
+      <div style={{
+        padding: "9px 12px", display: "flex", alignItems: "center", gap: 9,
+        background: "linear-gradient(180deg, rgba(245,158,11,0.08), transparent)",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+      }}>
+        <span className="pulse-dot" style={{
+          width: 6, height: 6, borderRadius: 9999, background: "rgb(251,191,36)",
+          boxShadow: "0 0 0 4px rgba(245,158,11,0.18)",
+        }}/>
+        <AgentAvatar provider={a.provider} size={20}/>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, color: "#fff", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.session}</div>
+          <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "#71717a" }}>{a.project}</div>
+        </div>
+        <button style={{
+          width: 22, height: 22, borderRadius: 5, background: "transparent",
+          border: "1px solid rgba(255,255,255,0.06)", color: "#71717a", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <i data-lucide="chevron-up" style={{ width: 11, height: 11 }}></i>
+        </button>
+      </div>
+
+      <div style={{ padding: "10px 12px" }}>
+        <div style={{
+          fontSize: 9.5, fontFamily: "var(--font-mono)", color: r.fg,
+          textTransform: "uppercase", letterSpacing: "0.22em", fontWeight: 600,
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          <i data-lucide={r.icon} style={{ width: 10, height: 10 }}></i>
+          {r.label} · {a.toolLabel}
+        </div>
+        <div style={{
+          fontFamily: "var(--font-mono)", fontSize: 12, color: "#e4e4e7",
+          marginTop: 6, marginBottom: 8,
+        }}>{a.summary}</div>
+
+        {/* Preview body — diff for edit, terminal for bash */}
+        {a.tool === "edit" ? (
+          <div style={{
+            background: "rgba(0,0,0,0.40)", border: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 7, padding: "6px 10px",
+            fontFamily: "var(--font-mono)", fontSize: 11.5, lineHeight: 1.55,
+          }}>
+            <div style={{ color: "#71717a" }}>@@ -12,7 +12,8 @@</div>
+            <div style={{ color: "#f87171", background: "rgba(248,113,113,0.06)" }}>- if queue.is_empty() {`{`}</div>
+            <div style={{ color: "#34d399", background: "rgba(52,211,153,0.06)" }}>+ if queue.is_empty() && !shutting_down {`{`}</div>
+            <div style={{ color: "#34d399", background: "rgba(52,211,153,0.06)" }}>+   tracing::debug!("queue idle");</div>
+            <div style={{ color: "#a1a1aa" }}>&nbsp;&nbsp;&nbsp;return Ok(None);</div>
+          </div>
+        ) : (
+          <div style={{
+            background: "#000", border: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 7, padding: "7px 10px",
+            fontFamily: "var(--font-mono)", fontSize: 11.5, color: "#e4e4e7",
+          }}>
+            <span style={{ color: r.fg }}>neel@xanom</span> <span style={{ color: "#71717a" }}>{a.detail}</span>
+            <div><span style={{ color: r.fg }}>$</span> {a.summary}</div>
+          </div>
+        )}
+      </div>
+
+      <div style={{
+        padding: "8px 10px",
+        borderTop: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(0,0,0,0.25)",
+        display: "flex", gap: 6, alignItems: "center",
+      }}>
+        <label style={{
+          display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer",
+          fontSize: 10.5, color: "#a1a1aa", fontFamily: "var(--font-mono)",
+        }}>
+          <span style={{
+            width: 12, height: 12, borderRadius: 3,
+            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.12)",
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <i data-lucide="check" style={{ width: 8, height: 8, color: "#52525b" }}></i>
+          </span>
+          always for this tool
+        </label>
+        <div style={{ flex: 1 }}/>
+        <button style={{
+          padding: "5px 11px", borderRadius: 7,
+          background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+          color: "rgba(255,255,255,0.65)", fontSize: 11.5, cursor: "pointer",
+        }}>Deny</button>
+        <button style={{
+          padding: "5px 12px", borderRadius: 7,
+          background: "rgba(52,211,153,0.15)", border: "1px solid rgba(52,211,153,0.40)",
+          color: "#34d399", fontSize: 11.5, fontWeight: 500, cursor: "pointer",
+          display: "inline-flex", alignItems: "center", gap: 6,
+        }}>Approve <Kbd>⌘↵</Kbd></button>
+      </div>
+    </div>
+  );
+};
+
+/* ═════════════════════════════════════════════════════════════════
+   VARIANT F · "Dock" — a single compact chip that lives in the
+   top-right corner. Hovers reveal actions, but the primary signal
+   is small and non-interrupting. When many approvals stack, they
+   fan out vertically. Minimal ambient UI.
+   ═════════════════════════════════════════════════════════════════ */
+const ToastF = ({ a }) => {
+  const r = RiskMeta[a.risk];
+  return (
+    <div className="toast-in" style={{
+      display: "inline-flex", alignItems: "center", gap: 8,
+      padding: "6px 10px 6px 6px",
+      borderRadius: 9999,
+      background: "rgba(0,0,0,0.55)", backdropFilter: "blur(20px) saturate(150%)",
+      border: "1px solid rgba(255,255,255,0.10)",
+      boxShadow: "0 14px 30px -10px rgba(0,0,0,0.55)",
+      fontFamily: "var(--font-sans)", letterSpacing: "-0.015em",
+      cursor: "pointer",
+    }}>
+      <div style={{ position: "relative" }}>
+        <AgentAvatar provider={a.provider} size={22}/>
+        <span className="pulse-dot" style={{
+          position: "absolute", bottom: -2, right: -2,
+          width: 8, height: 8, borderRadius: 9999,
+          background: "rgb(251,191,36)", border: "2px solid #0a0a0b",
+        }}/>
+      </div>
+      <span style={{ fontSize: 11.5, color: "#fff", fontWeight: 500, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.session}</span>
+      <span style={{
+        padding: "1px 7px", borderRadius: 9999, fontSize: 10,
+        background: r.bg, border: `1px solid ${r.bd}`, color: r.fg,
+        fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.12em",
+        display: "inline-flex", alignItems: "center", gap: 4,
+      }}>
+        <i data-lucide={toolIcon[a.tool]} style={{ width: 9, height: 9 }}></i>
+        needs {r.label.toLowerCase()}
+      </span>
+      <Kbd>⌘↵</Kbd>
+    </div>
+  );
+};
+
+/* ───────────────────── Backdrop: fake app window ───────────────── */
+const AppBackdrop = () => (
+  <div className="app-chrome">
+    {/* titlebar */}
+    <div style={{
+      height: 36, background: "rgba(0,0,0,0.40)", backdropFilter: "blur(12px)",
+      borderBottom: "1px solid rgba(255,255,255,0.06)",
+      display: "flex", alignItems: "center", padding: "0 12px", flexShrink: 0,
+    }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <span style={{ width: 12, height: 12, borderRadius: 9999, background: "#ff5f57" }}/>
+        <span style={{ width: 12, height: 12, borderRadius: 9999, background: "#febc2e" }}/>
+        <span style={{ width: 12, height: 12, borderRadius: 9999, background: "#28c840" }}/>
+      </div>
+      <div style={{ margin: "0 auto", fontSize: 11.5, color: "#52525b", fontFamily: "var(--font-mono)" }}>
+        Xanom — xanom-website · feat/new-hero
+      </div>
+    </div>
+    {/* sidebar ghost */}
+    <div style={{ flex: 1, display: "flex" }}>
+      <div style={{
+        width: 280, flexShrink: 0,
+        background: "rgba(0,0,0,0.30)", borderRight: "1px solid rgba(255,255,255,0.06)",
+        padding: 14,
+        display: "flex", flexDirection: "column", gap: 8,
+      }}>
+        <div style={{ height: 32, borderRadius: 7, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.20)" }}/>
+        <div style={{ height: 1, background: "rgba(255,255,255,0.04)", margin: "4px 0" }}/>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} style={{
+            height: 36, borderRadius: 6,
+            background: i === 0 ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.015)",
+            border: i === 0 ? "1px solid rgba(255,255,255,0.06)" : "1px solid transparent",
+          }}/>
+        ))}
+      </div>
+      {/* thread ghost */}
+      <div style={{ flex: 1, padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ height: 42, borderRadius: 7, background: "rgba(0,0,0,0.20)", border: "1px solid rgba(255,255,255,0.04)" }}/>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ alignSelf: "flex-end", width: "60%", height: 40, borderRadius: 16, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(129,140,248,0.12)" }}/>
+          <div style={{ width: "85%", height: 22, borderRadius: 4, background: "rgba(255,255,255,0.03)" }}/>
+          <div style={{ width: "70%", height: 22, borderRadius: 4, background: "rgba(255,255,255,0.03)" }}/>
+          <div style={{ height: 28, borderRadius: 7, background: "rgba(0,0,0,0.20)", borderLeft: "2px solid rgba(96,165,250,0.4)" }}/>
+          <div style={{ height: 28, borderRadius: 7, background: "rgba(0,0,0,0.20)", borderLeft: "2px solid rgba(74,222,128,0.4)" }}/>
+          <div style={{ width: "50%", height: 22, borderRadius: 4, background: "rgba(255,255,255,0.03)" }}/>
+        </div>
+        <div style={{ height: 60, borderRadius: 10, background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.06)" }}/>
+      </div>
+    </div>
+  </div>
+);
+
+/* ─────────────────── Tweaks panel ─────────────────── */
+const TweaksPanel = ({ tweaks, setTweaks }) => {
+  const set = (k, v) => {
+    const next = { ...tweaks, [k]: v };
+    setTweaks(next);
+    window.parent?.postMessage?.({ type: "__edit_mode_set_keys", edits: { [k]: v } }, "*");
+  };
+  const Btn = ({ active, onClick, children }) => (
+    <button onClick={onClick} style={{
+      padding: "5px 10px", borderRadius: 6,
+      background: active ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.03)",
+      border: "1px solid " + (active ? "rgba(52,211,153,0.40)" : "rgba(255,255,255,0.06)"),
+      color: active ? "#34d399" : "#a1a1aa",
+      fontSize: 11, cursor: "pointer", letterSpacing: "-0.01em",
+    }}>{children}</button>
+  );
+  const Group = ({ label, children }) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ fontSize: 9, fontFamily: "var(--font-mono)", color: "#71717a", textTransform: "uppercase", letterSpacing: "0.22em" }}>{label}</div>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{children}</div>
+    </div>
+  );
+  return (
+    <div style={{
+      position: "fixed", right: 16, bottom: 16, zIndex: 100,
+      width: 250,
+      background: "rgba(10,10,11,0.88)", backdropFilter: "blur(16px)",
+      border: "1px solid rgba(255,255,255,0.10)", borderRadius: 12,
+      padding: 14, boxShadow: "0 20px 50px -10px rgba(0,0,0,0.5)",
+      display: "flex", flexDirection: "column", gap: 12,
+    }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        fontSize: 10, fontFamily: "var(--font-mono)", color: "#34d399",
+        textTransform: "uppercase", letterSpacing: "0.22em",
+      }}>
+        <i data-lucide="sliders-horizontal" style={{ width: 11, height: 11 }}></i>
+        Tweaks
+      </div>
+      <Group label="Variant">
+        {["A", "B", "C", "D", "E", "F"].map(v => (
+          <Btn key={v} active={tweaks.variant === v} onClick={() => set("variant", v)}>{v}</Btn>
+        ))}
+      </Group>
+      <Group label="Stack">
+        <Btn active={tweaks.stack === "single"} onClick={() => set("stack", "single")}>Single</Btn>
+        <Btn active={tweaks.stack === "stacked"} onClick={() => set("stack", "stacked")}>Stacked · 3</Btn>
+      </Group>
+      <div style={{ fontSize: 10, color: "#71717a", lineHeight: 1.5 }}>
+        Switch variants to compare. Stacked shows how multiple pending approvals queue up in the top-right.
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────── Shell ─────────────────────── */
+const COMPONENTS = { A: ToastA, B: ToastB, C: ToastC, D: ToastD, E: ToastE, F: ToastF };
+const BLURBS = {
+  A: "Classic +  — faithful refinement. Amber status dot, tool chip, Approve / Deny pair.",
+  B: "Split rail — vertical amber bar borrowed from the in-thread banner. ‘Always’ dropdown.",
+  C: "Command line — pill-shaped one-liner. Reads like prose. Densest, least interrupting.",
+  D: "Ring — countdown ring around the avatar. Auto-denies if you don’t act. Risk pill + terminal preview.",
+  E: "Expandable — full diff / command preview inline. ‘Always for this tool’ checkbox.",
+  F: "Dock — minimal ambient chip. Click to open the session. For users who dislike popups.",
+};
+
+function App() {
+  const [tweaks, setTweaks] = useState(TWEAKS);
+  const [tweaksOpen, setTweaksOpen] = useState(true);
+
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (e.data?.type === "__activate_edit_mode")   setTweaksOpen(true);
+      if (e.data?.type === "__deactivate_edit_mode") setTweaksOpen(false);
+    };
+    window.addEventListener("message", onMsg);
+    window.parent?.postMessage?.({ type: "__edit_mode_available" }, "*");
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  useEffect(() => { if (window.lucide) lucide.createIcons(); }, [tweaks, tweaksOpen]);
+
+  const Toast = COMPONENTS[tweaks.variant] || ToastC;
+  const approvals = tweaks.stack === "stacked"
+    ? SAMPLE_APPROVALS
+    : [SAMPLE_APPROVALS[0]];
+
+  return (
+    <div style={{ position: "relative", height: "100vh", overflow: "hidden" }}
+         data-screen-label={`Toast · Variant ${tweaks.variant}`}>
+      <div className="desktop-bg"/>
+      <AppBackdrop/>
+
+      {/* Toast stack in the top-right, mirroring the real positioning */}
+      <div style={{
+        position: "fixed", top: 48, right: 36, zIndex: 40,
+        display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end",
+      }}>
+        {approvals.map((a, i) => <Toast key={a.id} a={a} progress={0.62 - i * 0.15}/>)}
+      </div>
+
+      {/* Caption for the current variant */}
+      <div style={{
+        position: "fixed", bottom: 22, left: 40, maxWidth: 540, zIndex: 30,
+        padding: "9px 12px", borderRadius: 9,
+        background: "rgba(10,10,11,0.78)", backdropFilter: "blur(14px)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        fontSize: 12, color: "#e4e4e7", letterSpacing: "-0.015em",
+      }}>
+        <span style={{ color: "#34d399", fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em", marginRight: 8 }}>
+          Variant {tweaks.variant}
+        </span>
+        {BLURBS[tweaks.variant]}
+      </div>
+
+      {tweaksOpen && <TweaksPanel tweaks={tweaks} setTweaks={setTweaks}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

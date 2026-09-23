@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="Components · Composer Dropdowns" subtitle="Model · Reasoning effort · Mode — over the composer strip" viewport="1040x820" -->
+<html lang="en" data-surface="app">
+<head>
+<meta charset="UTF-8"><title>Xanom — Composer Dropdowns</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body { margin:0; padding:0; background:#111113; }
+  .board {
+    width:1040px; padding:36px; background:#0a0a0b; color:#fff; box-sizing:border-box;
+    font-family: var(--font-sans); letter-spacing:-0.015em;
+    display:flex; flex-direction:column; gap:46px;
+  }
+  .label { font-size:10.5px; font-family:var(--font-mono); color:#71717a; text-transform:uppercase; letter-spacing:0.2em; margin-bottom:14px; display:block; }
+  .stack { position:relative; }
+
+  /* ── Composer strip ───────────────────────────────────────── */
+  .composer {
+    display:flex; align-items:center; gap:8px;
+    padding:8px 10px; border-radius:14px;
+    background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07);
+  }
+  .composer .input {
+    flex:1; min-height:22px; padding:4px 6px;
+    color:rgba(255,255,255,0.30); font-size:13.5px; letter-spacing:-0.015em;
+  }
+  .plus {
+    width:28px; height:28px; border-radius:7px; flex-shrink:0;
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    display:inline-flex; align-items:center; justify-content:center; color:#a1a1aa; font-size:16px;
+  }
+  .pill {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:5px 9px; border-radius:7px;
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    color:rgba(255,255,255,0.62); font-size:12px; font-weight:500; letter-spacing:-0.01em; white-space:nowrap;
+  }
+  .pill .ico { width:13px; height:13px; opacity:0.8; }
+  .pill.amber  { background:rgba(245,158,11,0.10); border-color:rgba(245,158,11,0.28); color:#fbbf24; }
+  .pill.neutral{ color:rgba(255,255,255,0.55); }
+  .send {
+    width:30px; height:30px; border-radius:8px; flex-shrink:0; margin-left:2px;
+    background:rgba(52,211,153,0.16); border:1px solid rgba(52,211,153,0.42);
+    color:#34d399; display:inline-flex; align-items:center; justify-content:center; font-size:14px;
+  }
+
+  /* ── Popover shell ────────────────────────────────────────── */
+  .popover {
+    position:absolute; bottom:62px; z-index:5;
+    background:#161618; border:1px solid rgba(255,255,255,0.09);
+    border-radius:12px; padding:5px;
+    box-shadow:0 18px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.4);
+    min-width:260px;
+  }
+  .pop-head {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 9px 7px; font-size:10px; font-weight:600; text-transform:uppercase;
+    letter-spacing:0.16em; color:#71717a;
+  }
+  .pop-head .kbd {
+    font-family:var(--font-mono); font-size:9.5px; letter-spacing:0.05em;
+    color:#52525b; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06);
+    border-radius:5px; padding:1px 5px; text-transform:none;
+  }
+  .sect-label { padding:7px 9px 4px; font-size:10px; font-weight:500; text-transform:uppercase; letter-spacing:0.14em; color:#52525b; }
+
+  /* generic row */
+  .row-item {
+    display:flex; align-items:center; gap:9px;
+    padding:7px 9px; border-radius:7px; cursor:default;
+  }
+  .row-item.sel { background:rgba(255,255,255,0.05); }
+  .row-item:hover { background:rgba(255,255,255,0.035); }
+  .avatar {
+    width:22px; height:22px; border-radius:6px; flex-shrink:0;
+    display:inline-flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.07);
+    font-size:11px; color:#d4d4d8;
+  }
+  .ri-main { flex:1; min-width:0; }
+  .ri-title { font-size:13.5px; font-weight:500; letter-spacing:-0.015em; color:#fff; display:flex; align-items:center; gap:7px; }
+  .ri-meta  { font-size:11px; color:#71717a; letter-spacing:-0.01em; margin-top:1px; }
+  .ri-kbd { font-family:var(--font-mono); font-size:10px; color:#52525b; }
+  .check { color:#34d399; font-size:13px; }
+
+  .tag {
+    font-size:9.5px; font-weight:600; letter-spacing:0.02em;
+    padding:1px 6px; border-radius:5px; text-transform:none;
+  }
+  .tag.rec { background:rgba(52,211,153,0.14); color:#34d399; border:1px solid rgba(52,211,153,0.30); }
+  .tag.new { background:rgba(167,139,250,0.16); color:#a78bfa; border:1px solid rgba(167,139,250,0.32); }
+
+  /* provider flyout (model picker) */
+  .flyout { display:flex; gap:5px; }
+  .col-providers { width:178px; }
+  .col-models { width:240px; border-left:1px solid rgba(255,255,255,0.06); padding-left:5px; }
+  .prov-row {
+    display:flex; align-items:center; gap:9px;
+    padding:7px 9px; border-radius:7px;
+  }
+  .prov-row.active { background:rgba(255,255,255,0.05); }
+  .prov-row .chev { margin-left:auto; color:#52525b; font-size:11px; }
+  .prov-sub { font-size:11px; color:#71717a; margin-top:1px; }
+
+  /* effort bars */
+  .bars { display:inline-flex; align-items:flex-end; gap:2px; height:13px; }
+  .bars i { width:3px; border-radius:1px; background:rgba(255,255,255,0.18); }
+  .bars i.on { background:#fbbf24; }
+  .bars.max i.on { background:#22d3ee; }
+  .bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}
+  .bars i:nth-child(3){height:9px}.bars i:nth-child(4){height:11px}.bars i:nth-child(5){height:13px}
+  .row-item.max .ri-title { color:#22d3ee; }
+</style>
+</head>
+<body>
+<div class="board">
+
+  <!-- ════════ ROW 1 · MODEL PICKER ════════ -->
+  <div class="stack">
+    <span class="label">Model picker · provider flyout</span>
+    <div class="popover" style="left:46px; min-width:430px;">
+      <div class="flyout">
+        <div class="col-providers">
+          <div class="prov-row active">
+            <span class="avatar">✳</span>
+            <div class="ri-main"><div class="ri-title">Anthropic</div><div class="prov-sub">Opus 4.8</div></div>
+            <span class="chev">›</span>
+          </div>
+          <div class="prov-row">
+            <span class="avatar">◎</span>
+            <div class="ri-main"><div class="ri-title">OpenAI · Codex</div><div class="prov-sub">3 models</div></div>
+            <span class="chev">›</span>
+          </div>
+          <div class="prov-row">
+            <span class="avatar">◇</span>
+            <div class="ri-main"><div class="ri-title">OpenCode</div><div class="prov-sub">6 models</div></div>
+            <span class="chev">›</span>
+          </div>
+          <div class="prov-row">
+            <span class="avatar">𝕏</span>
+            <div class="ri-main"><div class="ri-title">xAI · Grok</div><div class="prov-sub">2 models</div></div>
+            <span class="chev">›</span>
+          </div>
+          <div class="prov-row">
+            <span class="avatar">⌖</span>
+            <div class="ri-main"><div class="ri-title">Cursor</div><div class="prov-sub">models</div></div>
+            <span class="chev">›</span>
+          </div>
+          <div class="prov-row">
+            <span class="avatar">⌥</span>
+            <div class="ri-main"><div class="ri-title">MLX (Local)</div><div class="prov-sub">on-device</div></div>
+            <span class="chev">›</span>
+          </div>
+        </div>
+        <div class="col-models">
+          <div class="sect-label">Anthropic</div>
+          <div class="row-item">
+            <span class="avatar">✳</span>
+            <div class="ri-main"><div class="ri-title">Claude Fable 5</div><div class="ri-meta">1M context · most capable</div></div>
+          </div>
+          <div class="row-item sel">
+            <span class="avatar">✳</span>
+            <div class="ri-main"><div class="ri-title">Claude Opus 4.8</div><div class="ri-meta">1M context · latest flagship</div></div>
+            <span class="check">✓</span>
+          </div>
+          <div class="row-item">
+            <span class="avatar">✳</span>
+            <div class="ri-main"><div class="ri-title">Claude Opus 4.7</div><div class="ri-meta">1M context · best for planning</div></div>
+          </div>
+          <div class="row-item">
+            <span class="avatar">✳</span>
+            <div class="ri-main"><div class="ri-title">Claude Sonnet 4.6 <span class="tag rec">Rec</span></div><div class="ri-meta">200K · fastest · daily driver</div></div>
+          </div>
+          <div class="row-item">
+            <span class="avatar">✳</span>
+            <div class="ri-main"><div class="ri-title">Claude Haiku 4.5</div><div class="ri-meta">100K · lightweight · quick edits</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <span class="plus">+</span>
+      <div class="input">Ask for follow-up changes</div>
+      <span class="pill"><span class="ico">✳</span>Claude Opus 4.8</span>
+      <span class="pill amber"><span class="ico">◷</span>Medium</span>
+      <span class="pill neutral"><span class="ico">⌂</span>Chat</span>
+      <span class="pill neutral"><span class="ico">🔒</span>Supervised</span>
+      <span class="send">↑</span>
+    </div>
+  </div>
+
+  <!-- ════════ ROW 2 · REASONING EFFORT ════════ -->
+  <div class="stack">
+    <span class="label">Reasoning effort</span>
+    <div class="popover" style="left:330px; min-width:286px;">
+      <div class="pop-head"><span>Reasoning effort</span><span class="kbd">⌘⇧R</span></div>
+      <div class="row-item">
+        <span class="bars"><i class="on"></i><i></i><i></i><i></i><i></i></span>
+        <div class="ri-main"><div class="ri-title">Low</div><div class="ri-meta">Faster, less thorough</div></div>
+      </div>
+      <div class="row-item sel">
+        <span class="bars"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span>
+        <div class="ri-main"><div class="ri-title">Medium</div><div class="ri-meta">Default — balanced speed and quality</div></div>
+        <span class="check">✓</span>
+      </div>
+      <div class="row-item">
+        <span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span>
+        <div class="ri-main"><div class="ri-title">High</div><div class="ri-meta">Thorough reasoning</div></div>
+      </div>
+      <div class="row-item">
+        <span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span>
+        <div class="ri-main"><div class="ri-title">XHigh</div><div class="ri-meta">Extra-thorough reasoning (persists across sessions)</div></div>
+      </div>
+      <div class="row-item max">
+        <span class="bars max"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span>
+        <div class="ri-main"><div class="ri-title">Max</div><div class="ri-meta">Maximum reasoning — uncapped, current session only</div></div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <span class="plus">+</span>
+      <div class="input">Ask for follow-up changes</div>
+      <span class="pill"><span class="ico">✳</span>Claude Opus 4.8</span>
+      <span class="pill amber"><span class="ico">◷</span>Medium</span>
+      <span class="pill neutral"><span class="ico">⌂</span>Chat</span>
+      <span class="pill neutral"><span class="ico">🔒</span>Supervised</span>
+      <span class="send">↑</span>
+    </div>
+  </div>
+
+  <!-- ════════ ROW 3 · MODE (PERMISSION / APPROVAL) ════════ -->
+  <div class="stack">
+    <span class="label">Mode · permission &amp; approval</span>
+    <div class="popover" style="left:476px; min-width:280px;">
+      <div class="pop-head"><span>Mode</span><span class="kbd">⌘⌥1-3</span></div>
+      <div class="row-item sel">
+        <span class="avatar">🔒</span>
+        <div class="ri-main"><div class="ri-title">Supervised</div><div class="ri-meta">Approve every tool call</div></div>
+        <span class="ri-kbd">⌘1</span>
+      </div>
+      <div class="row-item">
+        <span class="avatar">⚡</span>
+        <div class="ri-main"><div class="ri-title">Auto</div><div class="ri-meta">Classifier-supervised autonomy</div></div>
+        <span class="ri-kbd">⌘2</span>
+      </div>
+      <div class="row-item">
+        <span class="avatar">🔓</span>
+        <div class="ri-main"><div class="ri-title">Full access</div><div class="ri-meta">Skip all approval prompts</div></div>
+        <span class="ri-kbd">⌘3</span>
+      </div>
+    </div>
+
+    <div class="composer">
+      <span class="plus">+</span>
+      <div class="input">Ask for follow-up changes</div>
+      <span class="pill"><span class="ico">✳</span>Claude Opus 4.8</span>
+      <span class="pill amber"><span class="ico">◷</span>Medium</span>
+      <span class="pill neutral"><span class="ico">⌂</span>Chat</span>
+      <span class="pill neutral"><span class="ico">🔒</span>Supervised</span>
+      <span class="send">↑</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

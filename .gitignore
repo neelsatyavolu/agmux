@@ -1,0 +1,72 @@
+# Rust / Tauri
+/target
+src-tauri/target
+src-tauri/gen
+src-tauri/.tauri
+**/*.rs.bk
+
+# Node / Vite
+node_modules/
+dist/
+dist-ssr/
+*.local
+docs/
+node-compile-cache/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local tool state
+.commander/
+.claude/settings.local.json
+.claude/worktrees/
+
+# Temp / scratch
+xanom-temp/
+*.oz-backup
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Cargo config (contains API keys)
+src-tauri/.cargo/config.toml
+.aider*
+coverage/
+
+.superpowers/
+
+# Project memory Markdown is regenerated locally; app-owned JSON is authoritative.
+.agmux/MEMORY.md
+.agmux/SESSIONS.md
+
+# Local tool/agent state. This repo is public: never commit these.
+.agmux/
+.wrangler/
+.playwright-cli/
+.superset/
+.grok/config.toml
+.claude/scheduled_tasks.lock
+/memory.json
+/handoffs.json

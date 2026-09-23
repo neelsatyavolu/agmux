@@ -1,0 +1,23 @@
+{
+  "name": "agmux-remote-relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "dev:cf": "wrangler dev",
+    "deploy:cf": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250712.0",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.24.0"
+  },
+  "dependencies": {
+    "ws": "^8.21.0"
+  }
+}

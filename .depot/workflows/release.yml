@@ -1,0 +1,132 @@
+# Depot CI Migration
+# Source: .github/workflows/release.yml
+#
+# Changes made:
+# - Changed runs-on from "self-hosted" to "depot-ubuntu-latest" throughout
+
+name: Release
+on:
+  push:
+    tags:
+      - "v*"
+permissions:
+  contents: write
+jobs:
+  build-aarch64:
+    runs-on: depot-ubuntu-latest # was: self-hosted. Nonstandard GitHub runner label detected, changed to default Depot runner.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: aarch64
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Build Tauri app (Apple Silicon)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Xanom ${{ github.ref_name }}"
+          releaseBody: ""
+          releaseDraft: true
+          prerelease: false
+          args: --target aarch64-apple-darwin --bundles app,dmg,updater
+  build-x86_64:
+    runs-on: depot-ubuntu-latest # was: self-hosted. Nonstandard GitHub runner label detected, changed to default Depot runner.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: x86_64
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Build Tauri app (Intel)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Xanom ${{ github.ref_name }}"
+          releaseBody: ""
+          releaseDraft: true
+          prerelease: false
+          args: --target x86_64-apple-darwin --bundles app,dmg,updater
+  publish:
+    needs: [build-aarch64, build-x86_64]
+    runs-on: depot-ubuntu-latest # was: self-hosted. Nonstandard GitHub runner label detected, changed to default Depot runner.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          # Get the body from the existing draft release (created by /update command)
+          BODY=$(gh release view "$TAG" --repo neel-xanom/xanom --json body -q '.body' 2>/dev/null || echo "")
+          if [ -z "$BODY" ]; then
+            BODY="See the assets below to download and install this version."
+          fi
+          echo "$BODY" > release-notes.md
+          gh release edit "$TAG" \
+            --repo neel-xanom/xanom \
+            --notes-file release-notes.md
+      - name: Publish updater assets to public repo
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          REPO="neel-xanom/xanom-releases"
+
+          # Download updater artifacts from private release
+          mkdir -p updater-assets
+          gh release download "$TAG" \
+            --repo neel-xanom/xanom \
+            --pattern "latest.json" \
+            --pattern "*.tar.gz" \
+            --pattern "*.tar.gz.sig" \
+            --pattern "*.dmg" \
+            --dir updater-assets
+
+          # Rewrite download URLs in latest.json to point to public repo
+          sed -i '' 's|neel-xanom/xanom/releases|neel-xanom/xanom-releases/releases|g' updater-assets/latest.json
+
+          # Get release notes from private repo release
+          NOTES=$(gh release view "$TAG" --repo neel-xanom/xanom --json body -q '.body' 2>/dev/null || echo "Updater artifacts for Xanom $TAG")
+
+          # Create release on public repo (or update if exists)
+          gh release create "$TAG" \
+            --repo "$REPO" \
+            --title "Xanom $TAG" \
+            --notes "$NOTES" \
+            updater-assets/* \
+            || gh release upload "$TAG" \
+              --repo "$REPO" \
+              --clobber \
+              updater-assets/*

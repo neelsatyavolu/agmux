@@ -1,0 +1,32 @@
+name = "agmux-owner"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+workers_dev = true
+
+# Separate from teams-service and remote-relay. No shared bindings.
+# custom_domain provisions DNS + TLS on the agmux.dev zone.
+routes = [{ pattern = "owner.agmux.dev", custom_domain = true }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "agmux-owner"
+database_id = "6280bad6-b030-4a73-9754-71dd9d9d9a6d"
+
+[assets]
+directory = "./web"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+# SPA fallback would otherwise serve index.html for /v1/* and /api/* navigations.
+run_worker_first = ["/v1/*", "/api/*", "/health"]
+
+[vars]
+APP_ORIGIN = "https://owner.agmux.dev"
+
+# Secrets — `wrangler secret put <NAME>`, never committed:
+#   GITHUB_CLIENT_ID       GITHUB_CLIENT_SECRET   (optional GitHub sign-in)
+#   OWNER_PASSWORD                                (optional password sign-in)
+#   ADMIN_TOKEN                                   (optional Bearer for /api/summary)
+
+[[r2_buckets]]
+binding = "SUPPORT_FILES"
+bucket_name = "agmux-support-files"

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="Components · Chat" subtitle="Adds thinking + grouped tool blocks" viewport="700x300" -->
+<html lang="en" data-surface="app">
+<head>
+<meta charset="UTF-8">
+<title>Xanom — Chat Bubbles</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body { margin:0; padding:0; background:#111113; }
+  .card { width:700px; padding:24px 28px; background:#0a0a0b; color:#fff; font-family: var(--font-sans); letter-spacing:-0.015em; box-sizing:border-box; display:flex; flex-direction:column; gap:14px; }
+  .label { font-size:10.5px; font-family:var(--font-mono); color:#71717a; text-transform:uppercase; letter-spacing:0.2em; }
+  .user { align-self:flex-end; max-width:80%; padding:10px 14px; border-radius:16px; background: rgba(99,102,241,0.12); border:1px solid rgba(129,140,248,0.18); font-size:15px; line-height:1.5; color:#e4e4e7; }
+  .ai { align-self:flex-start; max-width:100%; width:100%; padding: 2px 0; font-size:15px; line-height:1.6; color:#e4e4e7; }
+  .ai p { margin:0 0 8px; color:#e4e4e7; }
+  code.inline { background: rgba(255,255,255,0.06); color:#e4e4e7; padding:1px 5px; border-radius:4px; font-family:var(--font-mono); font-size:13px; }
+  .block { margin-top: 8px; border-left: 2px solid var(--bar); background: rgba(0,0,0,0.25); border-radius: 0 7px 7px 0; padding: 8px 12px; font-family: var(--font-mono); font-size: 12px; color:#a1a1aa; display:flex; align-items:center; gap:10px; }
+  .block .kind { color: var(--fg); text-transform: capitalize; font-weight: 500; }
+  .block .dot  { color:#52525b; }
+  .block .title { color:#e4e4e7; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .block .detail { color:#71717a; }
+  .block .spacer { flex: 1; }
+  .block .chev { width:10px; height:10px; color:#71717a; flex-shrink: 0; }
+  /* Single-block left-bars match src/index.css .tool-accent-* (2px solid). */
+  .block.edit     { --bar: rgba(96,165,250,0.50);  --fg: #60a5fa; }
+  .block.read     { --bar: rgba(161,161,170,0.35); --fg: #a1a1aa; }
+  .block.bash     { --bar: rgba(74,222,128,0.50);  --fg: #4ade80; }
+  .block.write    { --bar: rgba(52,211,153,0.50);  --fg: #34d399; }
+  .block.search   { --bar: rgba(167,139,250,0.50); --fg: #a78bfa; }
+  .block.agent    { --bar: rgba(96,165,250,0.50);  --fg: #60a5fa; }
+  /* Thinking reuses the search/violet accent (tool-accent-search, THINK_FG #a78bfa). */
+  .block.think    { --bar: rgba(167,139,250,0.50); --fg: #a78bfa; }
+  /* Mixed-kind groups: zinc-400 @ 50% (MIXED_BAR). */
+  .block.group    { --bar: rgba(161,161,170,0.50); --fg: #d4d4d8; }
+  .block.think .prose { font-family: var(--font-sans); font-style: italic; font-size: 13.5px; color:#a1a1aa; letter-spacing:-0.01em; line-height:1.55; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+  .block.think .elapsed { font-family: var(--font-mono); font-size: 10px; color:#71717a; flex-shrink:0; }
+  /* Status pills mirror src/index.css .status-pill / .status-pill-*. */
+  .pill { padding:1px 8px; border-radius:9999px; font-size:10px; font-weight:500; font-family:var(--font-sans); letter-spacing:0; flex-shrink:0; }
+  .pill.done    { background:rgba(52,211,153,0.10);  border:1px solid rgba(52,211,153,0.20); color:rgb(52,211,153); }
+  .pill.running { background:rgba(245,158,11,0.10);  border:1px solid rgba(245,158,11,0.25); color:rgb(251,191,36); }
+  .pill.error   { background:rgba(239,68,68,0.10);   border:1px solid rgba(239,68,68,0.20);  color:rgb(248,113,113); }
+  .block.group .mix { display: inline-flex; }
+  .block.group .mix span { width: 14px; height: 14px; border-radius: 9999px; border: 1.5px solid #0a0a0b; }
+  .block.group .mix span + span { margin-left: -5px; }
+  .kchip { font-family: var(--font-mono); font-size: 11px; display: inline-flex; align-items: center; gap: 4px; color:#a1a1aa; }
+  .kchip i { width: 5px; height: 5px; border-radius: 9999px; display: inline-block; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+  .pulse { animation: pulse 1.6s cubic-bezier(0.16,1,0.3,1) infinite; }
+  .eyebrow { margin-top: 6px; font-size:10px; font-family:var(--font-mono); color:#52525b; text-transform:uppercase; letter-spacing:0.2em; }
+</style>
+</head>
+<body>
+<div class="card">
+  <span class="label">Chat · bubbles, thinking, tool-use, grouped tool-use</span>
+  <div class="user">Update the hero to use the new accent color and make the CTA bigger.</div>
+  <div class="ai">
+    <div class="block think">
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      <span class="kind">Thinking</span><span class="dot">·</span>
+      <span class="prose">the hero CTA already uses size="md" — bumping to "lg" changes padding tokens. I should also check whether the accent…</span>
+      <span class="elapsed">12s</span>
+    </div>
+    <p>I'll update <code class="inline">components/landing/hero.tsx</code> — swapping the accent token and bumping the CTA to <code class="inline">lg</code> size.</p>
+    <div class="block edit"><span class="kind">Edit</span><span class="dot">·</span><span class="title">components/landing/hero.tsx</span><div class="spacer"></div><span class="pill done">Done · +3 −1</span></div>
+  </div>
+  <div class="ai">
+    <p>Let me confirm nothing else references the old token.</p>
+    <div class="block group">
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      <span class="kind">3 reads</span><span class="dot">·</span><span class="title">scanned accent-token references</span><div class="spacer"></div>
+      <div class="mix"><span style="background:rgba(161,161,170,0.60)"></span><span style="background:rgba(161,161,170,0.50)"></span><span style="background:rgba(161,161,170,0.40)"></span></div>
+      <span class="pill done">Done</span>
+    </div>
+    <div class="block group">
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      <span class="kind">4 tool calls</span><span class="dot">·</span>
+      <span class="kchip"><i style="background:#60a5fa"></i>1 edit</span><span class="kchip"><i style="background:#a1a1aa"></i>2 reads</span><span class="kchip"><i style="background:#4ade80"></i>1 bash</span>
+      <div class="spacer"></div><span class="pill done">Done</span>
+    </div>
+  </div>
+
+  <span class="eyebrow">Thinking · streaming (no content yet — static label, no pulse)</span>
+  <div class="ai">
+    <div class="block think">
+      <span class="kind">Thinking</span><span class="dot">·</span>
+      <span class="prose">…</span>
+    </div>
+  </div>
+
+  <span class="eyebrow">Thinking · expanded</span>
+  <div class="ai">
+    <div class="block think" style="flex-direction:column; align-items:stretch; gap:0; padding:0;">
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 12px;">
+        <span class="kind">Thinking</span>
+        <div class="spacer"></div>
+        <span class="elapsed">12s</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(90deg)"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,0.05); padding:10px 12px;">
+        <p style="margin:0; font-family:var(--font-sans); font-style:italic; font-size:13.5px; line-height:1.55; letter-spacing:-0.01em; color:#a1a1aa; white-space:pre-wrap;">The hero CTA already uses size="md" — bumping to "lg" changes the padding tokens, so I should verify the button component reads those tokens directly. I also need to confirm the accent token isn't referenced anywhere else before swapping it, otherwise the change will leave stale references.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

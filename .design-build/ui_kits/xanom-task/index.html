@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<!-- @dsCard group="UI Kit — Xanom Task" name="Xanom Task Mode" subtitle="Task view with agent tabs, review sidebar, diff summary" -->
+<html lang="en" data-surface="app" data-theme="midnight-glass">
+<head>
+<meta charset="UTF-8">
+<title>Xanom App — Task Mode UI Kit</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  html, body, #root {
+    height: 100%; margin: 0; padding: 0;
+    background: #0a0a0b; overflow: hidden;
+  }
+  body {
+    font-family: var(--font-sans); letter-spacing: -0.015em;
+    color: #fff;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 0%, rgba(52,211,153,0.04), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(96,165,250,0.03), transparent 60%),
+      #0a0a0b;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+
+  .titlebar {
+    height: 28px; background: rgba(0,0,0,0.40); backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; padding: 0 12px;
+    -webkit-app-region: drag; user-select: none; flex-shrink: 0;
+  }
+  .traffic { display: flex; gap: 8px; }
+  .traffic span { width: 12px; height: 12px; border-radius: 9999px; display: inline-block; }
+  .traffic .c { background: #ff5f57; }
+  .traffic .m { background: #febc2e; }
+  .traffic .g { background: #28c840; }
+  .title-text { margin: 0 auto; font-size: 11.5px; color: #71717a; font-family: var(--font-mono); }
+
+  /* pulsing dot for running state */
+  @keyframes xanom-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+  }
+  .pulse-dot { animation: xanom-pulse 1.6s cubic-bezier(0.16,1,0.3,1) infinite; }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/[email protected]/dist/umd/lucide.js"></script>
+
+<script type="text/babel" src="Sidebar.jsx"></script>
+<script type="text/babel" src="ThreadView.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+/* ── Sample data ──────────────────────────────────────────────────────
+   Tasks are worktree-isolated branches. Each task can have multiple
+   agent attempts (tabs) racing the same prompt — Claude / Codex / Droid.
+   ──────────────────────────────────────────────────────────────────── */
+const TASKS = [
+  {
+    id: "t1",
+    title: "Add theme preset picker to settings",
+    branch: "task/theme-preset-picker",
+    state: "review",            // queued | running | review | merged | failed
+    agents: 3,
+    files: 7,
+    additions: 148,
+    deletions: 22,
+    checks: { passed: 4, failed: 0, running: 1 },
+    group: "review",
+    when: "8m",
+  },
+  {
+    id: "t2",
+    title: "Migrate PTY runner to Tauri v2 sidecar",
+    branch: "task/tauri-v2-pty",
+    state: "running",
+    agents: 2,
+    files: 12,
+    additions: 412,
+    deletions: 188,
+    checks: { passed: 0, failed: 0, running: 3 },
+    group: "active",
+    when: "2m",
+  },
+  {
+    id: "t3",
+    title: "Fix race in approval banner dismissal",
+    branch: "task/approval-race",
+    state: "running",
+    agents: 1,
+    files: 2,
+    additions: 14,
+    deletions: 9,
+    checks: { passed: 0, failed: 0, running: 1 },
+    group: "active",
+    when: "12m",
+  },
+  {
+    id: "t4",
+    title: "Rename `.xanom/journal` → `.xanom/log`",
+    branch: "task/journal-rename",
+    state: "queued",
+    agents: 0,
+    files: 0,
+    group: "active",
+    when: "just now",
+  },
+  {
+    id: "t5",
+    title: "Tauri vibrancy fallback on fullscreen",
+    branch: "task/vibrancy-fallback",
+    state: "merged",
+    agents: 1,
+    files: 3,
+    additions: 42,
+    deletions: 6,
+    group: "done",
+    when: "1h",
+  },
+  {
+    id: "t6",
+    title: "Opencode provider adapter",
+    branch: "task/opencode-adapter",
+    state: "failed",
+    agents: 2,
+    files: 5,
+    additions: 88,
+    deletions: 4,
+    group: "done",
+    when: "3h",
+  },
+];
+
+function App() {
+  const [activeId, setActiveId] = useState("t1");
+  const [activeAgent, setActiveAgent] = useState(0);
+  const [composer, setComposer] = useState("");
+
+  const active = TASKS.find(t => t.id === activeId);
+
+  useEffect(() => {
+    if (window.lucide) lucide.createIcons();
+  });
+
+  return (
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div className="titlebar">
+        <div className="traffic">
+          <span className="c"></span><span className="m"></span><span className="g"></span>
+        </div>
+        <div className="title-text">Xanom — Task · {active.branch}</div>
+      </div>
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        <Sidebar tasks={TASKS} activeId={activeId} onSelect={setActiveId} onNew={() => {}}/>
+        <ThreadView
+          task={active}
+          activeAgent={activeAgent}
+          onSelectAgent={setActiveAgent}
+          composerValue={composer}
+          setComposerValue={setComposer}
+          onSend={() => setComposer("")}
+        />
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

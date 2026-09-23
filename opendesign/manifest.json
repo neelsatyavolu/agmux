@@ -1,0 +1,38 @@
+{
+  "generated": "2026-07-11T22:50:00Z",
+  "sections": [
+    {
+      "id": "mockups",
+      "label": "Mockups",
+      "groups": [
+        {
+          "slug": "agent-topbar-layouts",
+          "files": [
+            {
+              "label": "Agent topbar options",
+              "path": "mockups/agent-topbar-layouts/agent-topbar-options.html"
+            }
+          ]
+        },
+        {
+          "slug": "cowork-task-panel",
+          "files": [
+            {
+              "label": "Cowork chat with tasks",
+              "path": "mockups/cowork-task-panel/cowork-chat-with-tasks.html"
+            }
+          ]
+        },
+        {
+          "slug": "xanom-icon-options",
+          "files": [
+            {
+              "label": "Xanom Icon Directions",
+              "path": "mockups/xanom-icon-options/xanom-icon-directions.html"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

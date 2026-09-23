@@ -1,0 +1,25 @@
+{
+  "name": "agmux-remote-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native iOS shell for agmux Remote (Capacitor + existing PWA)",
+  "scripts": {
+    "sync-web": "node scripts/sync-web.mjs",
+    "build": "npm run sync-web",
+    "cap:sync": "npm run sync-web && npx cap sync ios",
+    "cap:open": "npx cap open ios",
+    "ios": "npm run cap:sync && npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^7.0.1",
+    "@capacitor/core": "^7.2.0",
+    "@capacitor/haptics": "^7.0.1",
+    "@capacitor/ios": "^7.2.0",
+    "@capacitor/keyboard": "^7.0.1",
+    "@capacitor/splash-screen": "^7.0.1",
+    "@capacitor/status-bar": "^7.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.2.0"
+  }
+}

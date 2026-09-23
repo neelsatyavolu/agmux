@@ -1,0 +1,60 @@
+name = "agmux-teams"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+workers_dev = true
+
+# Separate service from agmux-remote-relay. Device pairing (DesktopHub DO) is
+# untouched: no shared bindings, no shared deployment.
+#
+# custom_domain provisions the DNS record and certificate on deploy — no manual
+# CNAME needed. agmux.dev is an active zone on this account.
+routes = [{ pattern = "teams.agmux.dev", custom_domain = true }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "agmux-teams"
+database_id = "31b8a340-eb82-41f1-b335-6bf82e097512"
+
+# Budget threshold sweep. The `budget_alerts` ledger makes each threshold fire
+# once per month, so this cadence only bounds how quickly a manager hears about
+# a crossing — running it hourly does not alert hourly.
+[triggers]
+crons = ["7 * * * *"]
+
+[assets]
+directory = "./web"
+binding = "ASSETS"
+# The SPA owns its own routing; unknown paths fall through to index.html.
+not_found_handling = "single-page-application"
+# CRITICAL: with SPA fallback, the asset layer answers *navigation* requests
+# (Accept: text/html) before the Worker runs — so a browser hitting
+# /api/auth/github/start would get index.html instead of the OAuth redirect.
+# Plain fetch() calls don't send Accept: text/html, which is why this only
+# breaks in a real browser. Force the Worker to run first for the API.
+run_worker_first = ["/api/*"]
+
+# Paid plan: cap CPU per invocation so a bad loop can't burn the 5‑min max.
+# GitHub calls stay tiny (org search ≤ ~4 HTTP) — well under 10k subrequest limit.
+[limits]
+cpu_ms = 30_000
+
+[vars]
+APP_ORIGIN = "https://teams.agmux.dev"
+RETENTION_DAYS = "90"
+INVITE_TTL_DAYS = "14"
+# Billing paywall is live. Set BILLING_ENFORCE = "false" to dark it again.
+BILLING_ENFORCE = "true"
+# Public Stripe Price IDs (live product "agmux Teams") — not secrets.
+# Graduated: first 3 seats $0, then $12/mo or $120/yr per additional seat.
+STRIPE_PRICE_MONTHLY = "price_1U2xkVBPM9ZAoURpEgMGg6ZQ"
+STRIPE_PRICE_ANNUAL = "price_1U2xkVBPM9ZAoURpRcR1HJfP"
+
+# Secrets — set with `wrangler secret put <NAME>`, never committed:
+#   GITHUB_CLIENT_ID     GITHUB_CLIENT_SECRET   (user OAuth sign-in)
+#   GOOGLE_CLIENT_ID     GOOGLE_CLIENT_SECRET
+#   GITHUB_APP_ID        GITHUB_APP_PRIVATE_KEY  (org App for leaderboard PRs)
+#   GITHUB_APP_SLUG      (optional as var; app slug for install URL)
+#   STRIPE_SECRET_KEY    (sk_live_… / sk_test_…)
+#   STRIPE_WEBHOOK_SECRET (whsec_… — after webhook endpoint exists)
+
+#   PROVIDER_ACCOUNTS_KEY (base64 32-byte AES-GCM key; never rotate without re-encryption)

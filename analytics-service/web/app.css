@@ -1,0 +1,124 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --ink: #fafafa;
+  --t2: #e4e4e7;
+  --t3: #a1a1aa;
+  --t4: #71717a;
+  --t5: #52525b;
+  --accent: #f7ad3c;
+  --accent-hi: #fbc96a;
+  --accent-ink: #14110a;
+  --accent-weak: rgba(247, 173, 60, 0.12);
+  --accent-border: rgba(247, 173, 60, 0.28);
+  --green: #34d399;
+  --bg: #09090b;
+  --panel: #0e0e11;
+  --hair: rgba(255, 255, 255, 0.06);
+  --hair-2: rgba(255, 255, 255, 0.1);
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", "SF Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box }
+html, body { margin: 0; padding: 0; min-height: 100% }
+body {
+  font-family: var(--font-sans);
+  letter-spacing: -0.015em;
+  font-size: 14px;
+  color: var(--t2);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; cursor: pointer; color: inherit }
+a { color: var(--accent); text-decoration: none }
+a:hover { color: var(--accent-hi) }
+.boot { padding: 48px; color: var(--t4); text-align: center }
+
+.top {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 52px; padding: 8px 22px;
+  border-bottom: 1px solid var(--hair);
+  background: rgba(9, 9, 11, 0.78);
+  position: sticky; top: 0; z-index: 10;
+}
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 600; color: var(--ink) }
+.brand .mark {
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--accent); color: var(--accent-ink);
+  display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+}
+.sp { flex: 1 }
+.who { font-size: 12px; color: var(--t4) }
+
+.page { padding: 22px 24px 48px; max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px }
+.phead { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap }
+.phead h1 { margin: 0; font-size: 22px; color: var(--ink); letter-spacing: -0.03em }
+.meta { font-size: 12px; color: var(--t4) }
+
+.seg { display: inline-flex; padding: 3px; border-radius: 9px; gap: 1px; background: rgba(0,0,0,0.35); border: 1px solid var(--hair) }
+.seg button { padding: 4px 10px; font-size: 11.5px; font-weight: 500; border: none; background: transparent; color: rgba(255,255,255,0.48); border-radius: 6px }
+.seg button.on { color: var(--ink); background: rgba(255,255,255,0.09) }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 500;
+  background: rgba(255,255,255,0.03); border: 1px solid var(--hair); color: var(--t3);
+}
+.btn:hover { background: rgba(255,255,255,0.07); color: var(--t2) }
+.btn.primary { background: var(--accent); border-color: transparent; color: var(--accent-ink); font-weight: 600 }
+.btn.primary:hover { background: var(--accent-hi) }
+.btn.lg { padding: 9px 16px; font-size: 13.5px }
+
+.stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px }
+@media (max-width: 900px) { .stats { grid-template-columns: repeat(2, 1fr) } }
+.stat {
+  padding: 14px; background: var(--panel); border: 1px solid var(--hair); border-radius: 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.stat .k { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--t5) }
+.stat .v { font-size: 26px; font-weight: 600; color: var(--ink); letter-spacing: -0.04em; font-variant-numeric: tabular-nums }
+.stat .s { font-size: 11.5px; color: var(--t4) }
+
+.grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr } }
+.card { background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; padding: 16px 16px 12px }
+.card h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--ink) }
+
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 120px }
+.bars .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; min-width: 0; height: 100% }
+.bars .fill { background: var(--accent); border-radius: 2px 2px 0 0; min-height: 1px; opacity: 0.85 }
+.bars .col:hover .fill { opacity: 1 }
+.bars .lbl { display: none }
+
+.mix { display: flex; flex-direction: column; gap: 8px }
+.mix-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; font-size: 12.5px }
+.mix-row .nm { color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.mix-row .n { font-variant-numeric: tabular-nums; color: var(--t4); font-family: var(--font-mono); font-size: 11px }
+.track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; grid-column: 1 / -1 }
+.track > i { display: block; height: 100%; background: var(--accent); border-radius: inherit }
+
+.center { min-height: 100vh; display: grid; place-items: center; padding: 40px 24px; position: relative }
+.tex {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(70% 55% at 50% 34%, #000 0%, transparent 100%);
+}
+.glow {
+  position: absolute; left: 50%; top: 12%; width: 720px; height: 360px;
+  transform: translateX(-50%); pointer-events: none;
+  background: radial-gradient(50% 50% at 50% 50%, var(--accent-weak), transparent 72%);
+}
+.col { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 14px; position: relative }
+.col h1 { margin: 0; font-size: 28px; color: var(--ink); letter-spacing: -0.04em }
+.col p { margin: 0; color: var(--t4); line-height: 1.5 }
+.input {
+  width: 100%; padding: 9px 11px; border-radius: 8px;
+  background: rgba(0,0,0,0.35); border: 1px solid var(--hair-2);
+  color: var(--ink); font-family: inherit; font-size: 13px;
+}
+.input:focus { outline: none; border-color: var(--accent-border); box-shadow: 0 0 0 3px var(--accent-weak) }
+.err { color: #f87171; font-size: 12.5px }
+.empty { color: var(--t4); font-size: 13px; padding: 8px 0 }

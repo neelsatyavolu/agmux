@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>agmux · Agent top chrome — Project → threads</title>
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface-1: rgba(255, 255, 255, 0.03);
+      --surface-2: rgba(255, 255, 255, 0.05);
+      --surface-3: rgba(255, 255, 255, 0.08);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-soft: rgba(255, 255, 255, 0.05);
+      --text-primary: #fafafa;
+      --text-secondary: #e4e4e7;
+      --text-tertiary: #a1a1aa;
+      --text-muted: #71717a;
+      --text-faint: #52525b;
+      --accent: #60a5fa;
+      --accent-soft: rgba(96, 165, 250, 0.14);
+      --amber: #fbbf24;
+      --emerald: #34d399;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      --page-size: 5;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: #050506;
+      color: var(--text-primary);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .review {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+    }
+    .picker {
+      padding: 14px 18px 12px;
+      border-bottom: 1px solid var(--border);
+      background: #0a0a0c;
+    }
+    .picker h1 {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .picker p {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-muted);
+      max-width: 900px;
+    }
+    .picker p strong { color: var(--text-tertiary); font-weight: 500; }
+    .picker .hint {
+      margin-top: 8px;
+      font-size: 11.5px;
+      color: var(--text-faint);
+      font-family: var(--mono);
+    }
+
+    .stage {
+      min-height: 0;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 16px;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(96,165,250,0.05), transparent 55%),
+        #050506;
+    }
+
+    .window {
+      width: min(1360px, 100%);
+      height: 100%;
+      max-height: 880px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 24px 80px rgba(0,0,0,0.55);
+      position: relative;
+    }
+
+    .tl {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
+    .tl i {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+      display: block;
+    }
+    .tl i:nth-child(1) { background: #ff5f57; }
+    .tl i:nth-child(2) { background: #febc2e; }
+    .tl i:nth-child(3) { background: #28c840; }
+
+    .pi {
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      object-fit: contain;
+      flex-shrink: 0;
+      display: block;
+    }
+    .pi.lg { width: 18px; height: 18px; border-radius: 5px; }
+    .pi.invert { filter: invert(1); }
+
+    .ibtn {
+      width: 28px; height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .ibtn:hover { background: var(--surface-2); color: var(--text-secondary); }
+    .ibtn[aria-pressed="true"] {
+      background: var(--accent-soft);
+      color: #93c5fd;
+    }
+    .ibtn svg {
+      width: 14px; height: 14px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .seg {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-soft);
+    }
+    .seg button {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 7px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: default;
+      white-space: nowrap;
+    }
+    .seg button svg {
+      width: 13px; height: 13px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .seg button[data-active="true"] {
+      background: var(--surface-3);
+      color: var(--text-primary);
+    }
+    .badge {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: rgba(251,191,36,0.14);
+      color: #fcd34d;
+      border: 1px solid rgba(251,191,36,0.25);
+    }
+
+    .spacer { flex: 1; min-width: 6px; }
+
+    /* ── Chrome row 1 ── */
+    .chrome-1 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 40px;
+      padding: 0 10px 0 14px;
+      border-bottom: 1px solid var(--border-soft);
+      background: rgba(0,0,0,0.4);
+      flex-shrink: 0;
+    }
+
+    /* ── Project pills ── */
+    .proj-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 38px;
+      padding: 0 10px 0 14px;
+      border-bottom: 1px solid var(--border-soft);
+      background: #0a0a0c;
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+    .proj-row::-webkit-scrollbar { height: 0; }
+
+    .proj-pill {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 28px;
+      padding: 0 12px;
+      border-radius: 999px;
+      font: inherit;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      background: transparent;
+      white-space: nowrap;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+    }
+    .proj-pill:hover {
+      background: var(--surface-2);
+      color: var(--text-tertiary);
+    }
+    .proj-pill.active {
+      background: var(--accent-soft);
+      border-color: rgba(96,165,250,0.28);
+      color: #bfdbfe;
+    }
+    .proj-pill:focus-visible {
+      outline: 2px solid rgba(96,165,250,0.5);
+      outline-offset: 1px;
+    }
+    .proj-pill .count {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-faint);
+    }
+    .proj-pill.active .count { color: #93c5fd; }
+    .proj-pill .live {
+      display: inline-flex;
+      gap: 3px;
+      align-items: center;
+    }
+    .proj-pill .live i {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #3f3f46;
+    }
+    .proj-pill .live i.w { background: #60a5fa; }
+    .proj-pill .live i.a { background: var(--amber); }
+    .proj-pill .live i.d { background: var(--emerald); }
+
+    .proj-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 8px;
+      padding-left: 10px;
+      border-left: 1px solid var(--border-soft);
+      flex-shrink: 0;
+    }
+    .filter-chip {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border-soft);
+      background: transparent;
+      color: var(--text-faint);
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .filter-chip:hover { background: var(--surface-2); color: var(--text-muted); }
+    .filter-chip[aria-pressed="true"] {
+      background: rgba(52,211,153,0.10);
+      border-color: rgba(52,211,153,0.28);
+      color: #6ee7b7;
+    }
+    .filter-chip svg {
+      width: 12px; height: 12px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* ── Thread strip ── */
+    .thread-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 42px;
+      padding: 6px 10px 6px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+    .thread-row::-webkit-scrollbar { height: 6px; }
+    .thread-row::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+    }
+
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      height: 28px;
+      padding: 0 6px 0 2px;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      white-space: nowrap;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .section-label.hot { color: rgba(251,191,36,0.75); }
+    .section-label.recent { color: var(--text-faint); margin-left: 4px; }
+
+    .section-div {
+      width: 1px;
+      height: 18px;
+      background: var(--border-soft);
+      margin: 0 4px;
+      flex-shrink: 0;
+    }
+
+    .tchip {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 30px;
+      max-width: 220px;
+      padding: 0 10px;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 12px;
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      background: transparent;
+      white-space: nowrap;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+    }
+    .tchip:hover { background: var(--surface-2); color: var(--text-tertiary); }
+    .tchip.active {
+      background: var(--surface-3);
+      border-color: var(--border);
+      color: var(--text-primary);
+    }
+    .tchip:focus-visible {
+      outline: 2px solid rgba(96,165,250,0.5);
+      outline-offset: 1px;
+    }
+    .tchip .name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 120px;
+    }
+    .tchip .meta {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-faint);
+      flex-shrink: 0;
+    }
+    .tchip .pin {
+      width: 10px; height: 10px;
+      color: #93c5fd;
+      flex-shrink: 0;
+    }
+    .tchip .pin svg {
+      width: 10px; height: 10px;
+      stroke: currentColor; fill: currentColor;
+      stroke-width: 1.5;
+    }
+
+    .pdot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .pdot.attention {
+      background: var(--amber);
+      box-shadow: 0 0 0 3px rgba(251,191,36,0.18);
+    }
+    .pdot.working {
+      background: #60a5fa;
+      box-shadow: 0 0 0 3px rgba(96,165,250,0.15);
+      animation: spin 1.2s linear infinite;
+      border-radius: 2px;
+    }
+    .pdot.done {
+      background: var(--emerald);
+      box-shadow: 0 0 0 3px rgba(52,211,153,0.15);
+    }
+    @keyframes spin {
+      from { transform: rotate(0); }
+      to { transform: rotate(360deg); }
+    }
+
+    .show-more {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 30px;
+      padding: 0 11px;
+      border-radius: 8px;
+      border: 1px dashed var(--border);
+      background: transparent;
+      color: var(--text-faint);
+      font: inherit;
+      font-size: 11.5px;
+      white-space: nowrap;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .show-more:hover {
+      border-color: var(--border);
+      color: var(--text-muted);
+      background: var(--surface-1);
+    }
+    .show-more svg {
+      width: 12px; height: 12px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .show-more .n {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--text-faint);
+    }
+
+    /* Pinned create cluster — left of thread strip, never scrolls away */
+    .create-pin {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      height: 30px;
+      padding: 0 4px 0 0;
+      margin-right: 6px;
+      border-right: 1px solid var(--border-soft);
+      flex-shrink: 0;
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: var(--bg);
+      box-shadow: 4px 0 10px var(--bg);
+    }
+    .create-btn {
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
+      border: 1px solid var(--border-soft);
+      background: var(--surface-1);
+      color: var(--text-muted);
+      cursor: pointer;
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .create-btn:hover {
+      background: var(--surface-2);
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+    .create-btn[aria-expanded="true"] {
+      background: var(--accent-soft);
+      border-color: rgba(96,165,250,0.35);
+      color: #bfdbfe;
+    }
+    .create-btn svg {
+      width: 13px;
+      height: 13px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .create-btn.primary {
+      background: rgba(96,165,250,0.10);
+      border-color: rgba(96,165,250,0.22);
+      color: #93c5fd;
+    }
+    .create-btn.primary:hover {
+      background: rgba(96,165,250,0.16);
+      border-color: rgba(96,165,250,0.35);
+      color: #bfdbfe;
+    }
+
+    .empty-threads {
+      font-size: 12px;
+      color: var(--text-faint);
+      padding: 0 8px;
+      font-style: normal;
+    }
+
+    /* Project pill actions (compose + plus — mirrors .padd on sidebar ProjectGroup) */
+    .proj-pill .pacts {
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+      margin-left: 2px;
+      margin-right: -4px;
+    }
+    .proj-pill:not(.active) .pacts {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+      margin: 0;
+      pointer-events: none;
+    }
+    .proj-pill.active .pacts,
+    .proj-pill:hover .pacts {
+      opacity: 1;
+      width: auto;
+      overflow: visible;
+      pointer-events: auto;
+    }
+    .proj-pill:hover:not(.active) .pacts {
+      margin-left: 2px;
+      margin-right: -4px;
+    }
+    .pact {
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-faint);
+      cursor: pointer;
+      padding: 0;
+    }
+    .pact:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-secondary);
+    }
+    .pact[aria-expanded="true"] {
+      background: rgba(255,255,255,0.10);
+      color: #bfdbfe;
+    }
+    .pact svg {
+      width: 13px;
+      height: 13px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* New session menu — matches ProjectGroup plus menu */
+    .new-menu {
+      position: absolute;
+      z-index: 40;
+      width: 288px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.09);
+      background: linear-gradient(180deg, #18181b, #0a0a0b);
+      box-shadow:
+        0 28px 60px -12px rgba(0,0,0,0.70),
+        0 0 0 1px rgba(0,0,0,0.40),
+        inset 0 0.5px 0 rgba(255,255,255,0.06);
+      overflow: hidden;
+      display: none;
+      letter-spacing: -0.015em;
+    }
+    .new-menu.open { display: block; }
+    .new-menu-h {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding: 10px 12px 8px;
+    }
+    .new-menu-h .mark {
+      width: 16px; height: 16px;
+      border-radius: 4px;
+      background: #3b82f6;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .new-menu-h .sub {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #52525b;
+    }
+    .new-menu-h .name {
+      font-size: 12.5px;
+      color: #e4e4e7;
+      font-weight: 500;
+    }
+    .nm-row {
+      appearance: none;
+      width: calc(100% - 8px);
+      margin: 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .nm-row:hover { background: rgba(255,255,255,0.04); }
+    .nm-row .ico {
+      width: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .nm-row .ico svg {
+      width: 14px; height: 14px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .nm-row .body { flex: 1; min-width: 0; }
+    .nm-row .title {
+      font-size: 12.5px;
+      color: #e4e4e7;
+    }
+    .nm-row .hint {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: #71717a;
+      margin-top: 1px;
+    }
+    .nm-row .sc {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: #52525b;
+      flex-shrink: 0;
+    }
+    .nm-sec {
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding: 6px 0 8px;
+    }
+    .nm-sec-lbl {
+      padding: 4px 12px 6px;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #52525b;
+    }
+    .nm-agents {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      padding: 0 10px 4px;
+    }
+    .nm-agent {
+      appearance: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 6px 2px;
+      border-radius: 7px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.02);
+      cursor: pointer;
+      color: #71717a;
+      font: inherit;
+    }
+    .nm-agent:hover {
+      border-color: rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.04);
+      color: #a1a1aa;
+    }
+    .nm-agent .lbl {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      text-transform: lowercase;
+    }
+    .nm-agent img {
+      width: 18px; height: 18px;
+      border-radius: 4px;
+      object-fit: contain;
+    }
+    .nm-agent img.invert { filter: invert(1); }
+
+    .toast {
+      position: absolute;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #121214;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+
+    /* ── Main / ThreadTopBar ── */
+    .main {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(ellipse 90% 70% at 50% 0%, rgba(16, 185, 129, 0.07), transparent 55%),
+        var(--bg);
+    }
+    .thread-topbar {
+      position: relative;
+      z-index: 5;
+      flex-shrink: 0;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: rgba(10, 10, 11, 0.45);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .thread-topbar::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(16,185,129,0.06), transparent 70%);
+    }
+    .ttb-left {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+      min-width: 0;
+      flex-shrink: 0;
+      max-width: 300px;
+      position: relative;
+    }
+    .ttb-crumb {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--mono);
+      font-size: 12px;
+      min-width: 0;
+      color: #e4e4e7;
+    }
+    .ttb-crumb .branch {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #a1a1aa;
+      min-width: 0;
+    }
+    .ttb-crumb .branch svg {
+      width: 11px; height: 11px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .ttb-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: #a1a1aa;
+      min-width: 0;
+    }
+    .state-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 1.5px 7px;
+      border-radius: 9999px;
+      flex-shrink: 0;
+    }
+    .state-pill.running {
+      background: rgba(245,158,11,0.10);
+      border: 1px solid rgba(245,158,11,0.22);
+      color: #fbbf24;
+    }
+    .state-pill.attention {
+      background: rgba(251,191,36,0.12);
+      border: 1px solid rgba(251,191,36,0.28);
+      color: #fcd34d;
+    }
+    .state-pill.idle {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: #a1a1aa;
+    }
+    .state-pill.done {
+      background: rgba(52,211,153,0.10);
+      border: 1px solid rgba(52,211,153,0.22);
+      color: #6ee7b7;
+    }
+    .state-pill .dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 20%, transparent);
+    }
+    .ctx-meter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #a1a1aa;
+      flex-shrink: 0;
+    }
+    .ctx-track {
+      width: 28px; height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+      position: relative;
+    }
+    .ctx-fill {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      border-radius: 999px;
+      background: #34d399;
+    }
+    .ttb-center {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      position: relative;
+      white-space: nowrap;
+    }
+    .ttb-center .title {
+      font-size: 13px;
+      font-weight: 500;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 320px;
+    }
+    .ttb-right {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .ttb-right .gbtn {
+      width: 30px; height: 30px;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #a1a1aa;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: default;
+    }
+    .ttb-right .gbtn:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.06);
+      color: #e4e4e7;
+    }
+    .ttb-right .gbtn svg {
+      width: 15px; height: 15px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .diff-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 26px;
+      padding: 0 9px;
+      border-radius: 7px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: #a1a1aa;
+      margin-right: 2px;
+    }
+    .diff-chip .add { color: #34d399; }
+    .diff-chip .del { color: #f87171; }
+
+    .chat {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 28px 18px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .bubble {
+      width: min(720px, 100%);
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+    .bubble.user {
+      align-self: flex-end;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border);
+      border-radius: 14px 14px 4px 14px;
+      padding: 12px 14px;
+      max-width: 520px;
+      color: var(--text-primary);
+    }
+    .bubble.agent { color: var(--text-tertiary); }
+    .bubble.agent strong { color: var(--text-secondary); font-weight: 500; }
+    .tool-row {
+      width: min(720px, 100%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-soft);
+    }
+    .tool-row .lead { color: #93c5fd; }
+    .composer {
+      width: min(720px, calc(100% - 36px));
+      margin: 0 auto 16px;
+      border: 1px solid var(--border);
+      background: var(--surface-1);
+      border-radius: 14px;
+      padding: 12px 14px;
+      color: var(--text-faint);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .composer .hint { flex: 1; }
+    .composer .keys {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--text-faint);
+    }
+
+    .legend {
+      width: min(720px, 100%);
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px 16px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border-soft);
+      background: var(--surface-1);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .legend b { color: var(--text-tertiary); font-weight: 500; }
+    .legend .row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="review">
+    <header class="picker">
+      <h1>Agent mode · Project → threads (Option B)</h1>
+      <p>
+        Click <strong>project pills</strong> to switch the thread strip.
+        Active / waiting sessions sort first, then <strong>Show more</strong> in pages of 5.
+        Create agents the same way as the sidebar: <strong>compose</strong> (quick chat)
+        and <strong>+</strong> (full New menu — Chat, Worktree, Terminal agents, Plain shell)
+        sit as a compact pinned cluster on the <strong>left</strong> of the thread strip
+        (+ primary, compose secondary) so they never scroll off.
+      </p>
+      <p class="hint">Left of threads: + new session · pen quick chat · sticky when the strip scrolls</p>
+    </header>
+
+    <div class="stage">
+      <div class="window" id="window">
+
+        <!-- Mode + tools -->
+        <div class="chrome-1">
+          <div class="tl"><i></i><i></i><i></i></div>
+          <div class="seg">
+            <button data-active="false" type="button">
+              <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1v-10.5z"/></svg>
+              Home
+            </button>
+            <button data-active="true" type="button">
+              <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M4 22v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>
+              Agents
+            </button>
+            <button data-active="false" type="button">
+              <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              Orchestrator <span class="badge" id="orchBadge">3</span>
+            </button>
+            <button data-active="false" type="button">
+              <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              Usage
+            </button>
+          </div>
+          <div class="spacer"></div>
+          <button class="ibtn" type="button" title="Task view"><svg viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg></button>
+          <button class="ibtn" type="button" title="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg></button>
+          <button class="ibtn" type="button" title="Split"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></button>
+          <button class="ibtn" type="button" title="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+          <button class="ibtn" type="button" title="Forward"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+          <button class="ibtn" type="button" title="Refresh"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 3v6h-6"/></svg></button>
+          <button class="ibtn" type="button" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></button>
+          <button class="ibtn" type="button" title="Archived"><svg viewBox="0 0 24 24"><path d="M21 8v13H3V8"/><path d="M23 3H1v5h22V3z"/><path d="M10 12h4"/></svg></button>
+        </div>
+
+        <!-- Projects -->
+        <div class="proj-row" id="projRow" role="tablist" aria-label="Projects"></div>
+
+        <!-- Threads for active project -->
+        <div class="thread-row" id="threadRow" role="listbox" aria-label="Threads"></div>
+
+        <!-- New session menu (positioned under active project's +) -->
+        <div class="new-menu" id="newMenu" role="menu" aria-label="New session"></div>
+        <div class="toast" id="toast"></div>
+
+        <!-- Shared canvas -->
+        <div class="main">
+          <div class="thread-topbar">
+            <div class="ttb-left">
+              <div class="ttb-crumb">
+                <span class="folder" id="ttbFolder">agmux</span>
+                <span style="color:#3f3f46">▾</span>
+                <span class="branch">
+                  <svg viewBox="0 0 24 24"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                  <span id="ttbBranch">feat/topbar-layouts</span>
+                </span>
+              </div>
+              <div class="ttb-meta">
+                <span class="state-pill running" id="ttbState"><span class="dot"></span><span id="ttbStateLabel">Running · 1m 24s</span></span>
+                <span style="color:#3f3f46">·</span>
+                <span id="ttbModel">Sonnet 4.5</span>
+                <span style="color:#3f3f46">·</span>
+                <span class="ctx-meter">
+                  <span class="ctx-track"><span class="ctx-fill" id="ttbCtxFill" style="width:64%"></span></span>
+                  <span id="ttbCtx">128K / 200K</span>
+                </span>
+              </div>
+            </div>
+            <div class="ttb-center">
+              <img class="pi lg" id="ttbIcon" src="assets/claude-ai-icon.svg" alt="" />
+              <span class="title" id="ttbTitle">Topbar horizontal layouts</span>
+            </div>
+            <div class="ttb-right">
+              <span class="diff-chip"><span class="add" id="ttbAdd">+84</span><span class="del" id="ttbDel">−12</span></span>
+              <button class="gbtn" type="button" title="Bypass permissions"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
+              <button class="gbtn" type="button" title="Git panel"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6"/></svg></button>
+              <button class="gbtn" type="button" title="Terminal"><svg viewBox="0 0 24 24"><path d="m4 17 6-5-6-5"/><path d="M12 19h8"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg></button>
+              <button class="gbtn" type="button" title="Editor"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg></button>
+            </div>
+          </div>
+
+          <div class="chat">
+            <div class="bubble user" id="chatUser">
+              Option B with clickable projects, priority ordering, and Show more — like the sidebar, but horizontal.
+            </div>
+            <div class="bubble agent" id="chatAgent">
+              <strong>Switch projects in the pill row.</strong> Hot sessions (needs approval → working → done/unread) stay visible first; the rest hide behind Show more in pages of 5.
+            </div>
+            <div class="legend">
+              <div class="row"><span class="pdot attention" style="margin-top:4px"></span><span><b>Needs attention</b> — waiting on you (approval)</span></div>
+              <div class="row"><span class="pdot working" style="margin-top:4px;border-radius:2px"></span><span><b>Working</b> — agent running now</span></div>
+              <div class="row"><span class="pdot done" style="margin-top:4px"></span><span><b>Done / unread</b> — finished, not opened yet</span></div>
+              <div class="row"><span style="width:7px;height:7px;margin-top:5px;border-radius:2px;background:#93c5fd;opacity:0.7"></span><span><b>Pinned</b> — always sorts into the first page</span></div>
+            </div>
+            <div class="tool-row">
+              <span class="lead">sort</span>
+              <span>pinned → attention → working → done → recency · page size 5 · Active only filter</span>
+            </div>
+          </div>
+          <div class="composer">
+            <span class="hint">Message <span id="composerTarget">agmux</span>…</span>
+            <span class="keys">↵ send · ⌘⇧F search</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ICONS = {
+      claude: "assets/claude-ai-icon.svg",
+      codex: "assets/chatgpt-icon.svg",
+      opencode: "assets/opencode-icon.png",
+      grok: "assets/grok-icon.svg",
+      droid: "assets/droid-icon.svg",
+      mlx: "assets/apple-icon.svg",
+      cursor: "assets/cursor-app-icon.png",
+    };
+
+    const PAGE = 5;
+
+    /** status: attention | working | done | idle
+     *  rank used for horizontal priority (sidebar-like attention first) */
+    const STATUS_RANK = { attention: 0, working: 1, done: 2, idle: 3 };
+
+    const DATA = {
+      agmux: {
+        name: "agmux",
+        branch: "feat/topbar-layouts",
+        threads: [
+          { id: "a1", title: "Topbar horizontal layouts", provider: "claude", model: "Sonnet 4.5", status: "attention", age: "now", pinned: true, ctx: 64, add: 84, del: 12, msg: "Needs your approval on two tools." },
+          { id: "a2", title: "Fix PTY flusher idle", provider: "codex", model: "o3", status: "working", age: "2m", pinned: false, ctx: 41, add: 32, del: 8, msg: "Agent is still iterating on the flusher." },
+          { id: "a3", title: "Grok ACP approvals", provider: "grok", model: "Grok 4", status: "done", age: "1d", pinned: false, ctx: 28, add: 56, del: 4, msg: "Finished — unread completion." },
+          { id: "a4", title: "Release notes polish", provider: "opencode", model: "gpt-5", status: "idle", age: "2h", pinned: false, ctx: 18, add: 12, del: 3, msg: "Quiet session from earlier today." },
+          { id: "a5", title: "MLX catalog filter", provider: "droid", model: "Droid", status: "idle", age: "3d", pinned: false, ctx: 12, add: 9, del: 1, msg: "Older droid session." },
+          { id: "a6", title: "Local model bootstrap", provider: "mlx", model: "Qwen2.5", status: "idle", age: "5d", pinned: false, ctx: 9, add: 40, del: 6, msg: "MLX bootstrap notes." },
+          { id: "a7", title: "Usage quota dashboard", provider: "claude", model: "Sonnet 4.5", status: "idle", age: "6d", pinned: false, ctx: 22, add: 18, del: 2, msg: "Quota UI exploration." },
+          { id: "a8", title: "Hook socket dedup", provider: "codex", model: "o3", status: "idle", age: "1w", pinned: false, ctx: 15, add: 7, del: 11, msg: "Older fix branch." },
+          { id: "a9", title: "Session name batching", provider: "claude", model: "Haiku", status: "idle", age: "1w", pinned: false, ctx: 8, add: 5, del: 0, msg: "Summarizer batch work." },
+        ],
+      },
+      website: {
+        name: "website",
+        branch: "main",
+        threads: [
+          { id: "w1", title: "Hero pricing rewrite", provider: "claude", model: "Opus 4", status: "working", age: "12m", pinned: false, ctx: 52, add: 120, del: 40, msg: "Still rewriting the hero." },
+          { id: "w2", title: "Docs nav restructure", provider: "codex", model: "o3", status: "attention", age: "40m", pinned: true, ctx: 33, add: 48, del: 22, msg: "Waiting on shell approval." },
+          { id: "w3", title: "Landing a11y pass", provider: "cursor", model: "Cursor", status: "idle", age: "1d", pinned: false, ctx: 14, add: 15, del: 9, msg: "Accessibility sweep parked." },
+          { id: "w4", title: "Blog MDX pipeline", provider: "opencode", model: "gpt-5", status: "done", age: "2d", pinned: false, ctx: 19, add: 70, del: 14, msg: "Done — not opened yet." },
+          { id: "w5", title: "Footer legal links", provider: "claude", model: "Haiku", status: "idle", age: "4d", pinned: false, ctx: 6, add: 4, del: 1, msg: "Small footer tweak." },
+          { id: "w6", title: "OG image generator", provider: "grok", model: "Grok 4", status: "idle", age: "5d", pinned: false, ctx: 11, add: 28, del: 3, msg: "Image gen spike." },
+          { id: "w7", title: "i18n routing", provider: "claude", model: "Sonnet 4.5", status: "idle", age: "1w", pinned: false, ctx: 20, add: 90, del: 30, msg: "Locale routes draft." },
+        ],
+      },
+      "docs-site": {
+        name: "docs-site",
+        branch: "docs/api-v2",
+        threads: [
+          { id: "d1", title: "API reference pass", provider: "opencode", model: "gpt-5", status: "idle", age: "5d", pinned: false, ctx: 17, add: 200, del: 12, msg: "Long API docs pass." },
+          { id: "d2", title: "Changelog generator", provider: "grok", model: "Grok 4", status: "done", age: "1w", pinned: false, ctx: 10, add: 33, del: 2, msg: "Generator finished." },
+          { id: "d3", title: "Search indexing", provider: "claude", model: "Sonnet 4.5", status: "working", age: "8m", pinned: false, ctx: 38, add: 55, del: 7, msg: "Rebuilding search index." },
+          { id: "d4", title: "Mermaid diagrams", provider: "codex", model: "o3", status: "idle", age: "3d", pinned: false, ctx: 12, add: 16, del: 4, msg: "Diagrams half-done." },
+          { id: "d5", title: "Version switcher", provider: "cursor", model: "Cursor", status: "idle", age: "6d", pinned: false, ctx: 9, add: 22, del: 8, msg: "Version dropdown." },
+          { id: "d6", title: "Dark mode tokens", provider: "mlx", model: "Qwen2.5", status: "idle", age: "2w", pinned: false, ctx: 5, add: 3, del: 1, msg: "Token experiment." },
+        ],
+      },
+      playground: {
+        name: "playground",
+        branch: "spike/tabs",
+        threads: [
+          { id: "p1", title: "Spike: tab strip scroll", provider: "claude", model: "Sonnet 4.5", status: "idle", age: "2d", pinned: false, ctx: 7, add: 11, del: 0, msg: "Scroll physics spike." },
+          { id: "p2", title: "Icon crop tests", provider: "droid", model: "Droid", status: "idle", age: "4d", pinned: false, ctx: 4, add: 2, del: 0, msg: "Icon sizing." },
+        ],
+      },
+    };
+
+    const state = {
+      projectId: "agmux",
+      selectedId: "a1",
+      // per-project visible count (sidebar preserves expansion)
+      visible: { agmux: PAGE, website: PAGE, "docs-site": PAGE, playground: PAGE },
+      activeOnly: false,
+      newMenuOpen: false,
+      newMenuProjectId: null,
+      defaultTerminalAgent: "claude",
+      idSeq: 100,
+    };
+
+    const PROVIDER_DEFAULTS = {
+      claude: { provider: "claude", model: "Sonnet 4.5" },
+      codex: { provider: "codex", model: "o3" },
+      droid: { provider: "droid", model: "Droid" },
+      opencode: { provider: "opencode", model: "gpt-5" },
+      grok: { provider: "grok", model: "Grok 4" },
+    };
+
+    function toast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => el.classList.remove("show"), 1800);
+    }
+
+    function closeNewMenu() {
+      state.newMenuOpen = false;
+      state.newMenuProjectId = null;
+      const menu = document.getElementById("newMenu");
+      menu.classList.remove("open");
+      menu.innerHTML = "";
+      document.querySelectorAll(".pact[aria-expanded='true']").forEach((b) => {
+        b.setAttribute("aria-expanded", "false");
+      });
+    }
+
+    function createThread(projectId, opts) {
+      const proj = DATA[projectId];
+      if (!proj) return;
+      const id = `n${++state.idSeq}`;
+      const kind = opts.kind || "chat";
+      const provider = opts.provider || "claude";
+      const model = opts.model || PROVIDER_DEFAULTS[provider]?.model || "Sonnet 4.5";
+      const titles = {
+        chat: "New chat",
+        worktree: "New worktree thread",
+        terminal: `New ${provider} terminal`,
+        shell: "Plain shell",
+      };
+      const t = {
+        id,
+        title: titles[kind] || "New session",
+        provider: kind === "shell" ? "claude" : provider,
+        model: kind === "shell" ? "shell" : model,
+        status: kind === "shell" ? "idle" : "working",
+        age: "now",
+        pinned: false,
+        ctx: 4,
+        add: 0,
+        del: 0,
+        msg: kind === "shell"
+          ? "Plain bash PTY — no agent loop."
+          : kind === "worktree"
+            ? "Isolated worktree branch for parallel work."
+            : kind === "terminal"
+              ? `Terminal session with ${provider} agent loop.`
+              : "Fresh conversational agent thread.",
+      };
+      // Newest hot session at front of raw list so sort keeps it early
+      proj.threads.unshift(t);
+      state.projectId = projectId;
+      state.selectedId = id;
+      // Ensure first page shows it
+      state.visible[projectId] = Math.max(state.visible[projectId] ?? PAGE, PAGE);
+      closeNewMenu();
+      render();
+      toast(`Created in ${proj.name}: ${t.title}`);
+    }
+
+    function openNewMenu(projectId, anchorEl) {
+      if (state.newMenuOpen && state.newMenuProjectId === projectId) {
+        closeNewMenu();
+        renderProjects();
+        return;
+      }
+      const switched = state.projectId !== projectId;
+      state.newMenuOpen = true;
+      state.newMenuProjectId = projectId;
+      state.projectId = projectId;
+      if (switched) {
+        const sorted = sortThreads(DATA[projectId].threads);
+        if (!sorted.some((t) => t.id === state.selectedId)) {
+          state.selectedId = sorted[0]?.id ?? null;
+        }
+        renderThreads();
+        updateTopBar();
+      }
+
+      const proj = DATA[projectId];
+      const menu = document.getElementById("newMenu");
+      const win = document.getElementById("window");
+      const winRect = win.getBoundingClientRect();
+      const aRect = anchorEl.getBoundingClientRect();
+
+      menu.innerHTML = `
+        <div class="new-menu-h">
+          <div class="mark">+</div>
+          <div>
+            <div class="sub">New in</div>
+            <div class="name">${proj.name}</div>
+          </div>
+        </div>
+        <div style="padding:6px 0 4px">
+          <button type="button" class="nm-row" data-action="chat">
+            <span class="ico" style="color:#60a5fa">
+              <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v6"/><path d="M9 10h6"/></svg>
+            </span>
+            <span class="body">
+              <div class="title">Chat</div>
+              <div class="hint">Conversational agent thread</div>
+            </span>
+            <span class="sc">⌘N</span>
+          </button>
+          <button type="button" class="nm-row" data-action="worktree">
+            <span class="ico" style="color:#fbbf24">
+              <svg viewBox="0 0 24 24"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+            </span>
+            <span class="body">
+              <div class="title">Worktree</div>
+              <div class="hint">Isolated branch for parallel work</div>
+            </span>
+            <span class="sc">⌘⇧T</span>
+          </button>
+        </div>
+        <div class="nm-sec">
+          <div class="nm-sec-lbl">Terminal</div>
+          <button type="button" class="nm-row" data-action="terminal-default">
+            <span class="ico" style="font-family:var(--mono);font-size:12px;color:#a1a1aa">&gt;_</span>
+            <span class="body">
+              <div class="title">Terminal</div>
+              <div class="hint">Creates a PTY with agent loop</div>
+            </span>
+            <span class="sc">⌘T</span>
+          </button>
+          <div class="nm-agents">
+            ${["claude","codex","droid","opencode","grok"].map((k) => `
+              <button type="button" class="nm-agent" data-action="terminal" data-provider="${k}" title="${k}">
+                <img class="${k === "grok" ? "invert" : ""}" src="${ICONS[k]}" alt="" />
+                <span class="lbl">${k}</span>
+              </button>
+            `).join("")}
+          </div>
+        </div>
+        <div class="nm-sec" style="padding-top:4px;padding-bottom:6px">
+          <button type="button" class="nm-row" data-action="shell" style="padding-top:6px;padding-bottom:6px">
+            <span class="ico" style="font-family:var(--mono);font-size:12px;color:#71717a">$_</span>
+            <span class="body">
+              <div class="title">Plain shell</div>
+              <div class="hint">No agent — just a bash PTY</div>
+            </span>
+          </button>
+        </div>
+      `;
+
+      // Position under the + button, clamp inside window
+      let top = aRect.bottom - winRect.top + 6;
+      let left = aRect.right - winRect.left - 288;
+      left = Math.max(8, Math.min(left, winRect.width - 296));
+      // If near bottom, flip above
+      if (top + 360 > winRect.height) {
+        top = aRect.top - winRect.top - 8;
+        menu.style.transform = "translateY(-100%)";
+      } else {
+        menu.style.transform = "";
+      }
+      menu.style.top = `${top}px`;
+      menu.style.left = `${left}px`;
+      menu.classList.add("open");
+
+      menu.querySelectorAll("[data-action]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const action = btn.dataset.action;
+          if (action === "chat") createThread(projectId, { kind: "chat", provider: "claude" });
+          else if (action === "worktree") createThread(projectId, { kind: "worktree", provider: "claude" });
+          else if (action === "terminal-default") {
+            createThread(projectId, { kind: "terminal", provider: state.defaultTerminalAgent });
+          } else if (action === "terminal") {
+            const p = btn.dataset.provider;
+            state.defaultTerminalAgent = p;
+            createThread(projectId, { kind: "terminal", provider: p });
+          } else if (action === "shell") {
+            createThread(projectId, { kind: "shell" });
+          }
+        });
+      });
+
+      // Keep project pills in sync; don't rebuild thread strip (would drop anchor)
+      renderProjects();
+      requestAnimationFrame(() => {
+        const pinPlus = document.querySelector(".create-plus");
+        const pillPlus = document.querySelector(`.pact-plus[data-project="${projectId}"]`);
+        if (pinPlus) pinPlus.setAttribute("aria-expanded", "true");
+        if (pillPlus) pillPlus.setAttribute("aria-expanded", "true");
+        // Prefer the original anchor (usually the sticky left +)
+        const anchor = document.body.contains(anchorEl) ? anchorEl : (pinPlus || pillPlus);
+        if (!anchor) return;
+        const r = anchor.getBoundingClientRect();
+        const wr = win.getBoundingClientRect();
+        let t2 = r.bottom - wr.top + 6;
+        let l2 = r.left - wr.left;
+        l2 = Math.max(8, Math.min(l2, wr.width - 296));
+        menu.style.transform = "";
+        if (t2 + 360 > wr.height) {
+          t2 = r.top - wr.top - 8;
+          menu.style.transform = "translateY(-100%)";
+        }
+        menu.style.top = `${t2}px`;
+        menu.style.left = `${l2}px`;
+      });
+    }
+
+    function sortThreads(list) {
+      return [...list].sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        const ra = STATUS_RANK[a.status];
+        const rb = STATUS_RANK[b.status];
+        if (ra !== rb) return ra - rb;
+        // mock: keep input order as recency proxy among same status
+        return 0;
+      });
+    }
+
+    function isHot(t) {
+      return t.status === "attention" || t.status === "working" || t.status === "done" || t.pinned;
+    }
+
+    function projectLiveDots(threads) {
+      const has = { a: false, w: false, d: false };
+      for (const t of threads) {
+        if (t.status === "attention") has.a = true;
+        if (t.status === "working") has.w = true;
+        if (t.status === "done") has.d = true;
+      }
+      return has;
+    }
+
+    function iconClass(provider) {
+      return provider === "grok" ? "pi invert" : "pi";
+    }
+
+    function renderProjects() {
+      const row = document.getElementById("projRow");
+      row.innerHTML = "";
+
+      for (const [id, proj] of Object.entries(DATA)) {
+        const live = projectLiveDots(proj.threads);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "proj-pill" + (state.projectId === id ? " active" : "");
+        btn.setAttribute("role", "tab");
+        btn.setAttribute("aria-selected", state.projectId === id ? "true" : "false");
+        btn.dataset.project = id;
+
+        const liveHtml = (live.a || live.w || live.d)
+          ? `<span class="live">${live.a ? '<i class="a"></i>' : ""}${live.w ? '<i class="w"></i>' : ""}${live.d ? '<i class="d"></i>' : ""}</span>`
+          : "";
+
+        const plusExpanded = state.newMenuOpen && state.newMenuProjectId === id;
+
+        btn.innerHTML = `
+          <span class="pnm">${proj.name}</span>
+          <span class="count">${proj.threads.length}</span>
+          ${liveHtml}
+          <span class="pacts">
+            <span class="pact pact-compose" data-project="${id}" title="Quick chat (⌘N)" role="button" tabindex="0">
+              <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </span>
+            <span class="pact pact-plus" data-project="${id}" title="New session" role="button" tabindex="0" aria-expanded="${plusExpanded ? "true" : "false"}" aria-haspopup="menu">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            </span>
+          </span>
+        `;
+
+        btn.addEventListener("click", (e) => {
+          // Don't treat compose/plus as project switch only
+          if (e.target.closest(".pact")) return;
+          if (state.newMenuOpen && state.newMenuProjectId !== id) closeNewMenu();
+          state.projectId = id;
+          const sorted = sortThreads(proj.threads);
+          if (!sorted.some((t) => t.id === state.selectedId)) {
+            state.selectedId = sorted[0]?.id ?? null;
+          }
+          render();
+        });
+
+        const compose = btn.querySelector(".pact-compose");
+        const plus = btn.querySelector(".pact-plus");
+        compose.addEventListener("click", (e) => {
+          e.stopPropagation();
+          closeNewMenu();
+          // SquarePen in sidebar → quick open / chat for that project
+          createThread(id, { kind: "chat", provider: "claude" });
+        });
+        plus.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openNewMenu(id, plus);
+        });
+
+        row.appendChild(btn);
+      }
+
+      // new project (folder+)
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "ibtn";
+      add.title = "New project";
+      add.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`;
+      add.addEventListener("click", () => toast("New project dialog (same as sidebar)"));
+      row.appendChild(add);
+
+      row.insertAdjacentHTML("beforeend", `<div class="spacer"></div>`);
+
+      const meta = document.createElement("div");
+      meta.className = "proj-meta";
+      meta.innerHTML = `
+        <button type="button" class="filter-chip" id="activeOnlyBtn" aria-pressed="${state.activeOnly}">
+          <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Active only
+        </button>
+        <span style="font-size:11px;color:var(--text-faint);font-family:var(--mono)">Threads · ${DATA[state.projectId].name}</span>
+      `;
+      row.appendChild(meta);
+      meta.querySelector("#activeOnlyBtn").addEventListener("click", () => {
+        state.activeOnly = !state.activeOnly;
+        render();
+      });
+    }
+
+    function appendCreatePin(row) {
+      const pin = document.createElement("div");
+      pin.className = "create-pin";
+      pin.setAttribute("aria-label", "Create in " + DATA[state.projectId].name);
+
+      const plus = document.createElement("button");
+      plus.type = "button";
+      plus.className = "create-btn primary create-plus";
+      plus.title = "New session in " + DATA[state.projectId].name;
+      plus.setAttribute("aria-haspopup", "menu");
+      plus.setAttribute(
+        "aria-expanded",
+        state.newMenuOpen && state.newMenuProjectId === state.projectId ? "true" : "false"
+      );
+      plus.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`;
+      plus.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openNewMenu(state.projectId, e.currentTarget);
+      });
+
+      const compose = document.createElement("button");
+      compose.type = "button";
+      compose.className = "create-btn create-compose";
+      compose.title = "Quick chat (⌘N)";
+      compose.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+      compose.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeNewMenu();
+        createThread(state.projectId, { kind: "chat", provider: "claude" });
+      });
+
+      // Plus first (primary), compose second — matches sidebar + then pen order feel, compact
+      pin.appendChild(plus);
+      pin.appendChild(compose);
+      row.appendChild(pin);
+    }
+
+    function renderThreads() {
+      const row = document.getElementById("threadRow");
+      row.innerHTML = "";
+      const proj = DATA[state.projectId];
+      let list = sortThreads(proj.threads);
+      if (state.activeOnly) {
+        list = list.filter((t) => t.id === state.selectedId || isHot(t));
+      }
+
+      // Always pin create controls on the left
+      appendCreatePin(row);
+
+      if (list.length === 0) {
+        const empty = document.createElement("span");
+        empty.className = "empty-threads";
+        empty.textContent = state.activeOnly ? "No running threads" : "No threads yet";
+        row.appendChild(empty);
+        return;
+      }
+
+      const visibleCount = Math.min(state.visible[state.projectId] ?? PAGE, list.length);
+      const visible = list.slice(0, visibleCount);
+      const remaining = list.length - visibleCount;
+
+      // Split visible into hot vs rest for section labels (sidebar doesn't label, but horizontal density benefits)
+      const hotVisible = visible.filter(isHot);
+      const restVisible = visible.filter((t) => !isHot(t));
+
+      function appendChip(t) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tchip" + (t.id === state.selectedId ? " active" : "");
+        btn.setAttribute("role", "option");
+        btn.setAttribute("aria-selected", t.id === state.selectedId ? "true" : "false");
+        btn.dataset.id = t.id;
+        const pin = t.pinned
+          ? `<span class="pin" title="Pinned"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>`
+          : "";
+        const dot = t.status !== "idle"
+          ? `<span class="pdot ${t.status}"></span>`
+          : "";
+        btn.innerHTML = `
+          <img class="${iconClass(t.provider)}" src="${ICONS[t.provider]}" alt="" />
+          ${pin}
+          ${dot}
+          <span class="name">${t.title}</span>
+          <span class="meta">${t.model.split(" ")[0].toLowerCase()}</span>
+        `;
+        btn.addEventListener("click", () => {
+          state.selectedId = t.id;
+          render();
+        });
+        row.appendChild(btn);
+      }
+
+      if (hotVisible.length) {
+        const lab = document.createElement("span");
+        lab.className = "section-label hot";
+        lab.textContent = "Active";
+        lab.title = "Pinned · needs attention · working · done/unread";
+        row.appendChild(lab);
+        hotVisible.forEach(appendChip);
+      }
+
+      if (restVisible.length) {
+        if (hotVisible.length) {
+          const div = document.createElement("span");
+          div.className = "section-div";
+          row.appendChild(div);
+        }
+        const lab = document.createElement("span");
+        lab.className = "section-label recent";
+        lab.textContent = "Recent";
+        row.appendChild(lab);
+        restVisible.forEach(appendChip);
+      }
+
+      if (remaining > 0) {
+        const more = document.createElement("button");
+        more.type = "button";
+        more.className = "show-more";
+        const next = Math.min(remaining, PAGE);
+        more.innerHTML = `
+          <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          Show more
+          <span class="n">(${next} of ${remaining})</span>
+        `;
+        more.addEventListener("click", () => {
+          state.visible[state.projectId] = (state.visible[state.projectId] ?? PAGE) + PAGE;
+          renderThreads();
+          updateTopBar();
+        });
+        row.appendChild(more);
+      } else if (visibleCount > PAGE && list.length > PAGE) {
+        const less = document.createElement("button");
+        less.type = "button";
+        less.className = "show-more";
+        less.innerHTML = `
+          <svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>
+          Show less
+        `;
+        less.addEventListener("click", () => {
+          state.visible[state.projectId] = PAGE;
+          renderThreads();
+        });
+        row.appendChild(less);
+      }
+
+      // Create controls live in the sticky left pin (appendCreatePin)
+    }
+
+    function findSelected() {
+      for (const proj of Object.values(DATA)) {
+        const t = proj.threads.find((x) => x.id === state.selectedId);
+        if (t) return { proj, t };
+      }
+      return null;
+    }
+
+    function updateTopBar() {
+      const found = findSelected();
+      if (!found) return;
+      const { proj, t } = found;
+
+      document.getElementById("ttbFolder").textContent = proj.name;
+      document.getElementById("ttbBranch").textContent = proj.branch;
+      document.getElementById("ttbTitle").textContent = t.title;
+      document.getElementById("ttbModel").textContent = t.model;
+      document.getElementById("ttbIcon").src = ICONS[t.provider];
+      document.getElementById("ttbIcon").className = t.provider === "grok" ? "pi lg invert" : "pi lg";
+      document.getElementById("ttbAdd").textContent = `+${t.add}`;
+      document.getElementById("ttbDel").textContent = `−${t.del}`;
+      document.getElementById("ttbCtx").textContent = `${Math.round(t.ctx * 2)}K / 200K`;
+      document.getElementById("ttbCtxFill").style.width = `${t.ctx}%`;
+      document.getElementById("composerTarget").textContent = proj.name;
+
+      const pill = document.getElementById("ttbState");
+      const label = document.getElementById("ttbStateLabel");
+      pill.className = "state-pill";
+      if (t.status === "working") {
+        pill.classList.add("running");
+        label.textContent = "Running · 1m 24s";
+      } else if (t.status === "attention") {
+        pill.classList.add("attention");
+        label.textContent = "Needs approval";
+      } else if (t.status === "done") {
+        pill.classList.add("done");
+        label.textContent = "Done · unread";
+      } else {
+        pill.classList.add("idle");
+        label.textContent = "Idle";
+      }
+
+      document.getElementById("chatUser").textContent =
+        `Looking at “${t.title}” in ${proj.name}.`;
+      document.getElementById("chatAgent").innerHTML =
+        `<strong>${t.msg}</strong> Status priority keeps this visible in the first page when space is tight.`;
+
+      // orchestrator badge = global attention count
+      let attention = 0;
+      for (const p of Object.values(DATA)) {
+        for (const th of p.threads) if (th.status === "attention") attention++;
+      }
+      document.getElementById("orchBadge").textContent = String(attention);
+    }
+
+    function render() {
+      renderProjects();
+      renderThreads();
+      updateTopBar();
+    }
+
+    // Click outside closes new menu
+    document.addEventListener("click", (e) => {
+      if (!state.newMenuOpen) return;
+      const menu = document.getElementById("newMenu");
+      if (menu.contains(e.target)) return;
+      if (e.target.closest(".pact-plus") || e.target.closest(".create-plus")) return;
+      closeNewMenu();
+      renderProjects();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && state.newMenuOpen) {
+        closeNewMenu();
+        renderProjects();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>

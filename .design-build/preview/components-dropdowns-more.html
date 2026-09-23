@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="Components · More Dropdowns" subtitle="Context menu · Project switcher · Theme picker · Filter" viewport="1040x920" -->
+<html lang="en" data-surface="app">
+<head>
+<meta charset="UTF-8"><title>Xanom — Dropdowns & Menus</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body { margin:0; padding:0; background:#111113; }
+  .board {
+    width:1040px; padding:36px; background:#0a0a0b; color:#fff; box-sizing:border-box;
+    font-family: var(--font-sans); letter-spacing:-0.015em;
+  }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:40px 36px; }
+  .cell { position:relative; min-height:300px; }
+  .label { font-size:10.5px; font-family:var(--font-mono); color:#71717a; text-transform:uppercase; letter-spacing:0.2em; margin-bottom:16px; display:block; }
+
+  /* ── Trigger row ──────────────────────────────────────────── */
+  .trigger {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:7px 11px; border-radius:9px;
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
+    color:rgba(255,255,255,0.72); font-size:13px; font-weight:500; letter-spacing:-0.01em;
+  }
+  .trigger .dot { width:7px; height:7px; border-radius:50%; }
+  .trigger .chev { margin-left:2px; color:#71717a; font-size:11px; }
+  .session-row {
+    display:flex; align-items:center; gap:9px; width:248px;
+    padding:8px 10px; border-radius:9px;
+    background:rgba(255,255,255,0.035); border:1px solid rgba(255,255,255,0.08);
+  }
+  .session-row .name { font-size:13px; color:rgba(255,255,255,0.86); font-weight:500; }
+  .session-row .meta { font-size:11px; color:#71717a; font-family:var(--font-mono); }
+  .session-row .stat { margin-left:auto; width:7px; height:7px; border-radius:50%; background:#f59e0b; box-shadow:0 0 8px rgba(245,158,11,0.6); }
+
+  /* ── Popover shell ────────────────────────────────────────── */
+  .popover {
+    position:absolute; z-index:5;
+    background:linear-gradient(180deg, rgba(24,24,27,0.96), rgba(10,10,11,0.96));
+    backdrop-filter:blur(24px) saturate(140%); -webkit-backdrop-filter:blur(24px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.09);
+    border-radius:10px; padding:5px;
+    box-shadow:0 18px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.4);
+  }
+  .pop-head {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:7px 9px 8px; font-size:10px; font-weight:600; text-transform:uppercase;
+    letter-spacing:0.16em; color:#71717a;
+  }
+  .kbd {
+    font-family:var(--font-mono); font-size:10.5px; color:#a1a1aa;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);
+    border-radius:5px; padding:1px 5px; letter-spacing:0;
+  }
+  .sep { height:1px; background:rgba(255,255,255,0.07); margin:4px 2px; }
+
+  /* menu items */
+  .item {
+    display:flex; align-items:center; gap:10px;
+    padding:7px 9px; border-radius:7px;
+    font-size:13px; color:rgba(255,255,255,0.80); letter-spacing:-0.01em;
+  }
+  .item .ico { width:14px; height:14px; opacity:0.65; display:inline-flex; flex-shrink:0; }
+  .item .sc { margin-left:auto; }
+  .item.hover { background:rgba(255,255,255,0.05); }
+  .item.danger { color:#f87171; }
+  .item.danger .ico { opacity:0.8; }
+
+  /* ── Project switcher ─────────────────────────────────────── */
+  .search {
+    display:flex; align-items:center; gap:8px; margin:2px 2px 6px;
+    padding:7px 9px; border-radius:8px;
+    background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07);
+    color:rgba(255,255,255,0.40); font-size:12.5px;
+  }
+  .search .kbd { margin-left:auto; }
+  .group-label { font-size:9.5px; font-family:var(--font-mono); color:#52525b; text-transform:uppercase; letter-spacing:0.18em; padding:6px 9px 4px; }
+  .repo { display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:7px; }
+  .repo .nm { font-size:13px; color:rgba(255,255,255,0.82); }
+  .repo .branch {
+    margin-left:auto; font-size:10.5px; font-family:var(--font-mono);
+    color:#a1a1aa; background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.08); border-radius:5px; padding:1px 6px;
+  }
+  .repo.hover { background:rgba(255,255,255,0.05); }
+
+  /* ── Theme picker ─────────────────────────────────────────── */
+  .swatch-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; padding:4px 2px 2px; }
+  .swatch {
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:9px 4px; border-radius:9px;
+    border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.015);
+  }
+  .swatch.active { border-color:rgba(52,211,153,0.5); background:rgba(52,211,153,0.06); }
+  .chip { width:26px; height:26px; border-radius:50%; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12); }
+  .swatch .tn { font-size:9.5px; color:rgba(255,255,255,0.62); letter-spacing:-0.01em; }
+  .swatch.active .tn { color:rgba(255,255,255,0.92); }
+  .swatch.custom .chip {
+    background:conic-gradient(from 0deg,#f87171,#fbbf24,#34d399,#22d3ee,#a78bfa,#fb7185,#f87171);
+  }
+
+  /* ── Status filter ────────────────────────────────────────── */
+  .filter-row { display:flex; align-items:center; gap:10px; padding:7px 9px; border-radius:7px; }
+  .check {
+    width:15px; height:15px; border-radius:4px; flex-shrink:0;
+    border:1px solid rgba(255,255,255,0.16); display:inline-flex; align-items:center; justify-content:center;
+    font-size:10px; color:#0a0a0b;
+  }
+  .check.on { background:#22d3ee; border-color:#22d3ee; }
+  .filter-row .fn { font-size:13px; color:rgba(255,255,255,0.82); display:flex; align-items:center; gap:8px; }
+  .filter-row .cdot { width:7px; height:7px; border-radius:50%; }
+  .filter-row .cnt { margin-left:auto; font-size:11px; font-family:var(--font-mono); color:#71717a; }
+</style>
+</head>
+<body>
+<div class="board">
+  <div class="grid">
+
+    <!-- ── 1. Session context menu ───────────────────────────── -->
+    <div class="cell">
+      <span class="label">Session context menu</span>
+      <div class="session-row">
+        <span class="name">refactor pty spawn</span>
+        <span class="meta">opus&nbsp;4.8</span>
+        <span class="stat"></span>
+      </div>
+      <div class="popover" style="top:64px; left:40px; min-width:212px;">
+        <div class="item hover">
+          <span class="ico">✎</span> Rename
+          <span class="sc kbd">↩</span>
+        </div>
+        <div class="sep"></div>
+        <div class="item">
+          <span class="ico">⌦</span> Archive
+          <span class="sc kbd">⌘⌫</span>
+        </div>
+        <div class="item danger">
+          <span class="ico">🗑</span> Delete
+          <span class="sc kbd">⇧⌫</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 2. Project / repo switcher ─────────────────────────── -->
+    <div class="cell">
+      <span class="label">Project switcher</span>
+      <div class="trigger">
+        <span class="dot" style="background:#34d399;"></span>
+        xanom <span class="chev">▾</span>
+      </div>
+      <div class="popover" style="top:64px; left:0; min-width:276px;">
+        <div class="search">
+          🔍 Search projects… <span class="kbd">⌘P</span>
+        </div>
+        <div class="group-label">Recent</div>
+        <div class="repo hover">
+          <span class="dot" style="width:7px;height:7px;border-radius:50%;background:#34d399;"></span>
+          <span class="nm">xanom</span>
+          <span class="branch">master</span>
+        </div>
+        <div class="repo">
+          <span class="dot" style="width:7px;height:7px;border-radius:50%;background:#a78bfa;"></span>
+          <span class="nm">paly-journalism</span>
+          <span class="branch">feat/wire</span>
+        </div>
+        <div class="repo">
+          <span class="dot" style="width:7px;height:7px;border-radius:50%;background:#22d3ee;"></span>
+          <span class="nm">context-mode</span>
+          <span class="branch">dev</span>
+        </div>
+        <div class="sep"></div>
+        <div class="item">
+          <span class="ico">📁</span> Open folder…
+          <span class="sc kbd">⌘O</span>
+        </div>
+        <div class="item">
+          <span class="ico">⬇</span> Clone from Git…
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 3. Theme picker ───────────────────────────────────── -->
+    <div class="cell">
+      <span class="label">Theme picker</span>
+      <div class="trigger">
+        <span class="dot" style="background:#34d399;"></span>
+        Midnight Glass <span class="chev">▾</span>
+      </div>
+      <div class="popover" style="top:64px; left:0; min-width:300px;">
+        <div class="pop-head">Appearance <span class="kbd">⌘,</span></div>
+        <div class="swatch-grid">
+          <div class="swatch active"><span class="chip" style="background:#34d399;"></span><span class="tn">Midnight</span></div>
+          <div class="swatch"><span class="chip" style="background:#22c55e;"></span><span class="tn">Forest</span></div>
+          <div class="swatch"><span class="chip" style="background:#3b82f6;"></span><span class="tn">Indigo</span></div>
+          <div class="swatch"><span class="chip" style="background:#fbbf24;"></span><span class="tn">Obsidian</span></div>
+          <div class="swatch"><span class="chip" style="background:#a78bfa;"></span><span class="tn">Violet</span></div>
+          <div class="swatch"><span class="chip" style="background:#fb923c;"></span><span class="tn">Sunset</span></div>
+          <div class="swatch"><span class="chip" style="background:#fb7185;"></span><span class="tn">Rose</span></div>
+          <div class="swatch"><span class="chip" style="background:#22d3ee;"></span><span class="tn">Arctic</span></div>
+          <div class="swatch"><span class="chip" style="background:#00ffaa;"></span><span class="tn">Neon</span></div>
+          <div class="swatch"><span class="chip" style="background:#d4a574;"></span><span class="tn">Mocha</span></div>
+          <div class="swatch"><span class="chip" style="background:#94a3b8;"></span><span class="tn">Slate</span></div>
+          <div class="swatch custom"><span class="chip"></span><span class="tn">Custom</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 4. Status filter ──────────────────────────────────── -->
+    <div class="cell">
+      <span class="label">Status filter</span>
+      <div class="trigger">
+        <span class="ico" style="font-size:12px;">⛃</span>
+        Filter: 3 active <span class="chev">▾</span>
+      </div>
+      <div class="popover" style="top:64px; left:0; min-width:224px;">
+        <div class="pop-head">Status</div>
+        <div class="filter-row">
+          <span class="check on">✓</span>
+          <span class="fn"><span class="cdot" style="background:#f59e0b;box-shadow:0 0 8px rgba(245,158,11,0.6);"></span>Running</span>
+          <span class="cnt">4</span>
+        </div>
+        <div class="filter-row">
+          <span class="check on">✓</span>
+          <span class="fn"><span class="cdot" style="background:#34d399;"></span>Done</span>
+          <span class="cnt">17</span>
+        </div>
+        <div class="filter-row">
+          <span class="check on">✓</span>
+          <span class="fn"><span class="cdot" style="background:#f87171;"></span>Error</span>
+          <span class="cnt">1</span>
+        </div>
+        <div class="filter-row">
+          <span class="check">&nbsp;</span>
+          <span class="fn"><span class="cdot" style="background:#71717a;"></span>Idle</span>
+          <span class="cnt">9</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

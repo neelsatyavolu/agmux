@@ -1,0 +1,29 @@
+name = "agmux-remote-relay"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+workers_dev = true
+
+# Phone UI + WS on custom domain. workers.dev stays live forever so older
+# desktop apps and phones hard-coded to *.workers.dev keep working.
+# custom_domain provisions DNS + cert on deploy (agmux.dev zone on this account).
+routes = [{ pattern = "remote.agmux.dev", custom_domain = true }]
+
+[[durable_objects.bindings]]
+name = "DESKTOP_HUB"
+class_name = "DesktopHub"
+
+# Free plan requires SQLite-backed DO classes.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DesktopHub"]
+
+# PWA at remote.agmux.dev. Marketing path agmux.dev/remote (Vercel) keeps a
+# mirrored copy so existing QR links / installed PWAs do not break.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+# SPA fallback must not swallow the WebSocket upgrade or health check.
+# (Accept: text/html navigations hit assets first unless listed here.)
+run_worker_first = ["/ws", "/health"]
+

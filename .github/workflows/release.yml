@@ -1,0 +1,358 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+# Developer ID signing + notarization secrets (from 1Password → GitHub):
+#   APPLE_CERTIFICATE            base64 of Developer ID Certificate.p12
+#   APPLE_CERTIFICATE_PASSWORD   p12 unlock password
+#   APPLE_SIGNING_IDENTITY       e.g. "Developer ID Application: Ramakrishna Satyavolu (VTQW687WBQ)"
+#   APPLE_TEAM_ID                VTQW687WBQ
+#   APPLE_API_KEY                App Store Connect Key ID
+#   APPLE_API_ISSUER             App Store Connect Issuer UUID
+#   APPLE_API_KEY_P8_BASE64      base64 of AuthKey_<KeyID>.p8
+# Also required:
+#   TAURI_SIGNING_PRIVATE_KEY    updater minisign private key
+#   RELEASES_PAT                 push to agmux-releases + homebrew-agmux
+# See ~/Documents/GitHub/APPLE_SIGNING.md
+
+jobs:
+  verify:
+    # Signing secrets and self-hosted runners exist only on the private release
+    # repo; tags on the public source repo skip the whole pipeline.
+    if: github.repository == 'neel-xanom/agmux'
+    # Tests write app-owned preferences and bind local sockets. Use a disposable
+    # hosted Mac, never the signing runners' persistent user data.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Prepare sidecar resources
+        working-directory: sidecar
+        run: |
+          npm ci
+          npm run build
+      - name: Frontend checks
+        run: |
+          npx tsc --noEmit
+          npm test
+      - name: Sidecar checks
+        working-directory: sidecar
+        run: npm test
+      - name: Rust and capture checks
+        working-directory: src-tauri
+        run: |
+          cargo test -p xanom -- --test-threads=1
+          python3 -m unittest discover -s tests -p 'test_codex_diff_hook.py'
+      - name: Owner service checks
+        working-directory: analytics-service
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+  build:
+    needs: [verify]
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            label: Apple Silicon
+            cache_key: aarch64
+          - target: x86_64-apple-darwin
+            label: Intel
+            cache_key: x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Isolate rustup/cargo dirs (per-job)
+        # Two self-hosted runners share $HOME, so parallel jobs would race over
+        # ~/.rustup/toolchains/stable-*. Pin RUSTUP_HOME and CARGO_HOME to
+        # $RUNNER_TEMP, which is unique per job.
+        run: |
+          echo "RUSTUP_HOME=$RUNNER_TEMP/.rustup" >> "$GITHUB_ENV"
+          echo "CARGO_HOME=$RUNNER_TEMP/.cargo" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: ${{ matrix.cache_key }}
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build sidecar
+        run: |
+          set -euo pipefail
+          cd sidecar
+          npm ci
+
+          # Optional @cursor/sdk-* packages only install for the npm host arch.
+          # Matrix builds (esp. x86_64 on Apple Silicon runners) must pull the
+          # target-arch package explicitly, and only that arch is copied into
+          # the app (see copy-cursor-runtime.mjs + CURSOR_SDK_PLATFORM).
+          case "${{ matrix.target }}" in
+            aarch64-apple-darwin)
+              CURSOR_PKG="@cursor/sdk-darwin-arm64"
+              CURSOR_SDK_PLATFORM="darwin-arm64"
+              ;;
+            x86_64-apple-darwin)
+              CURSOR_PKG="@cursor/sdk-darwin-x64"
+              CURSOR_SDK_PLATFORM="darwin-x64"
+              ;;
+            *)
+              echo "error: unsupported release target ${{ matrix.target }}" >&2
+              exit 1
+              ;;
+          esac
+
+          CURSOR_VER="$(node -p "require('./package-lock.json').packages['node_modules/@cursor/sdk'].version")"
+          # Host runners are Apple Silicon; npm install rejects the x64 optional
+          # package (EBADPLATFORM). npm pack has no platform gate — extract it.
+          SIDECAR_ROOT="$(pwd)"
+          NATIVE_DEST="$SIDECAR_ROOT/node_modules/@cursor/${CURSOR_PKG##*/}"
+          if [ ! -d "$NATIVE_DEST" ]; then
+            echo "Fetching Cursor native package ${CURSOR_PKG}@${CURSOR_VER} via npm pack"
+            PACK_DIR="$(mktemp -d)"
+            (
+              cd "$PACK_DIR"
+              npm pack "${CURSOR_PKG}@${CURSOR_VER}" --silent
+              TGZ="$(echo *.tgz)"
+              mkdir -p "$NATIVE_DEST"
+              tar -xzf "$TGZ" -C "$NATIVE_DEST" --strip-components=1
+            )
+            rm -rf "$PACK_DIR"
+          else
+            echo "Cursor native package already present: $NATIVE_DEST"
+          fi
+          test -d "$NATIVE_DEST"
+
+          export CURSOR_SDK_PLATFORM
+          npm run build
+
+          # @cursor/sdk-darwin-arm64 → dist/cursor-sdk-runtime/node_modules/@cursor/sdk-darwin-arm64
+          NATIVE_DIR="dist/cursor-sdk-runtime/node_modules/@cursor/${CURSOR_PKG##*/}"
+          if [ ! -d "$NATIVE_DIR" ]; then
+            echo "error: missing Cursor native runtime at $NATIVE_DIR" >&2
+            find dist/cursor-sdk-runtime/node_modules/@cursor -maxdepth 2 -type d 2>/dev/null || true
+            exit 1
+          fi
+          # Fail if a foreign darwin arch snuck in (would break notarization / wrong arch).
+          for foreign in sdk-darwin-arm64 sdk-darwin-x64; do
+            case "$CURSOR_PKG" in
+              *"/$foreign"|*"$foreign") continue ;;
+            esac
+            if [ -d "dist/cursor-sdk-runtime/node_modules/@cursor/$foreign" ]; then
+              echo "error: unexpected foreign Cursor package in runtime: @cursor/$foreign" >&2
+              exit 1
+            fi
+          done
+          echo "Cursor runtime native package OK ($CURSOR_SDK_PLATFORM → $NATIVE_DIR)"
+
+      - name: Prepare App Store Connect API key file
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_KEY \
+                   APPLE_API_ISSUER APPLE_API_KEY_P8_BASE64; do
+            if [ -z "${!v:-}" ]; then
+              echo "error: missing required secret $v" >&2
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Populate secrets from 1Password (see APPLE_SIGNING.md / workflow header)." >&2
+            exit 1
+          fi
+
+          # p8 must be a real file path for notarytool / Tauri.
+          P8_PATH="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
+          echo -n "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$P8_PATH"
+          chmod 600 "$P8_PATH"
+          if ! grep -q "BEGIN PRIVATE KEY" "$P8_PATH"; then
+            echo "error: APPLE_API_KEY_P8_BASE64 did not decode to a PEM private key" >&2
+            exit 1
+          fi
+
+          # Sanity: p12 secret is non-empty base64 (Tauri decodes APPLE_CERTIFICATE).
+          if [ "$(echo -n "$APPLE_CERTIFICATE" | base64 --decode | wc -c | tr -d ' ')" = "0" ]; then
+            echo "error: APPLE_CERTIFICATE is empty after base64 decode" >&2
+            exit 1
+          fi
+
+          # Defaults when optional identity/team secrets are unset.
+          IDENTITY='${{ secrets.APPLE_SIGNING_IDENTITY }}'
+          TEAM='${{ secrets.APPLE_TEAM_ID }}'
+          if [ -z "$IDENTITY" ]; then
+            IDENTITY='Developer ID Application: Ramakrishna Satyavolu (VTQW687WBQ)'
+          fi
+          if [ -z "$TEAM" ]; then
+            TEAM='VTQW687WBQ'
+          fi
+
+          {
+            echo "APPLE_API_KEY_PATH=$P8_PATH"
+            echo "APPLE_SIGNING_IDENTITY=$IDENTITY"
+            echo "APPLE_TEAM_ID=$TEAM"
+          } >> "$GITHUB_ENV"
+
+          echo "Apple notary key written to $P8_PATH"
+          echo "  identity: $IDENTITY"
+          echo "  team:     $TEAM"
+          echo "Signing+notarization secrets present (certificate not written to disk)."
+
+      # Cursor ships ad-hoc-signed helpers (cursorsandbox, rg) inside the
+      # resource tree. Apple notarization rejects them unless re-signed with
+      # Developer ID + hardened runtime + secure timestamp BEFORE bundling.
+      - name: Sign Cursor runtime native binaries
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+        run: bash scripts/sign-cursor-runtime-bins.sh
+
+      - name: Build Tauri app (${{ matrix.label }})
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Developer ID Application signing (from 1Password "Apple Developer ID Certificate")
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # identity + team from GITHUB_ENV (with defaults applied above)
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ env.APPLE_TEAM_ID }}
+          # Notarization (from 1Password "Xanom Apple Dev Creds")
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "agmux ${{ github.ref_name }}"
+          releaseBody: ""
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }} --bundles app,dmg,updater
+
+      - name: Clean up Apple key material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP"/AuthKey_*.p8 2>/dev/null || true
+
+  publish:
+    needs: [build]
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          # Get the body from the existing draft release (created by /update command)
+          BODY=$(gh release view "$TAG" --repo neel-xanom/agmux --json body -q '.body' 2>/dev/null || echo "")
+          if [ -z "$BODY" ]; then
+            BODY="See the assets below to download and install this version."
+          fi
+          echo "$BODY" > release-notes.md
+          gh release edit "$TAG" \
+            --repo neel-xanom/agmux \
+            --notes-file release-notes.md
+
+      - name: Publish updater assets to public repo
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          SOURCE_REPO="neel-xanom/agmux"
+          PUBLIC_REPO="neel-xanom/agmux-releases"
+
+          # Download updater artifacts from private/source release
+          mkdir -p updater-assets
+          gh release download "$TAG" \
+            --repo "$SOURCE_REPO" \
+            --pattern "latest.json" \
+            --pattern "*.tar.gz" \
+            --pattern "*.tar.gz.sig" \
+            --pattern "*.dmg" \
+            --dir updater-assets
+
+          # Rewrite download URLs in latest.json to point to the public releases repo.
+          # Handle current names plus legacy xanom names so a partial rebrand can't
+          # ship a latest.json that 404s on the private source repo.
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("updater-assets/latest.json")
+          data = json.loads(path.read_text())
+          replacements = (
+              ("neel-xanom/agmux/releases", "neel-xanom/agmux-releases/releases"),
+              ("neel-xanom/xanom/releases", "neel-xanom/agmux-releases/releases"),
+              ("neel-xanom/xanom-releases/releases", "neel-xanom/agmux-releases/releases"),
+          )
+          for meta in data.get("platforms", {}).values():
+              url = meta.get("url", "")
+              for old, new in replacements:
+                  url = url.replace(old, new)
+              meta["url"] = url
+          path.write_text(json.dumps(data, indent=2) + "\n")
+          print("latest.json platform urls:")
+          for name, meta in data.get("platforms", {}).items():
+              print(f"  {name}: {meta.get('url')}")
+          PY
+
+          # Get release notes from source repo release
+          NOTES=$(gh release view "$TAG" --repo "$SOURCE_REPO" --json body -q '.body' 2>/dev/null || echo "Updater artifacts for agmux $TAG")
+
+          # Create release on public repo (or update if exists)
+          gh release create "$TAG" \
+            --repo "$PUBLIC_REPO" \
+            --title "agmux $TAG" \
+            --notes "$NOTES" \
+            updater-assets/* \
+            || gh release upload "$TAG" \
+              --repo "$PUBLIC_REPO" \
+              --clobber \
+              updater-assets/*
+
+      - name: Update Homebrew cask
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
+        run: ./scripts/update-homebrew-cask.sh "${{ github.ref_name }}"

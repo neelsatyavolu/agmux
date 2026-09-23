@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<!-- @dsCard group="UI Kit — Xanom Commit" name="CommitDialog" subtitle="Three variants — standard, split diff, agent-drafted" viewport="1280x820" -->
+<html lang="en" data-surface="app" data-theme="midnight-glass">
+<head>
+<meta charset="UTF-8">
+<title>Xanom — Commit Dialog</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  html, body, #root {
+    height: 100%; margin: 0; padding: 0;
+    background: #0a0a0b; overflow: hidden;
+  }
+  body {
+    font-family: var(--font-sans); letter-spacing: -0.015em;
+    color: #fff;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 0%, rgba(52,211,153,0.05), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(96,165,250,0.03), transparent 60%),
+      #0a0a0b;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+
+  .titlebar {
+    height: 28px; background: rgba(0,0,0,0.40); backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; padding: 0 12px;
+    user-select: none; flex-shrink: 0;
+  }
+  .traffic { display: flex; gap: 8px; }
+  .traffic span { width: 12px; height: 12px; border-radius: 9999px; display: inline-block; }
+  .traffic .c { background: #ff5f57; } .traffic .m { background: #febc2e; } .traffic .g { background: #28c840; }
+  .title-text { margin: 0 auto; font-size: 11.5px; color: #71717a; font-family: var(--font-mono); }
+
+  @keyframes xanom-pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .pulse-dot { animation: xanom-pulse 1.6s cubic-bezier(0.16,1,0.3,1) infinite; }
+
+  @keyframes cd-fade { from{opacity:0} to{opacity:1} }
+  @keyframes cd-scale {
+    from{opacity:0; transform: translateY(6px) scale(0.985);}
+    to  {opacity:1; transform: translateY(0)   scale(1);}
+  }
+
+  /* Behind-dialog mock workspace */
+  .mock-canvas {
+    position: absolute; inset: 28px 0 0 0;
+    display: flex; flex-direction: column;
+    filter: blur(0.5px);
+  }
+  .mock-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-family: var(--font-mono); font-size: 11px; color: #52525b;
+  }
+
+  /* Variant switcher — floating */
+  .switcher {
+    position: fixed; top: 44px; left: 50%; transform: translateX(-50%);
+    z-index: 200;
+    display: inline-flex; background: rgba(0,0,0,0.60); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 3px;
+  }
+  .switcher button {
+    padding: 6px 14px; font-size: 11.5px; font-weight: 500;
+    border-radius: 7px; border: none; cursor: pointer; letter-spacing: -0.015em;
+    font-family: var(--font-sans); color: rgba(255,255,255,0.55);
+    background: transparent; display:inline-flex; align-items:center; gap: 6px;
+  }
+  .switcher button.active {
+    color: #fff; background: rgba(255,255,255,0.08);
+    box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.12), 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .switcher .label {
+    padding: 0 10px 0 12px; font-family: var(--font-mono); font-size: 10px;
+    color: #71717a; text-transform: uppercase; letter-spacing: 0.2em;
+    display: inline-flex; align-items: center;
+  }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/[email protected]/dist/umd/lucide.js"></script>
+
+<script type="text/babel" src="CommitDialog.jsx"></script>
+<script type="text/babel" src="VariantB.jsx"></script>
+<script type="text/babel" src="VariantC.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const FILES = [
+  { id: "f1", path: "src/settings/ThemePresetGrid.tsx", status: "added",    add: 112, del: 0   },
+  { id: "f2", path: "src/settings/Appearance.tsx",      status: "modified", add: 6,   del: 1   },
+  { id: "f3", path: "src/theme/useThemeStore.ts",       status: "modified", add: 21,  del: 8   },
+  { id: "f4", path: "src/theme/presets.ts",             status: "modified", add: 4,   del: 2   },
+  { id: "f5", path: "src/theme/types.ts",               status: "modified", add: 3,   del: 1   },
+  { id: "f6", path: "src/settings/index.ts",            status: "modified", add: 1,   del: 0   },
+  { id: "f7", path: "src/__tests__/theme.test.ts",      status: "modified", add: 1,   del: 10  },
+];
+
+const INITIAL_SUBJECT = "feat(settings): add theme preset picker";
+const INITIAL_BODY =
+`Introduce a ThemePresetGrid rendering all 11 named presets
+plus a Custom tile. Active preset is ringed in accent. Persistence
+goes through the existing zustand persist middleware — no new deps.
+
+Closes XNM-284.`;
+
+function MockCanvas() {
+  // A dim, non-interactive stand-in for the Task view sitting behind the modal
+  return (
+    <div className="mock-canvas">
+      <div style={{ display: "flex", flex: 1 }}>
+        <div style={{
+          width: 300, flexShrink: 0,
+          background: "rgba(0,0,0,0.30)",
+          borderRight: "1px solid rgba(255,255,255,0.06)",
+          padding: "12px 10px",
+        }}>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} style={{
+              padding: "10px 10px", margin: "4px 0", borderRadius: 7,
+              background: i === 0 ? "rgba(255,255,255,0.05)" : "transparent",
+              height: 48,
+              border: "1px solid " + (i === 0 ? "rgba(255,255,255,0.08)" : "transparent"),
+            }}/>
+          ))}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ height: 56, borderBottom: "1px solid rgba(255,255,255,0.06)" }}/>
+          <div style={{ height: 46, borderBottom: "1px solid rgba(255,255,255,0.06)" }}/>
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="mock-row">
+              <span style={{ width: 80, color: "#71717a" }}>{["read","search","edit","write","bash"][i%5]}</span>
+              <span style={{ flex: 1 }}>src/settings/…</span>
+              <span>{10 + i}:{20 + i}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [variant, setVariant] = useState(() => localStorage.getItem("xnm-commit-variant") || "A");
+  const [state, setState] = useState({
+    files: FILES,
+    stagedIds: FILES.map(f => f.id),
+    subject: INITIAL_SUBJECT,
+    body: INITIAL_BODY,
+    branch: "task/theme-preset-picker",
+    amend: false,
+    sign: true,
+    pushAfter: false,
+    author: { initial: "N", name: "Neel", email: "neel@xanom.app" },
+    coAuthors: [
+      { initial: "C", name: "Claude Opus 4.8", email: "claude@anthropic", color: "#C15F3C" },
+    ],
+  });
+
+  useEffect(() => { localStorage.setItem("xnm-commit-variant", variant); }, [variant]);
+  useEffect(() => { if (window.lucide) lucide.createIcons(); });
+
+  const actions = {
+    close: () => {},
+    commit: () => {},
+    toggleFile: (id) => setState(s => ({
+      ...s,
+      stagedIds: s.stagedIds.includes(id) ? s.stagedIds.filter(x => x !== id) : [...s.stagedIds, id],
+    })),
+    toggleAll: () => setState(s => ({
+      ...s, stagedIds: s.stagedIds.length === s.files.length ? [] : s.files.map(f => f.id),
+    })),
+    setSubject: (v) => setState(s => ({ ...s, subject: v })),
+    setBody:    (v) => setState(s => ({ ...s, body: v })),
+    toggleAmend: () => setState(s => ({ ...s, amend: !s.amend })),
+    toggleSign:  () => setState(s => ({ ...s, sign:  !s.sign })),
+    togglePush:  () => setState(s => ({ ...s, pushAfter: !s.pushAfter })),
+    generateMsg: () => setState(s => ({
+      ...s,
+      subject: "feat(settings): add ThemePresetGrid with 11 presets + custom",
+      body: "Adds a 4-column grid of preset swatches in Settings → Appearance.\nActive preset gets an emerald ring. Persisted via useThemeStore's\nexisting persist middleware.",
+    })),
+  };
+
+  const Variant = { A: CommitDialog, B: VariantB, C: VariantC }[variant];
+
+  return (
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+      <div className="titlebar">
+        <div className="traffic"><span className="c"></span><span className="m"></span><span className="g"></span></div>
+        <div className="title-text">Xanom — Task · task/theme-preset-picker</div>
+      </div>
+      <MockCanvas/>
+
+      <div className="switcher">
+        <span className="label">Variant</span>
+        <button className={variant === "A" ? "active" : ""} onClick={() => setVariant("A")}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, opacity: 0.65 }}>A</span>
+          Standard
+        </button>
+        <button className={variant === "B" ? "active" : ""} onClick={() => setVariant("B")}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, opacity: 0.65 }}>B</span>
+          Split diff
+        </button>
+        <button className={variant === "C" ? "active" : ""} onClick={() => setVariant("C")}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, opacity: 0.65 }}>C</span>
+          Agent-drafted
+        </button>
+      </div>
+
+      <Variant state={state} actions={actions}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

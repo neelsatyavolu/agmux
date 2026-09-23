@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="Components · Approval Banner" subtitle="Tool-approval banner with Accept/Deny" viewport="700x160" -->
+<html lang="en" data-surface="app">
+<head>
+<meta charset="UTF-8">
+<title>Xanom — Approval Banner</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body { margin:0; padding:0; background:#111113; }
+  .card {
+    width:700px; padding:24px 28px; background:#0a0a0b; color:#fff;
+    font-family: var(--font-sans); letter-spacing:-0.015em; box-sizing:border-box;
+  }
+  .label { font-size:10.5px; font-family:var(--font-mono); color:#71717a; text-transform:uppercase; letter-spacing:0.2em; margin-bottom:10px; display:block; }
+
+  .banner {
+    background: rgba(245,158,11,0.08);
+    border:1px solid rgba(245,158,11,0.25);
+    border-radius:10px; padding:12px 16px;
+    display:flex; align-items:center; gap:14px;
+  }
+  .glyph {
+    width:28px; height:28px; border-radius:9999px;
+    background: rgba(245,158,11,0.15); color: rgb(251,191,36);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .body { flex:1; min-width:0; }
+  .title { font-size:13px; font-weight:500; color:#fff; }
+  .sub { font-size:11px; color:#a1a1aa; margin-top:2px; font-family:var(--font-mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .timer { display:flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:12px; color:#4ade80; flex-shrink:0; }
+  .actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  /* GlassButton variant="primary" — Deny (ghost-style muted) */
+  .deny {
+    padding:5px 12px; border-radius:7px;
+    background: rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.50); font-size:12px; font-weight:500; letter-spacing:-0.015em;
+  }
+  /* Optional blue "Allow for Project" between Deny and Accept */
+  .allow {
+    padding:5px 12px; border-radius:7px;
+    background: rgba(96,165,250,0.08); border:1px solid rgba(96,165,250,0.30);
+    color:#60a5fa; font-size:12px; font-weight:500; letter-spacing:-0.015em;
+  }
+  /* GlassButton variant="accent" — Accept (emerald) */
+  .accept {
+    padding:5px 12px; border-radius:7px;
+    background:rgba(52,211,153,0.15); border:1px solid rgba(52,211,153,0.40);
+    color:#34d399; font-size:12px; font-weight:500; letter-spacing:-0.015em;
+  }
+  .shortcut { font-family:var(--font-mono); font-size:10px; opacity:0.7; margin-left:4px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <span class="label">Approval banner · awaiting user</span>
+  <div class="banner">
+    <div class="glyph">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+    </div>
+    <div class="body">
+      <div class="title">Run <span style="font-family:var(--font-mono); color:#e4e4e7;">Bash</span>?</div>
+      <div class="sub">pnpm migrate</div>
+    </div>
+    <span class="timer"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>42s</span>
+    <div class="actions">
+      <button class="deny">Deny <span class="shortcut">⌘⌫</span></button>
+      <button class="allow">Allow for Project</button>
+      <button class="accept">Accept <span class="shortcut">⌘⏎</span></button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
