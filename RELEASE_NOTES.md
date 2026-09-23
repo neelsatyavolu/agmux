@@ -1,6 +1,6 @@
 # Release Notes
 
-User-facing delta since the **last public GitHub release** (currently v4.1.3). This is the source of truth for `/release` — not a session diary.
+User-facing delta since the **last public GitHub release** (currently v4.2.0). This is the source of truth for `/release` — not a session diary.
 
 **Audience (hard rule)**
 - Write for a **non-technical person who has never coded**. They only care what they **see or experience** in the app.
@@ -26,7 +26,15 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### New
 
-- **GPT-6 Sol and Luna** — Choose the new models in Codex and OpenCode chats, with usage costs shown at their published prices.
+### Improved
+
+### Fixed
+
+## v4.2.0 — 2026-09-23
+
+### New
+
+- **GPT-6 Sol and Luna** — Choose the new models in Codex and OpenCode chats, tasks and the phone remote, with usage costs shown at their published prices.
 
 - **Claude Opus 5.5** — Select Opus 5.5 in Claude chat and see usage costs at its published price. The model menu refreshes when opened so newly installed Claude models appear without restarting agmux.
 
