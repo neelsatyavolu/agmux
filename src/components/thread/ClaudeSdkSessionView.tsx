@@ -3542,7 +3542,7 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
 
       {/* Drop zone overlay */}
       {isDragging && (
-        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-500/50 bg-blue-500/10 backdrop-blur-sm">
+        <div className="drag-drop-overlay pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-500/50 bg-blue-500/10 backdrop-blur-sm">
           <p className="text-sm font-medium text-blue-400">
             Drop files — images attach, other files paste their path
           </p>
@@ -3551,7 +3551,7 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
 
       {/* Rate limit warning banner */}
       {rateLimitWarning && (
-        <div className="absolute inset-x-0 top-0 z-30 flex items-center justify-between border-b border-amber-500/30 bg-amber-950/30 px-4 py-2 backdrop-blur-sm">
+        <div className="rate-limit-banner absolute inset-x-0 top-0 z-30 flex items-center justify-between border-b border-amber-500/30 bg-amber-950/30 px-4 py-2 backdrop-blur-sm">
           <span className="text-xs text-amber-300">{rateLimitWarning}</span>
           <button onClick={() => setRateLimitWarning(null)} className="text-xs text-zinc-400 hover:text-zinc-200">Dismiss</button>
         </div>

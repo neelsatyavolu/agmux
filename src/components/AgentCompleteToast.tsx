@@ -191,6 +191,7 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
   return (
     <motion.div
       layout
+      className="agent-complete-toast"
       initial={{ opacity: 0, y: -8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 32, scale: 0.96, filter: "blur(2px)" }}

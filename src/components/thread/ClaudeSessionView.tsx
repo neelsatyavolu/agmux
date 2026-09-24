@@ -870,7 +870,7 @@ function ClaudeSessionViewPty({ sessionId, cwd, isNew, onToggleDangerouslySkipPe
 
       {/* Reloading overlay — shown while session restarts with new permission flag */}
       {reloading && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-zinc-950/80 backdrop-blur-sm">
+        <div className="flat-opaque-overlay absolute inset-0 z-30 flex flex-col items-center justify-center bg-zinc-950/80 backdrop-blur-sm">
           <Loader2 size={24} className="mb-3 animate-spin text-blue-500" />
           <p className="text-sm text-zinc-300">
             Restarting with {localDangerouslySkipPermissions ? "full" : "standard"} permissions...

@@ -119,7 +119,7 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
 
           {/* Dialog */}
           <motion.div
-            className="relative w-80 rounded-2xl border border-white/[0.08] bg-zinc-900/70 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl"
+            className="flat-opaque-dialog relative w-80 rounded-2xl border border-white/[0.08] bg-zinc-900/70 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl"
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}

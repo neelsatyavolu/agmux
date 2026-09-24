@@ -1242,7 +1242,7 @@ export function ClaudeTerminalView({
 
       <TaskTerminalPrompt threadId={threadId} ready={tuiReady && status === "Running" && hasOutput} />
       {isDragging && (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-500/50 bg-blue-500/10 backdrop-blur-sm">
+        <div className="drag-drop-overlay pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-500/50 bg-blue-500/10 backdrop-blur-sm">
           <p className="text-sm font-medium text-blue-400">Drop image to send to Claude</p>
         </div>
       )}

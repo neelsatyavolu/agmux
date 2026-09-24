@@ -201,7 +201,7 @@ export function GeminiSessionView({ sessionId, cwd, isNew, compact, hideTopBar }
     <div className="relative flex h-full min-h-0 flex-col">
       {waitingForGoogle && (
         <div
-          className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-zinc-950/85 p-6 text-center backdrop-blur-sm"
+          className="flat-opaque-overlay absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-zinc-950/85 p-6 text-center backdrop-blur-sm"
           data-testid="gemini-google-signin"
         >
           <div className="text-sm font-medium text-zinc-100">Sign in with Google</div>
