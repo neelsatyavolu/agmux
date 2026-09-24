@@ -23,6 +23,7 @@ import { useTaskViewStore } from "../../stores/taskViewStore";
 import { activeTaskThreadId } from "../../lib/taskUtils";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useIsPresentationActive } from "../../hooks/useIsSessionActive";
+import { isAppForeground, syncPollingToAppForeground } from "../../lib/appVisibility";
 import { requestTerminalLayoutRefresh } from "../../lib/terminalRefresh";
 
 import { useThreadStore } from "../../stores/threadStore";
@@ -47,6 +48,17 @@ interface PtyExitPayload {
 
 /** How long (ms) before an idle, off-screen terminal is unloaded to free memory. */
 const TERMINAL_UNLOAD_DELAY_MS = 2 * 60 * 1000; // 2 minutes
+
+/** Usage poll cadence until the transcript reveals the model. */
+const USAGE_FAST_POLL_MS = 500;
+/** Stop fast-polling after this long even if no reply arrived (idle new session). */
+const USAGE_FAST_POLL_CAP_MS = 30_000;
+
+function sameContextUsage(a: ContextUsage | null, b: ContextUsage): boolean {
+  if (!a) return false;
+  const keys = Object.keys(b) as (keyof ContextUsage)[];
+  return keys.length === Object.keys(a).length && keys.every((k) => a[k] === b[k]);
+}
 
 function isClaudeDiscoverySelected(sessionId: string): boolean {
   const ui = useUiStore.getState();
@@ -425,13 +437,15 @@ function ClaudeSessionViewPty({ sessionId, cwd, isNew, onToggleDangerouslySkipPe
 
   // Poll for new Claude session files (initial discovery + post-/clear).
   // Keeps running for the component lifetime so /clear-created sessions
-  // are added to claudeSessionMap and hidden from the sidebar.
+  // are added to claudeSessionMap and hidden from the sidebar. Paused while
+  // the app is backgrounded; one immediate check runs on return.
   useEffect(() => {
     if (!isNew) return;
 
     let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
 
-    const interval = setInterval(async () => {
+    const tick = async () => {
       if (cancelled || !existingSessionIdsRef.current) return;
       // Only claim new sessions when THIS session is selected — prevents
       // a background session's poll from stealing another session's real ID.
@@ -453,11 +467,20 @@ function ClaudeSessionViewPty({ sessionId, cwd, isNew, onToggleDangerouslySkipPe
           setRealClaudeSessionId(newSessions[0].id);
         }
       } catch { /* ignore */ }
-    }, 2000);
+    };
+    const startPolling = () => {
+      if (interval) return;
+      interval = setInterval(() => { void tick(); }, 2000);
+    };
+    const stopPolling = () => {
+      if (interval) { clearInterval(interval); interval = null; }
+    };
+    const unsub = syncPollingToAppForeground(startPolling, stopPolling, () => { void tick(); });
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      stopPolling();
+      unsub();
     };
   }, [isNew, cwd, sessionId]);
 
@@ -766,7 +789,7 @@ function ClaudeSessionViewPty({ sessionId, cwd, isNew, onToggleDangerouslySkipPe
           const modelForWindow = snap.model ?? threadModel;
           const max = getModelContextWindow(modelForWindow);
           if (max <= 0 || used <= 0) return;
-          setContextUsage({
+          const next: ContextUsage = {
             usedTokens: used,
             maxTokens: max,
             inputTokens: snap.input_tokens,
@@ -780,33 +803,46 @@ function ClaudeSessionViewPty({ sessionId, cwd, isNew, onToggleDangerouslySkipPe
             lastOutputTokens: snap.output_tokens,
             lastCachedInputTokens: snap.cache_read_input_tokens,
             compactsAutomatically: true,
-          });
+          };
+          setContextUsage((prev) => (sameContextUsage(prev, next) ? prev : next));
         })
         .catch(() => { /* transcript not readable yet — keep previous usage */ });
     };
-    refresh();
     // Poll fast (500ms) until the first assistant reply resolves the model,
     // then fall back to the normal cadence. Without this, the sidebar
     // (which relies on the store patch) can lag several seconds behind the
     // TopBar because the slow poll misses the brief window between the
-    // assistant writing its first usage block and the UI settling.
+    // assistant writing its first usage block and the UI settling. The fast
+    // phase is capped so an idle new session doesn't poll at 2 Hz forever.
     //
     // Model resolution only runs while visible (usage poll above), so when
-    // backgrounded we start on the steady cadence immediately — still fast
-    // enough for live +N/−M while another session is focused.
+    // this session is off-screen we start on the steady cadence immediately —
+    // still fast enough for live +N/−M while another session is focused.
+    // Everything pauses while the app is backgrounded (hooks still rescan
+    // diffs on edit/stop) and refreshes once on return.
     const steadyMs = isProcessing ? 2500 : 6000;
-    if (!isTerminalVisible) {
-      const interval = window.setInterval(refresh, steadyMs);
-      return () => { cancelled = true; window.clearInterval(interval); };
-    }
-    let interval = window.setInterval(() => {
-      refresh();
-      if (modelResolved) {
-        window.clearInterval(interval);
+    const fastUntil = isTerminalVisible ? Date.now() + USAGE_FAST_POLL_CAP_MS : 0;
+    let interval: number | null = null;
+    const startPolling = () => {
+      if (interval != null) return;
+      if (modelResolved || Date.now() >= fastUntil) {
         interval = window.setInterval(refresh, steadyMs);
+        return;
       }
-    }, 500);
-    return () => { cancelled = true; window.clearInterval(interval); };
+      interval = window.setInterval(() => {
+        refresh();
+        if (modelResolved || Date.now() >= fastUntil) {
+          stopPolling();
+          interval = window.setInterval(refresh, steadyMs);
+        }
+      }, USAGE_FAST_POLL_MS);
+    };
+    const stopPolling = () => {
+      if (interval != null) { window.clearInterval(interval); interval = null; }
+    };
+    if (isAppForeground()) refresh();
+    const unsub = syncPollingToAppForeground(startPolling, stopPolling, refresh);
+    return () => { cancelled = true; stopPolling(); unsub(); };
   }, [realClaudeSessionId, cwd, sessionId, isProcessing, isTerminalVisible]);
 
   return (

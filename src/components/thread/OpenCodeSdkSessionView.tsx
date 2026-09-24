@@ -1,5 +1,5 @@
 import { FileAttachmentButton } from "./FileAttachmentButton";
-import { useEffect, useMemo, useRef, useState, useCallback, memo } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, memo, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { listen } from "@tauri-apps/api/event";
 import { ArrowUp, Bot, Square, Lock, LockOpen, ChevronDown, Map, CornerDownRight, Trash2, Sparkles } from "lucide-react";
@@ -12,6 +12,7 @@ import { mlxGatewayStatus } from "../../lib/mlx";
 import { useThreadStore } from "../../stores/threadStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useIsPresentationActive } from "../../hooks/useIsSessionActive";
+import { isAppForeground, subscribeAppVisibility } from "../../lib/appVisibility";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useComposerDraftStore } from "../../stores/composerDraftStore";
 import { MarkdownContent } from "./MarkdownContent";
@@ -676,14 +677,44 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
   }, []);
   const logRef = useRef<HTMLDivElement>(null);
   const followingTimelineRef = useRef(true);
-  // Session timeline: rebind turn ids + register scroll adapter (parity with Claude SDK).
+  // Session timeline: periodic data-turn-id rebind (parity with Claude SDK).
+  // Presentation-only: runs while this view is on screen and the app is
+  // foreground, re-running immediately when either returns. The jump
+  // handler below rebinds on its own.
+  const appForeground = useSyncExternalStore(subscribeAppVisibility, isAppForeground);
+  const timelineTurnsRef = useRef<Array<{ id: string; seq: number; promptText: string }>>([]);
+  const timelineRebindActive = isPresentationActive && appForeground;
+  useEffect(() => {
+    if (!timelineRebindActive) return;
+    let cancelled = false;
+    const rebind = async () => {
+      try {
+        const turns = await listThreadTurns(threadId, 200);
+        if (cancelled) return;
+        const rows = turns.map((t) => ({ id: t.id, promptText: t.promptText, seq: t.seq }));
+        timelineTurnsRef.current = rows;
+        rebindChatTurnIds(logRef.current, rows);
+      } catch {
+        /* ignore */
+      }
+    };
+    void rebind();
+    const id = window.setInterval(() => {
+      void rebind();
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [threadId, timelineRebindActive]);
+  // Session timeline: scroll-to-prompt adapter.
   useEffect(() => {
     let cancelled = false;
     type TurnRow = { id: string; seq: number; promptText: string };
-    const turnsCacheRef = { current: [] as TurnRow[] };
+    timelineTurnsRef.current = [];
     const loadTurns = async (force = false): Promise<TurnRow[]> => {
-      if (!force && turnsCacheRef.current.length > 0) {
-        return turnsCacheRef.current;
+      if (!force && timelineTurnsRef.current.length > 0) {
+        return timelineTurnsRef.current;
       }
       const turns = await listThreadTurns(threadId, 200);
       const rows = turns.map((t) => ({
@@ -691,19 +722,9 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
         promptText: t.promptText,
         seq: t.seq,
       }));
-      turnsCacheRef.current = rows;
+      timelineTurnsRef.current = rows;
       return rows;
     };
-    const rebind = async () => {
-      try {
-        const turns = await loadTurns(true);
-        if (cancelled) return;
-        rebindChatTurnIds(logRef.current, turns);
-      } catch {
-        /* ignore */
-      }
-    };
-    void rebind();
     const unreg = registerThreadTimelineScroll(threadId, async (turnId) => {
       let turns: TurnRow[] = [];
       try {
@@ -731,13 +752,9 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
       await flashTurnAfterScroll(root, turnId);
       return true;
     });
-    const id = window.setInterval(() => {
-      void rebind();
-    }, 4000);
     return () => {
       cancelled = true;
       unreg();
-      window.clearInterval(id);
     };
   }, [threadId]);
   const startedRef = useRef(false);

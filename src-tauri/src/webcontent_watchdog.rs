@@ -13,67 +13,97 @@ const POLL_SECS: u64 = 4;
 const DEAD_STREAK_BEFORE_RELOAD: u32 = 2;
 const RELOAD_BACKOFF_SECS: u64 = 20;
 
-/// Returns true when launchctl reports a live WebContent service for `pid`.
+/// Full launchctl verification every this many polls while the cached pid
+/// check passes, so a recycled pid cannot hide a dead renderer for long.
+const LAUNCHCTL_RECHECK_POLLS: u32 = 15;
+
+/// Returns the pid of a live WebContent service for `pid` via launchctl,
+/// `Some(0)` when launchctl could not answer (treated as alive), or `None`
+/// when the renderer is gone.
 #[cfg(target_os = "macos")]
-fn webcontent_alive(pid: u32) -> bool {
+fn webcontent_pid_from_launchctl(pid: u32) -> Option<u32> {
     let _debug_timer = crate::debug_mode::operation("webcontent_watchdog");
     let output = std::process::Command::new("launchctl")
         .args(["print", &format!("pid/{pid}")])
         .output();
     let Ok(out) = output else {
         // launchctl failed — do not treat as dead (avoid reload loops offline).
-        return true;
+        return Some(0);
     };
     if !out.status.success() {
-        return true;
+        return Some(0);
     }
     let text = String::from_utf8_lossy(&out.stdout);
-    // Services block looks like:
-    //   services = {
-    //          0      -  com.apple.WebKit.WebContent
-    //        804      -  com.apple.WebKit.WebContent.<uuid>
-    //   }
-    // A live renderer has a non-zero PID on a WebContent.<uuid> line.
-    for line in text.lines() {
-        let trimmed = line.trim();
-        if !trimmed.contains("WebKit.WebContent.") {
-            continue;
-        }
-        // First token is the PID (or 0 if dead/stub).
-        if let Some(pid_tok) = trimmed.split_whitespace().next() {
-            if let Ok(svc_pid) = pid_tok.parse::<i64>() {
-                if svc_pid > 0 {
-                    crate::debug_mode::observe_renderer(svc_pid as u32);
-                    return true;
-                }
-            }
-        }
+    let found = parse_webcontent_pid(&text);
+    if let Some(svc_pid) = found {
+        crate::debug_mode::observe_renderer(svc_pid);
     }
-    // Also accept bare com.apple.WebKit.WebContent with non-zero PID
-    // (some OS versions only list the generic name).
-    for line in text.lines() {
-        let trimmed = line.trim();
-        if !trimmed.contains("com.apple.WebKit.WebContent") {
-            continue;
-        }
-        if trimmed.contains("WebKit.WebContent.") {
-            continue; // already handled
-        }
-        if let Some(pid_tok) = trimmed.split_whitespace().next() {
-            if let Ok(svc_pid) = pid_tok.parse::<i64>() {
-                if svc_pid > 0 {
-                    crate::debug_mode::observe_renderer(svc_pid as u32);
-                    return true;
-                }
-            }
-        }
-    }
-    false
+    found
 }
 
-#[cfg(not(target_os = "macos"))]
-fn webcontent_alive(_pid: u32) -> bool {
-    true
+/// Services block looks like:
+///   services = {
+///          0      -  com.apple.WebKit.WebContent
+///        804      -  com.apple.WebKit.WebContent.<uuid>
+///   }
+/// A live renderer has a non-zero PID on a WebContent.<uuid> line; some OS
+/// versions only list the generic name.
+fn parse_webcontent_pid(text: &str) -> Option<u32> {
+    let service_pid = |uuid_line: bool| {
+        text.lines().map(str::trim).find_map(|line| {
+            if !line.contains("com.apple.WebKit.WebContent") || line.contains("WebKit.WebContent.") != uuid_line {
+                return None;
+            }
+            let svc_pid = line.split_whitespace().next()?.parse::<u32>().ok()?;
+            (svc_pid > 0).then_some(svc_pid)
+        })
+    };
+    service_pid(true).or_else(|| service_pid(false))
+}
+
+/// Cheap liveness probe for an already-known renderer pid (no subprocess).
+#[cfg(target_os = "macos")]
+fn pid_alive(pid: u32) -> bool {
+    use nix::errno::Errno;
+    use nix::sys::signal::kill;
+    use nix::unistd::Pid;
+    matches!(kill(Pid::from_raw(pid as i32), None), Ok(()) | Err(Errno::EPERM))
+}
+
+/// Tracks the renderer pid so most polls are one `kill(pid, 0)` syscall
+/// instead of spawning launchctl every few seconds.
+#[cfg(target_os = "macos")]
+struct RendererProbe {
+    known_pid: Option<u32>,
+    polls_since_launchctl: u32,
+}
+
+#[cfg(target_os = "macos")]
+impl RendererProbe {
+    fn alive(&mut self, app_pid: u32) -> bool {
+        if let Some(pid) = self.known_pid {
+            if self.polls_since_launchctl < LAUNCHCTL_RECHECK_POLLS && pid_alive(pid) {
+                self.polls_since_launchctl += 1;
+                crate::debug_mode::observe_renderer(pid);
+                return true;
+            }
+        }
+        self.polls_since_launchctl = 0;
+        match webcontent_pid_from_launchctl(app_pid) {
+            Some(0) => {
+                self.known_pid = None;
+                true
+            }
+            Some(pid) => {
+                self.known_pid = Some(pid);
+                true
+            }
+            None => {
+                self.known_pid = None;
+                false
+            }
+        }
+    }
 }
 
 /// Background poller: if WebContent is gone for two consecutive checks,
@@ -90,6 +120,7 @@ pub fn spawn(app: AppHandle) {
         .name("webcontent-watchdog".into())
         .spawn(move || {
             let pid = std::process::id();
+            let mut probe = RendererProbe { known_pid: None, polls_since_launchctl: 0 };
             let mut dead_streak: u32 = 0;
             let mut last_reload = Instant::now()
                 .checked_sub(Duration::from_secs(RELOAD_BACKOFF_SECS))
@@ -107,7 +138,7 @@ pub fn spawn(app: AppHandle) {
                     continue;
                 }
 
-                if webcontent_alive(pid) {
+                if probe.alive(pid) {
                     dead_streak = 0;
                     continue;
                 }
@@ -146,50 +177,32 @@ pub fn spawn(app: AppHandle) {
 
 #[cfg(test)]
 mod tests {
+    use super::parse_webcontent_pid;
+
     #[test]
-    fn webcontent_alive_parser_accepts_uuid_service() {
-        // Pure string checks — no live launchctl dependency.
+    fn parser_prefers_uuid_service_pid() {
         let sample = r#"
 services = {
        0      - com.apple.WebKit.WebContent
      804      - com.apple.WebKit.WebContent.187EFBFC-E195-457D-AFD2-495F0B285718
 }
 "#;
-        let mut found = false;
-        for line in sample.lines() {
-            let trimmed = line.trim();
-            if !trimmed.contains("WebKit.WebContent.") {
-                continue;
-            }
-            if let Some(pid_tok) = trimmed.split_whitespace().next() {
-                if let Ok(svc_pid) = pid_tok.parse::<i64>() {
-                    if svc_pid > 0 {
-                        found = true;
-                    }
-                }
-            }
-        }
-        assert!(found);
+        assert_eq!(parse_webcontent_pid(sample), Some(804));
+    }
 
+    #[test]
+    fn parser_accepts_generic_service_pid() {
+        let sample = "services = {\n     512      - com.apple.WebKit.WebContent\n}\n";
+        assert_eq!(parse_webcontent_pid(sample), Some(512));
+    }
+
+    #[test]
+    fn parser_reports_dead_renderer() {
         let dead = r#"
 services = {
        0      - com.apple.WebKit.WebContent
 }
 "#;
-        let mut alive = false;
-        for line in dead.lines() {
-            let trimmed = line.trim();
-            if !trimmed.contains("com.apple.WebKit.WebContent") {
-                continue;
-            }
-            if let Some(pid_tok) = trimmed.split_whitespace().next() {
-                if let Ok(svc_pid) = pid_tok.parse::<i64>() {
-                    if svc_pid > 0 {
-                        alive = true;
-                    }
-                }
-            }
-        }
-        assert!(!alive);
+        assert_eq!(parse_webcontent_pid(dead), None);
     }
 }

@@ -1,6 +1,6 @@
 import { FileAttachmentButton } from "./FileAttachmentButton";
 import { CodexUserInput, type CodexAnswers, type CodexQuestion } from "./CodexUserInput";
-import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, memo, useMemo, forwardRef } from "react";
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, memo, useMemo, forwardRef, useSyncExternalStore } from "react";
 import {
   ArrowUp,
   Square,
@@ -111,6 +111,7 @@ import { markTurnStart, showAgentCompleteToast } from "../../lib/agentToast";
 import { useUiStore } from "../../stores/uiStore";
 import { useThreadStore } from "../../stores/threadStore";
 import { useIsPresentationActive } from "../../hooks/useIsSessionActive";
+import { isAppForeground, subscribeAppVisibility } from "../../lib/appVisibility";
 import { useComposerDraftStore } from "../../stores/composerDraftStore";
 import { ContextRing } from "./ContextRing";
 import type { ContextUsage } from "./ContextRing";
@@ -3074,6 +3075,8 @@ interface MessageListProps {
   threadId: string;
   /** Only register scroll adapter in chat mode (terminal mode uses TerminalView). */
   timelineScrollEnabled?: boolean;
+  /** This chat is the visible surface; the periodic timeline rebind pauses otherwise. */
+  presentationActive?: boolean;
   sendScrollRequest: number;
   sending: boolean;
   elapsedSeconds: number;
@@ -3386,12 +3389,22 @@ CodexScroller.displayName = "CodexScroller";
 /** Stable components object — same reference across renders. */
 const CODEX_VIRTUOSO_COMPONENTS = { Header: CodexHeader, Footer: CodexFooter, Scroller: CodexScroller };
 
+type TimelineTurnRow = { id: string; seq: number; promptText: string };
+
+/** Timeline rebinds usually find the same mapping; keep the old object so Virtuoso rows skip re-rendering. */
+function sameTurnMapping(a: Record<string, string>, b: Record<string, string>): boolean {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every((k) => a[k] === b[k]);
+}
+
 const MessageList = memo(function MessageList({
   items,
   fileChanges,
   workDir,
   threadId,
   timelineScrollEnabled = true,
+  presentationActive = true,
   sendScrollRequest,
   sending,
   turnStartMs,
@@ -3413,6 +3426,8 @@ const MessageList = memo(function MessageList({
   // Which completed turns the user has re-opened, keyed by turn summary id.
   const [expandedTurns, setExpandedTurns] = useState<Record<string, boolean>>({});
   const [turnIdByUserId, setTurnIdByUserId] = useState<Record<string, string>>({});
+  const appForeground = useSyncExternalStore(subscribeAppVisibility, isAppForeground);
+  const timelineTurnsRef = useRef<TimelineTurnRow[]>([]);
   const showThinking = useSettingsStore((s) => s.settings.showThinking);
   const followingOutputRef = useRef(true);
   const timelineEntriesRef = useRef<CodexTimelineEntry[]>([]);
@@ -3550,30 +3565,20 @@ const MessageList = memo(function MessageList({
   }, [items, fileChanges, sending, turnStartMs]);
   timelineEntriesRef.current = timelineEntries;
 
-  // Session timeline: map turns → user bubbles + Virtuoso scroll-to-prompt.
+  // Session timeline: periodic turn → user bubble mapping (data-turn-id).
+  // Presentation-only: runs while this chat is on screen and the app is
+  // foreground, re-running immediately when either returns. The jump
+  // handler below loads turns and sets the mapping itself.
+  const timelineRebindActive = timelineScrollEnabled && presentationActive && appForeground;
   useEffect(() => {
-    if (!timelineScrollEnabled) return;
+    if (!timelineRebindActive) return;
     let cancelled = false;
-    type TurnRow = { id: string; seq: number; promptText: string };
-    const turnsCacheRef = { current: [] as TurnRow[] };
-    const rootFor = (): ParentNode | Document => scrollerElRef.current ?? document;
-    const loadTurns = async (force = false): Promise<TurnRow[]> => {
-      if (!force && turnsCacheRef.current.length > 0) {
-        return turnsCacheRef.current;
-      }
-      const turns = await listThreadTurns(threadId, 200);
-      const rows = turns.map((t) => ({
-        id: t.id,
-        promptText: t.promptText,
-        seq: t.seq,
-      }));
-      turnsCacheRef.current = rows;
-      return rows;
-    };
     const rebind = async () => {
       try {
-        const turnRows = await loadTurns(true);
+        const turns = await listThreadTurns(threadId, 200);
         if (cancelled) return;
+        const turnRows = turns.map((t) => ({ id: t.id, promptText: t.promptText, seq: t.seq }));
+        timelineTurnsRef.current = turnRows;
         const userKeys: string[] = [];
         const userPrompts: string[] = [];
         for (const entry of timelineEntriesRef.current) {
@@ -3582,15 +3587,44 @@ const MessageList = memo(function MessageList({
             userPrompts.push(entry.item.content || "");
           }
         }
-        setTurnIdByUserId(mapTurnIdsToUserKeys(userKeys, turnRows, userPrompts));
+        const next = mapTurnIdsToUserKeys(userKeys, turnRows, userPrompts);
+        setTurnIdByUserId((prev) => (sameTurnMapping(prev, next) ? prev : next));
       } catch {
         /* ignore */
       }
     };
     void rebind();
+    const id = window.setInterval(() => {
+      void rebind();
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [threadId, timelineRebindActive]);
+
+  // Session timeline: Virtuoso scroll-to-prompt adapter.
+  useEffect(() => {
+    if (!timelineScrollEnabled) return;
+    let cancelled = false;
+    timelineTurnsRef.current = [];
+    const rootFor = (): ParentNode | Document => scrollerElRef.current ?? document;
+    const loadTurns = async (force = false): Promise<TimelineTurnRow[]> => {
+      if (!force && timelineTurnsRef.current.length > 0) {
+        return timelineTurnsRef.current;
+      }
+      const turns = await listThreadTurns(threadId, 200);
+      const rows = turns.map((t) => ({
+        id: t.id,
+        promptText: t.promptText,
+        seq: t.seq,
+      }));
+      timelineTurnsRef.current = rows;
+      return rows;
+    };
 
     const unreg = registerThreadTimelineScroll(threadId, async (turnId) => {
-      let turns: TurnRow[] = [];
+      let turns: TimelineTurnRow[] = [];
       try {
         turns = await loadTurns(false);
         if (!turns.some((t) => t.id === turnId)) {
@@ -3621,7 +3655,8 @@ const MessageList = memo(function MessageList({
         const e = entries[i];
         return e.kind === "item" ? e.item.id : "";
       });
-      setTurnIdByUserId(mapTurnIdsToUserKeys(userKeys, turns, userPrompts));
+      const mapping = mapTurnIdsToUserKeys(userKeys, turns, userPrompts);
+      setTurnIdByUserId((prev) => (sameTurnMapping(prev, mapping) ? prev : mapping));
 
       handleContentInteraction();
       if (!virtuosoRef.current) return false;
@@ -3635,13 +3670,9 @@ const MessageList = memo(function MessageList({
       return flashed;
     });
 
-    const id = window.setInterval(() => {
-      void rebind();
-    }, 4000);
     return () => {
       cancelled = true;
       unreg();
-      window.clearInterval(id);
     };
   }, [threadId, virtuosoRef, scrollerElRef, timelineScrollEnabled, handleContentInteraction]);
 
@@ -8250,6 +8281,7 @@ export function CodexSessionView({ session, embedded, compact = false, initialVi
         workDir={workDir}
         threadId={session.id}
         timelineScrollEnabled={viewMode === "chat"}
+        presentationActive={isPresentationActive}
         sendScrollRequest={sendScrollRequest}
         sending={sending}
         elapsedSeconds={elapsedSeconds}

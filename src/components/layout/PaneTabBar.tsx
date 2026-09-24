@@ -44,6 +44,7 @@ import geminiIcon from "../../assets/gemini-icon.svg";
 import hermesIcon from "../../assets/hermes-icon.png";
 import { formatLocalModelLabel, isLocalModelSlug } from "../../lib/mlx";
 import { isCodexWorkSession } from "../../lib/coworkMode";
+import { syncPollingToAppForeground } from "../../lib/appVisibility";
 
 type ResolvedThread = {
   id: string;
@@ -655,8 +656,25 @@ export function PaneTabBar({ paneId }: Props) {
     }
     const start = Date.now();
     setElapsedMs(0);
-    const id = window.setInterval(() => setElapsedMs(Date.now() - start), 1000);
-    return () => window.clearInterval(id);
+    // Tick only while the app is foreground; elapsed derives from `start`,
+    // so the label catches up immediately on return.
+    let id: number | null = null;
+    const startTicking = () => {
+      if (id !== null) return;
+      id = window.setInterval(() => setElapsedMs(Date.now() - start), 1000);
+    };
+    const stopTicking = () => {
+      if (id === null) return;
+      window.clearInterval(id);
+      id = null;
+    };
+    const unsub = syncPollingToAppForeground(startTicking, stopTicking, () =>
+      setElapsedMs(Date.now() - start),
+    );
+    return () => {
+      stopTicking();
+      unsub();
+    };
   }, [activeIsProcessing, activeTabForTimer?.id]);
 
   if (!pane) return null;

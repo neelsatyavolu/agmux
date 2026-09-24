@@ -89,6 +89,7 @@ import { useSplitViewStore } from "../../../stores/splitViewStore";
 import { useSettingsStore } from "../../../stores/settingsStore";
 import { useTaskViewStore } from "../../../stores/taskViewStore";
 import { SessionPresentationContext } from "../../../hooks/useIsSessionActive";
+import { _resetAppVisibilityForTests } from "../../../lib/appVisibility";
 import { listen } from "@tauri-apps/api/event";
 import {
   getClaudePtySessionUsage,
@@ -1021,5 +1022,48 @@ describe("ClaudeSessionView — PTY bypass-permissions auto-accept", () => {
 
     expect(spawnMock).toHaveBeenCalled();
     expect(spawnMock.mock.calls[0][3].dangerouslySkipPermissions).toBe(false);
+  });
+});
+
+describe("ClaudeSessionView — usage poll cadence", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    seedPtyThread();
+    useUiStore.setState({
+      sidebarTab: "agents",
+      selectedClaudeSessionId: "thread-1",
+      claudeSessionMap: { "thread-1": ["real-thread-1"] },
+    } as never);
+    vi.mocked(getClaudePtySessionUsage).mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    _resetAppVisibilityForTests();
+  });
+
+  it("caps the 500ms model-discovery phase when no reply arrives", async () => {
+    render(<ClaudeSessionView {...baseProps} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    const afterFast = vi.mocked(getClaudePtySessionUsage).mock.calls.length;
+    expect(afterFast).toBeGreaterThan(40);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    // Steady 6s cadence after the cap, not another 120 fast reads.
+    expect(vi.mocked(getClaudePtySessionUsage).mock.calls.length - afterFast).toBeLessThanOrEqual(11);
+  });
+
+  it("pauses usage/diff polling while the app is backgrounded and refreshes on return", async () => {
+    render(<ClaudeSessionView {...baseProps} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    act(() => { window.dispatchEvent(new Event("blur")); });
+    const usageCalls = vi.mocked(getClaudePtySessionUsage).mock.calls.length;
+    const diffCalls = vi.mocked(getClaudeSessionDiffStats).mock.calls.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(vi.mocked(getClaudePtySessionUsage).mock.calls.length).toBe(usageCalls);
+    expect(vi.mocked(getClaudeSessionDiffStats).mock.calls.length).toBe(diffCalls);
+
+    act(() => { window.dispatchEvent(new Event("focus")); });
+    expect(vi.mocked(getClaudePtySessionUsage).mock.calls.length).toBe(usageCalls + 1);
+    expect(vi.mocked(getClaudeSessionDiffStats).mock.calls.length).toBe(diffCalls + 1);
   });
 });

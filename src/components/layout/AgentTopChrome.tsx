@@ -69,6 +69,7 @@ import { CoworkModeButton } from "./CoworkModeButton";
 const EMPTY_KIMI_SESSIONS: KimiSession[] = [];
 const EMPTY_PI_SESSIONS: PiSession[] = [];
 const EMPTY_GROK_SESSIONS: GrokSession[] = [];
+const EMPTY_SHOW_ONLY_RUNNING: Record<string, boolean> = {};
 
 type Scope = "running" | "yours" | "project";
 
@@ -103,7 +104,7 @@ export function AgentTopChrome({ onReady }: Props = {}) {
   const openSettings = useSettingsStore((s) => s.openSettings);
   const multiViewEnabled = useSettingsStore((s) => s.settings.multiViewEnabled);
   const projectOrder = useSettingsStore((s) => s.settings.projectOrder);
-  const projectShowOnlyRunning = useSettingsStore((s) => s.settings.projectShowOnlyRunning ?? {});
+  const projectShowOnlyRunning = useSettingsStore((s) => s.settings.projectShowOnlyRunning ?? EMPTY_SHOW_ONLY_RUNNING);
   const updateSettings = useSettingsStore((s) => s.updateSettings);
   const appMode = useUiStore((s) => s.appMode);
   const taskViewAllowed = useUiStore((s) => s.taskViewAllowed);

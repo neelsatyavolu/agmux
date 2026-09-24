@@ -5,7 +5,7 @@
  * emitted by the Rust SDK bridge (commands/claude_sdk.rs).
  */
 
-import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { AnimatePresence } from "framer-motion";
@@ -80,6 +80,7 @@ import { useThreadStore } from "../../stores/threadStore";
 import { useSessionNameStore } from "../../stores/sessionNameStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useIsPresentationActive } from "../../hooks/useIsSessionActive";
+import { isAppForeground, subscribeAppVisibility } from "../../lib/appVisibility";
 import type {
   SdkEvent,
   SdkTurnCompleted,
@@ -289,15 +290,31 @@ const WORKING_VERBS = [
 
 const STARBURST_AMBER = "#fb923c";
 
+type TimelineTurnRow = { id: string; seq: number; promptText: string };
+
+/** Window visible AND focused. Presentation-only timers/rAF pause otherwise. */
+function useAppForeground(): boolean {
+  return useSyncExternalStore(subscribeAppVisibility, isAppForeground);
+}
+
+/** Timeline rebinds usually find the same mapping; keep the old object so Virtuoso rows skip re-rendering. */
+function sameTurnMapping(a: Record<string, string>, b: Record<string, string>): boolean {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every((k) => a[k] === b[k]);
+}
+
 function SdkThinkingIndicator({ usage }: { usage?: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; cacheReadTokens: number } | null }) {
   const [verbIdx, setVerbIdx] = useState(0);
+  const appForeground = useAppForeground();
 
   useEffect(() => {
+    if (!appForeground) return;
     const interval = setInterval(() => {
       setVerbIdx((i) => (i + 1) % WORKING_VERBS.length);
     }, 2400);
     return () => clearInterval(interval);
-  }, []);
+  }, [appForeground]);
 
   const verb = WORKING_VERBS[verbIdx];
   const totalTokens = usage ? usage.inputTokens + usage.outputTokens : 0;
@@ -511,6 +528,7 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
   const isPresentationActive = useIsPresentationActive(sessionId);
   const isPresentationActiveRef = useRef(isPresentationActive);
   isPresentationActiveRef.current = isPresentationActive;
+  const appForeground = useAppForeground();
   /** Cowork threads use one-line tool status (no expanded bash/diff panels). */
   const isCowork = useThreadStore((s) => {
     for (const list of Object.values(s.threads)) {
@@ -841,34 +859,20 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
   firstItemIndexRef.current = firstItemIndex;
 
   // Session timeline: map turns → user uuids, register Virtuoso scroll adapter.
+  // The jump handler loads turns and sets the mapping itself, so the periodic
+  // rebind (data-turn-id on bubbles) only runs while this view is on screen
+  // and the app is foreground; it re-runs immediately when either returns.
+  const timelineTurnsRef = useRef<TimelineTurnRow[]>([]);
+  const timelineRebindActive = isPresentationActive && appForeground;
   useEffect(() => {
+    if (!timelineRebindActive) return;
     let cancelled = false;
-    type TurnRow = { id: string; seq: number; promptText: string };
-    const turnsCacheRef = { current: [] as TurnRow[] };
-    const rootFor = () =>
-      chatColumnRef.current ??
-      (document.querySelector(
-        `[data-sdk-session="${sessionId}"]`,
-      ) as HTMLElement | null);
-
-    const loadTurns = async (force = false): Promise<TurnRow[]> => {
-      if (!force && turnsCacheRef.current.length > 0) {
-        return turnsCacheRef.current;
-      }
-      const turns = await listThreadTurns(sessionId, 200);
-      const rows = turns.map((t) => ({
-        id: t.id,
-        promptText: t.promptText,
-        seq: t.seq,
-      }));
-      turnsCacheRef.current = rows;
-      return rows;
-    };
-
     const rebind = async () => {
       try {
-        const turnRows = await loadTurns(true);
+        const turns = await listThreadTurns(sessionId, 200);
         if (cancelled) return;
+        const turnRows = turns.map((t) => ({ id: t.id, promptText: t.promptText, seq: t.seq }));
+        timelineTurnsRef.current = turnRows;
         const userKeys: string[] = [];
         const userPrompts: string[] = [];
         for (const entry of renderableMessagesRef.current) {
@@ -877,16 +881,47 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
             userPrompts.push(entry.item.content || "");
           }
         }
-        setTurnIdByUserUuid(mapTurnIdsToUserKeys(userKeys, turnRows, userPrompts));
-
+        const next = mapTurnIdsToUserKeys(userKeys, turnRows, userPrompts);
+        setTurnIdByUserUuid((prev) => (sameTurnMapping(prev, next) ? prev : next));
       } catch {
         /* ignore */
       }
     };
     void rebind();
+    const id = window.setInterval(() => {
+      void rebind();
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [sessionId, timelineRebindActive]);
+
+  useEffect(() => {
+    let cancelled = false;
+    timelineTurnsRef.current = [];
+    const rootFor = () =>
+      chatColumnRef.current ??
+      (document.querySelector(
+        `[data-sdk-session="${sessionId}"]`,
+      ) as HTMLElement | null);
+
+    const loadTurns = async (force = false): Promise<TimelineTurnRow[]> => {
+      if (!force && timelineTurnsRef.current.length > 0) {
+        return timelineTurnsRef.current;
+      }
+      const turns = await listThreadTurns(sessionId, 200);
+      const rows = turns.map((t) => ({
+        id: t.id,
+        promptText: t.promptText,
+        seq: t.seq,
+      }));
+      timelineTurnsRef.current = rows;
+      return rows;
+    };
 
     const unreg = registerThreadTimelineScroll(sessionId, async (turnId) => {
-      let turns: TurnRow[] = [];
+      let turns: TimelineTurnRow[] = [];
       try {
         turns = await loadTurns(false);
         if (!turns.some((t) => t.id === turnId)) {
@@ -919,7 +954,8 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
         const e = entries[i];
         return e.kind === "item" ? e.item.uuid : "";
       });
-      setTurnIdByUserUuid(mapTurnIdsToUserKeys(userKeys, turns, userPrompts));
+      const mapping = mapTurnIdsToUserKeys(userKeys, turns, userPrompts);
+      setTurnIdByUserUuid((prev) => (sameTurnMapping(prev, mapping) ? prev : mapping));
 
       if (!virtuosoRef.current) return false;
       userUnpinnedRef.current = true;
@@ -939,13 +975,9 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
       return flashed;
     });
 
-    const id = window.setInterval(() => {
-      void rebind();
-    }, 4000);
     return () => {
       cancelled = true;
       unreg();
-      window.clearInterval(id);
     };
   }, [sessionId]);
 
@@ -2887,7 +2919,8 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
   // scrollTop unchanged) from "user scrolled up" (scrollTop decreased).  This
   // prevents large content jumps — e.g. grouped tool blocks rendering in one
   // frame — from breaking the pin, while still letting the user scroll away
-  // immediately.
+  // immediately. It deliberately keeps running while the window is visible
+  // but unfocused, so a chat watched on another monitor keeps following.
   useEffect(() => {
     if (!isWorking || !isPresentationActive) return;
 

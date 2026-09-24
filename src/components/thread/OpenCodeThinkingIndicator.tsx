@@ -1,5 +1,6 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { isAppForeground, subscribeAppVisibility } from "../../lib/appVisibility";
+import { SessionPresentationContext } from "../../hooks/useIsSessionActive";
 
 // V1 — Braille spinner thinking indicator for OpenCode SDK chats.
 // Ported from xanom-design-system/explorations/opencode-thinking (variant 1).
@@ -96,16 +97,19 @@ export function OpenCodeThinkingIndicator({
   phase = "thinking",
   trailing,
 }: OpenCodeThinkingIndicatorProps) {
-  // Pause the spinner + elapsed timer when the window is hidden. The
-  // indicator has no way of knowing whether its parent SDK session view is
-  // the active tab, so we gate on window visibility only — pane-level
-  // gating would require prop drilling or a sibling hook. Window-level
-  // gating alone catches the most common idle-laptop / background-window
-  // case, which is where these timers actually hurt.
+  // Pause the spinner + elapsed timer when the app is not foreground
+  // (hidden or unfocused window). Cached task views also provide
+  // `SessionPresentationContext`; when one says this session is not
+  // presented, pause too. Without that context (other surfaces) the
+  // indicator has no session id to resolve pane visibility, so window-level
+  // gating is all it does. Elapsed derives from `startMs`, so it catches up
+  // immediately on resume.
   const visible = useIsWindowVisible();
-  const tick = useTick(90, visible);
+  const presentation = useContext(SessionPresentationContext);
+  const active = visible && (presentation?.active ?? true);
+  const tick = useTick(90, active);
   const glyph = BRAILLE[tick % BRAILLE.length];
-  const elapsed = useElapsed(startMs, visible);
+  const elapsed = useElapsed(startMs, active);
 
   return (
     <div

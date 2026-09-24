@@ -41,6 +41,7 @@ export function ClaudeStarburstSpinner({
           height="6.2"
           rx="1"
           fill={color}
+          className="bg-pausable"
           transform={`rotate(${(i * 360) / RAY_COUNT} 12 12)`}
           style={{
             transformOrigin: "12px 12px",

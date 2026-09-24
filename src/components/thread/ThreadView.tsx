@@ -63,6 +63,7 @@ import {
   shouldKeepGrokSessionLoaded,
 } from "./grokSessionOffload";
 import { useIsPresentationActive } from "../../hooks/useIsSessionActive";
+import { isAppForeground, syncPollingToAppForeground } from "../../lib/appVisibility";
 import { requestTerminalLayoutRefresh } from "../../lib/terminalRefresh";
 import type { ContextUsage } from "./ContextRing";
 
@@ -70,6 +71,21 @@ import type { ContextUsage } from "./ContextRing";
  *  is unloaded to free memory — matches ClaudeSessionView. Grok uses
  *  module-level `GROK_OFFLOAD_DELAY_MS` so the timer survives unmount. */
 const TERMINAL_UNLOAD_DELAY_MS = 2 * 60 * 1000;
+
+/** Usage polls only matter on screen: run while the app is foreground and
+ *  refresh immediately now (if foreground) and on each return. */
+function pollWhileAppForeground(refresh: () => void, ms: number): () => void {
+  let interval: number | null = null;
+  const start = () => {
+    if (interval == null) interval = window.setInterval(refresh, ms);
+  };
+  const stop = () => {
+    if (interval != null) { window.clearInterval(interval); interval = null; }
+  };
+  if (isAppForeground()) refresh();
+  const unsub = syncPollingToAppForeground(start, stop, refresh);
+  return () => { stop(); unsub(); };
+}
 
 interface Props {
   thread: Thread;
@@ -526,11 +542,10 @@ export function ThreadView({ thread, compact = false }: Props) {
         })
         .catch(() => { /* session files may not exist yet; next poll retries */ });
     };
-    refresh();
-    const interval = window.setInterval(refresh, terminalProcessing ? 2500 : 6000);
+    const stopPolling = pollWhileAppForeground(refresh, terminalProcessing ? 2500 : 6000);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [
     thread.id,
@@ -606,11 +621,10 @@ export function ThreadView({ thread, compact = false }: Props) {
         })
         .catch(() => { /* session files may not exist yet; next poll retries */ });
     };
-    refresh();
-    const interval = window.setInterval(refresh, terminalProcessing ? 2500 : 6000);
+    const stopPolling = pollWhileAppForeground(refresh, terminalProcessing ? 2500 : 6000);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [
     thread.id,
@@ -684,11 +698,10 @@ export function ThreadView({ thread, compact = false }: Props) {
         })
         .catch(() => { /* session files may not exist yet; next poll retries */ });
     };
-    refresh();
-    const interval = window.setInterval(refresh, terminalProcessing ? 2500 : 6000);
+    const stopPolling = pollWhileAppForeground(refresh, terminalProcessing ? 2500 : 6000);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [
     thread.id,
@@ -763,11 +776,10 @@ export function ThreadView({ thread, compact = false }: Props) {
         })
         .catch(() => { /* session id / db may not exist yet; next poll retries */ });
     };
-    refresh();
-    const interval = window.setInterval(refresh, terminalProcessing ? 2500 : 6000);
+    const stopPolling = pollWhileAppForeground(refresh, terminalProcessing ? 2500 : 6000);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [
     thread.id,
@@ -856,11 +868,10 @@ export function ThreadView({ thread, compact = false }: Props) {
         })
         .catch(() => {});
     };
-    refresh();
-    const interval = window.setInterval(refresh, terminalProcessing ? 2500 : 6000);
+    const stopPolling = pollWhileAppForeground(refresh, terminalProcessing ? 2500 : 6000);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [
     thread.id,

@@ -49,19 +49,33 @@ pub struct GitDiffResult {
     pub has_changes: bool,
 }
 
+/// Read-only git invocation for polled status reads. `GIT_OPTIONAL_LOCKS=0`
+/// stops `status`/`diff` from opportunistically rewriting `.git/index`, which
+/// would wake the recursive work-dir watcher and trigger yet another refresh.
+fn git_read(path: &str, augmented_path: &str, args: &[&str]) -> Command {
+    let mut cmd = Command::new("git");
+    cmd.args(args)
+        .current_dir(path)
+        .env("PATH", augmented_path)
+        .env("GIT_OPTIONAL_LOCKS", "0");
+    cmd
+}
+
 #[tauri::command]
 pub async fn get_git_info(path: String) -> Result<GitInfo, String> {
     let _debug_timer = crate::debug_mode::operation("get_git_info");
     validate_path(&path)?;
     let augmented_path = build_augmented_path();
 
-    let output = Command::new("git")
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .current_dir(&path)
-        .env("PATH", &augmented_path)
-        .output()
-        .await
-        .map_err(|e| format!("Failed to run git: {}", e))?;
+    // Branch and upstream counts run concurrently. `rev-list @{u}...HEAD`
+    // fails exactly when no upstream is configured (fresh local branch that
+    // hasn't been pushed yet), so its exit status doubles as the upstream probe.
+    // It prints "<behind>\t<ahead>": left is the upstream, right is HEAD.
+    let (output, counts) = tokio::join!(
+        git_read(&path, &augmented_path, &["rev-parse", "--abbrev-ref", "HEAD"]).output(),
+        git_read(&path, &augmented_path, &["rev-list", "--count", "--left-right", "@{u}...HEAD"]).output(),
+    );
+    let output = output.map_err(|e| format!("Failed to run git: {}", e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -75,39 +89,12 @@ pub async fn get_git_info(path: String) -> Result<GitInfo, String> {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    // Probe for an upstream. Non-zero exit means "no upstream configured"
-    // (fresh local branch that hasn't been pushed yet). We don't care about
-    // the actual upstream name, just presence.
-    let upstream_probe = Command::new("git")
-        .args(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
-        .current_dir(&path)
-        .env("PATH", &augmented_path)
-        .output()
-        .await;
-    let has_upstream = matches!(upstream_probe, Ok(ref o) if o.status.success());
-
-    // When an upstream exists, ask git for behind/ahead counts. The
-    // `--left-right` form of `rev-list --count` prints "<behind>\t<ahead>"
-    // where the left side is the upstream and the right side is HEAD.
-    let (behind, ahead) = if has_upstream {
-        let counts = Command::new("git")
-            .args(["rev-list", "--count", "--left-right", "@{u}...HEAD"])
-            .current_dir(&path)
-            .env("PATH", &augmented_path)
-            .output()
-            .await;
-        match counts {
-            Ok(out) if out.status.success() => {
-                let text = String::from_utf8_lossy(&out.stdout);
-                let mut parts = text.split_whitespace();
-                let b = parts.next().and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
-                let a = parts.next().and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
-                (b, a)
-            }
-            _ => (0, 0),
+    let (has_upstream, behind, ahead) = match counts {
+        Ok(out) if out.status.success() => {
+            let (b, a) = parse_left_right_counts(&String::from_utf8_lossy(&out.stdout));
+            (true, b, a)
         }
-    } else {
-        (0, 0)
+        _ => (false, 0, 0),
     };
 
     Ok(GitInfo {
@@ -117,6 +104,14 @@ pub async fn get_git_info(path: String) -> Result<GitInfo, String> {
         ahead,
         behind,
     })
+}
+
+/// Parses `rev-list --count --left-right` output ("<left>\t<right>").
+fn parse_left_right_counts(text: &str) -> (u32, u32) {
+    let mut parts = text.split_whitespace();
+    let left = parts.next().and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    let right = parts.next().and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    (left, right)
 }
 
 /// HEAD commit SHA plus the `origin` remote URL (if configured).
@@ -1194,14 +1189,16 @@ pub async fn git_status_summary(path: String) -> Result<GitStatusSummary, String
     validate_path(&path)?;
     let augmented_path = build_augmented_path();
 
+    // The four reads are independent, so run them concurrently.
+    let (branch_out, unstaged_stat, staged_stat, porcelain) = tokio::join!(
+        git_read(&path, &augmented_path, &["rev-parse", "--abbrev-ref", "HEAD"]).output(),
+        git_read(&path, &augmented_path, &["diff", "--shortstat"]).output(),
+        git_read(&path, &augmented_path, &["diff", "--cached", "--shortstat"]).output(),
+        git_read(&path, &augmented_path, &["status", "--porcelain"]).output(),
+    );
+
     // Branch name
-    let branch_out = Command::new("git")
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .current_dir(&path)
-        .env("PATH", &augmented_path)
-        .output()
-        .await
-        .map_err(|e| format!("Failed to run git: {}", e))?;
+    let branch_out = branch_out.map_err(|e| format!("Failed to run git: {}", e))?;
     let branch = if branch_out.status.success() {
         String::from_utf8_lossy(&branch_out.stdout)
             .trim()
@@ -1211,35 +1208,20 @@ pub async fn git_status_summary(path: String) -> Result<GitStatusSummary, String
     };
 
     // Unstaged shortstat
-    let unstaged_stat = Command::new("git")
-        .args(["diff", "--shortstat"])
-        .current_dir(&path)
-        .env("PATH", &augmented_path)
-        .output()
-        .await
-        .map_err(|e| format!("Failed to run git diff --shortstat: {}", e))?;
+    let unstaged_stat =
+        unstaged_stat.map_err(|e| format!("Failed to run git diff --shortstat: {}", e))?;
     let unstaged_text = String::from_utf8_lossy(&unstaged_stat.stdout).to_string();
     let (u_files, u_ins, u_del) = parse_shortstat(&unstaged_text);
 
     // Staged shortstat
-    let staged_stat = Command::new("git")
-        .args(["diff", "--cached", "--shortstat"])
-        .current_dir(&path)
-        .env("PATH", &augmented_path)
-        .output()
-        .await
-        .map_err(|e| format!("Failed to run git diff --cached --shortstat: {}", e))?;
+    let staged_stat =
+        staged_stat.map_err(|e| format!("Failed to run git diff --cached --shortstat: {}", e))?;
     let staged_text = String::from_utf8_lossy(&staged_stat.stdout).to_string();
     let (s_files, s_ins, s_del) = parse_shortstat(&staged_text);
 
     // Porcelain status to detect staged vs unstaged presence
-    let porcelain = Command::new("git")
-        .args(["status", "--porcelain"])
-        .current_dir(&path)
-        .env("PATH", &augmented_path)
-        .output()
-        .await
-        .map_err(|e| format!("Failed to run git status --porcelain: {}", e))?;
+    let porcelain =
+        porcelain.map_err(|e| format!("Failed to run git status --porcelain: {}", e))?;
     let porcelain_text = String::from_utf8_lossy(&porcelain.stdout).to_string();
 
     let has_staged = porcelain_text
@@ -2218,10 +2200,7 @@ pub async fn get_git_status(work_dir: String) -> Result<std::collections::HashMa
     validate_path(&work_dir)?;
     let augmented_path = build_augmented_path();
 
-    let output = Command::new("git")
-        .args(["status", "--porcelain", "-uall"])
-        .current_dir(&work_dir)
-        .env("PATH", &augmented_path)
+    let output = git_read(&work_dir, &augmented_path, &["status", "--porcelain", "-uall"])
         .output()
         .await
         .map_err(|e| format!("Failed to run git status: {}", e))?;

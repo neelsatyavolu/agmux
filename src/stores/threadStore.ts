@@ -59,6 +59,26 @@ async function stopCursorSdkThread(thread?: Thread) {
   }
 }
 
+// Applies `patch` to the thread with `threadId`. Returns the same map when the
+// patch changed nothing, and replaces only the owning project's array, so
+// frequent hook-driven updates don't re-render every sidebar group.
+function patchThread(
+  threads: Record<string, Thread[]>,
+  threadId: string,
+  patch: (t: Thread) => Thread,
+): Record<string, Thread[]> {
+  let updated: Record<string, Thread[]> | null = null;
+  for (const [projectId, list] of Object.entries(threads)) {
+    const idx = list.findIndex((t) => t.id === threadId);
+    if (idx === -1) continue;
+    const next = patch(list[idx]);
+    if (next === list[idx]) continue;
+    updated ??= { ...threads };
+    updated[projectId] = list.map((t, i) => (i === idx ? next : t));
+  }
+  return updated ?? threads;
+}
+
 export const useThreadStore = create<ThreadState>((set, get) => ({
   threads: {},
   archivedThreads: {},
@@ -231,13 +251,8 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
 
   updateThreadStatus: (threadId, status) => {
     set((s) => {
-      const updated = { ...s.threads };
-      for (const projectId of Object.keys(updated)) {
-        updated[projectId] = updated[projectId].map((t) =>
-          t.id === threadId ? { ...t, status } : t
-        );
-      }
-      return { threads: updated };
+      const threads = patchThread(s.threads, threadId, (t) => t.status === status ? t : { ...t, status });
+      return threads === s.threads ? s : { threads };
     });
   },
 
@@ -274,13 +289,8 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   // to reflect it without waiting for the next list_threads fetch.
   setThreadModel: (threadId, model) => {
     set((s) => {
-      const updated = { ...s.threads };
-      for (const projectId of Object.keys(updated)) {
-        updated[projectId] = updated[projectId].map((t) =>
-          t.id === threadId && t.model !== model ? { ...t, model } : t
-        );
-      }
-      return { threads: updated };
+      const threads = patchThread(s.threads, threadId, (t) => t.model === model ? t : { ...t, model });
+      return threads === s.threads ? s : { threads };
     });
   },
 
@@ -298,15 +308,10 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   },
   setThreadProviderSessionId: (threadId, sessionId) => {
     set((s) => {
-      const updated = { ...s.threads };
-      for (const projectId of Object.keys(updated)) {
-        updated[projectId] = updated[projectId].map((t) =>
-          t.id === threadId && t.sdk_session_id !== sessionId
-            ? { ...t, sdk_session_id: sessionId }
-            : t
-        );
-      }
-      return { threads: updated };
+      const threads = patchThread(s.threads, threadId, (t) =>
+        t.sdk_session_id === sessionId ? t : { ...t, sdk_session_id: sessionId }
+      );
+      return threads === s.threads ? s : { threads };
     });
   },
 

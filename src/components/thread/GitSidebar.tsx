@@ -1085,19 +1085,27 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
   // Slide animation (matches EditorPanel)
   const [mounted, setMounted] = useState(open);
   const [animating, setAnimating] = useState(false);
+  // `will-change: width` only while the open/close width transition runs —
+  // a permanent hint keeps the panel on its own compositor layer.
+  const [transitioning, setTransitioning] = useState(false);
 
   useEffect(() => {
     if (open) {
       setMounted(true);
       setAnimating(true);
+      setTransitioning(true);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setAnimating(false));
       });
+      const timer = setTimeout(() => setTransitioning(false), 350);
+      return () => clearTimeout(timer);
     } else if (mounted) {
       setAnimating(true);
+      setTransitioning(true);
       const timer = setTimeout(() => {
         setMounted(false);
         setAnimating(false);
+        setTransitioning(false);
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -1540,7 +1548,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
         transition: resizing
           ? "opacity 200ms ease"
           : "width 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease",
-        willChange: "width",
+        willChange: transitioning ? "width" : undefined,
       }}
     >
       {isOpen && (

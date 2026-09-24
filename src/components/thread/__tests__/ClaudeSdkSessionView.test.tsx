@@ -212,10 +212,13 @@ vi.mock("../../../lib/commands", async (importOriginal) => {
     sdkGetChatHistoryBefore: vi.fn().mockResolvedValue([]),
     readClaudeSessionHistory: vi.fn().mockResolvedValue([]),
     forkThread: vi.fn().mockResolvedValue(undefined),
+    listThreadTurns: vi.fn().mockResolvedValue([]),
   };
 });
 
 import { ClaudeSdkSessionView } from "../ClaudeSdkSessionView";
+import { _resetAppVisibilityForTests } from "../../../lib/appVisibility";
+import { SessionPresentationContext } from "../../../hooks/useIsSessionActive";
 import { useThreadStore } from "../../../stores/threadStore";
 import { useUiStore } from "../../../stores/uiStore";
 
@@ -5974,5 +5977,53 @@ describe("ClaudeSdkSessionView — Final coverage gaps", () => {
     });
     await flush();
     expect(container.firstChild).toBeTruthy();
+  });
+});
+
+describe("ClaudeSdkSessionView — timeline rebind gating", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    _resetAppVisibilityForTests();
+  });
+
+  it("pauses the 4s turn rebind while backgrounded and reruns it immediately on return", async () => {
+    vi.useFakeTimers();
+    const cmd = await import("../../../lib/commands");
+    const listTurns = vi.mocked(cmd.listThreadTurns);
+    listTurns.mockClear();
+    const calls = () => listTurns.mock.calls.filter(([id]) => id === "tl1").length;
+    render(<ClaudeSdkSessionView sessionId="tl1" cwd="/tmp/repo" />);
+    await act(async () => { await Promise.resolve(); });
+    expect(calls()).toBe(1);
+    await act(async () => { vi.advanceTimersByTime(4000); });
+    expect(calls()).toBe(2);
+
+    act(() => { window.dispatchEvent(new Event("blur")); });
+    await act(async () => { vi.advanceTimersByTime(20_000); });
+    expect(calls()).toBe(2);
+
+    act(() => { window.dispatchEvent(new Event("focus")); });
+    await act(async () => { await Promise.resolve(); });
+    expect(calls()).toBe(3);
+  });
+
+  it("does not rebind while the cached view is not presented", async () => {
+    vi.useFakeTimers();
+    const cmd = await import("../../../lib/commands");
+    const listTurns = vi.mocked(cmd.listThreadTurns);
+    listTurns.mockClear();
+    const calls = () => listTurns.mock.calls.filter(([id]) => id === "tl2").length;
+    const view = (active: boolean) => (
+      <SessionPresentationContext.Provider value={{ id: "tl2", active }}>
+        <ClaudeSdkSessionView sessionId="tl2" cwd="/tmp/repo" />
+      </SessionPresentationContext.Provider>
+    );
+    const { rerender } = render(view(false));
+    await act(async () => { vi.advanceTimersByTime(12_000); });
+    expect(calls()).toBe(0);
+
+    rerender(view(true));
+    await act(async () => { await Promise.resolve(); });
+    expect(calls()).toBe(1);
   });
 });

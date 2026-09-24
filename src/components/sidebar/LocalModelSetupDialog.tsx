@@ -114,7 +114,7 @@ export function LocalModelSetupDialog() {
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
                   <motion.div
-                    className="h-full rounded-full bg-blue-600"
+                    className="bg-pausable h-full rounded-full bg-blue-600"
                     animate={{ width: progressPercent !== null ? `${progressPercent}%` : "30%" }}
                     transition={{ ease: "linear", duration: 0.3 }}
                     style={

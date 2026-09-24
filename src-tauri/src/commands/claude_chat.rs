@@ -1,7 +1,8 @@
 use crate::state::AppState;
 use notify::{EventKind, RecursiveMode, Watcher};
 use std::io::{BufRead, Read, Seek, SeekFrom};
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{Emitter, State};
@@ -575,6 +576,51 @@ pub struct ClaudePtyUsageSnapshot {
     pub model: Option<String>,
 }
 
+/// The Claude session views poll usage and diff stats every few seconds per
+/// open session. Transcripts can be many MB, so results are cached by file
+/// length + mtime and only recomputed after the transcript actually changes.
+struct TranscriptCache<T: Clone> {
+    entries: std::sync::Mutex<HashMap<PathBuf, (u64, std::time::SystemTime, T)>>,
+}
+
+/// Enough to cover a handful of open sessions; cleared wholesale beyond that.
+const TRANSCRIPT_CACHE_MAX: usize = 64;
+
+impl<T: Clone> TranscriptCache<T> {
+    fn new() -> Self {
+        Self { entries: std::sync::Mutex::new(HashMap::new()) }
+    }
+
+    fn stamp(path: &Path) -> Option<(u64, std::time::SystemTime)> {
+        let meta = std::fs::metadata(path).ok()?;
+        Some((meta.len(), meta.modified().ok()?))
+    }
+
+    fn get(&self, path: &Path, stamp: (u64, std::time::SystemTime)) -> Option<T> {
+        let entries = self.entries.lock().ok()?;
+        let (len, mtime, value) = entries.get(path)?;
+        ((*len, *mtime) == stamp).then(|| value.clone())
+    }
+
+    fn put(&self, path: PathBuf, stamp: (u64, std::time::SystemTime), value: T) {
+        if let Ok(mut entries) = self.entries.lock() {
+            if entries.len() >= TRANSCRIPT_CACHE_MAX && !entries.contains_key(&path) {
+                entries.clear();
+            }
+            entries.insert(path, (stamp.0, stamp.1, value));
+        }
+    }
+}
+
+static PTY_USAGE_CACHE: std::sync::LazyLock<TranscriptCache<Option<ClaudePtyUsageSnapshot>>> =
+    std::sync::LazyLock::new(TranscriptCache::new);
+static DIFF_STATS_CACHE: std::sync::LazyLock<TranscriptCache<(i64, i64, i64)>> =
+    std::sync::LazyLock::new(TranscriptCache::new);
+
+/// Bytes read from the end of the transcript before falling back to a full
+/// read. The latest usage-bearing assistant line is almost always near the end.
+const USAGE_TAIL_BYTES: u64 = 256 * 1024;
+
 #[tauri::command]
 pub async fn get_claude_pty_session_usage(
     session_id: String,
@@ -582,14 +628,52 @@ pub async fn get_claude_pty_session_usage(
 ) -> Result<Option<ClaudePtyUsageSnapshot>, String> {
     let _debug_timer = crate::debug_mode::operation("get_claude_pty_session_usage");
     let path = session_file_path(&repo_path, &session_id);
-    let content = match std::fs::read_to_string(&path) {
+    tokio::task::spawn_blocking(move || {
+        let Some(stamp) = TranscriptCache::<()>::stamp(&path) else {
+            return Ok(None);
+        };
+        if let Some(cached) = PTY_USAGE_CACHE.get(&path, stamp) {
+            return Ok(cached);
+        }
+        let snapshot = read_pty_usage(&path, stamp.0)?;
+        PTY_USAGE_CACHE.put(path, stamp, snapshot.clone());
+        Ok(snapshot)
+    })
+    .await
+    .map_err(|e| format!("usage task failed: {e}"))?
+}
+
+/// Scans the tail of the transcript first; reads the whole file only when the
+/// tail has no usage-bearing assistant line.
+fn read_pty_usage(path: &Path, len: u64) -> Result<Option<ClaudePtyUsageSnapshot>, String> {
+    let open_err = |e: std::io::Error| format!("failed to read session file: {e}");
+    let tail_start = len.saturating_sub(USAGE_TAIL_BYTES);
+    if tail_start > 0 {
+        let mut file = match std::fs::File::open(path) {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(open_err(e)),
+        };
+        file.seek(SeekFrom::Start(tail_start)).map_err(open_err)?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).map_err(open_err)?;
+        let tail = String::from_utf8_lossy(&bytes);
+        // The first line is probably cut mid-way; only whole lines count.
+        let whole_lines = tail.split_once('\n').map_or("", |(_, rest)| rest);
+        if let Some(snapshot) = latest_pty_usage(whole_lines) {
+            return Ok(Some(snapshot));
+        }
+    }
+    let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(e) => return Err(format!("failed to read session file: {e}")),
+        Err(e) => return Err(open_err(e)),
     };
+    Ok(latest_pty_usage(&content))
+}
 
-    // Scan from the end so we find the most recent usage quickly without
-    // re-parsing the full transcript.
+/// Most recent assistant message with non-zero `usage`, scanning from the end.
+fn latest_pty_usage(content: &str) -> Option<ClaudePtyUsageSnapshot> {
     let mut latest_model: Option<String> = None;
     for line in content.lines().rev() {
         let trimmed = line.trim();
@@ -629,15 +713,15 @@ pub async fn get_claude_pty_session_usage(
         if input == 0 && output == 0 && cache_creation == 0 && cache_read == 0 {
             continue;
         }
-        return Ok(Some(ClaudePtyUsageSnapshot {
+        return Some(ClaudePtyUsageSnapshot {
             input_tokens: input,
             output_tokens: output,
             cache_creation_input_tokens: cache_creation,
             cache_read_input_tokens: cache_read,
             model: model.or(latest_model),
-        }));
+        });
     }
-    Ok(None)
+    None
 }
 
 /// Diff stats for a single Claude session, on demand.
@@ -671,7 +755,15 @@ pub async fn get_claude_session_diff_stats(
     let scan_path = path.clone();
     let (lines_added, lines_removed, files_changed) =
         tokio::task::spawn_blocking(move || {
-            crate::commands::threads::scan_claude_diff_stats(&scan_path)
+            let stamp = TranscriptCache::<()>::stamp(&scan_path);
+            if let Some(cached) = stamp.and_then(|st| DIFF_STATS_CACHE.get(&scan_path, st)) {
+                return cached;
+            }
+            let stats = crate::commands::threads::scan_claude_diff_stats(&scan_path);
+            if let Some(st) = stamp {
+                DIFF_STATS_CACHE.put(scan_path, st, stats);
+            }
+            stats
         })
         .await
         .map_err(|e| format!("scan task failed: {e}"))?;
@@ -2236,5 +2328,57 @@ mod tests {
             .unwrap();
         assert_eq!(res.input_tokens, 7);
         assert_eq!(res.output_tokens, 11);
+    }
+
+    fn usage_line(input: u64, model: &str) -> String {
+        format!(
+            r#"{{"type":"assistant","message":{{"model":"{model}","usage":{{"input_tokens":{input},"output_tokens":1}}}}}}"#
+        )
+    }
+
+    #[test]
+    fn pty_usage_reads_latest_from_tail() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.jsonl");
+        let filler = format!(r#"{{"type":"user","message":{{"content":"{}"}}}}"#, "x".repeat(4096));
+        let mut body = usage_line(1, "old") + "\n";
+        for _ in 0..(USAGE_TAIL_BYTES as usize / 4096 + 4) {
+            body.push_str(&filler);
+            body.push('\n');
+        }
+        body.push_str(&(usage_line(42, "new") + "\n"));
+        std::fs::write(&path, &body).unwrap();
+        let snap = read_pty_usage(&path, body.len() as u64).unwrap().unwrap();
+        assert_eq!(snap.input_tokens, 42);
+        assert_eq!(snap.model.as_deref(), Some("new"));
+    }
+
+    #[test]
+    fn pty_usage_falls_back_to_full_read_when_tail_has_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.jsonl");
+        let filler = format!(r#"{{"type":"user","message":{{"content":"{}"}}}}"#, "x".repeat(4096));
+        let mut body = usage_line(7, "early") + "\n";
+        for _ in 0..(USAGE_TAIL_BYTES as usize / 4096 + 4) {
+            body.push_str(&filler);
+            body.push('\n');
+        }
+        std::fs::write(&path, &body).unwrap();
+        let snap = read_pty_usage(&path, body.len() as u64).unwrap().unwrap();
+        assert_eq!(snap.input_tokens, 7);
+    }
+
+    #[test]
+    fn transcript_cache_invalidates_on_stamp_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.jsonl");
+        std::fs::write(&path, "a\n").unwrap();
+        let cache: TranscriptCache<u32> = TranscriptCache::new();
+        let stamp = TranscriptCache::<()>::stamp(&path).unwrap();
+        cache.put(path.clone(), stamp, 1);
+        assert_eq!(cache.get(&path, stamp), Some(1));
+        std::fs::write(&path, "a\nb\n").unwrap();
+        let next = TranscriptCache::<()>::stamp(&path).unwrap();
+        assert_eq!(cache.get(&path, next), None);
     }
 }

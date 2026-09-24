@@ -41,6 +41,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Account usage** — Settings → Accounts now checks usage on its own, so a newly added account shows its limits without clicking Check usage. Team accounts have a Check usage button too, and keep showing their last reading, with when it was checked, instead of going blank.
 - **Phone remote works with every agent** — Droid, Kimi, Cline, Hermes, OpenCode and Gemini terminals now show their full conversation on your phone, not just what you typed. Saved Kimi, Pi and Grok sessions from your Mac's sidebar appear on the phone too, and every agent has its own icon.
 - **Approve terminal requests from your phone** — When a Claude or Kimi terminal asks for permission, Allow and Deny now appear on your phone.
+- **Lighter on battery** — agmux uses less CPU and graphics power, especially when its window is in the background or sitting idle. Spinners and status animations pause while you're in another app, and background checks run less often or wait until you come back.
 - **Phone remote polish** — The phone shows when it's loading or your Mac is offline, shows errors instead of failing silently, keeps the current model visible on small screens, no longer zooms in while you type on iPhone, and signs out right away if you revoke it on your Mac. Pairing no longer hangs, and pairing links from the iPhone app now work.
 
 ### Fixed

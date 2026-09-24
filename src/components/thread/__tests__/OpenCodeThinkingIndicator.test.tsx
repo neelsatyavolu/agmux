@@ -1,9 +1,23 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
-import { OpenCodeThinkingIndicator, formatElapsed } from "../OpenCodeThinkingIndicator";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, cleanup, act } from "@testing-library/react";
 
-afterEach(() => cleanup());
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(() => {}),
+}));
+
+import { OpenCodeThinkingIndicator, formatElapsed } from "../OpenCodeThinkingIndicator";
+import { _resetAppVisibilityForTests } from "../../../lib/appVisibility";
+import { SessionPresentationContext } from "../../../hooks/useIsSessionActive";
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  _resetAppVisibilityForTests();
+});
 
 const ELAPSED_RE = /^\d+ms$|^\d+\.\d+s$|^\d+m \d+s$|^\d+h \d+m \d+s$/;
 
@@ -123,5 +137,44 @@ describe("OpenCodeThinkingIndicator", () => {
       />,
     );
     expect(screen.getByTestId("trail-test")).toBeTruthy();
+  });
+});
+
+describe("OpenCodeThinkingIndicator background gating", () => {
+  const glyph = () => screen.getByTestId("thinking-spinner").textContent;
+
+  it("stops ticking while the window is unfocused and catches elapsed up on return", () => {
+    vi.useFakeTimers();
+    const start = Date.now();
+    render(<OpenCodeThinkingIndicator startMs={start} />);
+
+    const first = glyph();
+    act(() => { vi.advanceTimersByTime(90); });
+    expect(glyph()).not.toBe(first);
+
+    act(() => { window.dispatchEvent(new Event("blur")); });
+    const paused = glyph();
+    const pausedElapsed = screen.getByText(ELAPSED_RE).textContent;
+    act(() => { vi.advanceTimersByTime(5_000); });
+    expect(glyph()).toBe(paused);
+    expect(screen.getByText(ELAPSED_RE).textContent).toBe(pausedElapsed);
+
+    act(() => { window.dispatchEvent(new Event("focus")); });
+    // Elapsed derives from startMs, so it jumps straight to wall-clock time.
+    expect(screen.getByText(ELAPSED_RE).textContent).toBe(formatElapsed(start, Date.now()));
+    act(() => { vi.advanceTimersByTime(90); });
+    expect(glyph()).not.toBe(paused);
+  });
+
+  it("does not tick when the session presentation context says it is hidden", () => {
+    vi.useFakeTimers();
+    render(
+      <SessionPresentationContext.Provider value={{ id: "t1", active: false }}>
+        <OpenCodeThinkingIndicator startMs={Date.now()} />
+      </SessionPresentationContext.Provider>,
+    );
+    const first = glyph();
+    act(() => { vi.advanceTimersByTime(1_000); });
+    expect(glyph()).toBe(first);
   });
 });

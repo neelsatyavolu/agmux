@@ -19,6 +19,7 @@ import { getModelContextWindow } from "../../lib/types";
 import { useThreadStore } from "../../stores/threadStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useIsPresentationActive } from "../../hooks/useIsSessionActive";
+import { isAppForeground, syncPollingToAppForeground } from "../../lib/appVisibility";
 import type { ContextUsage } from "./ContextRing";
 import {
   cancelGrokSessionOffload,
@@ -201,11 +202,21 @@ export function GrokSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBar 
           // Grok creates the session files lazily; the next poll will retry.
         });
     };
-    refresh();
-    const interval = window.setInterval(refresh, 2500);
+    // Presentation-only: pause while the app is backgrounded; refresh
+    // immediately now (if foreground) and on each return.
+    let interval: number | null = null;
+    const startPolling = () => {
+      if (interval == null) interval = window.setInterval(refresh, 2500);
+    };
+    const stopPolling = () => {
+      if (interval != null) { window.clearInterval(interval); interval = null; }
+    };
+    if (isAppForeground()) refresh();
+    const unsub = syncPollingToAppForeground(startPolling, stopPolling, refresh);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
+      unsub();
     };
   }, [acpSessionId, cwd, isPresentationActive]);
 

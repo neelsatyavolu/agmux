@@ -861,6 +861,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
             }}
           >
             <span
+              className="bg-pausable"
               style={{
                 display: "block",
                 width: 5,

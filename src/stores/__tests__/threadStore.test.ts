@@ -307,9 +307,28 @@ describe("threadStore", () => {
       },
       false,
     );
+    const p2Before = useThreadStore.getState().threads.p2;
     useThreadStore.getState().updateThreadStatus("t1", "Done");
     expect(useThreadStore.getState().threads.p1[0].status).toBe("Done");
     expect(useThreadStore.getState().threads.p2[0].status).toBe("Idle");
+    // Only the owning project's array is replaced.
+    expect(useThreadStore.getState().threads.p2).toBe(p2Before);
+  });
+
+  it("no-op thread patches keep the threads map reference", () => {
+    useThreadStore.setState(
+      {
+        threads: { p1: [mkThread({ id: "t1", status: "Idle", model: "sonnet", sdk_session_id: "s1" })] },
+        archivedThreads: {},
+      },
+      false,
+    );
+    const before = useThreadStore.getState().threads;
+    useThreadStore.getState().updateThreadStatus("t1", "Idle");
+    useThreadStore.getState().setThreadModel("t1", "sonnet");
+    useThreadStore.getState().setThreadProviderSessionId("t1", "s1");
+    useThreadStore.getState().updateThreadStatus("missing", "Done");
+    expect(useThreadStore.getState().threads).toBe(before);
   });
 
   it("renameThread updates name across all project buckets", async () => {

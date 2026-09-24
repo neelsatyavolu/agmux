@@ -1090,6 +1090,7 @@ export function ThreadTopBar({
                 }}
               >
                 <span
+                  className="bg-pausable"
                   style={{
                     display: "inline-block",
                     width: 5,
@@ -1133,6 +1134,7 @@ export function ThreadTopBar({
                   }}
                 >
                   <span
+                    className="bg-pausable"
                     style={{
                       display: "inline-block",
                       width: 5,

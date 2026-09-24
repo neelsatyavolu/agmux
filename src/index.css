@@ -2085,13 +2085,23 @@ html[data-mode="light"] .effort-tick[data-filled] {
 }
 
 /* Unfocused window: stop infinite CSS animations so the compositor can idle.
-   `app-backgrounded` is toggled from appVisibility.ts. */
+   `app-backgrounded` is toggled from appVisibility.ts. Explicit list only —
+   entrance/exit animations (and their animationend handlers) must keep
+   running while backgrounded. `.bg-pausable` is the opt-in for elements
+   whose infinite animation is an inline style; animation-play-state is not
+   inherited, so it goes on the animated element itself. `.amber-glow` is
+   defined in ApprovalToast's inline <style>. */
 html.app-backgrounded .animate-breathe,
 html.app-backgrounded .animate-breathe-green,
 html.app-backgrounded .animate-breathe-amber,
 html.app-backgrounded .pulse-dot,
 html.app-backgrounded .terminal-tab-spinner,
-html.app-backgrounded .animate-spin {
+html.app-backgrounded .animate-spin,
+html.app-backgrounded .animate-ping,
+html.app-backgrounded .animate-pulse,
+html.app-backgrounded .amber-glow,
+html.app-backgrounded .pill .pulse,
+html.app-backgrounded .bg-pausable {
   animation-play-state: paused !important;
 }
 
