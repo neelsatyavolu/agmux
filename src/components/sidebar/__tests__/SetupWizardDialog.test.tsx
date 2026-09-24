@@ -137,6 +137,7 @@ describe("SetupWizardDialog", () => {
     fireEvent.click(screen.getByText("Continue"));
     expect(screen.getByText("Fonts")).toBeTruthy();
     expect(screen.getByText("Geist")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Archivo" })).toBeTruthy();
 
     fireEvent.click(screen.getByText("Continue"));
     expect(screen.getByText("Session layout")).toBeTruthy();

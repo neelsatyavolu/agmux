@@ -337,6 +337,7 @@ const SEARCH_INDEX: Record<TabId, string[]> = {
     "typography", "fonts", "font", "font family", "font size",
     "ui font", "mono font", "monospace",
     "geist", "inter", "sf pro", "zed sans", "system font",
+    "archivo", "surfaces", "flat",
     "jetbrains mono", "hack", "menlo", "zed mono",
     "ui size", "chat size", "terminal size",
     "font scaling", "text size",
@@ -2173,8 +2174,27 @@ function AppearancePage({
       </SettingsCard>
 
       {/* ── Effects ── */}
-      <SettingsCard eyebrow="Surface" title="Glass & motion" description="Tune the surface alpha and transition speed across panels and dialogs.">
-        <SettingsRow label="Animation speed" description="Controls transition and animation durations.">
+      <SettingsCard eyebrow="Surface" title="Surfaces & motion" description="Flat matches agmux.dev and the phone app. Glass is the original frosted look.">
+        <SettingsRow label="Surfaces" description="Flat panels, or frosted glass with the sliders below.">
+          <div className="flex gap-1.5">
+            {(["flat", "glass"] as const).map((s) => (
+              <SegButton
+                key={s}
+                active={(settings.surfaceStyle ?? "flat") === s}
+                color="indigo"
+                onClick={() => updateSettings({ surfaceStyle: s })}
+              >
+                {s === "flat" ? "Flat" : "Glass"}
+              </SegButton>
+            ))}
+          </div>
+        </SettingsRow>
+
+        <SettingsRow
+          label="Animation speed"
+          description="Controls transition and animation durations."
+          last={(settings.surfaceStyle ?? "flat") !== "glass"}
+        >
           <div className="flex gap-1.5">
             {(["smooth", "quick", "none"] as AnimationSpeed[]).map((s) => (
               <SegButton
@@ -2189,66 +2209,70 @@ function AppearancePage({
           </div>
         </SettingsRow>
 
-        <SettingsRow
-          label="Glass intensity"
-          description="Overall opacity of glass surfaces — lower is more transparent."
-        >
-          <div className="flex items-center gap-3">
-            <Slider
-              value={settings.glassIntensity ?? 50}
-              min={0}
-              max={100}
-              onChange={(v) => updateSettings({ glassIntensity: v })}
-            />
-            <span className="w-8 text-right text-xs tabular-nums text-zinc-400">{settings.glassIntensity ?? 50}%</span>
-          </div>
-        </SettingsRow>
+        {(settings.surfaceStyle ?? "flat") === "glass" && (
+          <>
+            <SettingsRow
+              label="Glass intensity"
+              description="Overall opacity of glass surfaces — lower is more transparent."
+            >
+              <div className="flex items-center gap-3">
+                <Slider
+                  value={settings.glassIntensity ?? 50}
+                  min={0}
+                  max={100}
+                  onChange={(v) => updateSettings({ glassIntensity: v })}
+                />
+                <span className="w-8 text-right text-xs tabular-nums text-zinc-400">{settings.glassIntensity ?? 50}%</span>
+              </div>
+            </SettingsRow>
 
-        <SettingsRow
-          label="Glass blur"
-          description="Backdrop blur intensity for glass surfaces (0–24 px)."
-        >
-          <div className="flex items-center gap-3">
-            <Slider
-              value={settings.glassBlur ?? 12}
-              min={0}
-              max={24}
-              onChange={(v) => updateSettings({ glassBlur: v })}
-            />
-            <span className="w-8 text-right text-xs tabular-nums text-zinc-400">{settings.glassBlur ?? 12}px</span>
-          </div>
-        </SettingsRow>
+            <SettingsRow
+              label="Glass blur"
+              description="Backdrop blur intensity for glass surfaces (0–24 px)."
+            >
+              <div className="flex items-center gap-3">
+                <Slider
+                  value={settings.glassBlur ?? 12}
+                  min={0}
+                  max={24}
+                  onChange={(v) => updateSettings({ glassBlur: v })}
+                />
+                <span className="w-8 text-right text-xs tabular-nums text-zinc-400">{settings.glassBlur ?? 12}px</span>
+              </div>
+            </SettingsRow>
 
-        <SettingsRow
-          label="Border brightness"
-          description="Visibility of borders and dividers throughout the UI."
-        >
-          <div className="flex items-center gap-3">
-            <Slider
-              value={settings.borderBrightness ?? 50}
-              min={0}
-              max={100}
-              onChange={(v) => updateSettings({ borderBrightness: v })}
-            />
-            <span className="w-8 text-right text-xs tabular-nums text-zinc-400">{settings.borderBrightness ?? 50}%</span>
-          </div>
-        </SettingsRow>
+            <SettingsRow
+              label="Border brightness"
+              description="Visibility of borders and dividers throughout the UI."
+            >
+              <div className="flex items-center gap-3">
+                <Slider
+                  value={settings.borderBrightness ?? 50}
+                  min={0}
+                  max={100}
+                  onChange={(v) => updateSettings({ borderBrightness: v })}
+                />
+                <span className="w-8 text-right text-xs tabular-nums text-zinc-400">{settings.borderBrightness ?? 50}%</span>
+              </div>
+            </SettingsRow>
 
-        <SettingsRow
-          label="Sidebar opacity"
-          description="Background opacity of the sidebar panel (0–100%)."
-          last
-        >
-          <div className="flex items-center gap-3">
-            <Slider
-              value={settings.sidebarOpacity ?? 30}
-              min={0}
-              max={100}
-              onChange={(v) => updateSettings({ sidebarOpacity: v })}
-            />
-            <span className="w-8 text-right text-xs tabular-nums text-zinc-400">{settings.sidebarOpacity ?? 30}%</span>
-          </div>
-        </SettingsRow>
+            <SettingsRow
+              label="Sidebar opacity"
+              description="Background opacity of the sidebar panel (0–100%)."
+              last
+            >
+              <div className="flex items-center gap-3">
+                <Slider
+                  value={settings.sidebarOpacity ?? 30}
+                  min={0}
+                  max={100}
+                  onChange={(v) => updateSettings({ sidebarOpacity: v })}
+                />
+                <span className="w-8 text-right text-xs tabular-nums text-zinc-400">{settings.sidebarOpacity ?? 30}%</span>
+              </div>
+            </SettingsRow>
+          </>
+        )}
       </SettingsCard>
     </div>
   );
@@ -2267,17 +2291,17 @@ function TypographyPage({
     <div>
       <PageHeader title="Typography" description="Fonts and font sizes across the entire app." />
 
-      <SettingsCard className="mb-6" eyebrow="Typography" title="Font families" description="Geist is canonical. Pick alternatives if you prefer them at small sizes.">
+      <SettingsCard className="mb-6" eyebrow="Typography" title="Font families" description="Archivo is the default and matches agmux.dev and the phone app.">
         <SettingsRow label="UI font" description="Font used throughout the interface.">
           <div className="flex gap-1.5 flex-wrap justify-end">
-            {(["geist", "inter", "sf-pro", "zed-sans", "system"] as UIFont[]).map((f) => (
+            {(["archivo", "geist", "inter", "sf-pro", "zed-sans", "system"] as UIFont[]).map((f) => (
               <SegButton
                 key={f}
-                active={(settings.uiFont ?? "geist") === f}
+                active={(settings.uiFont ?? "archivo") === f}
                 color="indigo"
                 onClick={() => updateSettings({ uiFont: f })}
               >
-                {f === "geist" ? "Geist" : f === "inter" ? "Inter" : f === "sf-pro" ? "SF Pro" : f === "zed-sans" ? "Zed Sans" : "System"}
+                {f === "archivo" ? "Archivo" : f === "geist" ? "Geist" : f === "inter" ? "Inter" : f === "sf-pro" ? "SF Pro" : f === "zed-sans" ? "Zed Sans" : "System"}
               </SegButton>
             ))}
           </div>

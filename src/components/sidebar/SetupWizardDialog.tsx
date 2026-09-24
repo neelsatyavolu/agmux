@@ -46,6 +46,7 @@ import type { AvailableProvider, LocalModelVariant } from "../../lib/commands";
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const UI_FONTS: { value: UIFont; label: string }[] = [
+  { value: "archivo", label: "Archivo" },
   { value: "geist", label: "Geist" },
   { value: "inter", label: "Inter" },
   { value: "sf-pro", label: "SF Pro" },
@@ -488,7 +489,7 @@ function TypographyStep({
         {UI_FONTS.map((f) => (
           <ChoiceButton
             key={f.value}
-            active={(uiFont ?? "geist") === f.value}
+            active={(uiFont ?? "archivo") === f.value}
             onClick={() => onSetUiFont(f.value)}
           >
             {f.label}
@@ -1233,7 +1234,7 @@ export function SetupWizardDialog() {
                   )}
                   {stepId === "typography" && (
                     <TypographyStep
-                      uiFont={settings.uiFont ?? "geist"}
+                      uiFont={settings.uiFont ?? "archivo"}
                       monoFont={settings.monoFont ?? "geist-mono"}
                       onSetUiFont={(f) => updateSettings({ uiFont: f })}
                       onSetMonoFont={(f) => updateSettings({ monoFont: f })}

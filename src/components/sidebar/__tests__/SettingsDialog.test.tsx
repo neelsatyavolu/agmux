@@ -200,6 +200,17 @@ describe("SettingsDialog", () => {
     expect(screen.getAllByText("Appearance").length).toBeGreaterThan(0);
   });
 
+  it("switches surfaces and only shows glass sliders for Glass", async () => {
+    useSettingsStore.getState().updateSettings({ surfaceStyle: "flat" });
+    useSettingsStore.getState().openSettings();
+    render(<SettingsDialog />);
+    fireEvent.click(screen.getByText("Appearance"));
+    expect(screen.queryByText("Glass intensity")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Glass" }));
+    expect(useSettingsStore.getState().settings.surfaceStyle).toBe("glass");
+    expect(screen.getByText("Glass intensity")).toBeTruthy();
+  });
+
   
 
   it("switches to Notifications tab", () => {
@@ -297,6 +308,14 @@ describe("SettingsDialog", () => {
     render(<SettingsDialog />);
     fireEvent.click(screen.getByText("Typography"));
     expect(screen.getAllByText("Typography").length).toBeGreaterThan(0);
+  });
+
+  it("offers Archivo first in Typography", () => {
+    useSettingsStore.getState().openSettings();
+    render(<SettingsDialog />);
+    fireEvent.click(screen.getByText("Typography"));
+    fireEvent.click(screen.getByRole("button", { name: "Archivo" }));
+    expect(useSettingsStore.getState().settings.uiFont).toBe("archivo");
   });
 
   it("settings store remains consistent after a tab switch", () => {
