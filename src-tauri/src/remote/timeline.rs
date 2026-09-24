@@ -1006,10 +1006,21 @@ fn apply_claude_queue_overlay(
         return;
     }
     let raw = String::from_utf8_lossy(&buf);
+    let lines = raw.lines().skip(if len > TAIL { 1 } else { 0 });
+    let (delivered, pending) = scan_claude_queue(lines);
+    if delivered.is_empty() && pending.is_empty() {
+        return;
+    }
+    merge_claude_queue(entries, delivered, pending);
+}
 
-    let mut delivered: Vec<(String, String, i64)> = Vec::new(); // (uuid, prompt, ts)
-    let mut pending: Vec<(String, i64)> = Vec::new(); // (content, ts)
-    for line in raw.lines().skip(if len > TAIL { 1 } else { 0 }) {
+/// Delivered steering `(uuid, prompt, ts)` and still-pending `(content, ts)`.
+type ClaudeQueueScan = (Vec<(String, String, i64)>, Vec<(String, i64)>);
+
+fn scan_claude_queue<'a>(lines: impl Iterator<Item = &'a str>) -> ClaudeQueueScan {
+    let mut delivered: Vec<(String, String, i64)> = Vec::new();
+    let mut pending: Vec<(String, i64)> = Vec::new();
+    for line in lines {
         let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { continue };
         match v.get("type").and_then(|t| t.as_str()) {
             Some("queue-operation") => {
@@ -1018,8 +1029,15 @@ fn apply_claude_queue_overlay(
                 let ts = parse_log_ts(v.get("timestamp").and_then(|t| t.as_str()).unwrap_or(""));
                 match op {
                     "enqueue" => pending.push((content.to_string(), ts)),
+                    // Claude Code writes `dequeue` without `content` when it
+                    // sends the front of the queue (e.g. a `!` bash command
+                    // typed mid-turn), so an unmatched dequeue pops the oldest.
                     "dequeue" | "remove" => {
-                        if let Some(pos) = pending.iter().position(|(c, _)| c == content) {
+                        let pos = pending
+                            .iter()
+                            .position(|(c, _)| c == content)
+                            .or_else(|| (op == "dequeue" && content.is_empty() && !pending.is_empty()).then_some(0));
+                        if let Some(pos) = pos {
                             pending.remove(pos);
                         }
                     }
@@ -1043,10 +1061,14 @@ fn apply_claude_queue_overlay(
             _ => {}
         }
     }
-    if delivered.is_empty() && pending.is_empty() {
-        return;
-    }
+    (delivered, pending)
+}
 
+fn merge_claude_queue(
+    entries: &mut Vec<MobileTimelineEntry>,
+    delivered: Vec<(String, String, i64)>,
+    pending: Vec<(String, i64)>,
+) {
     // Drop the turn-boundary duplicate user rows (same text, later ts).
     for (_, prompt, ts) in &delivered {
         if let Some(pos) = entries.iter().position(|e| {
@@ -2185,6 +2207,32 @@ mod tests {
             log_type: log_type.into(),
             rowid: None,
         }
+    }
+
+    #[test]
+    fn claude_queue_dequeue_without_content_pops_oldest() {
+        // Real Claude Code shape: a `!` command typed mid-turn is enqueued with
+        // content, then sent with a content-less dequeue.
+        let log = [
+            r#"{"type":"queue-operation","operation":"enqueue","timestamp":"2026-09-24T18:04:51.084Z","content":"cd site && git push"}"#,
+            r#"{"type":"queue-operation","operation":"enqueue","timestamp":"2026-09-24T18:04:55.000Z","content":"second"}"#,
+            r#"{"type":"queue-operation","operation":"dequeue","timestamp":"2026-09-24T18:05:45.022Z"}"#,
+        ];
+        let (delivered, pending) = scan_claude_queue(log.into_iter());
+        assert!(delivered.is_empty());
+        assert_eq!(pending.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(), vec!["second"]);
+    }
+
+    #[test]
+    fn claude_queue_remove_matches_content_and_keeps_unrelated() {
+        let log = [
+            r#"{"type":"queue-operation","operation":"enqueue","timestamp":"2026-09-24T17:57:26.010Z","content":"first"}"#,
+            r#"{"type":"queue-operation","operation":"enqueue","timestamp":"2026-09-24T17:57:27.000Z","content":"steer"}"#,
+            r#"{"type":"queue-operation","operation":"remove","timestamp":"2026-09-24T17:57:29.708Z","content":"steer","reason":"absorbed_mid_turn"}"#,
+            r#"{"type":"queue-operation","operation":"remove","timestamp":"2026-09-24T17:57:30.000Z","content":"never queued"}"#,
+        ];
+        let (_, pending) = scan_claude_queue(log.into_iter());
+        assert_eq!(pending.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(), vec!["first"]);
     }
 
     #[test]
