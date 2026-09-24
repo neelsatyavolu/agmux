@@ -7,6 +7,7 @@ import { StartupGate } from "./components/StartupGate";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeProvider } from "./components/ThemeProvider";
 import "./index.css";
+import "./styles/unified.css";
 
 // Prevent browser from navigating to dropped files outside valid drop zones
 document.addEventListener("dragover", (e) => e.preventDefault());

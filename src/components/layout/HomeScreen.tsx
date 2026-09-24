@@ -730,7 +730,7 @@ export function HomeScreen() {
           <section className="mb-7 grid grid-cols-[56px_1fr_auto] items-center gap-4">
             <div className="relative">
               <div
-                className="absolute -inset-2 -z-[1] rounded-[20px] opacity-60 blur-md"
+                className="home-icon-glow absolute -inset-2 -z-[1] rounded-[20px] opacity-60 blur-md"
                 style={{ background: "radial-gradient(circle, rgba(247,173,60,0.30), transparent 70%)" }}
               />
               <img
@@ -751,7 +751,7 @@ export function HomeScreen() {
                 {clock}
               </span>
               <h1
-                className="text-[28px] font-semibold leading-tight text-zinc-100"
+                className="ui-display text-[28px] font-semibold leading-tight text-zinc-100"
                 style={{ letterSpacing: "-0.02em" }}
               >
                 Welcome back, {greetingName}.{" "}

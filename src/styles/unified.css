@@ -1,0 +1,160 @@
+/* Unified design (2026-09): the Mac app on the same system as agmux.dev and
+   remote.agmux.dev. Loaded after index.css. These rules are unlayered, so they
+   win over Tailwind utilities without !important. Surface rules are scoped to
+   html[data-surface="flat"]; html[data-surface="glass"] keeps the original look. */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("../assets/fonts/Archivo-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --brand-gold: #f2a516;
+  --ui-canvas: #0f1115;
+  --ui-sidebar: #13161b;
+  --ui-panel: #1a1e25;
+  --ui-panel-2: #232833;
+  --ui-rule: #252a33;
+  --ui-rule-2: #313744;
+  --ui-code: #0b0d10;
+  --ui-scrim: rgba(5, 6, 8, 0.6);
+  --ui-shadow-pop: 0 18px 50px -14px rgba(0, 0, 0, 0.65);
+  --ui-shadow-comp: 0 10px 34px -16px rgba(0, 0, 0, 0.7);
+}
+html[data-mode="light"] {
+  --ui-canvas: #f7f8fa;
+  --ui-sidebar: #edf0f3;
+  --ui-panel: #ffffff;
+  --ui-panel-2: #e6e9ee;
+  --ui-rule: #dde1e6;
+  --ui-rule-2: #cdd2d9;
+  --ui-code: #f2f4f7;
+  --ui-scrim: rgba(23, 27, 34, 0.35);
+  --ui-shadow-pop: 0 18px 50px -18px rgba(23, 27, 34, 0.28);
+  --ui-shadow-comp: 0 10px 30px -18px rgba(23, 27, 34, 0.3);
+}
+
+/* ── Type ── */
+/* Page titles: the landing page's condensed display cut. */
+.ui-display {
+  font-stretch: 72%;
+  font-weight: 800;
+  letter-spacing: -0.012em;
+}
+
+/* ── Flat surfaces ── */
+html[data-surface="flat"] {
+  --surface-popover: var(--ui-panel);
+  --surface-popover-gradient-from: var(--ui-panel);
+  --surface-popover-gradient-to: var(--ui-panel);
+  --surface-popover-arrow: var(--ui-panel);
+  --surface-code-panel: var(--ui-code);
+  --surface-commit-dialog: var(--ui-panel);
+  --surface-modal: var(--ui-panel);
+  --surface-tab-inactive: var(--ui-sidebar);
+  --surface-tab-inactive-hover: var(--ui-panel);
+  --surface-tab-inactive-border: var(--ui-rule);
+  --surface-tab-inactive-border-hover: var(--ui-rule-2);
+  --hairline: var(--ui-rule);
+}
+
+/* No frosted glass in flat mode: depth comes from panel color, not blur. */
+html[data-surface="flat"] *,
+html[data-surface="flat"] *::before,
+html[data-surface="flat"] *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-surface="flat"] .codex-wall {
+  background: var(--ui-canvas);
+}
+html[data-surface="flat"] .codex-wall::after {
+  display: none;
+}
+html[data-surface="flat"] .codex-glass {
+  background: var(--ui-canvas);
+}
+html[data-surface="flat"] .codex-topbar {
+  background: var(--ui-canvas);
+  border-bottom-color: var(--ui-rule);
+}
+html[data-surface="flat"] .sidebar-bg {
+  background: var(--ui-sidebar);
+  border-right-color: var(--ui-rule);
+  box-shadow: none;
+}
+html[data-surface="flat"] .sb-row:hover,
+html[data-surface="flat"] .sb-thread-row:hover {
+  background: var(--glass-hover);
+}
+html[data-surface="flat"] .sb-row.on,
+html[data-surface="flat"] .sb-row[data-active="true"],
+html[data-surface="flat"] .sb-thread-row[data-active="true"] {
+  background: var(--ui-panel);
+  box-shadow: inset 0 0 0 1px var(--ui-rule);
+}
+
+/* Home */
+html[data-surface="flat"] .home-screen-grid,
+html[data-surface="flat"] .home-icon-glow {
+  display: none;
+}
+
+/* Splash + mode switch overlay */
+html[data-surface="flat"] #splash,
+html[data-surface="flat"] .cowork-switch-overlay {
+  background: var(--ui-canvas);
+}
+html[data-surface="flat"] #splash-glow,
+html[data-surface="flat"] .cowork-switch-glow {
+  display: none;
+}
+html[data-surface="flat"] #splash-logo {
+  filter: none;
+}
+
+/* Composer: 1px ring shell + solid panel, gold focus ring (phone app shape). */
+.composer-shell {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02));
+}
+html[data-surface="flat"] .composer-shell {
+  background: var(--ui-rule-2);
+  box-shadow: var(--ui-shadow-comp);
+  border-radius: 20px;
+}
+html[data-surface="flat"] .codex-composer {
+  background: var(--ui-panel);
+  border-radius: 19px;
+}
+html[data-surface="flat"] .codex-composer-focus {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* Approval banner + dialog: flat panel, gold icon tile, solid gold Accept. */
+html[data-surface="flat"] .approval-card {
+  background: var(--ui-panel);
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 16px;
+  box-shadow: var(--ui-shadow-pop);
+}
+html[data-surface="flat"] .approval-icon {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border-radius: 10px;
+}
+html[data-surface="flat"] .approval-accept {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-foreground);
+}
+html[data-surface="flat"] .approval-footer {
+  background: transparent;
+  border-top-color: var(--ui-rule);
+}

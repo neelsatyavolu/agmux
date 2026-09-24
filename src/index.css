@@ -269,16 +269,16 @@ html[data-mode="light"] .cowork-switch-label {
   --glass-border-strong: rgba(255, 255, 255, 0.16);
   --glass-hover: rgba(255, 255, 255, 0.05);
   --glass-active: rgba(255, 255, 255, 0.10);
-  /* Brand accent — matches agmux.dev oklch(0.80 0.15 73) yellow on black */
-  --accent: #f7ad3c;
+  /* Brand gold — shared with agmux.dev and the phone app */
+  --accent: #f2a516;
   --accent-foreground: #000000;
-  --accent-dim: rgba(247, 173, 60, 0.15);
-  --accent-border: rgba(247, 173, 60, 0.40);
-  /* Semantic status colours retain their hues with darker light-mode ink. */
-  --status-green: #34d399;
-  --status-amber: #fbbf24;
-  --status-red: #f87171;
-  --status-blue: #60a5fa;
+  --accent-dim: rgba(242, 165, 22, 0.15);
+  --accent-border: rgba(242, 165, 22, 0.40);
+  /* Status colours match the phone app in dark; light-mode inks are overridden below. */
+  --status-green: #3ecf7e;
+  --status-amber: #f2a516;
+  --status-red: #f2685d;
+  --status-blue: #6b8ff8;
   --status-purple: #a78bfa;
   --agent-terminal-surface: #000000;
   --text-primary: #ffffff;
