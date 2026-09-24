@@ -1,15 +1,15 @@
 {
   "fill" : {
-    "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+    "solid" : "extended-srgb:0.07451,0.08627,0.10588,1.00000"
   },
   "groups" : [
     {
       "layers" : [
         {
-          "image-name" : "XanomLogo3.png",
-          "name" : "XanomLogo3",
+          "image-name" : "AgmuxMark.png",
+          "name" : "AgmuxMark",
           "position" : {
-            "scale" : 0.5,
+            "scale" : 0.62,
             "translation-in-points" : [
               0,
               0
