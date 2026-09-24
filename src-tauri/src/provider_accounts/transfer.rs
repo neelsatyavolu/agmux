@@ -73,14 +73,18 @@ fn add_link(links: &mut Vec<storage::TeamLink>, native_id: &str, team_id: &str, 
     links.push(storage::TeamLink { native_id: native_id.into(), team_id: team_id.into(), account_id: account_id.into() });
 }
 
-/// A current login shared with a team is listed there with the Current login badge.
+/// A current login that is also a team account is listed only under the team, with the
+/// Current login badge: matched by the pool's identity hash, or by an earlier move.
 /// If that team account is gone or the team is unreachable, it stays under Personal.
 pub(super) fn attach_team_logins(personal: &mut Vec<Account>, shared: &mut [Account], links: &[storage::TeamLink]) {
     personal.retain(|row| {
         if !row.native { return true; }
-        let target = links.iter().filter(|l| l.native_id == row.id).find_map(|l| {
+        let linked = || links.iter().filter(|l| l.native_id == row.id).find_map(|l| {
             shared.iter().position(|t| t.id == l.account_id && t.team_id.as_deref() == Some(l.team_id.as_str()))
         });
+        let same_login = || row.identity_hash.as_ref().and_then(|hash| shared.iter()
+            .position(|t| t.provider == row.provider && t.identity_hash.as_ref() == Some(hash)));
+        let target = same_login().or_else(linked);
         let Some(index) = target else { return true; };
         let team_row = &mut shared[index];
         team_row.current_login = true;
@@ -129,6 +133,23 @@ mod tests {
         let mut shared = vec![team_row("pac_gone", "t1")];
         attach_team_logins(&mut personal, &mut shared, &links);
         assert_eq!(personal.len(), 1);
+    }
+
+    #[test]
+    fn current_login_already_in_a_team_is_recognized_without_a_move() {
+        let mut current = native("native:grok:a");
+        current.identity_hash = Some("h".repeat(64));
+        let mut other = team_row("pac_other", "t1");
+        other.identity_hash = Some("x".repeat(64));
+        let mut same = team_row("pac_same", "t1");
+        same.identity_hash = Some("h".repeat(64));
+        let mut shared = vec![other, same];
+        let mut personal = vec![current];
+        attach_team_logins(&mut personal, &mut shared, &[]);
+        assert!(personal.is_empty());
+        assert!(!shared[0].current_login);
+        assert!(shared[1].current_login);
+        assert_eq!(shared[1].tier.as_deref(), Some("SuperGrok Heavy"));
     }
 
     #[test]

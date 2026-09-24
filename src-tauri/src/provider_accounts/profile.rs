@@ -17,6 +17,18 @@ pub(super) fn identity(provider: &str, value: &Value) -> Option<String> {
     }
 }
 
+/// The Teams pool's identity hash for these credentials: sha256 of the JSON array
+/// [provider, ...identity], exactly as teams-service `identityHash` computes it.
+pub(super) fn team_identity_hash(provider: &str, value: &Value) -> Option<String> {
+    use sha2::{Digest, Sha256};
+    let parts: Vec<String> = if provider == "codex" {
+        serde_json::from_str(&identity(provider, value)?).ok()?
+    } else { vec![identity(provider, value)?] };
+    let mut array = vec![Value::String(provider.into())];
+    array.extend(parts.into_iter().map(Value::String));
+    Some(format!("{:x}", Sha256::digest(Value::Array(array).to_string().as_bytes())))
+}
+
 // Display metadata only; decoding a JWT does not verify authentication.
 fn codex_claims(credentials: &Value) -> Option<Value> {
     let jwt = credentials["tokens"]["id_token"].as_str()?;
@@ -102,6 +114,18 @@ fn latest_grok_tier(log: &str) -> Option<String> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn team_identity_hash_matches_the_teams_service() {
+        // Values from teams-service test "keeps a team's name when a login is shared again":
+        // sha256(JSON.stringify(["codex","acct","subject"])).
+        let codex = json!({"tokens":{"account_id":"acct","id_token":format!("e30.{}.sig",
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"sub":"subject"}"#))}});
+        assert_eq!(team_identity_hash("codex", &codex).as_deref(), Some("0c131aaf223ecee1623a199681e7b7dfc1da8ae36a5a953edbd62c0d8356ec26"));
+        let grok = json!({"https://auth.x.ai::grok-build":{"user_id":"grok-user"}});
+        assert_eq!(team_identity_hash("grok", &grok).as_deref(), Some("ad6652dae2815ab05052282401a5939d81559fe9a30311001643bc3281f2a219"));
+        assert_eq!(team_identity_hash("codex", &json!({})), None);
+    }
 
     #[test]
     fn grok_tier_is_the_latest_cli_reported_value() {

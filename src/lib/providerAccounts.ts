@@ -22,7 +22,9 @@ export interface ProviderAccount {
   priority: number;
   teamId: string | null;
   canManage?: boolean;
-  status: "ready" | "signing_in" | "needs_login" | "exhausted" | "unknown";
+  status: "ready" | "signing_in" | "needs_login" | "exhausted" | "in_use" | "unknown";
+  /** Team accounts: who has it checked out right now. */
+  inUse?: { self: boolean; by: string | null; kind: "session" | "cli" | "check" } | null;
   remainingPercent: number | null;
   resetsAt: number | null;
   lastCheckedAt: number | null;
@@ -61,6 +63,8 @@ export const providerAccounts = {
   },
   update: (id: string, changes: Partial<Pick<ProviderAccount, "enabled" | "label" | "priority" | "teamId">>) => invoke<void>("provider_accounts_update", { id, ...changes }).then(changed),
   remove: (id: string, teamId: string | null) => invoke<void>("provider_accounts_remove", { id, teamId }).then(changed),
+  /** Signs the provider's CLI into this Codex/Grok account; the replaced login is kept. */
+  use: (id: string, teamId: string | null) => invoke<void>("provider_accounts_use", { id, teamId }).then(changed),
   moveToTeam: (id: string, teamId: string) => invoke<void>("provider_accounts_move_to_team", { id, teamId }).then(changed),
   refresh: (id: string, teamId: string | null) => invoke<void>("provider_accounts_refresh", { id, teamId }),
   setAutoSwitch: (enabled: boolean) => invoke<void>("provider_accounts_set_auto_switch", { enabled }).then(changed),

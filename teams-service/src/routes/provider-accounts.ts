@@ -12,7 +12,12 @@ interface AccountRow {
   created_at: number; updated_at: number; last_used_at: number | null;
   blocked_until: number | null; remaining_percent: number | null; health_reported_at: number | null;
   lease_id: string | null; lease_expires_at: number | null;
+  lease_user_id?: string | null; lease_session_id?: string | null; lease_user_name?: string | null;
+  usage_json?: string | null; plan?: string | null;
 }
+/** Lease held so a member's own CLI can use this account; renewed by that desktop. */
+const CLI_SESSION = "native-cli";
+const USAGE_WINDOWS = ["session", "weekly", "sonnet", "opus", "design", "routines"];
 const TTL = 300;
 const HEALTH_TTL = 300;
 const MAX_CREDENTIAL_BYTES = 32 * 1024;
@@ -79,8 +84,8 @@ async function identityHash(p: Provider, raw: string): Promise<string> {
 }
 
 /** Bound the actual stream, not merely an attacker-controlled Content-Length. */
-async function body(req: Request, fields: string[]): Promise<Record<string, unknown>> {
-  if (!req.body) throw badRequest("JSON object required.");
+async function body(req: Request, fields: string[], optional = false): Promise<Record<string, unknown>> {
+  if (!req.body) { if (optional) return {}; throw badRequest("JSON object required."); }
   const reader = req.body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -94,6 +99,7 @@ async function body(req: Request, fields: string[]): Promise<Record<string, unkn
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+  if (optional && size === 0) return {};
   let parsed: unknown;
   try { parsed = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw badRequest("JSON object required."); }
   if (!object(parsed) || Object.keys(parsed).some(k => !fields.includes(k))) throw badRequest("Unexpected request fields.");
@@ -140,9 +146,36 @@ function metadata(row: AccountRow, ctx: TeamContext) {
     // Display-only: the last measurement, however old. Allocation never ranks by it.
     lastRemainingPercent: resetPassed ? null : row.remaining_percent,
     leasedUntil: row.lease_expires_at && row.lease_expires_at > now() ? row.lease_expires_at : null,
+    // Lets a desktop recognize its own login in the pool; a hash, never the identity itself.
+    identityHash: row.identity_hash,
+    inUse: row.lease_expires_at && row.lease_expires_at > now() ? {
+      self: !!row.lease_user_id && row.lease_user_id === ctx.membership?.user_id,
+      by: row.lease_user_name ?? null,
+      kind: row.lease_session_id === "usage-check" ? "check" : row.lease_session_id === CLI_SESSION ? "cli" : "session",
+    } : null,
+    plan: row.plan ?? null,
+    usage: resetPassed ? null : parseUsage(row.usage_json),
   };
 }
-const META_COLUMNS = "id,team_id,provider,label,created_by,scope_kind,enabled,created_at,updated_at,last_used_at,blocked_until,remaining_percent,health_reported_at,lease_expires_at";
+function parseUsage(raw: string | null | undefined): Record<string, unknown> | null {
+  if (!raw) return null;
+  try { const value = JSON.parse(raw); return object(value) ? value : null; } catch { return null; }
+}
+/** Display-only quota windows. Invalid entries are dropped, never fatal. */
+function usageInput(value: unknown): string | null {
+  if (!object(value)) throw badRequest("usage must be an object.");
+  const windows: Record<string, unknown> = {};
+  for (const key of USAGE_WINDOWS) {
+    const w = value[key];
+    if (!object(w) || typeof w.utilization !== "number" || !Number.isFinite(w.utilization)) continue;
+    const reset = typeof w.resetsAt === "string" && w.resetsAt.length <= 64 ? w.resetsAt : null;
+    const minutes = typeof w.windowMinutes === "number" && Number.isSafeInteger(w.windowMinutes) && w.windowMinutes > 0 && w.windowMinutes <= 60 * 24 * 62 ? w.windowMinutes : null;
+    windows[key] = { utilization: Math.min(100, Math.max(0, w.utilization)), resetsAt: reset, windowMinutes: minutes };
+  }
+  return Object.keys(windows).length ? JSON.stringify(windows) : null;
+}
+const META_COLUMNS = "id,team_id,provider,label,created_by,scope_kind,enabled,created_at,updated_at,last_used_at,blocked_until,remaining_percent,health_reported_at,lease_expires_at,identity_hash,lease_user_id,lease_session_id,usage_json,plan";
+const LEASE_USER_NAME = "(SELECT display_name FROM users WHERE users.id=provider_accounts.lease_user_id) AS lease_user_name";
 
 // All predicates are evaluated at the write, including live membership and creator role.
 // Match manager scope defaults, but manager accounts target employees and self only.
@@ -192,7 +225,7 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
     await encryptionKey(env);
     const filter = ctx.staffPreview || ctx.role === "owner" ? "" : ctx.role === "manager" ? ` AND (${ELIGIBLE} OR created_by=?)` : ` AND ${ELIGIBLE}`;
     const args = ctx.staffPreview || ctx.role === "owner" ? [] : [...eligibleArgs(user), ...(ctx.role === "manager" ? [user] : [])];
-    const rows = await env.DB.prepare(`SELECT ${META_COLUMNS} FROM provider_accounts WHERE team_id=?${filter} ORDER BY created_at,id`).bind(team, ...args).all<AccountRow>();
+    const rows = await env.DB.prepare(`SELECT ${META_COLUMNS},${LEASE_USER_NAME} FROM provider_accounts WHERE team_id=?${filter} ORDER BY created_at,id`).bind(team, ...args).all<AccountRow>();
     return response({ accounts: rows.results.map(row => metadata(row, ctx)) });
   }
   if (!suffix && req.method === "POST") {
@@ -204,12 +237,13 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
       .bind(team, p, identity).first<{ id: string }>();
     const identityConflict = () => new HttpError(409, "Account already exists and cannot be reconnected while leased or outside your management scope.", "provider_account_conflict");
     if (existing) {
-      // Preserve original creator/scope/enabled/health. Owner reconnect must not widen a manager's pool.
+      // Preserve original creator/scope/enabled/health and name. Owner reconnect must not widen a
+      // manager's pool; sharing a login again must not rename it (renaming is PATCH).
       const encrypted = await encrypt(key, team, existing.id, p, raw);
-      const row = await env.DB.prepare(`UPDATE provider_accounts SET credentials_ciphertext=?,label=?,updated_at=?
+      const row = await env.DB.prepare(`UPDATE provider_accounts SET credentials_ciphertext=?,updated_at=?
         WHERE id=? AND team_id=? AND identity_hash=? AND (lease_expires_at IS NULL OR lease_expires_at<=?)
         AND ${MANAGE} RETURNING ${META_COLUMNS}`)
-        .bind(encrypted, label, now(), existing.id, team, identity, now(), user, user).first<AccountRow>();
+        .bind(encrypted, now(), existing.id, team, identity, now(), user, user).first<AccountRow>();
       if (!row) throw identityConflict();
       return response({ account: metadata(row, ctx) });
     }
@@ -262,11 +296,15 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
   if (checkMatch) {
     // A short lease on one exact account so a desktop can measure its quota and report it.
     // Capacity is deliberately ignored: checking is how an exhausted account is seen to reset.
+    // purpose "cli": the same exact lease, held while this member's own CLI uses the account.
+    const input = await body(req, ["purpose"], true);
+    if (input.purpose !== undefined && input.purpose !== "cli") throw badRequest("purpose must be cli.");
+    const session = input.purpose === "cli" ? CLI_SESSION : "usage-check";
     const id = checkMatch[1], key = await encryptionKey(env), time = now(), lease = newId("pal");
     const row = await env.DB.prepare(`UPDATE provider_accounts SET lease_id=?,lease_user_id=?,lease_device_id=?,
-      lease_session_id='usage-check',lease_expires_at=? WHERE id=? AND team_id=? AND enabled=1
+      lease_session_id=?,lease_expires_at=?${session === CLI_SESSION ? ",last_used_at=?" : ""} WHERE id=? AND team_id=? AND enabled=1
       AND (lease_expires_at IS NULL OR lease_expires_at<=?) AND ${ELIGIBLE} RETURNING *`)
-      .bind(lease, user, principal.deviceId, time + TTL, id, team, time, ...eligibleArgs(user)).first<AccountRow>();
+      .bind(lease, user, principal.deviceId, session, time + TTL, ...(session === CLI_SESSION ? [time] : []), id, team, time, ...eligibleArgs(user)).first<AccountRow>();
     if (!row) {
       const leased = await env.DB.prepare(`SELECT id FROM provider_accounts WHERE id=? AND team_id=? AND enabled=1 AND lease_expires_at>? AND ${ELIGIBLE}`)
         .bind(id, team, time, ...eligibleArgs(user)).first();
@@ -295,9 +333,9 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
       return response({ deleted: true });
     }
     if (req.method === "POST" && leaseMatch[2]) {
-      const input = await body(req, ["credentials", "blockedUntil", "remainingPercent"]);
+      const input = await body(req, ["credentials", "blockedUntil", "remainingPercent", "usage", "plan"]);
       const key = await encryptionKey(env);
-      const row = await env.DB.prepare(`SELECT ${META_COLUMNS},identity_hash FROM provider_accounts WHERE ${holder} AND enabled=1 AND ${ELIGIBLE}`)
+      const row = await env.DB.prepare(`SELECT ${META_COLUMNS} FROM provider_accounts WHERE ${holder} AND enabled=1 AND ${ELIGIBLE}`)
         .bind(...holderArgs, ...eligibleArgs(user)).first<AccountRow>();
       if (!row) throw notFound();
       const sets: string[] = [], values: (string | number)[] = [];
@@ -322,6 +360,15 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
         }
       }
       if (Object.hasOwn(input, "remainingPercent") || Object.hasOwn(input, "blockedUntil")) { sets.push("health_reported_at=?"); values.push(now()); }
+      if (Object.hasOwn(input, "usage")) {
+        const usage = input.usage === null ? null : usageInput(input.usage);
+        sets.push("usage_json=?"); values.push(usage as string);
+      }
+      if (Object.hasOwn(input, "plan")) {
+        const plan = input.plan;
+        if (plan !== null && (typeof plan !== "string" || !plan.trim() || plan.length > 40 || /[\u0000-\u001f\u007f]/.test(plan))) throw badRequest("plan must be a short label.");
+        sets.push("plan=?"); values.push(plan === null ? null as unknown as string : plan.trim());
+      }
       const time = now(), expires = time + TTL;
       const updated = await env.DB.prepare(`UPDATE provider_accounts SET ${[...sets, "updated_at=?", "lease_expires_at=?"].join(",")}
         WHERE ${holder} AND enabled=1 AND ${ELIGIBLE} RETURNING id`)

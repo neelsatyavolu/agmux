@@ -2,7 +2,7 @@ import type { KeyboardEvent } from "react";
 
 export interface Choice<T extends string> { value: T; label: string; disabled?: boolean }
 
-/** Compact radio group used in place of native selects on the Agent accounts tab. */
+/** Compact radio group used in place of native selects on the Accounts tab. */
 export function ChoiceGroup<T extends string>({ label, choices, value, onChange, disabled = false }: {
   label: string; choices: Choice<T>[]; value: T; onChange: (value: T) => void; disabled?: boolean;
 }) {

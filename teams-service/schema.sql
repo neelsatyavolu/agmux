@@ -487,6 +487,8 @@ CREATE TABLE IF NOT EXISTS provider_accounts (
     lease_device_id TEXT,
     lease_session_id TEXT,
     lease_expires_at INTEGER,
+    usage_json TEXT,
+    plan TEXT,
     UNIQUE (team_id, provider, identity_hash)
 );
 CREATE INDEX IF NOT EXISTS idx_provider_accounts_pool ON provider_accounts(team_id, provider, enabled, lease_expires_at);

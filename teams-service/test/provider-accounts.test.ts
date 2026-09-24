@@ -34,7 +34,8 @@ async function fixture() {
 describe("provider account pool", () => {
   it("applies the additive migration to an existing database and matches the fresh schema", () => {
     const schema = readFileSync(new URL("../schema.sql", import.meta.url), "utf8");
-    const migration = readFileSync(new URL("../migrations/013_provider_accounts.sql", import.meta.url), "utf8");
+    const migration = ["013_provider_accounts.sql", "014_provider_account_display.sql"]
+      .map(name => readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8")).join("\n");
     const upgraded = new DatabaseSync(":memory:"), fresh = new DatabaseSync(":memory:");
     try {
       upgraded.exec(schema.slice(0, schema.indexOf("-- Explicitly shared team OAuth credentials")));
@@ -42,6 +43,63 @@ describe("provider account pool", () => {
       fresh.exec(schema);
       expect(upgraded.prepare("PRAGMA table_info(provider_accounts)").all()).toEqual(fresh.prepare("PRAGMA table_info(provider_accounts)").all());
     } finally { upgraded.close(); fresh.close(); }
+  });
+
+  it("keeps a team's name when a login is shared again and exposes only an identity hash", async () => {
+    const { add, call } = await fixture();
+    const account = (await add()).data.account;
+    expect((await call("owner", "PATCH", `/${account.id}`, { label: "Nenu Three" })).status).toBe(200);
+    const again = await call("owner", "POST", "", { provider: "codex", label: "me@example.test", credentials });
+    expect(again.status).toBe(200);
+    const [listed] = (await call("employee")).data.accounts;
+    expect(listed.label).toBe("Nenu Three");
+    const { createHash } = await import("node:crypto");
+    expect(listed.identityHash).toBe(createHash("sha256").update(JSON.stringify(["codex", "acct", "subject"])).digest("hex"));
+    expect(JSON.stringify(listed)).not.toMatch(/acct|subject|secret/);
+  });
+
+  it("shows who holds a lease and whether it is a session, usage check or member's CLI", async () => {
+    const { add, call, allocate } = await fixture();
+    const account = (await add()).data.account;
+    const cli = await call("employee", "POST", `/${account.id}/check`, { purpose: "cli" });
+    expect(cli.status).toBe(200);
+    expect((await call("owner")).data.accounts[0].inUse).toEqual({ self: false, by: "employee", kind: "cli" });
+    expect((await call("employee")).data.accounts[0].inUse).toEqual({ self: true, by: "employee", kind: "cli" });
+    expect((await call("other", "POST", `/${account.id}/check`)).status).toBe(409);
+    expect((await allocate("other")).status).toBe(409);
+    expect((await call("employee", "POST", `/${account.id}/check`, { purpose: "session" })).status).toBe(400);
+    await call("employee", "DELETE", `/leases/${cli.data.leaseId}`);
+    expect((await call("owner")).data.accounts[0].inUse).toBeNull();
+    const check = await call("other", "POST", `/${account.id}/check`);
+    expect(check.status).toBe(200);
+    expect((await call("owner")).data.accounts[0].inUse).toMatchObject({ by: "other", kind: "check" });
+    await call("other", "DELETE", `/leases/${check.data.leaseId}`);
+    const session = (await allocate()).data;
+    expect((await call("owner")).data.accounts[0].inUse).toMatchObject({ by: "employee", kind: "session" });
+    await call("employee", "DELETE", `/leases/${session.leaseId}`);
+  });
+
+  it("stores display-only usage windows and plan from the lease holder", async () => {
+    const { add, call } = await fixture();
+    const account = (await add()).data.account;
+    const lease = (await call("employee", "POST", `/${account.id}/check`)).data;
+    const renew = (body: unknown) => call("employee", "POST", `/leases/${lease.leaseId}/renew`, body);
+    expect((await renew({ usage: {
+      session: { utilization: 130, resetsAt: "2026-09-24T01:00:00Z", windowMinutes: 300 },
+      weekly: { utilization: 40, resetsAt: null, windowMinutes: 10080 },
+      opus: { utilization: "bad" }, unknown: { utilization: 5 },
+    }, plan: " Pro 20x " })).status).toBe(200);
+    const [listed] = (await call("other")).data.accounts;
+    expect(listed.plan).toBe("Pro 20x");
+    expect(listed.usage).toEqual({
+      session: { utilization: 100, resetsAt: "2026-09-24T01:00:00Z", windowMinutes: 300 },
+      weekly: { utilization: 40, resetsAt: null, windowMinutes: 10080 },
+    });
+    expect((await renew({ plan: "bad\u0007" })).status).toBe(400);
+    expect((await renew({ usage: [] })).status).toBe(400);
+    expect((await renew({ usage: null, plan: null })).status).toBe(200);
+    const [cleared] = (await call("other")).data.accounts;
+    expect([cleared.usage, cleared.plan]).toEqual([null, null]);
   });
 
   it("binds AES-GCM ciphertext to team/account/provider and fails without leaking crypto errors", async () => {

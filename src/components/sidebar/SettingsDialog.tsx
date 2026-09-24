@@ -256,8 +256,8 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     label: "OpenCode",
     icon: <img src={opencodeIcon} alt="" width={16} height={16} className="shrink-0 rounded-sm" />,
   },
-  { id: "accounts", label: "Accounts", icon: <User size={16} /> },
-  { id: "agentAccounts", label: "Agent accounts", icon: <Users size={16} /> },
+  { id: "accounts", label: "Git & Connections", icon: <User size={16} /> },
+  { id: "agentAccounts", label: "Accounts", icon: <Users size={16} /> },
   { id: "appearance", label: "Appearance", icon: <Palette size={16} /> },
   { id: "typography", label: "Typography", icon: <Type size={16} /> },
   { id: "summaries", label: "Summaries", icon: <Cpu size={16} /> },
@@ -310,10 +310,11 @@ const SEARCH_INDEX: Record<TabId, string[]> = {
     "oauth", "binary path", "server url", "server password",
   ],
   agentAccounts: [
-    "agent accounts", "account", "sign in", "login", "oauth", "grok", "codex", "auto switch", "failover", "usage", "team accounts",
+    "accounts", "agent accounts", "account", "sign in", "login", "oauth", "grok", "codex", "auto switch", "failover", "usage", "team accounts",
+    "subscription", "subscriptions", "plan", "tier",
   ],
   accounts: [
-    "accounts", "account", "sign in", "login",
+    "git & connections", "connections", "connected accounts", "sign in", "login",
     "keychain", "credentials",
     "cursor", "cursor ultra", "composer",
     "git", "github", "ssh key", "ssh",
@@ -1796,7 +1797,7 @@ function AccountsPage({
 }) {
   return (
     <div>
-      <PageHeader title="Accounts" description="Manage connected accounts and git identities." />
+      <PageHeader title="Git & Connections" description="Manage connected accounts and git identities." />
 
       <SettingsCard
         className="mb-6"

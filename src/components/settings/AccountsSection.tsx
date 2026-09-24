@@ -166,6 +166,9 @@ export function AccountsSection() {
   const canEdit = (account: ProviderAccount) => !account.native
     && (!account.teamId || (account.canManage === true && manageTeams.some(team => team.id === account.teamId)));
   const canMove = (account: ProviderAccount) => !account.teamId && account.provider !== "claude" && (!!account.native || canEdit(account));
+  // Claude keeps its login in the Keychain, so only Codex/Grok CLIs can be switched.
+  const canUse = (account: ProviderAccount) => account.provider !== "claude" && !account.currentLogin && account.enabled
+    && account.status !== "needs_login" && (!account.inUse || account.inUse.self);
 
   function form(team: AccountTeam | null) {
     return <AddAccountForm provider={provider} setProvider={setProvider} team={team} label={label} setLabel={setLabel} locked={locked}
@@ -175,7 +178,7 @@ export function AccountsSection() {
 
   function row(account: ProviderAccount) {
     return <AccountRow key={`${account.teamId ?? ""}:${account.id}`} account={account}
-      canEdit={canEdit(account)} moveTeams={canMove(account) ? manageTeams : []} locked={locked}
+      canEdit={canEdit(account)} canUse={canUse(account)} moveTeams={canMove(account) ? manageTeams : []} locked={locked}
       panel={panel?.id === account.id ? panel.kind : null}
       setPanel={kind => setPanel(kind ? { id: account.id, kind } : null)}
       actions={{
@@ -184,6 +187,8 @@ export function AccountsSection() {
         reconnect: () => void startSignIn({ provider: account.provider, label: account.label, teamId: account.teamId }),
         remove: () => void run(async () => { await providerAccounts.remove(account.id, account.teamId); setPanel(null); }, "Account removed."),
         move: team => void run(async () => { await providerAccounts.moveToTeam(account.id, team.id); setPanel(null); }, `Moved to ${team.name}.`),
+        use: () => void run(async () => { await providerAccounts.use(account.id, account.teamId); setPanel(null); }, `${providerNames[account.provider]} now uses “${account.label}”.`),
+        rename: label => void run(async () => { await providerAccounts.update(account.id, { label, teamId: account.teamId }); setPanel(null); }, "Account renamed."),
       }} />;
   }
 
@@ -191,7 +196,7 @@ export function AccountsSection() {
     <section className="space-y-6 text-[var(--text-primary)]" aria-label="Provider accounts">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">Agent accounts</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Accounts</h2>
           <p className="mt-1 text-sm text-[var(--text-tertiary)]">The Claude, Codex and Grok logins your agents can use</p>
         </div>
         <div className="flex items-center gap-2">

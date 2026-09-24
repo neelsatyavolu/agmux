@@ -116,7 +116,7 @@ describe("SettingsDialog", () => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);
     const labels = [
-      "General", "Claude", "Codex", "OpenCode", "Accounts",
+      "General", "Claude", "Codex", "OpenCode", "Git & Connections", "Accounts",
       "Appearance", "Typography",
       "Summaries", "Notifications", "Remote Control", "About",
     ];
@@ -218,11 +218,11 @@ describe("SettingsDialog", () => {
     expect(screen.getAllByText(/9\.9\.9-test/).length).toBeGreaterThan(0);
   });
 
-  it("keeps Agent accounts adjacent to Accounts with independent content", () => {
+  it("keeps Accounts adjacent to Git & Connections with independent content", () => {
     useSettingsStore.getState().openSettings("accounts");
     render(<SettingsDialog />);
-    const accounts = screen.getByRole("button", { name: "Accounts" });
-    const agentAccounts = screen.getByRole("button", { name: "Agent accounts" });
+    const accounts = screen.getByRole("button", { name: "Git & Connections" });
+    const agentAccounts = screen.getByRole("button", { name: "Accounts" });
     expect(accounts.nextElementSibling).toBe(agentAccounts);
     expect(screen.getByRole("heading", { name: "Git accounts" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Cursor" })).toBeTruthy();
@@ -233,44 +233,44 @@ describe("SettingsDialog", () => {
     expect(screen.queryByRole("heading", { name: "Git accounts" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Cursor" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Accounts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Git & Connections" }));
     expect(screen.getByRole("heading", { name: "Git accounts" })).toBeTruthy();
     expect(screen.queryByTestId("agent-accounts-section")).toBeNull();
   });
 
-  it("opens Agent accounts directly from a settings deep link", () => {
+  it("opens Accounts directly from a settings deep link", () => {
     useSettingsStore.getState().openSettings("agentAccounts");
     render(<SettingsDialog />);
     expect(screen.getByTestId("agent-accounts-section")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Git accounts" })).toBeNull();
   });
 
-  it.each(["codex", "grok", "auto switch", "failover", "usage", "team accounts"])(
-    "discovers Agent accounts through %s search",
+  it.each(["codex", "grok", "auto switch", "failover", "usage", "team accounts", "agent accounts", "subscription"])(
+    "discovers Accounts through %s search",
     (query) => {
       useSettingsStore.getState().openSettings();
       render(<SettingsDialog />);
       fireEvent.change(screen.getByPlaceholderText("Search settings"), { target: { value: query } });
-      const tab = screen.getByRole("button", { name: "Agent accounts" });
-      expect(screen.queryByRole("button", { name: "Accounts" })).toBeNull();
+      const tab = screen.getByRole("button", { name: "Accounts" });
+      expect(screen.queryByRole("button", { name: "Git & Connections" })).toBeNull();
       fireEvent.click(tab);
       expect(screen.getByTestId("agent-accounts-section")).toBeTruthy();
     },
   );
 
-  it.each(["git", "cursor", "keychain"])("keeps %s search in Accounts", (query) => {
+  it.each(["git", "cursor", "keychain", "connections"])("keeps %s search in Git & Connections", (query) => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);
     fireEvent.change(screen.getByPlaceholderText("Search settings"), { target: { value: query } });
-    expect(screen.getByRole("button", { name: "Accounts" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Agent accounts" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Git & Connections" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Accounts" })).toBeNull();
   });
 
-  it("switches to Accounts tab", () => {
+  it("switches to the Git & Connections tab", () => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);
-    fireEvent.click(screen.getByText("Accounts"));
-    expect(screen.getAllByText("Accounts").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByText("Git & Connections"));
+    expect(screen.getAllByText("Git & Connections").length).toBeGreaterThan(0);
   });
 
   it("typing into the search filters the navigation list", () => {
@@ -334,7 +334,7 @@ describe("SettingsDialog", () => {
   it("switches between many tabs without crashing", () => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);
-    const tabs = ["General", "Claude", "Codex", "OpenCode", "Accounts", "Appearance", "Typography", "Summaries", "Notifications", "Remote Control", "About"];
+    const tabs = ["General", "Claude", "Codex", "OpenCode", "Git & Connections", "Accounts", "Appearance", "Typography", "Summaries", "Notifications", "Remote Control", "About"];
     for (const tab of tabs) {
       fireEvent.click(screen.getAllByText(tab)[0]);
       expect(screen.getAllByText(tab).length).toBeGreaterThan(0);
@@ -397,7 +397,7 @@ describe("SettingsDialog", () => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);
     // Each label should appear at least once.
-    const labels = ["General", "Claude", "Codex", "OpenCode", "Accounts", "Appearance", "Typography", "Summaries", "Issues", "Notifications", "Remote Control", "Your Data", "Teams", "About"];
+    const labels = ["General", "Claude", "Codex", "OpenCode", "Git & Connections", "Accounts", "Appearance", "Typography", "Summaries", "Issues", "Notifications", "Remote Control", "Your Data", "Teams", "About"];
     for (const label of labels) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
@@ -423,11 +423,11 @@ describe("SettingsDialog", () => {
     expect(screen.getAllByText("Notifications").length).toBeGreaterThan(0);
   });
 
-  it("Accounts tab interacts with sub-elements", () => {
+  it("Git & Connections tab interacts with sub-elements", () => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);
-    fireEvent.click(screen.getAllByText("Accounts")[0]);
-    expect(screen.getAllByText("Accounts").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByText("Git & Connections")[0]);
+    expect(screen.getAllByText("Git & Connections").length).toBeGreaterThan(0);
   });
 
   it("OpenCode tab still mounts auth panel after tab switch", () => {
@@ -579,7 +579,7 @@ describe("SettingsDialog — Even deeper coverage", () => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);
     const labels = [
-      "General", "Claude", "Codex", "OpenCode", "Accounts", "Appearance", "Typography", "Summaries", "Notifications", "Remote Control", "About"
+      "General", "Claude", "Codex", "OpenCode", "Git & Connections", "Accounts", "Appearance", "Typography", "Summaries", "Notifications", "Remote Control", "About"
     ];
     for (const label of labels) {
       fireEvent.click(screen.getAllByText(label)[0]);
@@ -915,12 +915,11 @@ describe("SettingsDialog — Maximum coverage", () => {
 
   // ── Notifications tab ─────────────────────────────────────
       // ── Accounts tab ─────────────────────────────────────
-  it("Accounts: rendering shows the page heading", () => {
+  it("Git & Connections: rendering shows the page heading", () => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);
-    fireEvent.click(screen.getAllByText("Accounts")[0]);
-    // Some heading text must appear — at minimum, "Accounts" should be in the body.
-    expect(screen.getAllByText("Accounts").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByText("Git & Connections")[0]);
+    expect(screen.getByRole("heading", { name: "Git & Connections" })).toBeTruthy();
   });
 
   // ── Search behaviors ─────────────────────────────────────
@@ -1072,7 +1071,7 @@ describe("SettingsDialog — Maximum coverage", () => {
     render(<SettingsDialog />);
     const search = screen.getByPlaceholderText(/search settings/i) as HTMLInputElement;
     fireEvent.change(search, { target: { value: "github" } });
-    expect(screen.getAllByText("Accounts").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Git & Connections").length).toBeGreaterThan(0);
   });
 
   it("search 'sleep' surfaces General tab", () => {

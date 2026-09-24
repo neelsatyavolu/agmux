@@ -246,6 +246,10 @@ pub fn run() {
                 // on a team, so this is free for everyone else.
                 teams::spawn_auto_uploader(db.clone());
 
+                // A CLI signed into a team account stays leased to this member while it
+                // uses it, with its refreshed tokens pushed back to the pool.
+                provider_accounts::cli::spawn_keeper();
+
                 // Initialize hook system for Claude Code state tracking
                 let hook_script_path = hooks::ensure_hook_script()
                     .unwrap_or_else(|e| {
@@ -803,6 +807,7 @@ pub fn run() {
             provider_accounts::provider_accounts_update,
             provider_accounts::provider_accounts_remove,
             provider_accounts::transfer::provider_accounts_move_to_team,
+            provider_accounts::cli::provider_accounts_use,
             provider_accounts::provider_accounts_refresh,
             provider_accounts::login::provider_accounts_login_start,
             provider_accounts::login::provider_accounts_login_status,

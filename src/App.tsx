@@ -551,7 +551,7 @@ function App() {
               <p className="text-xs font-semibold">{notice.provider === "claude" ? "Claude" : notice.provider === "codex" ? "Codex" : "Grok"} account</p>
               <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{notice.message}</p>
               <div className="mt-3 flex gap-2">
-                <button className="min-h-10 rounded-lg bg-[var(--accent-dim)] px-3 text-xs font-medium text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]" onClick={() => { useSettingsStore.getState().openSettings("agentAccounts"); accountNotices.dismiss(notice.key); }}>Open Agent accounts</button>
+                <button className="min-h-10 rounded-lg bg-[var(--accent-dim)] px-3 text-xs font-medium text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]" onClick={() => { useSettingsStore.getState().openSettings("agentAccounts"); accountNotices.dismiss(notice.key); }}>Open Accounts</button>
                 <button className="min-h-10 rounded-lg px-3 text-xs text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]" onClick={() => accountNotices.dismiss(notice.key)}>Dismiss</button>
               </div>
             </div>

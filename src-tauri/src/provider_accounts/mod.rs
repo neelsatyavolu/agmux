@@ -9,6 +9,7 @@ mod native;
 pub(crate) mod login;
 mod team;
 pub(crate) mod transfer;
+pub(crate) mod cli;
 pub(crate) mod runtime;
 pub(crate) mod runtime_pty;
 
@@ -47,6 +48,21 @@ pub struct Account {
     pub usage: Option<crate::commands::usage::UsageData>,
     pub last_checked_at: Option<i64>,
     pub error: Option<String>,
+    /// Team rows only: who holds the account right now.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub in_use: Option<InUse>,
+    /// Pool identity hash (sha256 of provider + native identity). Matching only; never sent to the UI.
+    #[serde(skip)]
+    pub identity_hash: Option<String>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InUse {
+    #[serde(rename = "self")]
+    pub mine: bool,
+    pub by: Option<String>,
+    /// "session", "cli" (a member's own CLI) or "check" (a usage check).
+    pub kind: String,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -106,7 +122,8 @@ fn label(value: &str) -> Result<String, String> {
 }
 fn new_account(id: String, provider: String, name: String, team_id: Option<String>) -> Account {
     Account { id, provider, label: name, email: None, plan: None, tier: None, native: false, current_login: false, enabled: true, can_manage: true, priority: 0, team_id,
-        status: "unknown".into(), remaining_percent: None, resets_at: None, usage: None, last_checked_at: None, error: None }
+        status: "unknown".into(), remaining_percent: None, resets_at: None, usage: None, last_checked_at: None, error: None,
+        in_use: None, identity_hash: None }
 }
 
 fn team_block_until(remaining: Option<f64>, reset: Option<i64>) -> Option<i64> {
@@ -318,9 +335,13 @@ pub async fn refresh_account(id: &str) -> Result<(), String> {
         let credentials = storage::read_json(&binding.assignment.home.join("auth.json"))?;
         let lease = binding.team.as_mut().ok_or("Missing team account lease")?;
         let blocked_until = if usage.allowance_usable { Some(0) } else { team_block_until(remaining, reset) };
+        let plan = usage.plan.clone().or_else(|| profile::plan(&snapshot.provider, &credentials));
         lease.expires_at = team::renew(lease, credentials, remaining, blocked_until).await?;
         let lease_id = lease.lease_id.clone(); let expiry = lease.expires_at;
+        let held = lease.clone();
         sync_lease(&mut assigned, &lease_id, expiry, Some((remaining, reset)));
+        drop(assigned);
+        team::report_display(&held, Some(&usage.usage), plan.as_deref()).await;
         return Ok(());
     }
     refresh_personal_account(id).await
@@ -616,7 +637,9 @@ async fn refresh_team_account(team_id: &str, id: &str) -> Result<(), String> {
             }
             Err(_) => (None, None),
         };
+        let plan = usage.as_ref().ok().and_then(|u| u.plan.clone()).or_else(|| profile::plan(&lease.provider, &credentials));
         team::renew(&lease, credentials, remaining, blocked_until).await?;
+        if let Ok(usage) = &usage { team::report_display(&lease, Some(&usage.usage), plan.as_deref()).await; }
         usage.map(|_| ()).map_err(|error| if quota::is_rate_limited(&error) { error }
             else { "Could not check this account's usage. Try again later.".to_string() })
     }.await;

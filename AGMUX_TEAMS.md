@@ -46,6 +46,19 @@ not from this checkout, so legacy policy and assets are unchanged (13 public res
 byte-identical before/after). Uploaded via the versions API with `keep_assets` and
 `keep_bindings: ["secret_text"]`. Roll back with `wrangler versions deploy 84ac9ca1-fdb8-4376-8699-7a9bc38ab0f8@100%`.
 
+**2026-09-24 update (current production):** version `9728aa23-4c30-45fd-9e9a-3e83f0adb806`, again built by
+patching the downloaded live `fc068a6e` bundle (provider-accounts section only; the rest byte-identical),
+uploaded with `keep_bindings: ["secret_text"]` + `keep_assets`, runtime and all 18 bindings verified identical,
+11 public responses/assets byte-identical before/after. Additive migration
+`014_provider_account_display.sql` (`usage_json`, `plan`) was applied first; D1 bookmark before it:
+`0000431b-00000054-000050f0-5a0288acadb18484544dc28816bfd470`. Live code `fc068a6e` was verified to work with 014,
+so roll back with `wrangler versions deploy fc068a6e-5352-4fef-9b8c-bdc71a3a4174@100%` and leave the columns.
+Changes: list metadata adds `identityHash` (sha256 of `[provider, ...identity]`), `inUse`
+(`{self, by: display name, kind: session|cli|check}` while leased), `plan` and `usage` (display-only windows);
+re-uploading an existing login keeps its team name (rename is PATCH); `POST …/{id}/check` accepts optional
+`{"purpose":"cli"}` for a member's own CLI lease; renew accepts optional `usage`/`plan`. Desktops send
+`usage`/`plan` in a separate best-effort renew so an older server can never reject a credentials renewal.
+
 **Deployment compatibility boundary:** production intentionally retains the legacy
 policy implementation (`src/routes/policy.ts` from `acd290ea`) and its existing web
 assets. Migration 012 / the newer Restrictions behavior are **not deployed**.

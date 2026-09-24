@@ -29,6 +29,7 @@ fn from_credentials(provider: &str, credentials: &serde_json::Value, home: PathB
     account.native = true; account.current_login = true; account.can_manage = false;
     account.email = email; account.plan = profile::plan(provider, credentials);
     if provider == "grok" { account.tier = profile::grok_tier(&home); }
+    account.identity_hash = profile::team_identity_hash(provider, credentials);
     Some(NativeLogin { identity, account, home })
 }
 fn discover_file(provider: &str) -> Option<NativeLogin> {
@@ -167,6 +168,7 @@ pub(super) async fn extend_accounts(accounts: &mut Vec<Account>) {
         if let Ok(credentials) = storage::read_json(&home.join("auth.json")) {
             row.email = profile::email(&row.provider, &credentials);
             if row.plan.is_none() { row.plan = profile::plan(&row.provider, &credentials); }
+            row.identity_hash = profile::team_identity_hash(&row.provider, &credentials);
             if let Some(identity) = profile::identity(&row.provider, &credentials) { identities.insert(row.id.clone(), identity); }
         }
     }

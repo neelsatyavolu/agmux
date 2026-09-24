@@ -167,6 +167,25 @@ struct AccountRow {
     blocked_until: Option<i64>,
     health_reported_at: Option<i64>,
     leased_until: Option<i64>,
+    // Newer servers only; all display-only and tolerated when absent or malformed.
+    #[serde(default)]
+    identity_hash: Option<String>,
+    #[serde(default)]
+    in_use: Option<Value>,
+    #[serde(default)]
+    usage: Option<Value>,
+    #[serde(default)]
+    plan: Option<String>,
+}
+
+fn display_text(value: Option<String>, max: usize) -> Option<String> {
+    value.map(|v| v.trim().to_string()).filter(|v| !v.is_empty() && v.chars().count() <= max && !v.chars().any(char::is_control))
+}
+
+fn in_use(value: Option<Value>) -> Option<super::InUse> {
+    let value = value?;
+    let kind = value["kind"].as_str().filter(|k| matches!(*k, "session" | "cli" | "check"))?;
+    Some(super::InUse { mine: value["self"].as_bool() == Some(true), by: display_text(value["by"].as_str().map(str::to_owned), 120), kind: kind.into() })
 }
 
 impl AccountRow {
@@ -180,20 +199,29 @@ impl AccountRow {
         let now = chrono::Utc::now().timestamp();
         let reset_passed = self.blocked_until.is_some_and(|until| until <= now);
         let remaining = if reset_passed { None } else { self.remaining_percent };
-        let status = if !self.enabled || self.leased_until.is_some_and(|until| until > now) {
+        let leased = self.leased_until.is_some_and(|until| until > now);
+        let status = if !self.enabled {
             "unknown"
+        } else if leased {
+            "in_use"
         } else if self.blocked_until.is_some_and(|until| until > now) || remaining == Some(0.0) {
             "exhausted"
         } else if remaining.is_some() { "ready" } else { "unknown" };
+        let usage = if reset_passed { None } else {
+            self.usage.and_then(|value| serde_json::from_value::<crate::commands::usage::UsageData>(value).ok())
+        };
+        let in_use = if leased { in_use(self.in_use) } else { None };
+        let identity_hash = self.identity_hash.filter(|h| h.len() == 64 && h.bytes().all(|b| b.is_ascii_hexdigit()));
 
         Ok(super::Account {
-            id: self.id, provider: self.provider, label: self.label, email: None, plan: None, tier: None, native: false, current_login: false, enabled: self.enabled, can_manage: self.can_manage,
+            id: self.id, provider: self.provider, label: self.label, email: None, plan: display_text(self.plan, 40), tier: None, native: false, current_login: false, enabled: self.enabled, can_manage: self.can_manage,
             priority: 0, team_id: Some(team_id.into()), status: status.into(),
             // Show the last measurement with its age; status above still treats it as unknown.
             remaining_percent: remaining.or(if reset_passed { None } else { self.last_remaining_percent }),
             resets_at: self.blocked_until,
-            usage: None,
+            usage,
             last_checked_at: self.health_reported_at, error: None,
+            in_use, identity_hash,
         })
     }
 }
@@ -290,6 +318,26 @@ fn parse_check(status: StatusCode, bytes: &[u8], team_id: &str, account_id: &str
 pub async fn check_lease(team_id: &str, account_id: &str) -> Result<TeamAssignment, String> {
     let (status, bytes) = Api::load()?.send(Method::POST, &["api", "teams", team_id, "provider-accounts", account_id, "check"], None).await?;
     parse_check(status, &bytes, team_id, account_id)
+}
+
+/// Leases one exact team account for as long as this member's own CLI uses it.
+pub async fn cli_lease(team_id: &str, account_id: &str) -> Result<TeamAssignment, String> {
+    let (status, bytes) = Api::load()?.send(Method::POST, &["api", "teams", team_id, "provider-accounts", account_id, "check"],
+        Some(json!({ "purpose": "cli" }))).await?;
+    parse_check(status, &bytes, team_id, account_id)
+}
+
+/// Best effort, in its own request: an older server rejects unknown fields,
+/// and that must never fail a renewal carrying refreshed credentials.
+pub async fn report_display(assignment: &TeamAssignment, usage: Option<&crate::commands::usage::UsageData>, plan: Option<&str>) {
+    let mut body = serde_json::Map::new();
+    if let Some(usage) = usage.and_then(|u| serde_json::to_value(u).ok()) { body.insert("usage".into(), usage); }
+    if let Some(plan) = plan { body.insert("plan".into(), json!(plan)); }
+    if body.is_empty() { return; }
+    let Ok(api) = Api::load() else { return; };
+    let _ = api.request::<Value>(Method::POST,
+        &["api", "teams", &assignment.team_id, "provider-accounts", "leases", &assignment.lease_id, "renew"],
+        Some(Value::Object(body))).await;
 }
 
 fn pool_configured(status: StatusCode, bytes: &[u8], provider: &str) -> Result<bool, String> {
@@ -397,6 +445,31 @@ mod tests {
         }
         // Ordinary list/renew handling still treats this HTTP status as an error.
         assert_eq!(status_error(StatusCode::SERVICE_UNAVAILABLE), SERVICE_ERROR);
+    }
+
+    #[test]
+    fn newer_display_fields_are_parsed_and_malformed_ones_ignored() {
+        let now = chrono::Utc::now().timestamp();
+        let hash = "a".repeat(64);
+        let account = |value| serde_json::from_value::<AccountRow>(value).unwrap().into_account("team").unwrap();
+        let row = account(json!({"id":"a","provider":"grok","label":"Nenu One","enabled":true,"lastRemainingPercent":60,
+            "leasedUntil":now + 100,"identityHash":hash,"plan":" SuperGrok ","inUse":{"self":false,"by":"Alex","kind":"cli"},
+            "usage":{"session":{"utilization":20,"resetsAt":null,"windowMinutes":300}}}));
+        assert_eq!(row.status, "in_use");
+        assert_eq!(row.plan.as_deref(), Some("SuperGrok"));
+        assert_eq!(row.identity_hash.as_deref(), Some(hash.as_str()));
+        let in_use = row.in_use.unwrap();
+        assert!(!in_use.mine);
+        assert_eq!((in_use.by.as_deref(), in_use.kind.as_str()), (Some("Alex"), "cli"));
+        assert_eq!(row.usage.unwrap().session.unwrap().utilization, 20.0);
+        // Old servers, stale leases and junk never break the list.
+        let old = account(json!({"id":"b","provider":"codex","label":"Old","enabled":true,"lastRemainingPercent":40}));
+        assert_eq!(old.status, "unknown"); // An old reading is shown with its age, never as ready.
+        assert!(old.in_use.is_none() && old.identity_hash.is_none() && old.plan.is_none());
+        let junk = account(json!({"id":"c","provider":"codex","label":"Junk","enabled":true,"identityHash":"nothex",
+            "plan":"x\u{7}","inUse":{"kind":"other"},"usage":[1],"leasedUntil":now - 5}));
+        assert!(junk.identity_hash.is_none() && junk.plan.is_none() && junk.in_use.is_none() && junk.usage.is_none());
+        assert_eq!(junk.status, "unknown");
     }
 
     #[test]
@@ -518,7 +591,7 @@ mod tests {
         row["remainingPercent"] = json!(70);
         assert_eq!(account(row.clone()).status, "ready");
         row["leasedUntil"] = json!(chrono::Utc::now().timestamp() + 300);
-        assert_eq!(account(row.clone()).status, "unknown");
+        assert_eq!(account(row.clone()).status, "in_use");
         row["leasedUntil"] = Value::Null;
         row["remainingPercent"] = json!(0);
         assert_eq!(account(row.clone()).status, "exhausted");

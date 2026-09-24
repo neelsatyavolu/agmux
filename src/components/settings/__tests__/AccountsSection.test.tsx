@@ -5,7 +5,7 @@ import { providerAccounts, type ProviderAccountsState, type ProviderAccount } fr
 import { useSettingsStore } from "../../../stores/settingsStore";
 
 vi.mock("../../../lib/providerAccounts", () => ({ providerAccounts: {
-  list: vi.fn(), loginStart: vi.fn(), loginStatus: vi.fn(), loginCancel: vi.fn(), importCurrent: vi.fn(), update: vi.fn(), remove: vi.fn(), moveToTeam: vi.fn(), refresh: vi.fn(), setAutoSwitch: vi.fn(),
+  list: vi.fn(), loginStart: vi.fn(), loginStatus: vi.fn(), loginCancel: vi.fn(), importCurrent: vi.fn(), update: vi.fn(), remove: vi.fn(), moveToTeam: vi.fn(), use: vi.fn(), refresh: vi.fn(), setAutoSwitch: vi.fn(),
 } }));
 const account: ProviderAccount = { id: "one", provider: "codex", label: "My Codex", enabled: true, priority: 0, teamId: null, status: "ready", remainingPercent: null, resetsAt: null, lastCheckedAt: null, error: null };
 let state: ProviderAccountsState;
@@ -113,7 +113,7 @@ describe("AccountsSection", () => {
     expect(shared.getByText("54%")).toBeTruthy();
     expect(screen.queryByLabelText("Accounts for")).toBeNull();
     menu("Team Grok");
-    expect(screen.getAllByRole("menuitem").map(entry => entry.textContent)).toEqual(["Check usage"]);
+    expect(screen.getAllByRole("menuitem").map(entry => entry.textContent)).toEqual(["Use this account", "Check usage"]);
     expect(shared.queryByText("Reconnect")).toBeNull();
   });
   it("lists personal accounts before team accounts", async () => {
@@ -372,7 +372,7 @@ describe("AccountsSection", () => {
     render(<AccountsSection />);
     await screen.findByText("My Codex");
     menu();
-    expect(screen.getAllByRole("menuitem").map(entry => entry.textContent)).toEqual(["Check usage", "Pause", "Remove"]);
+    expect(screen.getAllByRole("menuitem").map(entry => entry.textContent)).toEqual(["Use this account", "Check usage", "Rename", "Pause", "Remove"]);
   });
   it.each([false, undefined])("hides team row mutations when account canManage is %s but keeps add available", async canManage => {
     state.teams = [{ id: "t", name: "Studio", role: "manager", canManage: true }];
@@ -496,5 +496,82 @@ describe("AccountsSection", () => {
     expect(item("Move to team")).toBeNull();
     menu("Grok login");
     expect(item("Move to team")).toBeNull();
+  });
+  it("switches the CLI to an account after confirmation", async () => {
+    state.accounts = [account, { ...account, id: "native:codex:a", label: "Current", native: true, currentLogin: true, canManage: false }];
+    render(<AccountsSection />);
+    await screen.findByText("My Codex");
+    await ready();
+    menu("Current");
+    expect(item("Use this account")).toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+    menu(); fireEvent.click(item("Use this account")!);
+    expect(screen.getByText("Sign your Codex CLI into “My Codex”?")).toBeTruthy();
+    expect(screen.getByText(/The login you’re replacing stays in Your accounts/)).toBeTruthy();
+    expect(providerAccounts.use).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("article", { name: "My Codex" })).getByRole("button", { name: "Use this account" }));
+    await screen.findByText("Codex now uses “My Codex”.");
+    expect(providerAccounts.use).toHaveBeenCalledExactlyOnceWith("one", null);
+  });
+  it("never offers to switch Claude, a signed-out account, or one a teammate is using", async () => {
+    state.teams = [{ id: "t", name: "Studio", role: "employee", canManage: true }];
+    state.accounts = [
+      { ...account, id: "c", provider: "claude", label: "Claude profile" },
+      { ...account, id: "o", label: "Signed out", status: "needs_login" },
+      { ...account, id: "busy", teamId: "t", label: "Busy", status: "in_use", inUse: { self: false, by: "Alex", kind: "cli" } },
+      { ...account, id: "mine", teamId: "t", label: "Mine", status: "in_use", inUse: { self: true, by: "Neel", kind: "cli" } },
+    ];
+    render(<AccountsSection />);
+    await screen.findByText("Busy");
+    for (const label of ["Claude profile", "Signed out", "Busy"]) {
+      menu(label); expect(item("Use this account")).toBeNull(); fireEvent.keyDown(document, { key: "Escape" });
+    }
+    expect(within(screen.getByRole("article", { name: "Busy" })).getByText("In use by Alex’s CLI")).toBeTruthy();
+    expect(within(screen.getByRole("article", { name: "Mine" })).getByText("In use by your CLI")).toBeTruthy();
+  });
+  it("warns when your CLI shares a team account someone else is using", async () => {
+    state.teams = [{ id: "t", name: "Studio", role: "employee", canManage: true }];
+    state.accounts = [{ ...account, teamId: "t", label: "Shared", currentLogin: true, status: "in_use", inUse: { self: false, by: "Alex", kind: "session" } }];
+    render(<AccountsSection />);
+    const row = within(await screen.findByRole("article", { name: "Shared" }));
+    expect(row.getByText("In use by Alex")).toBeTruthy();
+    expect(row.getByText(/you’re both using up its limits/)).toBeTruthy();
+  });
+  it("shows each reported limit separately and never invents missing ones", async () => {
+    state.accounts = [{ ...account, remainingPercent: 30, usage: {
+      session: { utilization: 70, resetsAt: "2026-09-24T01:00:00Z", windowMinutes: 300 },
+      weekly: { utilization: 25, resetsAt: null, windowMinutes: 10080 },
+    } }];
+    render(<AccountsSection />);
+    await screen.findByText("My Codex");
+    expect(screen.getByRole("progressbar", { name: "My Codex 5-hour remaining" }).getAttribute("aria-valuenow")).toBe("30");
+    expect(screen.getByRole("progressbar", { name: "My Codex Weekly remaining" }).getAttribute("aria-valuenow")).toBe("75");
+    expect(screen.queryByText(/Opus/)).toBeNull();
+    expect(screen.getAllByRole("progressbar")).toHaveLength(2);
+  });
+  it("labels old readings honestly without a vague unknown status", async () => {
+    state.teams = [{ id: "t", name: "Studio", role: "owner", canManage: true }];
+    state.accounts = [
+      { ...account, teamId: "t", id: "old", label: "Old reading", status: "unknown", remainingPercent: 76, lastCheckedAt: 100 },
+      { ...account, teamId: "t", id: "never", label: "Never", status: "unknown" },
+      { ...account, id: "claude", provider: "claude", label: "Claude team plan", plan: "Team" },
+    ];
+    render(<AccountsSection />);
+    await screen.findByText("Old reading");
+    expect(screen.queryByText("Status unknown")).toBeNull();
+    expect(within(screen.getByRole("article", { name: "Never" })).getByText("Not checked yet")).toBeTruthy();
+    expect(within(screen.getByRole("article", { name: "Claude team plan" })).getByText("Team plan")).toBeTruthy();
+  });
+  it("renames an account you manage", async () => {
+    state.teams = [{ id: "t", name: "Studio", role: "owner", canManage: true }];
+    state.accounts = [{ ...account, teamId: "t", label: "sharedllm3@example.com", canManage: true }];
+    render(<AccountsSection />);
+    await screen.findByText("sharedllm3@example.com");
+    await ready();
+    menu("sharedllm3@example.com"); fireEvent.click(item("Rename")!);
+    fireEvent.change(screen.getByLabelText("New name for sharedllm3@example.com"), { target: { value: " Nenu Three " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("Account renamed.");
+    expect(providerAccounts.update).toHaveBeenCalledExactlyOnceWith("one", { label: "Nenu Three", teamId: "t" });
   });
 });
