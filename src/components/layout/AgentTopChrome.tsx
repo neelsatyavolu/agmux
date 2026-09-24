@@ -1047,7 +1047,7 @@ function CrossStripStatusDot({ status }: { status: StripStatus }) {
   if (status === "working") {
     return <Loader2 size={11} className="shrink-0 animate-spin text-blue-400" />;
   }
-  const cls = status === "attention" ? "bg-amber-400" : "bg-[var(--accent)]";
+  const cls = status === "attention" ? "bg-amber-400" : "bg-[var(--status-green)]";
   return (
     <span className="relative flex h-1.5 w-1.5 shrink-0 items-center justify-center">
       <span className={`absolute h-2.5 w-2.5 animate-ping rounded-full opacity-60 ${cls}`} />
