@@ -1472,11 +1472,11 @@ export function ClaudeInputBar({ threadId, disabled, currentModel, workDir, acti
                 {optimizing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
               </button>
 
-              {/* V1 send/stop — accent-filled square */}
+              {/* V1 send/stop — accent-filled circle */}
               {isWorking && !value.trim() ? (
                 <button
                   onClick={handleStop}
-                  className="ml-0.5 inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-red-500/20 text-red-400 shadow-[0_4px_16px_-4px_rgba(248,113,113,0.4)] transition-colors hover:bg-red-500/30"
+                  className="ml-0.5 inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-400 shadow-[0_4px_16px_-4px_rgba(248,113,113,0.4)] transition-colors hover:bg-red-500/30"
                   title="Stop (Esc)"
                 >
                   <Square size={14} fill="currentColor" />
@@ -1485,9 +1485,9 @@ export function ClaudeInputBar({ threadId, disabled, currentModel, workDir, acti
                 <button
                   onClick={handleSend}
                   disabled={disabled || !value.trim() || showDiff}
-                  className={`ml-0.5 inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg transition-all duration-150 disabled:cursor-not-allowed ${
+                  className={`ml-0.5 inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full transition-all duration-150 disabled:cursor-not-allowed ${
                     value.trim() && !disabled && !showDiff
-                      ? "bg-[var(--accent)] text-[#14110a] shadow-[0_4px_16px_-4px_color-mix(in_srgb,var(--accent)_50%,transparent)] hover:bg-[#fbc96a]"
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[0_4px_16px_-4px_color-mix(in_srgb,var(--accent)_50%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_65%,white)]"
                       : "bg-white/[0.07] text-white/40"
                   }`}
                   title={isWorking ? "Queue message" : "Send message"}

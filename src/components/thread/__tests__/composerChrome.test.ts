@@ -10,6 +10,21 @@ describe("composer buttons", () => {
   });
 });
 
+describe("Codex and Claude compact send/stop buttons are round", () => {
+  it("CodexSessionView uses the shared round send/stop classes", () => {
+    const src = readFileSync(new URL("../CodexSessionView.tsx", import.meta.url), "utf8");
+    expect(src).toContain("SEND_BTN_ACTIVE");
+    expect(src).toContain("STOP_BTN");
+    expect(src).not.toContain("#14110a");
+  });
+
+  it("ClaudeInputBar's compact send/stop buttons are round with the accent's paired ink", () => {
+    const src = readFileSync(new URL("../ClaudeInputBar.tsx", import.meta.url), "utf8");
+    expect(src).not.toContain("#14110a");
+    expect(src).not.toContain("#fbc96a");
+  });
+});
+
 describe("composer shell markers", () => {
   it.each(["ClaudeInputBar.tsx", "DraftChatView.tsx", "OpenCodeSdkSessionView.tsx", "CodexSessionView.tsx"])(
     "%s uses the shared composer shell class",

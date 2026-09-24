@@ -115,6 +115,7 @@ import { isAppForeground, subscribeAppVisibility } from "../../lib/appVisibility
 import { useComposerDraftStore } from "../../stores/composerDraftStore";
 import { ContextRing } from "./ContextRing";
 import type { ContextUsage } from "./ContextRing";
+import { SEND_BTN_ACTIVE, SEND_BTN_IDLE, STOP_BTN } from "./composerChrome";
 import { OpenCodeThinkingIndicator } from "./OpenCodeThinkingIndicator";
 import {
   flashTurnAfterScroll,
@@ -4825,11 +4826,11 @@ const InputBar = memo(function InputBar({
               {optimizing ? <Loader2 size={15} className="animate-spin" /> : <WandSparkles size={15} />}
             </button>
 
-            {/* Send / stop — 34px accent-filled square */}
+            {/* Send / stop — 34px accent-filled circle */}
             {sending && !inputValue.trim() ? (
               <button
                 onClick={onStop}
-                className="ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-red-500/20 text-red-400 shadow-[0_4px_16px_-4px_rgba(248,113,113,0.4)] transition-all hover:bg-red-500/30 active:scale-95"
+                className={STOP_BTN}
                 title="Stop (Esc)"
               >
                 <Square size={15} fill="currentColor" />
@@ -4838,11 +4839,7 @@ const InputBar = memo(function InputBar({
               <button
                 onClick={handleSend}
                 disabled={isDisabled || !inputValue.trim()}
-                className={`ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] transition-all duration-150 disabled:cursor-not-allowed ${
-                  inputValue.trim() && !isDisabled
-                    ? "bg-[var(--accent)] text-[#14110a] shadow-[0_4px_16px_-4px_color-mix(in_srgb,var(--accent)_60%,transparent)] hover:brightness-110 active:scale-95"
-                    : "bg-white/[0.07] text-white/40"
-                }`}
+                className={inputValue.trim() && !isDisabled ? SEND_BTN_ACTIVE : SEND_BTN_IDLE}
                 title={sending ? "Queue message" : "Send message"}
               >
                 <ArrowUp size={16} />
