@@ -47,6 +47,15 @@ describe("CodexToolRow", () => {
     expect(container.querySelector(".animate-spin")).toBeTruthy();
   });
 
+  it("spins in the working blue and colors diffs with status tokens", () => {
+    const { container } = render(
+      <CodexToolRow lead="Running" subject="cargo test" status="running" additions={4} deletions={2} icon={null} />,
+    );
+    expect(container.querySelector(".animate-spin")?.getAttribute("class")).toContain("var(--status-blue)");
+    expect(container.innerHTML).toContain("var(--status-green)");
+    expect(container.innerHTML).toContain("var(--status-red)");
+  });
+
   it("marks an errored row", () => {
     render(<CodexToolRow lead="Ran" subject="pnpm build" status="error" />);
     expect(screen.getByRole("listitem").getAttribute("data-status")).toBe("error");

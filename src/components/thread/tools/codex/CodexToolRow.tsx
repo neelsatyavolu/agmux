@@ -94,7 +94,7 @@ export const CodexToolRow = memo(function CodexToolRow({
       }`}
     >
       <span className={`flex h-[14px] w-[14px] shrink-0 items-center justify-center ${iconColor}`}>
-        {status === "running" ? <Loader2 size={13} className="animate-spin text-amber-400" /> : icon}
+        {status === "running" ? <Loader2 size={13} className="animate-spin text-[color:var(--status-blue)]" /> : icon}
       </span>
 
       <span className={leadColor}>{lead}</span>
@@ -108,10 +108,10 @@ export const CodexToolRow = memo(function CodexToolRow({
       {detail && <span className="shrink-0 text-[var(--text-muted)] opacity-70">{detail}</span>}
 
       {typeof additions === "number" && additions > 0 && (
-        <span className="shrink-0 text-green-400">+{additions}</span>
+        <span className="shrink-0 text-[color:var(--status-green)]">+{additions}</span>
       )}
       {typeof deletions === "number" && deletions > 0 && (
-        <span className="shrink-0 text-red-400">−{deletions}</span>
+        <span className="shrink-0 text-[color:var(--status-red)]">−{deletions}</span>
       )}
 
       {(toggle || trailing) && (

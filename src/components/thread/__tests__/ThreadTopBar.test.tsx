@@ -163,6 +163,23 @@ describe("ThreadTopBar", () => {
     expect(container.firstChild).toBeTruthy();
   });
 
+  it("shows the running state in the working blue, not amber", () => {
+    render(
+      <ThreadTopBar
+        threadId="t1"
+        workDir="/tmp/repo"
+        onToggleGitSidebar={() => {}}
+        gitSidebarOpen={false}
+        onToggleTerminal={() => {}}
+        terminalOpen={false}
+        isProcessing={true}
+      />
+    );
+    const pill = screen.getByText(/^running/);
+    expect(pill.getAttribute("style") ?? "").toContain("var(--status-blue)");
+    expect(pill.getAttribute("style") ?? "").not.toContain("245,158,11");
+  });
+
   it("renders with hideViewModeControls=true", () => {
     const { container } = render(
       <ThreadTopBar

@@ -11,7 +11,7 @@ interface Props {
   additionClassName?: string;
 }
 
-export function ShellDiffBadge({ id, sessionId, linesAdded = 0, linesRemoved = 0, filesChanged, additionClassName = "text-[color:var(--accent)]" }: Props) {
+export function ShellDiffBadge({ id, sessionId, linesAdded = 0, linesRemoved = 0, filesChanged, additionClassName = "text-[color:var(--status-green)]" }: Props) {
   useShellDiffSubscription();
   const rows = useShellDiffStore((state) => state.rows);
   const mappedIds = useUiStore((state) => state.claudeSessionMap);
@@ -39,7 +39,7 @@ export function ShellDiffBadge({ id, sessionId, linesAdded = 0, linesRemoved = 0
     <span className="shrink-0 font-mono text-[10px] leading-none tabular-nums" title={title || undefined}>
       <span className={additionClassName}>+{added}</span>
       <span className="text-zinc-600"> / </span>
-      <span className="text-red-400/80">-{removed}</span>
+      <span className="text-[color:var(--status-red)]">-{removed}</span>
       {incomplete && <span className="text-zinc-500"> · partial</span>}
     </span>
   );

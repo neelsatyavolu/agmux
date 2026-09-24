@@ -847,8 +847,8 @@ export function ThreadTopBar({
     : typeof isProcessing === "boolean"
       ? "idle"
       : null;
-  const stateColor = stateKind === "running" ? "var(--status-amber)" : "#71717a";
-  const stateHalo = stateKind === "running" ? "rgba(245,158,11,0.22)" : "transparent";
+  const stateColor = stateKind === "running" ? "var(--status-blue)" : "#71717a";
+  const stateHalo = stateKind === "running" ? "color-mix(in srgb, var(--status-blue) 22%, transparent)" : "transparent";
   const stateLabel = stateKind === "running"
     ? elapsedMs > 0 ? `running · ${formatElapsed(elapsedMs)}` : "running"
     : stateKind === "idle"
@@ -1083,8 +1083,8 @@ export function ThreadTopBar({
                   padding: "1.5px 7px",
                   borderRadius: 9999,
                   fontSize: 10.5,
-                  background: stateKind === "running" ? "rgba(245,158,11,0.10)" : stateIdleBg,
-                  border: `1px solid ${stateKind === "running" ? "rgba(245,158,11,0.22)" : stateIdleBorder}`,
+                  background: stateKind === "running" ? "color-mix(in srgb, var(--status-blue) 10%, transparent)" : stateIdleBg,
+                  border: `1px solid ${stateKind === "running" ? "color-mix(in srgb, var(--status-blue) 22%, transparent)" : stateIdleBorder}`,
                   color: stateColor,
                   flexShrink: 0,
                 }}
@@ -1127,8 +1127,8 @@ export function ThreadTopBar({
                     gap: 5,
                     padding: "1.5px 7px",
                     borderRadius: 9999,
-                    background: stateKind === "running" ? "rgba(245,158,11,0.10)" : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${stateKind === "running" ? "rgba(245,158,11,0.22)" : "rgba(255,255,255,0.06)"}`,
+                    background: stateKind === "running" ? "color-mix(in srgb, var(--status-blue) 10%, transparent)" : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${stateKind === "running" ? "color-mix(in srgb, var(--status-blue) 22%, transparent)" : "rgba(255,255,255,0.06)"}`,
                     color: stateColor,
                     flexShrink: 0,
                   }}

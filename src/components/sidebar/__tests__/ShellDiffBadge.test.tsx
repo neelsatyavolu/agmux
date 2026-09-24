@@ -88,6 +88,15 @@ it("retains and persists missing-capture notices when old hook metadata ages out
   expect(JSON.parse(localStorage.getItem("agmux-diff-recalculation-notices") ?? "{}").native).toBe("incomplete");
 });
 
+it("colors additions green and removals red using status tokens", () => {
+  const { container } = render(<ShellDiffBadge id="status-color-test" linesAdded={12} linesRemoved={3} />);
+  const wrapper = container.firstElementChild as HTMLElement;
+  const additionSpan = wrapper.children[0] as HTMLElement;
+  const removalSpan = wrapper.children[2] as HTMLElement;
+  expect(additionSpan.className).toContain("var(--status-green)");
+  expect(removalSpan.className).toContain("var(--status-red)");
+});
+
 it("does not rerender all badges for unchanged discovery notices", () => {
   const changed = vi.fn();
   const unsubscribe = useDiffRecalculationStore.subscribe(changed);
