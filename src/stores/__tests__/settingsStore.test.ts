@@ -107,4 +107,41 @@ describe("settingsStore", () => {
       { provider: "claude", model: "haiku" },
     ]);
   });
+
+  it("defaults to flat surfaces and Archivo", () => {
+    const s = useSettingsStore.getState().settings;
+    expect(s.surfaceStyle).toBe("flat");
+    expect(s.uiFont).toBe("archivo");
+  });
+
+  it("moves a pre-redesign install onto Archivo and flat surfaces once", async () => {
+    localStorage.setItem("agmux-settings", JSON.stringify({ uiFont: "geist", theme: "midnight-glass" }));
+    const { loadSettings, DESIGN_REVISION } = await import("../settingsStore");
+    const s = loadSettings();
+    expect(s.uiFont).toBe("archivo");
+    expect(s.surfaceStyle).toBe("flat");
+    expect(s.designRevision).toBe(DESIGN_REVISION);
+  });
+
+  it("keeps Geist and Glass when chosen after the redesign", async () => {
+    const { loadSettings, DESIGN_REVISION } = await import("../settingsStore");
+    localStorage.setItem("agmux-settings", JSON.stringify({
+      uiFont: "geist", surfaceStyle: "glass", designRevision: DESIGN_REVISION,
+    }));
+    const s = loadSettings();
+    expect(s.uiFont).toBe("geist");
+    expect(s.surfaceStyle).toBe("glass");
+  });
+
+  it("keeps a non-default font through the migration", async () => {
+    localStorage.setItem("agmux-settings", JSON.stringify({ uiFont: "inter" }));
+    const { loadSettings } = await import("../settingsStore");
+    expect(loadSettings().uiFont).toBe("inter");
+  });
+
+  it("falls back to flat for an unknown stored surface", async () => {
+    const { loadSettings, DESIGN_REVISION } = await import("../settingsStore");
+    localStorage.setItem("agmux-settings", JSON.stringify({ surfaceStyle: "chrome", designRevision: DESIGN_REVISION }));
+    expect(loadSettings().surfaceStyle).toBe("flat");
+  });
 });

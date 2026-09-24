@@ -214,6 +214,7 @@ export function useResolvedColorMode(): boolean {
 }
 
 const UI_FONT_MAP: Record<UIFont, string> = {
+  "archivo": '"Archivo", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   "geist": '"Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   "inter": '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   "sf-pro": '"SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif',

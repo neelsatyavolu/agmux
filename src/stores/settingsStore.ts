@@ -28,11 +28,15 @@ export interface GitAccount {
   gitEmail: string;
 }
 
-export type UIFont = "geist" | "inter" | "sf-pro" | "zed-sans" | "system";
+export type UIFont = "archivo" | "geist" | "inter" | "sf-pro" | "zed-sans" | "system";
 export type MonoFont = "geist-mono" | "jetbrains-mono" | "fira-code" | "hack" | "zed-mono" | "sf-mono" | "menlo" | "source-code-pro" | "system";
 export type AnimationSpeed = "smooth" | "quick" | "none";
 export type TerminalCursorStyle = "block" | "underline" | "bar";
 export type ColorMode = "dark" | "light" | "system";
+/** Flat = the unified agmux.dev / phone look. Glass = the original frosted panes. */
+export type SurfaceStyle = "flat" | "glass";
+/** Bump when a design change needs to reset look-related defaults once. */
+export const DESIGN_REVISION = 1;
 
 /**
  * Onboarding content revision. Bump when shipping new setup-wizard steps that
@@ -98,7 +102,7 @@ export function commitMessageCandidates(
   return match ? [match] : all;
 }
 
-const VALID_UI_FONTS: readonly UIFont[] = ["geist", "inter", "sf-pro", "zed-sans", "system"] as const;
+const VALID_UI_FONTS: readonly UIFont[] = ["archivo", "geist", "inter", "sf-pro", "zed-sans", "system"] as const;
 
 export interface AppSettings {
   theme: AppTheme;
@@ -158,6 +162,10 @@ export interface AppSettings {
   glassIntensity: number;
   /** Border brightness — scales border visibility (0-100). */
   borderBrightness: number;
+  /** Panel style: flat slate (default) or the original glass. */
+  surfaceStyle: SurfaceStyle;
+  /** Last design revision this settings blob was migrated to. */
+  designRevision: number;
   /** Custom theme base tint color (hex, used when theme is "custom"). */
   customThemeColor: string;
   /** Preferred AI CLI for agentic terminal: auto-detects if "auto". */
@@ -407,7 +415,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   llmProvider: "local",
   groqModel: "",
   accentColor: "",
-  uiFont: "geist",
+  uiFont: "archivo",
   monoFont: "geist-mono",
   uiFontSize: 14,
   chatFontSize: 15,
@@ -416,6 +424,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   sidebarOpacity: 65,
   glassIntensity: 50,
   borderBrightness: 50,
+  surfaceStyle: "flat",
+  designRevision: DESIGN_REVISION,
   customThemeColor: "#6366f1",
   agenticProvider: "auto",
   commitMessageModel: "auto",
@@ -512,7 +522,7 @@ function sanitizeRecentProviders(raw: unknown): Provider[] {
   return out;
 }
 
-function loadSettings(): AppSettings {
+export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -520,6 +530,15 @@ function loadSettings(): AppSettings {
       const uiFont = parsed.uiFont && VALID_UI_FONTS.includes(parsed.uiFont as UIFont)
         ? parsed.uiFont as UIFont
         : DEFAULT_SETTINGS.uiFont;
+      // Unified design (2026-09): move installs from before it onto the new look
+      // once. Geist was the old default font, so a stored "geist" is treated as
+      // the default. Anyone can pick Geist or Glass again in Appearance.
+      const needsDesignMigration = (parsed.designRevision ?? 0) < DESIGN_REVISION;
+      const migratedUiFont: UIFont = needsDesignMigration && uiFont === "geist" ? "archivo" : uiFont;
+      const surfaceStyle: SurfaceStyle = !needsDesignMigration &&
+        (parsed.surfaceStyle === "glass" || parsed.surfaceStyle === "flat")
+        ? parsed.surfaceStyle
+        : DEFAULT_SETTINGS.surfaceStyle;
       // Migration: old default was 30 (too translucent). Bump stale defaults to
       // the new, darker default so the sidebar reads as dark glass.
       const sidebarOpacity = parsed.sidebarOpacity === 30
@@ -565,7 +584,9 @@ function loadSettings(): AppSettings {
         commitMessageModel: LEGACY_COMMIT_MESSAGE_MODELS.has((parsed as { commitMessageModel?: string }).commitMessageModel ?? "")
           ? "gpt-6-luna"
           : parsed.commitMessageModel ?? DEFAULT_SETTINGS.commitMessageModel,
-        uiFont,
+        uiFont: migratedUiFont,
+        surfaceStyle,
+        designRevision: DESIGN_REVISION,
         quickOpenAction,
         agentTabsLayout,
         llmProvider,
