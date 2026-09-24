@@ -63,6 +63,7 @@ import { DebugModeSection } from "../settings/DebugModeSection";
 import { CleanupSection } from "../settings/CleanupSection";
 import { useResolvedColorMode } from "../ThemeProvider";
 import { formatError } from "../../lib/formatError";
+import { FOCUS_WINDOW_HOURS_OPTIONS, resolveFocusWindowHours } from "../../lib/focusView";
 
 const EMPTY_GIT_ACCOUNTS: GitAccount[] = [];
 
@@ -1224,6 +1225,36 @@ function GeneralPage({
             onChange={(v) => updateSettings({ defaultThreadsVisible: v })}
           />
         </SettingsRow>
+
+        <SettingsRow
+          label="Focus"
+          description="Add a Focus group to the top of the sidebar with the threads you've worked on recently, from every project. A thread leaves Focus after it has been inactive for the time below. New sessions started from Focus ask which project they belong to."
+        >
+          <Toggle
+            enabled={settings.focusEnabled ?? false}
+            onChange={(v) => updateSettings({ focusEnabled: v })}
+          />
+        </SettingsRow>
+
+        {(settings.focusEnabled ?? false) && (
+          <SettingsRow
+            label="Keep threads in Focus for"
+            description="Threads that are working, waiting for approval, or have unread replies stay in Focus regardless."
+          >
+            <div className="flex flex-wrap gap-1.5">
+              {FOCUS_WINDOW_HOURS_OPTIONS.map((h) => (
+                <SegButton
+                  key={h}
+                  active={resolveFocusWindowHours(settings.focusWindowHours) === h}
+                  color="indigo"
+                  onClick={() => updateSettings({ focusWindowHours: h })}
+                >
+                  {h < 24 ? `${h}h` : `${h / 24}d`}
+                </SegButton>
+              ))}
+            </div>
+          </SettingsRow>
+        )}
 
         <SettingsRow
           label="Move status line to top bar"

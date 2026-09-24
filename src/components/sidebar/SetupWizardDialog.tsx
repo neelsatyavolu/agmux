@@ -40,7 +40,7 @@ import { QUICK_OPEN_OPTIONS } from "../../lib/quickOpen";
 import { THEMES, THEME_TINTS, ThemeMiniPreview } from "./SettingsDialog";
 import { useLocalModelStore } from "../../stores/localModelStore";
 import xanomIcon from "../../assets/xanom-icon.png";
-import { detectAvailableProviders, remoteSetEnabled } from "../../lib/commands";
+import { detectAvailableProviders, isLegacyLocalModelVariant, remoteSetEnabled } from "../../lib/commands";
 import type { AvailableProvider, LocalModelVariant } from "../../lib/commands";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -857,6 +857,12 @@ function LocalModelStep() {
       ? Math.round((downloadProgress.bytes_downloaded / downloadProgress.total_bytes) * 100)
       : null;
 
+  // Retired Qwen2.5 variants are never offered — picking one would only
+  // trigger the upgrade prompt once setup closes.
+  const catalogVariants = (status?.variants ?? []).filter((v) => !v.legacy);
+  const onLegacy =
+    !!status?.model_downloaded && isLegacyLocalModelVariant(status.active_variant);
+
   const handleDownload = (variant: LocalModelVariant) => {
     startDownload(variant).catch(() => {});
   };
@@ -876,16 +882,21 @@ function LocalModelStep() {
         <span>No API key after download. Works offline. ~1–2 GB disk.</span>
       </div>
 
+      {onLegacy && (
+        <p className="mb-3 text-xs leading-relaxed text-amber-500">
+          Your current model ({status?.model_name}) is retired. Pick one below to keep automatic
+          titles and summaries working.
+        </p>
+      )}
+
       <div className="space-y-2">
-        {(status?.variants ?? []).map((v) => {
+        {catalogVariants.map((v) => {
           const isActive = status?.active_variant === v.variant;
           const sizeLabel =
             v.downloaded && v.size_bytes
               ? formatBytes(v.size_bytes)
               : `~${formatBytes(v.approx_size_bytes)}`;
-          const quality =
-            v.blurb ||
-            (v.variant === "small" ? "Fastest, lower quality" : "Better quality, slower");
+          const quality = v.blurb || "On-device model";
 
           return (
             <div
@@ -1118,7 +1129,12 @@ export function SetupWizardDialog() {
   };
 
   const isLastStep = stepIndex === stepCount - 1;
-  const localModelReady = useLocalModelStore((s) => s.status?.model_downloaded === true);
+  // A retired Qwen2.5 model on disk doesn't count: summaries refuse it.
+  const localModelReady = useLocalModelStore(
+    (s) =>
+      s.status?.model_downloaded === true &&
+      !isLegacyLocalModelVariant(s.status.active_variant),
+  );
   const localModelDownloading = useLocalModelStore((s) => s.downloading);
   /** On the local-model step, block Continue until a model is on disk. */
   const canAdvance =

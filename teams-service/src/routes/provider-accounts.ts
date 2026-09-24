@@ -137,6 +137,8 @@ function metadata(row: AccountRow, ctx: TeamContext) {
     createdBy: row.created_by, scope: row.scope_kind, createdAt: row.created_at, updatedAt: row.updated_at,
     lastUsedAt: row.last_used_at, blockedUntil: row.blocked_until,
     remainingPercent: resetPassed || staleHeadroom ? null : row.remaining_percent, healthReportedAt: row.health_reported_at,
+    // Display-only: the last measurement, however old. Allocation never ranks by it.
+    lastRemainingPercent: resetPassed ? null : row.remaining_percent,
     leasedUntil: row.lease_expires_at && row.lease_expires_at > now() ? row.lease_expires_at : null,
   };
 }
@@ -180,7 +182,8 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
   const team = ctx.team.id, user = principal.userId;
   const leaseMatch = /^\/leases\/([^/]+)(\/renew)?$/.exec(suffix);
   const allocating = suffix === "/allocate" && req.method === "POST";
-  if (allocating || leaseMatch) {
+  const checkMatch = req.method === "POST" ? /^\/([^/]+)\/check$/.exec(suffix) : null;
+  if (allocating || leaseMatch || checkMatch) {
     if (ctx.staffPreview || principal.via !== "device" || !principal.deviceId) throw forbidden("A member's desktop device token is required.");
   } else if (req.method !== "GET" && (ctx.staffPreview || ctx.role === "employee")) {
     throw forbidden("Only owners and account-creating managers can manage provider accounts.");
@@ -251,6 +254,31 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
       throw err;
     }
     // Re-check after crypto awaits, so a concurrent scope/member/account revocation fences delivery.
+    const live = await env.DB.prepare(`SELECT id FROM provider_accounts WHERE id=? AND lease_id=? AND enabled=1 AND lease_expires_at>? AND ${ELIGIBLE}`)
+      .bind(row.id, lease, now(), ...eligibleArgs(user)).first();
+    if (!live) throw notFound();
+    return response({ account: metadata(row, ctx), leaseId: lease, credentials, expiresAt: row.lease_expires_at });
+  }
+  if (checkMatch) {
+    // A short lease on one exact account so a desktop can measure its quota and report it.
+    // Capacity is deliberately ignored: checking is how an exhausted account is seen to reset.
+    const id = checkMatch[1], key = await encryptionKey(env), time = now(), lease = newId("pal");
+    const row = await env.DB.prepare(`UPDATE provider_accounts SET lease_id=?,lease_user_id=?,lease_device_id=?,
+      lease_session_id='usage-check',lease_expires_at=? WHERE id=? AND team_id=? AND enabled=1
+      AND (lease_expires_at IS NULL OR lease_expires_at<=?) AND ${ELIGIBLE} RETURNING *`)
+      .bind(lease, user, principal.deviceId, time + TTL, id, team, time, ...eligibleArgs(user)).first<AccountRow>();
+    if (!row) {
+      const leased = await env.DB.prepare(`SELECT id FROM provider_accounts WHERE id=? AND team_id=? AND enabled=1 AND lease_expires_at>? AND ${ELIGIBLE}`)
+        .bind(id, team, time, ...eligibleArgs(user)).first();
+      if (leased) throw new HttpError(409, "This account is in use right now.", "provider_account_in_use");
+      throw notFound();
+    }
+    let credentials: unknown;
+    try { credentials = await decrypt(key, row); }
+    catch (err) {
+      await env.DB.prepare("UPDATE provider_accounts SET lease_id=NULL,lease_expires_at=NULL,lease_user_id=NULL,lease_device_id=NULL,lease_session_id=NULL WHERE id=? AND lease_id=?").bind(row.id, lease).run();
+      throw err;
+    }
     const live = await env.DB.prepare(`SELECT id FROM provider_accounts WHERE id=? AND lease_id=? AND enabled=1 AND lease_expires_at>? AND ${ELIGIBLE}`)
       .bind(row.id, lease, now(), ...eligibleArgs(user)).first();
     if (!live) throw notFound();

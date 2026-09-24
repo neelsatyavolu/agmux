@@ -3,6 +3,7 @@ import { RecalculateDiffAction } from "./RecalculateDiffAction";
 import type { DiffRecalculationTarget } from "../../lib/recalculateDiff";
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { onFocusNewSession } from "../../lib/focusView";
 import { useShallow } from "zustand/react/shallow";
 import { ChevronRight, ChevronDown, Plus, Loader2, Archive, Trash2, GripVertical, X, XCircle, MoreHorizontal, Pencil, SquarePen, GitBranch, FolderGit2, FolderInput, FolderOpen, MessageSquarePlus, Pin, PinOff, Activity, Check, ArrowRightLeft, RefreshCw, Unplug } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -153,6 +154,8 @@ const EMPTY_DESKTOP_CODEX: CodexWorkDesktopSession[] = [];
 const EMPTY_PROJECT_OVERRIDES: Record<string, number> = {};
 const EMPTY_SHOW_ONLY_RUNNING: Record<string, boolean> = {};
 const PAGE_SIZE_FALLBACK = 5;
+/** Epoch seconds subtracted from row times so Focus CSS `order` values fit in 32 bits. */
+const FOCUS_ORDER_BASE_S = 1_700_000_000;
 
 /** Terminal agent tiles under the "New" menu. Two rows of five.
  *  Row 2's "local" tile (Pi CLI pointed at an on-device model) is hidden
@@ -267,6 +270,10 @@ interface Props {
   variant?: "list" | "strip";
   desktopClaudeCowork?: ClaudeDesktopCoworkSession[];
   desktopCodexWork?: CodexWorkDesktopSession[];
+  /** Focus list container. When set, this group also portals its recent rows into it. */
+  focusPortal?: HTMLElement | null;
+  /** Rows active at or after this epoch-ms time are listed in Focus. */
+  focusSince?: number | null;
 }
 
 /** Collapse Claude model IDs / aliases to "Sonnet 4.6" / "Opus 4.7" / "Haiku 4.5". */
@@ -338,7 +345,7 @@ function ProviderIcon({
   );
 }
 
-export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessions, piSessions, grokSessions, onSessionCreated, onDragHandlePointerDown, collapsed, variant = "list", desktopClaudeCowork = EMPTY_DESKTOP_CLAUDE, desktopCodexWork = EMPTY_DESKTOP_CODEX }: Props) {
+export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessions, piSessions, grokSessions, onSessionCreated, onDragHandlePointerDown, collapsed, variant = "list", desktopClaudeCowork = EMPTY_DESKTOP_CLAUDE, desktopCodexWork = EMPTY_DESKTOP_CODEX, focusPortal = null, focusSince = null }: Props) {
   const expanded = useUiStore((s) => s.projectExpandedById[project.id] ?? true);
   const setProjectExpanded = useUiStore((s) => s.setProjectExpanded);
   const setExpanded = (next: boolean) => setProjectExpanded(project.id, next);
@@ -366,6 +373,9 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     return s.projectThreadsVisible?.[project.id] ?? s.defaultThreadsVisible ?? PAGE_SIZE_FALLBACK;
   });
   const [renamingItemId, setRenamingItemId] = useState<string | null>(null);
+  // Focus rows duplicate list rows, so a rename edits only the copy it started from.
+  const [renameInFocus, setRenameInFocus] = useState(false);
+  const menuFromFocusRef = useRef(false);
   const [renamingProject, setRenamingProject] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const hiddenSessionIdsRef = useRef<Set<string>>(loadHiddenSessions(project.id));
@@ -383,6 +393,8 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
   const itemContextMenuRef = useRef<HTMLDivElement>(null);
   const newMenuRef = useRef<HTMLDivElement>(null);
   const plusButtonRef = useRef<HTMLButtonElement>(null);
+  // Set while the "New in" menu was opened from the Focus group's + button.
+  const newMenuAnchorRef = useRef<HTMLElement | null>(null);
   const [newMenuPos, setNewMenuPos] = useState<{ top: number; left: number; placement: "top" | "bottom" }>({ top: 0, left: 0, placement: "bottom" });
   // Track sessions created in this app session so they persist in sidebar even when deselected.
   // Initialized from localStorage so sessions survive app restarts.
@@ -869,6 +881,25 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     });
   }, [unified, showOnlyRunning, selectedThreadId, selectedCodexSessionId, selectedClaudeSessionId, pendingApprovalsBySession, claudeProcessingById, codexProcessingById, unreadSessionIds]);
 
+  // Focus: rows active since `focusSince`, plus any still working, waiting on
+  // approval, or finished-but-unread. Cowork desktop rows never qualify.
+  const focusItems = useMemo(() => {
+    if (!focusPortal || focusSince == null || appMode === "cowork") return [];
+    return unified.filter((item) => {
+      if (item.kind === "desktop-claude") return false;
+      const id = item.data.id;
+      if (item.timestamp >= focusSince) return true;
+      return !!pendingApprovalsBySession[id] || !!claudeProcessingById[id] || !!codexProcessingById[id] || !!unreadSessionIds[id];
+    });
+  }, [focusPortal, focusSince, appMode, unified, pendingApprovalsBySession, claudeProcessingById, codexProcessingById, unreadSessionIds]);
+
+  // A Focus row that ages out mid-rename takes its input with it; end the rename.
+  useEffect(() => {
+    if (renameInFocus && renamingItemId && !focusItems.some((item) => item.data.id === renamingItemId)) {
+      setRenamingItemId(null);
+    }
+  }, [renameInFocus, renamingItemId, focusItems]);
+
   // Clamp visibleCount when the item count changes — but PRESERVE any
   // "Show more" expansion the user has explicitly opted into. Previously we
   // reset to projectPageSize on every length change, which collapsed the list
@@ -962,6 +993,18 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     }
   }, [contextMenu]);
 
+  // Focus has no project of its own: after the user picks this project there,
+  // open this group's "New in" menu beside the Focus + button.
+  useEffect(() => onFocusNewSession(({ projectId, anchor }) => {
+    if (projectId !== project.id) return;
+    newMenuAnchorRef.current = anchor;
+    setNewMenu(true);
+  }), [project.id]);
+
+  useEffect(() => {
+    if (!newMenu) newMenuAnchorRef.current = null;
+  }, [newMenu]);
+
   // Close new menu on outside click
   useEffect(() => {
     if (!newMenu) return;
@@ -979,9 +1022,9 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
   // when there's not enough space below (keeps dropdown inside the viewport
   // even when the project group is near the bottom of the sidebar).
   useLayoutEffect(() => {
-    if (!newMenu || !plusButtonRef.current) return;
+    if (!newMenu || !(newMenuAnchorRef.current ?? plusButtonRef.current)) return;
     const compute = () => {
-      const btn = plusButtonRef.current;
+      const btn = newMenuAnchorRef.current ?? plusButtonRef.current;
       if (!btn) return;
       const rect = btn.getBoundingClientRect();
       const menuHeight = newMenuRef.current?.offsetHeight ?? 360;
@@ -1069,6 +1112,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     isCancellingRenameRef.current = false;
     setRenameValue(currentName);
     setRenamingItemId(id);
+    setRenameInFocus(menuFromFocusRef.current);
     setRenamingProject(false);
   };
 
@@ -2557,6 +2601,562 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     );
   }
 
+  const markMenuOrigin = (fromFocus: boolean) => () => {
+    menuFromFocusRef.current = fromFocus;
+  };
+
+  // One sidebar row. `inFocus` renders the copy shown in the cross-project
+  // Focus list (portaled out of this group), which also names the project.
+  const renderItem = (item: UnifiedItem, inFocus = false) => {
+    const isRenamingRow = (id: string) => renamingItemId === id && renameInFocus === inFocus;
+    const focusMetaPrefix = inFocus ? `${project.name} · ` : null;
+    if (item.kind === "thread") {
+      const t = item.data;
+      const isSelected = t.provider === "ClaudeCode"
+        ? t.id === selectedClaudeSessionId
+        : t.id === selectedThreadId;
+
+      return (
+        <SidebarRow
+          key={`thread-${t.id}`}
+          renaming={isRenamingRow(t.id)}
+          data-session-nav={t.id}
+          data-session-kind="thread"
+          onClick={() => {
+            if (t.provider === "ClaudeCode") {
+              selectClaudeSession(t.id, t.work_dir, false, t.name);
+            } else {
+              // Kimi/OpenCode/Grok PTY: pre-flip status to Running
+              // BEFORE mount (prevents the 1ms loading flash) AND
+              // explicitly fire the raw PTY spawn here. We use
+              // `spawnThreadRaw` (the Tauri invoke) instead of
+              // threadStore.startThread because the latter calls
+              // `recordPromptSent` which bumps
+              // `lastPromptAt[t.id] = Date.now()` and reorders the
+              // sidebar as if the user had just sent a prompt —
+              // wrong for a mere "open existing thread" action. The
+              // pre-flip means ThreadView's auto-spawn useEffect
+              // early-returns (status already Running), so we must
+              // trigger the PTY spawn manually here. Backend
+              // `spawn_thread` dedups against already-alive sessions.
+              // Grok SDK mode has its own lifecycle — skip PTY spawn.
+              const isTerminalPty = isPtyTerminalProvider(t.provider, t.interaction_mode);
+              if (isTerminalPty && t.status !== "Running") {
+                updateThreadStatus(t.id, "Running");
+                spawnThreadRaw(t.id, { ...currentSpawnPreferences(), enableAutoMode: false }).catch((err) => {
+                  console.error(`Failed to resume ${t.provider} thread:`, err);
+                  updateThreadStatus(t.id, "Error");
+                });
+              }
+              selectThread(t.id, t.name);
+            }
+          }}
+          onDoubleClick={() => {
+            if (t.status === "Idle" && (t.interaction_mode == null || t.interaction_mode === "pty")) {
+              startThread(t.id, claudeAutoMode).catch(console.error);
+            }
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "thread", id: t.id });
+          }}
+          data-active={isSelected ? "true" : "false"}
+          className={`sb-row group/item ${isSelected ? "on" : ""}`}
+        >
+          <div className="av">
+            <ProviderIcon
+              provider={
+                t.provider === "Codex"
+                  ? "codex"
+                  : t.provider === "Droid"
+                    ? "droid"
+                  : t.provider === "Cline"
+                    ? "cline"
+                  : t.provider === "Gemini"
+                    ? "gemini"
+                  : t.provider === "Hermes"
+                    ? "hermes"
+                  : t.provider === "Kimi"
+                    ? "kimi"
+                    : t.provider === "Pi"
+                      ? "pi"
+                    : t.provider === "OpenCode"
+                      ? "opencode"
+                      : t.provider === "MLX"
+                        ? "mlx"
+                        : t.provider === "Grok"
+                          ? "grok"
+                          : t.provider === "Cursor"
+                            ? "cursor"
+                          : "claude"
+              }
+              size={14}
+            />
+          </div>
+          {isRenamingRow(t.id) ? (
+            <SidebarRenameInput
+              inputRef={renameInputRef}
+              value={renameValue}
+              onChange={setRenameValue}
+              onSubmit={() => handleRenameSubmit(t.id)}
+              onCancel={handleRenameCancel}
+            />
+          ) : (
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                {pinnedSessionIdsRef.current.has(t.id) && (
+                  <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
+                )}
+                <span className="sb-ttl">
+                  {sessionNames[t.id] || t.name}
+                </span>
+              </div>
+              <div className="sb-mt">{focusMetaPrefix}
+                {[
+                  t.agent_profile === "cowork"
+                    ? "Cowork"
+                    : (t.interaction_mode === "sdk" || t.interaction_mode === "opencode-sdk" || t.interaction_mode === "mlx" || t.interaction_mode === "grok-sdk" || t.interaction_mode === "cursor-sdk" || t.interaction_mode === "gemini-sdk")
+                      ? "Chat"
+                      : "Terminal",
+                  t.provider === "MLX" || isLocalModelSlug(t.model)
+                    ? shortMlxModel(t.model)
+                    : t.provider === "OpenCode"
+                      ? prettifyOpenCodeSlug(t.model) || null
+                      : t.provider === "Grok"
+                        ? prettifyGrokModel(t.model)
+                        : t.provider === "Droid"
+                          ? t.model
+                        : t.provider === "Cline"
+                          ? prettifyClineModel(t.model)
+                        : t.provider === "Gemini"
+                          ? prettifyGeminiModel(t.model, { includeEffort: false })
+                        : t.provider === "Hermes"
+                          ? prettifyPiModel(t.model)
+                        : t.provider === "Kimi"
+                          ? prettifyKimiModel(t.model)
+                          : t.provider === "Pi"
+                            ? prettifyPiModel(t.model)
+                          : t.provider === "Codex"
+                            ? prettifyCodexModelName(codexThreadModelById[t.id] ?? t.model ?? "") || null
+                            : t.provider === "Cursor"
+                              ? prettifyCursorModel(t.model)
+                              : shortClaudeModel(t.model),
+                  relativeTime(item.timestamp),
+                ].filter(Boolean).join(" · ")}
+              </div>
+            </div>
+          )}
+          <ShellDiffBadge id={t.id} sessionId={t.sdk_session_id} linesAdded={t.lines_added} linesRemoved={t.lines_removed} filesChanged={t.files_changed} />
+          {/* Spinner / attention / unread for every DB thread. Chat providers
+              (Claude SDK, OpenCode, Grok, Cursor, MLX, …) share
+              claudeProcessingById; do not gate on provider or Cursor
+              never shows a working spinner. */}
+          <StatusDot
+            state={computeStatus({
+              pending: !!pendingApprovalsBySession[t.id],
+              processing: !!claudeProcessingById[t.id],
+              unread: !!unreadSessionIds[t.id] && !isSelected,
+            })}
+            title={claudeProcessingById[t.id] ? (claudeToolStatusById[t.id] ?? "working") : undefined}
+          />
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="More options"
+            onClick={(e) => openMenuForItem(e, "thread", t.id)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "thread", t.id); }}
+            className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
+          >
+            <MoreHorizontal size={14} className="text-zinc-400" />
+          </span>
+        </SidebarRow>
+      );
+    }
+
+    if (item.kind === "codex") {
+      const c = item.data;
+      const isSelected = c.id === selectedCodexSessionId;
+      const threadName = getThreadName(c);
+      return (
+        <SidebarRow
+          key={`codex-${c.id}`}
+          renaming={isRenamingRow(c.id)}
+          data-session-nav={c.id}
+          data-session-kind="codex"
+          data-session-cwd={c.cwd}
+          onClick={() => selectCodexSession(c.id, c.cwd, threadName)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "codex", id: c.id });
+          }}
+          data-active={isSelected ? "true" : "false"}
+          className={`sb-row group/item ${isSelected ? "on" : ""}`}
+        >
+          <div className="av">
+            <ProviderIcon provider="codex" size={14} />
+          </div>
+          {isRenamingRow(c.id) ? (
+            <SidebarRenameInput
+              inputRef={renameInputRef}
+              value={renameValue}
+              onChange={setRenameValue}
+              onSubmit={() => handleRenameSubmit(c.id)}
+              onCancel={handleRenameCancel}
+            />
+          ) : (
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                {pinnedSessionIdsRef.current.has(c.id) && (
+                  <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
+                )}
+                <span className="sb-ttl">
+                  {sessionNames[c.id] || (!c.preview ? "New Thread" : threadName)}
+                </span>
+              </div>
+              <div className="sb-mt">{focusMetaPrefix}
+                {[(getCodexSessionMode(c.id) ?? (codexDefaultView === "terminal" ? "terminal" : "chat")) === "chat" ? (isCodexWorkSession(c.id) ? "Work" : "Chat") : "Terminal", prettifyCodexModelName(codexThreadModelById[c.id] ?? c.model ?? ""), relativeTime(item.timestamp)].filter(Boolean).join(" · ")}
+              </div>
+            </div>
+          )}
+          <ShellDiffBadge id={c.id} {...codexDiffStatsById[c.id]} />
+          <StatusDot
+            state={computeStatus({
+              pending: !!pendingApprovalsBySession[c.id],
+              processing: !!codexProcessingById[c.id],
+              unread: !!unreadSessionIds[c.id] && !isSelected,
+            })}
+          />
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="More options"
+            onClick={(e) => openMenuForItem(e, "codex", c.id)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "codex", c.id); }}
+            className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
+          >
+            <MoreHorizontal size={14} className="text-zinc-400" />
+          </span>
+        </SidebarRow>
+      );
+    }
+
+    if (item.kind === "pi") {
+      const d = item.data;
+      const preview = (d.preview ?? "").trim();
+      const displayName = sessionNames[d.id]
+        || (preview.length > 30 ? preview.slice(0, 30) + "\u2026" : preview)
+        || `Pi ${d.id.slice(0, 8)}`;
+      return (
+        <SidebarRow
+          key={`pi-${d.id}`}
+          renaming={isRenamingRow(d.id)}
+          data-session-nav={d.id}
+          data-session-kind="pi"
+          data-session-cwd={d.cwd}
+          onClick={() => handlePiSessionClick(d)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "pi", id: d.id });
+          }}
+          className="group/item flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-zinc-400 transition-colors duration-150 hover:bg-white/[0.03] hover:text-zinc-300"
+        >
+          <div className="av">
+            <ProviderIcon provider="pi" size={14} />
+          </div>
+          {isRenamingRow(d.id) ? (
+            <SidebarRenameInput
+              inputRef={renameInputRef}
+              value={renameValue}
+              onChange={setRenameValue}
+              onSubmit={() => handleRenameSubmit(d.id)}
+              onCancel={handleRenameCancel}
+            />
+          ) : (
+            inFocus ? (
+              <div className="min-w-0 flex-1">
+                <span className="sb-ttl">{displayName}</span>
+                <div className="sb-mt">{project.name}</div>
+              </div>
+            ) : (
+              <span className="flex-1 truncate">{displayName}</span>
+            )
+          )}
+          <ShellDiffBadge id={d.id} linesAdded={d.lines_added} linesRemoved={d.lines_removed} filesChanged={d.files_changed} />
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="More options"
+            onClick={(e) => openMenuForItem(e, "pi", d.id)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "pi", d.id); }}
+            className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
+          >
+            <MoreHorizontal size={14} className="text-zinc-400" />
+          </span>
+        </SidebarRow>
+      );
+    }
+
+    if (item.kind === "kimi") {
+      const d = item.data;
+      const preview = (d.preview ?? "").trim();
+      const displayName = sessionNames[d.id]
+        || (preview.length > 30 ? preview.slice(0, 30) + "\u2026" : preview)
+        || `Kimi ${d.id.slice(0, 8)}`;
+      return (
+        <SidebarRow
+          key={`kimi-${d.id}`}
+          renaming={isRenamingRow(d.id)}
+          data-session-nav={d.id}
+          data-session-kind="kimi"
+          data-session-cwd={d.cwd}
+          onClick={() => handleKimiSessionClick(d)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "kimi", id: d.id });
+          }}
+          className="group/item flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-zinc-400 transition-colors duration-150 hover:bg-white/[0.03] hover:text-zinc-300"
+        >
+          <div className="av">
+            <ProviderIcon provider="kimi" size={14} />
+          </div>
+          {isRenamingRow(d.id) ? (
+            <SidebarRenameInput
+              inputRef={renameInputRef}
+              value={renameValue}
+              onChange={setRenameValue}
+              onSubmit={() => handleRenameSubmit(d.id)}
+              onCancel={handleRenameCancel}
+            />
+          ) : (
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                {pinnedSessionIdsRef.current.has(d.id) && (
+                  <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
+                )}
+                <span className="flex-1 truncate text-zinc-200 leading-tight tracking-[-0.015em]">{displayName}</span>
+              </div>
+              <div className="sb-mt">{focusMetaPrefix}
+                {["Terminal", prettifyKimiModel(d.model), relativeTime(item.timestamp)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            </div>
+          )}
+          <ShellDiffBadge id={d.id} />
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="More options"
+            onClick={(e) => openMenuForItem(e, "kimi", d.id)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "kimi", d.id); }}
+            className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
+          >
+            <MoreHorizontal size={14} className="text-zinc-400" />
+          </span>
+        </SidebarRow>
+      );
+    }
+
+    if (item.kind === "grok") {
+      const g = item.data;
+      const preview = (g.preview ?? "").trim();
+      const displayName = sessionNames[g.id]
+        || (preview.length > 30 ? preview.slice(0, 30) + "…" : preview)
+        || `Grok ${g.id.slice(0, 8)}`;
+      return (
+        <SidebarRow
+          key={`grok-${g.id}`}
+          renaming={isRenamingRow(g.id)}
+          data-session-nav={g.id}
+          data-session-kind="grok"
+          data-session-cwd={g.cwd}
+          onClick={() => handleGrokSessionClick(g)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "grok", id: g.id });
+          }}
+          className="sb-row group/item"
+        >
+          <div className="av">
+            <ProviderIcon provider="grok" size={14} />
+          </div>
+          {isRenamingRow(g.id) ? (
+            <SidebarRenameInput
+              inputRef={renameInputRef}
+              value={renameValue}
+              onChange={setRenameValue}
+              onSubmit={() => handleRenameSubmit(g.id)}
+              onCancel={handleRenameCancel}
+            />
+          ) : (
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                {pinnedSessionIdsRef.current.has(g.id) && (
+                  <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
+                )}
+                <span className="sb-ttl">
+                  {displayName}
+                </span>
+              </div>
+              <div className="sb-mt">{focusMetaPrefix}
+                {[
+                  "Terminal",
+                  isLocalModelSlug(g.model)
+                    ? shortMlxModel(g.model)
+                    : prettifyGrokModel(g.model),
+                  relativeTime(item.timestamp),
+                ].filter(Boolean).join(" · ")}
+              </div>
+            </div>
+          )}
+          <ShellDiffBadge id={g.id} linesAdded={g.lines_added} linesRemoved={g.lines_removed} filesChanged={g.files_changed} />
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="More options"
+            onClick={(e) => openMenuForItem(e, "grok", g.id)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "grok", g.id); }}
+            className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
+          >
+            <MoreHorizontal size={14} className="text-zinc-400" />
+          </span>
+        </SidebarRow>
+      );
+    }
+
+    if (item.kind === "desktop-claude") {
+      const s = item.data;
+      const isSelected =
+        s.id === selectedClaudeSessionId || s.cliSessionId === selectedClaudeSessionId;
+      return (
+        <SidebarRow
+          key={`desktop-claude-${s.id}`}
+          renaming={isRenamingRow(s.id)}
+          data-session-nav={s.id}
+          data-session-kind="desktop-claude"
+          onClick={() => openDesktopClaude(s)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "desktop-claude", id: s.id });
+          }}
+          data-active={isSelected ? "true" : "false"}
+          className={`sb-row group/item ${isSelected ? "on" : ""}`}
+        >
+          <div className="av">
+            <ProviderIcon provider="claude" size={14} />
+          </div>
+          {isRenamingRow(s.id) ? (
+            <SidebarRenameInput
+              inputRef={renameInputRef}
+              value={renameValue}
+              onChange={setRenameValue}
+              onSubmit={() => handleRenameSubmit(s.id)}
+              onCancel={handleRenameCancel}
+            />
+          ) : (
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="sb-ttl">{sessionNames[s.id] || s.title || "Cowork"}</span>
+              </div>
+              <div className="sb-mt">{focusMetaPrefix}
+                {["Desktop", shortClaudeModel(s.model), relativeTime(item.timestamp)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            </div>
+          )}
+          <ShellDiffBadge id={s.id} sessionId={s.cliSessionId} />
+        </SidebarRow>
+      );
+    }
+
+    // claude
+    const s = item.data;
+    const isSelected = s.id === selectedClaudeSessionId;
+    return (
+      <SidebarRow
+        key={`claude-${s.id}`}
+        renaming={isRenamingRow(s.id)}
+        data-session-nav={s.id}
+        data-session-kind="claude"
+        data-session-cwd={s.cwd}
+        onClick={() => selectClaudeSession(s.id, s.cwd, false, stripSystemTags(s.preview ?? "").slice(0, 30) || "Claude")}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "claude", id: s.id });
+        }}
+        data-active={isSelected ? "true" : "false"}
+        className={`sb-row group/item ${isSelected ? "on" : ""}`}
+      >
+        <div className="av">
+          <ProviderIcon provider="claude" size={14} />
+        </div>
+        {isRenamingRow(s.id) ? (
+          <SidebarRenameInput
+            inputRef={renameInputRef}
+            value={renameValue}
+            onChange={setRenameValue}
+            onSubmit={() => handleRenameSubmit(s.id)}
+            onCancel={handleRenameCancel}
+          />
+        ) : (
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              {pinnedSessionIdsRef.current.has(s.id) && (
+                <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
+              )}
+              <span className="sb-ttl">
+                {sessionNames[s.id] || (DEFAULT_SESSION_RE.test(s.preview ?? "") ? "New Thread" : stripSystemTags(s.preview ?? "")) || "New Thread"}
+              </span>
+            </div>
+            <div className="sb-mt">{focusMetaPrefix}
+              {["Terminal", shortClaudeModel(claudeSessionModelById[s.id] ?? s.model), relativeTime(item.timestamp)].filter(Boolean).join(" · ")}
+            </div>
+          </div>
+        )}
+        {(() => {
+          // Prefer the live store map (populated by the open-session
+          // diff scan in ClaudeSessionView and the stop-hook listener)
+          // over the snapshot from listClaudeSessions — `s.lines_*`
+          // can be 0 when the initial inline scan ran before tool-use
+          // diffs were on disk and the deferred bg scan skipped emit.
+          const live = claudeSessionDiffStatsById[s.id];
+          const linesAdded = live?.linesAdded ?? s.lines_added;
+          const linesRemoved = live?.linesRemoved ?? s.lines_removed;
+          const filesChanged = live?.filesChanged ?? s.files_changed;
+          return (
+            <ShellDiffBadge id={s.id} linesAdded={linesAdded} linesRemoved={linesRemoved} filesChanged={filesChanged} />
+          );
+        })()}
+        <StatusDot
+          state={computeStatus({
+            pending: !!pendingApprovalsBySession[s.id],
+            processing: !!claudeProcessingById[s.id],
+            unread: !!unreadSessionIds[s.id] && !isSelected,
+          })}
+          title={claudeProcessingById[s.id] ? (claudeToolStatusById[s.id] ?? "working") : undefined}
+        />
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label="More options"
+          onClick={(e) => openMenuForItem(e, "claude", s.id)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "claude", s.id); }}
+          className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
+        >
+          <MoreHorizontal size={14} className="text-zinc-400" />
+        </span>
+      </SidebarRow>
+    );
+  };
+
   return (
     <div className="pg">
       <div
@@ -2792,547 +3392,13 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
             className="overflow-hidden"
           >
-            <div className="pg-body">
-              {visible.map((item) => {
-            if (item.kind === "thread") {
-              const t = item.data;
-              const isSelected = t.provider === "ClaudeCode"
-                ? t.id === selectedClaudeSessionId
-                : t.id === selectedThreadId;
-
-              return (
-                <SidebarRow
-                  key={`thread-${t.id}`}
-                  renaming={renamingItemId === t.id}
-                  data-session-nav={t.id}
-                  data-session-kind="thread"
-                  onClick={() => {
-                    if (t.provider === "ClaudeCode") {
-                      selectClaudeSession(t.id, t.work_dir, false, t.name);
-                    } else {
-                      // Kimi/OpenCode/Grok PTY: pre-flip status to Running
-                      // BEFORE mount (prevents the 1ms loading flash) AND
-                      // explicitly fire the raw PTY spawn here. We use
-                      // `spawnThreadRaw` (the Tauri invoke) instead of
-                      // threadStore.startThread because the latter calls
-                      // `recordPromptSent` which bumps
-                      // `lastPromptAt[t.id] = Date.now()` and reorders the
-                      // sidebar as if the user had just sent a prompt —
-                      // wrong for a mere "open existing thread" action. The
-                      // pre-flip means ThreadView's auto-spawn useEffect
-                      // early-returns (status already Running), so we must
-                      // trigger the PTY spawn manually here. Backend
-                      // `spawn_thread` dedups against already-alive sessions.
-                      // Grok SDK mode has its own lifecycle — skip PTY spawn.
-                      const isTerminalPty = isPtyTerminalProvider(t.provider, t.interaction_mode);
-                      if (isTerminalPty && t.status !== "Running") {
-                        updateThreadStatus(t.id, "Running");
-                        spawnThreadRaw(t.id, { ...currentSpawnPreferences(), enableAutoMode: false }).catch((err) => {
-                          console.error(`Failed to resume ${t.provider} thread:`, err);
-                          updateThreadStatus(t.id, "Error");
-                        });
-                      }
-                      selectThread(t.id, t.name);
-                    }
-                  }}
-                  onDoubleClick={() => {
-                    if (t.status === "Idle" && (t.interaction_mode == null || t.interaction_mode === "pty")) {
-                      startThread(t.id, claudeAutoMode).catch(console.error);
-                    }
-                  }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "thread", id: t.id });
-                  }}
-                  data-active={isSelected ? "true" : "false"}
-                  className={`sb-row group/item ${isSelected ? "on" : ""}`}
-                >
-                  <div className="av">
-                    <ProviderIcon
-                      provider={
-                        t.provider === "Codex"
-                          ? "codex"
-                          : t.provider === "Droid"
-                            ? "droid"
-                          : t.provider === "Cline"
-                            ? "cline"
-                          : t.provider === "Gemini"
-                            ? "gemini"
-                          : t.provider === "Hermes"
-                            ? "hermes"
-                          : t.provider === "Kimi"
-                            ? "kimi"
-                            : t.provider === "Pi"
-                              ? "pi"
-                            : t.provider === "OpenCode"
-                              ? "opencode"
-                              : t.provider === "MLX"
-                                ? "mlx"
-                                : t.provider === "Grok"
-                                  ? "grok"
-                                  : t.provider === "Cursor"
-                                    ? "cursor"
-                                  : "claude"
-                      }
-                      size={14}
-                    />
-                  </div>
-                  {renamingItemId === t.id ? (
-                    <SidebarRenameInput
-                      inputRef={renameInputRef}
-                      value={renameValue}
-                      onChange={setRenameValue}
-                      onSubmit={() => handleRenameSubmit(t.id)}
-                      onCancel={handleRenameCancel}
-                    />
-                  ) : (
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        {pinnedSessionIdsRef.current.has(t.id) && (
-                          <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
-                        )}
-                        <span className="sb-ttl">
-                          {sessionNames[t.id] || t.name}
-                        </span>
-                      </div>
-                      <div className="sb-mt">
-                        {[
-                          t.agent_profile === "cowork"
-                            ? "Cowork"
-                            : (t.interaction_mode === "sdk" || t.interaction_mode === "opencode-sdk" || t.interaction_mode === "mlx" || t.interaction_mode === "grok-sdk" || t.interaction_mode === "cursor-sdk" || t.interaction_mode === "gemini-sdk")
-                              ? "Chat"
-                              : "Terminal",
-                          t.provider === "MLX" || isLocalModelSlug(t.model)
-                            ? shortMlxModel(t.model)
-                            : t.provider === "OpenCode"
-                              ? prettifyOpenCodeSlug(t.model) || null
-                              : t.provider === "Grok"
-                                ? prettifyGrokModel(t.model)
-                                : t.provider === "Droid"
-                                  ? t.model
-                                : t.provider === "Cline"
-                                  ? prettifyClineModel(t.model)
-                                : t.provider === "Gemini"
-                                  ? prettifyGeminiModel(t.model, { includeEffort: false })
-                                : t.provider === "Hermes"
-                                  ? prettifyPiModel(t.model)
-                                : t.provider === "Kimi"
-                                  ? prettifyKimiModel(t.model)
-                                  : t.provider === "Pi"
-                                    ? prettifyPiModel(t.model)
-                                  : t.provider === "Codex"
-                                    ? prettifyCodexModelName(codexThreadModelById[t.id] ?? t.model ?? "") || null
-                                    : t.provider === "Cursor"
-                                      ? prettifyCursorModel(t.model)
-                                      : shortClaudeModel(t.model),
-                          relativeTime(item.timestamp),
-                        ].filter(Boolean).join(" · ")}
-                      </div>
-                    </div>
-                  )}
-                  <ShellDiffBadge id={t.id} sessionId={t.sdk_session_id} linesAdded={t.lines_added} linesRemoved={t.lines_removed} filesChanged={t.files_changed} />
-                  {/* Spinner / attention / unread for every DB thread. Chat providers
-                      (Claude SDK, OpenCode, Grok, Cursor, MLX, …) share
-                      claudeProcessingById; do not gate on provider or Cursor
-                      never shows a working spinner. */}
-                  <StatusDot
-                    state={computeStatus({
-                      pending: !!pendingApprovalsBySession[t.id],
-                      processing: !!claudeProcessingById[t.id],
-                      unread: !!unreadSessionIds[t.id] && !isSelected,
-                    })}
-                    title={claudeProcessingById[t.id] ? (claudeToolStatusById[t.id] ?? "working") : undefined}
-                  />
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    aria-label="More options"
-                    onClick={(e) => openMenuForItem(e, "thread", t.id)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "thread", t.id); }}
-                    className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
-                  >
-                    <MoreHorizontal size={14} className="text-zinc-400" />
-                  </span>
-                </SidebarRow>
-              );
-            }
-
-            if (item.kind === "codex") {
-              const c = item.data;
-              const isSelected = c.id === selectedCodexSessionId;
-              const threadName = getThreadName(c);
-              return (
-                <SidebarRow
-                  key={`codex-${c.id}`}
-                  renaming={renamingItemId === c.id}
-                  data-session-nav={c.id}
-                  data-session-kind="codex"
-                  data-session-cwd={c.cwd}
-                  onClick={() => selectCodexSession(c.id, c.cwd, threadName)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "codex", id: c.id });
-                  }}
-                  data-active={isSelected ? "true" : "false"}
-                  className={`sb-row group/item ${isSelected ? "on" : ""}`}
-                >
-                  <div className="av">
-                    <ProviderIcon provider="codex" size={14} />
-                  </div>
-                  {renamingItemId === c.id ? (
-                    <SidebarRenameInput
-                      inputRef={renameInputRef}
-                      value={renameValue}
-                      onChange={setRenameValue}
-                      onSubmit={() => handleRenameSubmit(c.id)}
-                      onCancel={handleRenameCancel}
-                    />
-                  ) : (
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        {pinnedSessionIdsRef.current.has(c.id) && (
-                          <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
-                        )}
-                        <span className="sb-ttl">
-                          {sessionNames[c.id] || (!c.preview ? "New Thread" : threadName)}
-                        </span>
-                      </div>
-                      <div className="sb-mt">
-                        {[(getCodexSessionMode(c.id) ?? (codexDefaultView === "terminal" ? "terminal" : "chat")) === "chat" ? (isCodexWorkSession(c.id) ? "Work" : "Chat") : "Terminal", prettifyCodexModelName(codexThreadModelById[c.id] ?? c.model ?? ""), relativeTime(item.timestamp)].filter(Boolean).join(" · ")}
-                      </div>
-                    </div>
-                  )}
-                  <ShellDiffBadge id={c.id} {...codexDiffStatsById[c.id]} />
-                  <StatusDot
-                    state={computeStatus({
-                      pending: !!pendingApprovalsBySession[c.id],
-                      processing: !!codexProcessingById[c.id],
-                      unread: !!unreadSessionIds[c.id] && !isSelected,
-                    })}
-                  />
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    aria-label="More options"
-                    onClick={(e) => openMenuForItem(e, "codex", c.id)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "codex", c.id); }}
-                    className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
-                  >
-                    <MoreHorizontal size={14} className="text-zinc-400" />
-                  </span>
-                </SidebarRow>
-              );
-            }
-
-            if (item.kind === "pi") {
-              const d = item.data;
-              const preview = (d.preview ?? "").trim();
-              const displayName = sessionNames[d.id]
-                || (preview.length > 30 ? preview.slice(0, 30) + "\u2026" : preview)
-                || `Pi ${d.id.slice(0, 8)}`;
-              return (
-                <SidebarRow
-                  key={`pi-${d.id}`}
-                  renaming={renamingItemId === d.id}
-                  data-session-nav={d.id}
-                  data-session-kind="pi"
-                  data-session-cwd={d.cwd}
-                  onClick={() => handlePiSessionClick(d)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "pi", id: d.id });
-                  }}
-                  className="group/item flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-zinc-400 transition-colors duration-150 hover:bg-white/[0.03] hover:text-zinc-300"
-                >
-                  <div className="av">
-                    <ProviderIcon provider="pi" size={14} />
-                  </div>
-                  {renamingItemId === d.id ? (
-                    <SidebarRenameInput
-                      inputRef={renameInputRef}
-                      value={renameValue}
-                      onChange={setRenameValue}
-                      onSubmit={() => handleRenameSubmit(d.id)}
-                      onCancel={handleRenameCancel}
-                    />
-                  ) : (
-                    <span className="flex-1 truncate">{displayName}</span>
-                  )}
-                  <ShellDiffBadge id={d.id} linesAdded={d.lines_added} linesRemoved={d.lines_removed} filesChanged={d.files_changed} />
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    aria-label="More options"
-                    onClick={(e) => openMenuForItem(e, "pi", d.id)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "pi", d.id); }}
-                    className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
-                  >
-                    <MoreHorizontal size={14} className="text-zinc-400" />
-                  </span>
-                </SidebarRow>
-              );
-            }
-
-            if (item.kind === "kimi") {
-              const d = item.data;
-              const preview = (d.preview ?? "").trim();
-              const displayName = sessionNames[d.id]
-                || (preview.length > 30 ? preview.slice(0, 30) + "\u2026" : preview)
-                || `Kimi ${d.id.slice(0, 8)}`;
-              return (
-                <SidebarRow
-                  key={`kimi-${d.id}`}
-                  renaming={renamingItemId === d.id}
-                  data-session-nav={d.id}
-                  data-session-kind="kimi"
-                  data-session-cwd={d.cwd}
-                  onClick={() => handleKimiSessionClick(d)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "kimi", id: d.id });
-                  }}
-                  className="group/item flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-zinc-400 transition-colors duration-150 hover:bg-white/[0.03] hover:text-zinc-300"
-                >
-                  <div className="av">
-                    <ProviderIcon provider="kimi" size={14} />
-                  </div>
-                  {renamingItemId === d.id ? (
-                    <SidebarRenameInput
-                      inputRef={renameInputRef}
-                      value={renameValue}
-                      onChange={setRenameValue}
-                      onSubmit={() => handleRenameSubmit(d.id)}
-                      onCancel={handleRenameCancel}
-                    />
-                  ) : (
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        {pinnedSessionIdsRef.current.has(d.id) && (
-                          <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
-                        )}
-                        <span className="flex-1 truncate text-zinc-200 leading-tight tracking-[-0.015em]">{displayName}</span>
-                      </div>
-                      <div className="sb-mt">
-                        {["Terminal", prettifyKimiModel(d.model), relativeTime(item.timestamp)]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </div>
-                    </div>
-                  )}
-                  <ShellDiffBadge id={d.id} />
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    aria-label="More options"
-                    onClick={(e) => openMenuForItem(e, "kimi", d.id)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "kimi", d.id); }}
-                    className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
-                  >
-                    <MoreHorizontal size={14} className="text-zinc-400" />
-                  </span>
-                </SidebarRow>
-              );
-            }
-
-            if (item.kind === "grok") {
-              const g = item.data;
-              const preview = (g.preview ?? "").trim();
-              const displayName = sessionNames[g.id]
-                || (preview.length > 30 ? preview.slice(0, 30) + "…" : preview)
-                || `Grok ${g.id.slice(0, 8)}`;
-              return (
-                <SidebarRow
-                  key={`grok-${g.id}`}
-                  renaming={renamingItemId === g.id}
-                  data-session-nav={g.id}
-                  data-session-kind="grok"
-                  data-session-cwd={g.cwd}
-                  onClick={() => handleGrokSessionClick(g)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "grok", id: g.id });
-                  }}
-                  className="sb-row group/item"
-                >
-                  <div className="av">
-                    <ProviderIcon provider="grok" size={14} />
-                  </div>
-                  {renamingItemId === g.id ? (
-                    <SidebarRenameInput
-                      inputRef={renameInputRef}
-                      value={renameValue}
-                      onChange={setRenameValue}
-                      onSubmit={() => handleRenameSubmit(g.id)}
-                      onCancel={handleRenameCancel}
-                    />
-                  ) : (
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        {pinnedSessionIdsRef.current.has(g.id) && (
-                          <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
-                        )}
-                        <span className="sb-ttl">
-                          {displayName}
-                        </span>
-                      </div>
-                      <div className="sb-mt">
-                        {[
-                          "Terminal",
-                          isLocalModelSlug(g.model)
-                            ? shortMlxModel(g.model)
-                            : prettifyGrokModel(g.model),
-                          relativeTime(item.timestamp),
-                        ].filter(Boolean).join(" · ")}
-                      </div>
-                    </div>
-                  )}
-                  <ShellDiffBadge id={g.id} linesAdded={g.lines_added} linesRemoved={g.lines_removed} filesChanged={g.files_changed} />
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    aria-label="More options"
-                    onClick={(e) => openMenuForItem(e, "grok", g.id)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "grok", g.id); }}
-                    className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
-                  >
-                    <MoreHorizontal size={14} className="text-zinc-400" />
-                  </span>
-                </SidebarRow>
-              );
-            }
-
-            if (item.kind === "desktop-claude") {
-              const s = item.data;
-              const isSelected =
-                s.id === selectedClaudeSessionId || s.cliSessionId === selectedClaudeSessionId;
-              return (
-                <SidebarRow
-                  key={`desktop-claude-${s.id}`}
-                  renaming={renamingItemId === s.id}
-                  data-session-nav={s.id}
-                  data-session-kind="desktop-claude"
-                  onClick={() => openDesktopClaude(s)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "desktop-claude", id: s.id });
-                  }}
-                  data-active={isSelected ? "true" : "false"}
-                  className={`sb-row group/item ${isSelected ? "on" : ""}`}
-                >
-                  <div className="av">
-                    <ProviderIcon provider="claude" size={14} />
-                  </div>
-                  {renamingItemId === s.id ? (
-                    <SidebarRenameInput
-                      inputRef={renameInputRef}
-                      value={renameValue}
-                      onChange={setRenameValue}
-                      onSubmit={() => handleRenameSubmit(s.id)}
-                      onCancel={handleRenameCancel}
-                    />
-                  ) : (
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="sb-ttl">{sessionNames[s.id] || s.title || "Cowork"}</span>
-                      </div>
-                      <div className="sb-mt">
-                        {["Desktop", shortClaudeModel(s.model), relativeTime(item.timestamp)]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </div>
-                    </div>
-                  )}
-                  <ShellDiffBadge id={s.id} sessionId={s.cliSessionId} />
-                </SidebarRow>
-              );
-            }
-
-            // claude
-            const s = item.data;
-            const isSelected = s.id === selectedClaudeSessionId;
-            return (
-              <SidebarRow
-                key={`claude-${s.id}`}
-                renaming={renamingItemId === s.id}
-                data-session-nav={s.id}
-                data-session-kind="claude"
-                data-session-cwd={s.cwd}
-                onClick={() => selectClaudeSession(s.id, s.cwd, false, stripSystemTags(s.preview ?? "").slice(0, 30) || "Claude")}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "claude", id: s.id });
-                }}
-                data-active={isSelected ? "true" : "false"}
-                className={`sb-row group/item ${isSelected ? "on" : ""}`}
-              >
-                <div className="av">
-                  <ProviderIcon provider="claude" size={14} />
-                </div>
-                {renamingItemId === s.id ? (
-                  <SidebarRenameInput
-                    inputRef={renameInputRef}
-                    value={renameValue}
-                    onChange={setRenameValue}
-                    onSubmit={() => handleRenameSubmit(s.id)}
-                    onCancel={handleRenameCancel}
-                  />
-                ) : (
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      {pinnedSessionIdsRef.current.has(s.id) && (
-                        <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
-                      )}
-                      <span className="sb-ttl">
-                        {sessionNames[s.id] || (DEFAULT_SESSION_RE.test(s.preview ?? "") ? "New Thread" : stripSystemTags(s.preview ?? "")) || "New Thread"}
-                      </span>
-                    </div>
-                    <div className="sb-mt">
-                      {["Terminal", shortClaudeModel(claudeSessionModelById[s.id] ?? s.model), relativeTime(item.timestamp)].filter(Boolean).join(" · ")}
-                    </div>
-                  </div>
-                )}
-                {(() => {
-                  // Prefer the live store map (populated by the open-session
-                  // diff scan in ClaudeSessionView and the stop-hook listener)
-                  // over the snapshot from listClaudeSessions — `s.lines_*`
-                  // can be 0 when the initial inline scan ran before tool-use
-                  // diffs were on disk and the deferred bg scan skipped emit.
-                  const live = claudeSessionDiffStatsById[s.id];
-                  const linesAdded = live?.linesAdded ?? s.lines_added;
-                  const linesRemoved = live?.linesRemoved ?? s.lines_removed;
-                  const filesChanged = live?.filesChanged ?? s.files_changed;
-                  return (
-                    <ShellDiffBadge id={s.id} linesAdded={linesAdded} linesRemoved={linesRemoved} filesChanged={filesChanged} />
-                  );
-                })()}
-                <StatusDot
-                  state={computeStatus({
-                    pending: !!pendingApprovalsBySession[s.id],
-                    processing: !!claudeProcessingById[s.id],
-                    unread: !!unreadSessionIds[s.id] && !isSelected,
-                  })}
-                  title={claudeProcessingById[s.id] ? (claudeToolStatusById[s.id] ?? "working") : undefined}
-                />
-                <span
-                  role="button"
-                  tabIndex={0}
-                  aria-label="More options"
-                  onClick={(e) => openMenuForItem(e, "claude", s.id)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openMenuForItem(e as unknown as React.MouseEvent, "claude", s.id); }}
-                  className="hidden group-hover/item:flex shrink-0 items-center rounded p-0.5 transition-colors hover:bg-white/10"
-                >
-                  <MoreHorizontal size={14} className="text-zinc-400" />
-                </span>
-              </SidebarRow>
-            );
-          })}
+            <div
+              className="pg-body"
+              onClickCapture={markMenuOrigin(false)}
+              onContextMenuCapture={markMenuOrigin(false)}
+              onKeyDownCapture={markMenuOrigin(false)}
+            >
+              {visible.map((item) => renderItem(item))}
 
 
 
@@ -3577,6 +3643,22 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
 
 
       {itemContextMenuPortal}
+
+      {focusPortal && focusItems.length > 0 && createPortal(
+        focusItems.map((item) => (
+          <div
+            key={`focus-${item.kind}-${item.data.id}`}
+            // Rows from every project share one flex column; order interleaves them newest first.
+            style={{ order: Math.floor(FOCUS_ORDER_BASE_S - item.timestamp / 1000) }}
+            onClickCapture={markMenuOrigin(true)}
+            onContextMenuCapture={markMenuOrigin(true)}
+            onKeyDownCapture={markMenuOrigin(true)}
+          >
+            {renderItem(item, true)}
+          </div>
+        )),
+        focusPortal,
+      )}
     </div>
   );
 }

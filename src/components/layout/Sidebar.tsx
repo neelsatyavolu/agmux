@@ -4,6 +4,8 @@ import { CoworkModeButton } from "./CoworkModeButton";
 import { listen } from "@tauri-apps/api/event";
 import { useProjectStore } from "../../stores/projectStore";
 import { ProjectGroup } from "../sidebar/ProjectGroup";
+import { FocusSection } from "../sidebar/FocusSection";
+import { focusSince, resolveFocusWindowHours } from "../../lib/focusView";
 import { NewProjectDialog } from "../sidebar/NewProjectDialog";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { handleWindowDragStart } from "../../lib/windowDrag";
@@ -19,6 +21,9 @@ import type { ClaudeSession, KimiSession, PiSession, GrokSession } from "../../l
 import { useSessionNameStore } from "../../stores/sessionNameStore";
 import { useThreadStore } from "../../stores/threadStore";
 import { useDesktopCowork } from "../../lib/useDesktopCowork";
+
+/** How often Focus re-checks which rows have aged out of its window. */
+const FOCUS_TICK_MS = 60_000;
 
 // Stable reference for empty kimi-session arrays — keeps Zustand/ProjectGroup
 // selectors from producing new references on every render.
@@ -114,6 +119,8 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
   const openSettings = useSettingsStore((s) => s.openSettings);
   const multiViewEnabled = useSettingsStore((s) => s.settings.multiViewEnabled);
   const projectOrder = useSettingsStore((s) => s.settings.projectOrder);
+  const focusEnabled = useSettingsStore((s) => s.settings.focusEnabled ?? false);
+  const focusWindowHours = useSettingsStore((s) => resolveFocusWindowHours(s.settings.focusWindowHours));
   const updateSettings = useSettingsStore((s) => s.updateSettings);
   const sidebarWidth = useUiStore((s) => s.sidebarWidth);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -590,6 +597,18 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
 
   const isLoading = codexLoading || claudeLoading;
 
+  const showFocus = focusEnabled && appMode !== "cowork" && sidebarTab === "agents" && !sidebarCollapsed;
+  const [focusListEl, setFocusListEl] = useState<HTMLDivElement | null>(null);
+  const [focusNow, setFocusNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!showFocus) return;
+    setFocusNow(Date.now());
+    const timer = setInterval(() => setFocusNow(Date.now()), FOCUS_TICK_MS);
+    return () => clearInterval(timer);
+  }, [showFocus]);
+  const focusPortal = showFocus ? focusListEl : null;
+  const focusSinceMs = showFocus ? focusSince(focusNow, focusWindowHours) : null;
+
   // Sort projects by saved order (unordered projects appear at the end)
   const sortedProjects = useMemo(() => {
     if (appMode === "cowork") return coworkProjects;
@@ -798,10 +817,17 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
           sidebarTab === "memory" ||
           sidebarTab === "issues") && (
           <>
+            {showFocus && (
+              <FocusSection
+                projects={sortedProjects}
+                windowHours={focusWindowHours}
+                onListElement={setFocusListEl}
+              />
+            )}
             {/* Threads header — mock .sb-thh */}
             <div className="sb-thh">
               <span className="lbl">
-                {sidebarTab === "memory" || sidebarTab === "issues"
+                {sidebarTab === "memory" || sidebarTab === "issues" || showFocus
                   ? "Projects"
                   : appMode === "cowork"
                     ? "Cowork"
@@ -881,6 +907,8 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
                       desktopCodexWork={codexByProject[project.id]}
                       onSessionCreated={handleRefresh}
                       onDragHandlePointerDown={(e) => startProjectDrag(e, project.id)}
+                      focusPortal={focusPortal}
+                      focusSince={focusSinceMs}
                     />
                     {/* Drop indicator line — after */}
                     {showAfter && (

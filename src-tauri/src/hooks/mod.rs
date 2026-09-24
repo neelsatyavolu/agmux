@@ -1503,9 +1503,19 @@ mod tests {
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM session_origin_bindings WHERE session_id IN ('forged-source','missing-event-name','missing-source')")
             .fetch_one(&pool).await.unwrap();
         assert_eq!(count, 0);
-        let settings: serde_json::Value = serde_json::from_str(&super::script::build_hook_settings_json("/fixture/hook.sh", false)).unwrap();
+        let settings: serde_json::Value = serde_json::from_str(&super::script::build_hook_settings_json("/fixture/hook.sh", false, None)).unwrap();
         assert_eq!(settings["hooks"]["SessionStart"][0]["matcher"], "");
         assert_eq!(settings["hooks"]["SessionStart"][0]["hooks"][0]["command"], "/fixture/hook.sh session-start");
+        assert!(settings.get("theme").is_none());
+    }
+
+    #[test]
+    fn hook_settings_carry_the_claude_theme_override() {
+        let settings: serde_json::Value = serde_json::from_str(
+            &super::script::build_hook_settings_json("/fixture/hook.sh", false, Some("auto")),
+        ).unwrap();
+        assert_eq!(settings["theme"], "auto");
+        assert!(settings["hooks"]["Stop"].is_array());
     }
 
     #[test]

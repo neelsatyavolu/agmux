@@ -10,6 +10,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 import {
+  colorSchemeReport,
   createXterm,
   IDLE_CURSOR_BLINK_MS,
 } from "../xterm-loader";
@@ -130,5 +131,42 @@ describe("terminal text contrast", () => {
     const bundle = createXterm({ fontFamily: "monospace", fontSize: 12, isLight });
     expect(bundle.term.options.minimumContrastRatio).toBe(4.5);
     bundle.dispose();
+  });
+});
+
+describe("color scheme updates (DEC mode 2031)", () => {
+  const write = (bundle: ReturnType<typeof makeTerm>, data: string) =>
+    new Promise<void>((resolve) => bundle.term.write(data, resolve));
+
+  it("tracks whether the running app subscribed to color scheme reports", async () => {
+    vi.useRealTimers();
+    const bundle = makeTerm();
+    try {
+      expect(bundle.colorSchemeUpdates()).toBe(false);
+      await write(bundle, "\x1b[?1000;2031h");
+      expect(bundle.colorSchemeUpdates()).toBe(true);
+      await write(bundle, "\x1b[?2004l");
+      expect(bundle.colorSchemeUpdates()).toBe(true);
+      await write(bundle, "\x1b[?2031l");
+      expect(bundle.colorSchemeUpdates()).toBe(false);
+    } finally {
+      bundle.dispose();
+    }
+  });
+
+  it("still applies other private modes the app sets", async () => {
+    vi.useRealTimers();
+    const bundle = makeTerm();
+    try {
+      await write(bundle, "\x1b[?2031;2004h");
+      expect(bundle.term.modes.bracketedPasteMode).toBe(true);
+    } finally {
+      bundle.dispose();
+    }
+  });
+
+  it("encodes the report as dark=1 / light=2", () => {
+    expect(colorSchemeReport(false)).toBe("\x1b[?997;1n");
+    expect(colorSchemeReport(true)).toBe("\x1b[?997;2n");
   });
 });

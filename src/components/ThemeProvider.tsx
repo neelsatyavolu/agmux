@@ -386,7 +386,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Sync macOS window theme with color mode so vibrancy material adapts
   useEffect(() => {
     const colorMode = useSettingsStore.getState().settings.colorMode ?? "dark";
-    setWindowTheme(colorMode).catch(() => {});
+    setWindowTheme(colorMode, isLightMode).catch(() => {});
   }, [isLightMode]);
 
   // Font family overrides

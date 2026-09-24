@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { getPtySnapshot } from "../../../lib/commands";
+import { getPtySnapshot, sendPtyInput } from "../../../lib/commands";
 import type { PtyOutputEvent } from "../../../lib/types";
 let ptyOnData: (event: PtyOutputEvent) => void;
 
@@ -22,8 +22,10 @@ const terminalMocks = vi.hoisted(() => {
   const setRenderingPaused = vi.fn();
   const requestResizeRows = 24;
   const requestResizeCols = 80;
+  const colorMode = { isLight: false, updates: false };
 
   return {
+    colorMode,
     events,
     refresh,
     open,
@@ -38,7 +40,7 @@ const terminalMocks = vi.hoisted(() => {
 
 vi.mock("../../ThemeProvider", () => ({
   MONO_FONT_MAP: { "geist-mono": "monospace" },
-  useResolvedColorMode: () => false,
+  useResolvedColorMode: () => terminalMocks.colorMode.isLight,
 }));
 
 vi.mock("../../../stores/settingsStore", () => ({
@@ -136,6 +138,7 @@ vi.mock("../../../lib/xterm-loader", () => {
     writeBatched: vi.fn(),
     flushBatched: vi.fn(),
     setRenderingPaused: terminalMocks.setRenderingPaused,
+    colorSchemeUpdates: () => terminalMocks.colorMode.updates,
     dispose: vi.fn(),
   };
 
@@ -147,6 +150,7 @@ vi.mock("../../../lib/xterm-loader", () => {
     reattachCanvas: vi.fn(),
     lightTheme: vi.fn(() => ({})),
     darkTheme: vi.fn(() => ({})),
+    colorSchemeReport: (isLight: boolean) => `report:${isLight ? "light" : "dark"}`,
   };
 });
 
@@ -177,6 +181,8 @@ beforeEach(() => {
   terminalMocks.write.mockClear();
   terminalMocks.fit.mockClear();
   terminalMocks.setRenderingPaused.mockClear();
+  terminalMocks.colorMode.isLight = false;
+  terminalMocks.colorMode.updates = false;
 
   Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
     configurable: true,
@@ -262,5 +268,32 @@ describe("ClaudeTerminalView activation paint timing", () => {
     rerender(<Harness isActive={true} />);
 
     expect(terminalMocks.setRenderingPaused).toHaveBeenCalledWith(false);
+  });
+});
+
+describe("ClaudeTerminalView light/dark flips", () => {
+  async function mountThenFlipToLight() {
+    const { rerender } = render(<Harness isActive />);
+    await act(async () => {
+      await Promise.resolve();
+      await vi.runOnlyPendingTimersAsync();
+      await Promise.resolve();
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(terminalMocks.open).toHaveBeenCalled();
+    vi.mocked(sendPtyInput).mockClear();
+    terminalMocks.colorMode.isLight = true;
+    rerender(<Harness isActive />);
+  }
+
+  it("tells Claude the new color scheme when it subscribed to updates", async () => {
+    terminalMocks.colorMode.updates = true;
+    await mountThenFlipToLight();
+    expect(sendPtyInput).toHaveBeenCalledWith("thread-1", "report:light");
+  });
+
+  it("sends nothing to apps that did not ask for color scheme updates", async () => {
+    await mountThenFlipToLight();
+    expect(sendPtyInput).not.toHaveBeenCalledWith("thread-1", expect.stringContaining("report:"));
   });
 });

@@ -75,8 +75,16 @@ fn reveal_main_window(app: &tauri::AppHandle) {
 
 /// Set the macOS window theme to light, dark, or system (auto).
 /// This changes the NSAppearance which affects vibrancy material rendering.
+/// `is_light` is the resolved mode; new Claude terminals start in it.
 #[tauri::command]
-async fn set_window_theme(app: tauri::AppHandle, mode: String) -> Result<(), String> {
+async fn set_window_theme(
+    app: tauri::AppHandle,
+    mode: String,
+    is_light: Option<bool>,
+) -> Result<(), String> {
+    if let Some(light) = is_light {
+        process::claude_theme::set_app_light_mode(light);
+    }
     if let Some(window) = app.get_webview_window("main") {
         let theme = match mode.as_str() {
             "light" => Some(tauri::Theme::Light),

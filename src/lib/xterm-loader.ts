@@ -77,8 +77,23 @@ export interface XtermBundle {
    * the cursor blink (so a second-monitor TUI still updates, cheaper).
    */
   setRenderingPaused: (paused: boolean) => void;
+  /**
+   * True while the running app has DEC mode 2031 on (color scheme update
+   * notifications). Claude Code sets it; send `colorSchemeReport` to the
+   * PTY when the app flips light/dark so its "auto" theme follows.
+   */
+  colorSchemeUpdates: () => boolean;
   /** Dispose the terminal and all attached addons. */
   dispose: () => void;
+}
+
+/** DEC mode 2031: the app asks to be told when the color scheme changes. */
+const COLOR_SCHEME_UPDATES_MODE = 2031;
+
+/** Unsolicited color scheme report (`CSI ? 997 ; 1|2 n`, 1 = dark, 2 = light)
+ *  for apps that turned on DEC mode 2031. */
+export function colorSchemeReport(isLight: boolean): string {
+  return `\x1b[?997;${isLight ? 2 : 1}n`;
 }
 
 export interface CreateXtermOptions {
@@ -286,6 +301,17 @@ export function createXterm(options: CreateXtermOptions): XtermBundle {
   term.loadAddon(clipboard);
   term.unicode.activeVersion = "11";
 
+  // xterm.js ignores mode 2031 itself; watch it without consuming the
+  // sequence (returning false lets the built-in handler run too).
+  let colorSchemeUpdates = false;
+  const trackColorSchemeMode = (enabled: boolean) =>
+    (params: (number | number[])[]) => {
+      if (params.includes(COLOR_SCHEME_UPDATES_MODE)) colorSchemeUpdates = enabled;
+      return false;
+    };
+  term.parser.registerCsiHandler({ prefix: "?", final: "h" }, trackColorSchemeMode(true));
+  term.parser.registerCsiHandler({ prefix: "?", final: "l" }, trackColorSchemeMode(false));
+
   // Canvas renderer addon — load lazily after `term.open()` so the canvas
   // element exists. Caller is responsible for calling `attachCanvas(bundle)`
   // once mounted.
@@ -299,6 +325,7 @@ export function createXterm(options: CreateXtermOptions): XtermBundle {
     writeBatched: () => {},
     flushBatched: () => {},
     setRenderingPaused: () => {},
+    colorSchemeUpdates: () => colorSchemeUpdates,
     dispose: () => {
       try {
         term.dispose();

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 import { LocalModelUpgradeDialog } from "../LocalModelUpgradeDialog";
 import { useLocalModelStore } from "../../../stores/localModelStore";
 import { useSettingsStore } from "../../../stores/settingsStore";
@@ -25,6 +25,7 @@ vi.mock("framer-motion", () => ({
 }));
 
 const startDownload = vi.fn().mockResolvedValue(undefined);
+const setActive = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("../../../lib/commands", async () => {
   const actual = await vi.importActual<typeof import("../../../lib/commands")>(
@@ -43,6 +44,7 @@ vi.mock("../../../lib/commands", async () => {
 
 beforeEach(() => {
   startDownload.mockClear();
+  setActive.mockClear();
   useLocalModelStore.setState({
     status: null,
     downloading: false,
@@ -50,6 +52,7 @@ beforeEach(() => {
     error: null,
     hasSeenSetupPrompt: true,
     startDownload,
+    setActive,
     fetchStatus: vi.fn().mockResolvedValue(undefined),
   } as never);
   useSettingsStore.setState({ isSetupWizardOpen: false, isOpen: false });
@@ -90,12 +93,67 @@ describe("LocalModelUpgradeDialog", () => {
   it("shows when active model is legacy Qwen2.5", () => {
     useLocalModelStore.setState({ status: legacyStatus() });
     render(<LocalModelUpgradeDialog />);
-    expect(screen.getByText(/switch local model required/i)).toBeTruthy();
+    expect(screen.getByText(/switch your local model/i)).toBeTruthy();
     expect(screen.getByText(/Qwen3-1\.7B/)).toBeTruthy();
     expect(screen.getByText(/Qwen3-4B Instruct/)).toBeTruthy();
     expect(screen.getByText(/Phi-4-mini/)).toBeTruthy();
-    // Required upgrade — no dismiss path.
-    expect(screen.queryByText(/not now/i)).toBeNull();
+  });
+
+  it("Not now hides the dialog", () => {
+    useLocalModelStore.setState({ status: legacyStatus() });
+    const { container } = render(<LocalModelUpgradeDialog />);
+    fireEvent.click(screen.getByRole("button", { name: /not now/i }));
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("Escape hides the dialog", () => {
+    useLocalModelStore.setState({ status: legacyStatus() });
+    const { container } = render(<LocalModelUpgradeDialog />);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("Open Settings closes the dialog and opens Summaries", () => {
+    useLocalModelStore.setState({ status: legacyStatus() });
+    const { container } = render(<LocalModelUpgradeDialog />);
+    fireEvent.click(screen.getByText(/open settings/i));
+    expect(useSettingsStore.getState().isOpen).toBe(true);
+    expect(useSettingsStore.getState().initialTab).toBe("summaries");
+    // Stays closed after Settings is dismissed again.
+    act(() => useSettingsStore.setState({ isOpen: false }));
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("hides while Settings is open", () => {
+    useSettingsStore.setState({ isOpen: true });
+    useLocalModelStore.setState({ status: legacyStatus() });
+    const { container } = render(<LocalModelUpgradeDialog />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("switches to an already-downloaded model instead of re-downloading", () => {
+    useLocalModelStore.setState({
+      status: {
+        ...legacyStatus(),
+        variants: [
+          {
+            variant: "qwen3-4b",
+            display_name: "Qwen3-4B Instruct",
+            blurb: "",
+            recommended: true,
+            legacy: false,
+            downloaded: true,
+            size_bytes: 2_500_000_000,
+            approx_size_bytes: 2_500_000_000,
+          },
+        ],
+      },
+    });
+    render(<LocalModelUpgradeDialog />);
+    expect(screen.getByText(/already downloaded/i)).toBeTruthy();
+    fireEvent.click(screen.getByText(/Qwen3-4B Instruct/));
+    expect(setActive).toHaveBeenCalledWith("qwen3-4b");
+    expect(startDownload).not.toHaveBeenCalled();
   });
 
   it("hides while setup wizard is open", () => {

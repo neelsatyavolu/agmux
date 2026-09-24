@@ -28,9 +28,9 @@ beforeEach(() => {
 });
 
 describe("commands.ts thin wrappers", () => {
-  it("setWindowTheme passes the mode", async () => {
-    await setWindowTheme("dark");
-    expect(invoke).toHaveBeenCalledWith("set_window_theme", { mode: "dark" });
+  it("setWindowTheme passes the mode and the resolved light flag", async () => {
+    await setWindowTheme("system", true);
+    expect(invoke).toHaveBeenCalledWith("set_window_theme", { mode: "system", isLight: true });
   });
 
   it("productAnalyticsHeartbeat forwards enabled", async () => {

@@ -570,7 +570,11 @@ pub async fn spawn_pty_session(
         Provider::ClaudeCode if personal_claude => crate::provider_accounts::acquire("claude", account_key).await,
         _ => Ok(None),
     }.map_err(anyhow::Error::msg)?;
+    let mut claude_config_dir = None;
     if let Some(account) = account.as_ref().filter(|a| !a.account_id.starts_with("native:")) {
+        if matches!(provider_enum, Provider::ClaudeCode) {
+            claude_config_dir = Some(account.home.clone());
+        }
         cmd.env(match provider_enum { Provider::Codex => "CODEX_HOME", Provider::ClaudeCode => "CLAUDE_CONFIG_DIR", _ => "GROK_HOME" }, &account.home);
         let auth_keys: &[&str] = match provider_enum {
             Provider::Codex => &["OPENAI_API_KEY", "CODEX_API_KEY"],
@@ -668,6 +672,11 @@ pub async fn spawn_pty_session(
             }
         }
         Provider::ClaudeCode => {
+            // Start in agmux's light/dark mode; see process::claude_theme.
+            let claude_theme = crate::process::claude_theme::settings_theme(
+                claude_config_dir.as_deref(),
+            );
+            cmd.env("COLORFGBG", crate::process::claude_theme::colorfgbg());
             // Defensive: only pass `--resume <id>` when the JSONL transcript
             // actually contains a real user/assistant turn. Claude CLI writes
             // a metadata-only JSONL on startup; if the user opens a session,
@@ -718,6 +727,7 @@ pub async fn spawn_pty_session(
                     let settings_json = hooks::build_hook_settings_json(
                         script_path,
                         options.suppress_status_line,
+                        claude_theme,
                     );
                     cmd.arg("--settings");
                     cmd.arg(&settings_json);

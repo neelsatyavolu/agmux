@@ -35,6 +35,7 @@ vi.mock("../../../lib/commands", () => ({
   setActiveLocalModel: vi.fn().mockResolvedValue(undefined),
   ensureLocalLlmServer: vi.fn().mockResolvedValue(0),
   stopLocalLlmServer: vi.fn().mockResolvedValue(undefined),
+  isLegacyLocalModelVariant: (v: string) => v === "small" || v === "large",
   setProjectMemoryEnabled: vi.fn().mockResolvedValue(undefined),
   setProjectMemorySessionInject: vi.fn().mockResolvedValue(undefined),
 }));
@@ -166,6 +167,7 @@ describe("SetupWizardDialog", () => {
     expect(blocked).toBeTruthy();
     expect((blocked as HTMLButtonElement).disabled).toBe(true);
 
+    // A retired Qwen2.5 model on disk doesn't unlock the step, and isn't offered.
     act(() => {
       useLocalModelStore.setState({
         status: {
@@ -175,6 +177,36 @@ describe("SetupWizardDialog", () => {
           model_name: "Qwen2.5",
           model_size_bytes: 1,
           active_variant: "small",
+          variants: [
+            {
+              variant: "small",
+              display_name: "Qwen2.5-1.5B-Instruct (Q4_K_M)",
+              blurb: "Legacy · fastest, lower quality",
+              recommended: false,
+              legacy: true,
+              downloaded: true,
+              size_bytes: 1,
+              approx_size_bytes: 1,
+            },
+          ],
+        },
+      });
+    });
+    expect(screen.getByText(/is retired/i)).toBeTruthy();
+    expect(screen.queryByText("Qwen2.5-1.5B-Instruct (Q4_K_M)")).toBeNull();
+    expect(
+      (screen.getByRole("button", { name: /download required/i }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    act(() => {
+      useLocalModelStore.setState({
+        status: {
+          model_downloaded: true,
+          server_downloaded: true,
+          server_running: false,
+          model_name: "Qwen3-1.7B",
+          model_size_bytes: 1,
+          active_variant: "qwen3-1.7b",
           variants: [],
         },
       });

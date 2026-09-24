@@ -26,6 +26,12 @@ vi.mock("../../thread/AgentTerminalView", () => ({
 vi.mock("../../thread/SkillsMainPanel", () => ({
   SkillsMainPanel: () => <div data-testid="skills-main-panel" />,
 }));
+vi.mock("../../thread/MemoryMainPanel", () => ({
+  MemoryMainPanel: () => <div data-testid="memory-main-panel" />,
+}));
+vi.mock("../../thread/IssuesMainPanel", () => ({
+  IssuesMainPanel: () => <div data-testid="issues-main-panel" />,
+}));
 vi.mock("../HomeScreen", () => ({
   HomeScreen: () => <div data-testid="home-screen" />,
 }));
@@ -311,5 +317,56 @@ describe("MainPanel — Deep coverage", () => {
     });
     render(<MainPanel />);
     expect(screen.queryByTestId("split-view-panel")).toBeNull();
+  });
+});
+
+describe("MainPanel — split view overlays", () => {
+  beforeEach(() => {
+    const cur = useSettingsStore.getState().settings;
+    useSettingsStore.setState({
+      settings: { ...cur, multiViewEnabled: true } as any,
+    });
+  });
+
+  it("shows Memory over the panes when the Memory tab is picked", () => {
+    useUiStore.setState({ sidebarTab: "memory" });
+    render(<MainPanel />);
+    expect(screen.getByTestId("memory-main-panel")).toBeTruthy();
+    // Panes stay mounted underneath so running sessions keep their state.
+    expect(screen.getByTestId("split-view-panel")).toBeTruthy();
+  });
+
+  it("shows Skills and Issues over the panes", () => {
+    useUiStore.setState({ sidebarTab: "skills" });
+    const { rerender } = render(<MainPanel />);
+    expect(screen.getByTestId("skills-main-panel")).toBeTruthy();
+    useUiStore.setState({ sidebarTab: "issues" });
+    rerender(<MainPanel />);
+    expect(screen.getByTestId("issues-main-panel")).toBeTruthy();
+  });
+
+  it("shows Home when nothing is selected on the agents tab", () => {
+    render(<MainPanel />);
+    expect(screen.getByTestId("home-screen")).toBeTruthy();
+    expect(screen.getByTestId("split-view-panel")).toBeTruthy();
+  });
+
+  it("hides Home once a session is selected", () => {
+    const { rerender } = render(<MainPanel />);
+    expect(screen.getByTestId("home-screen")).toBeTruthy();
+    useUiStore.setState({
+      selectedClaudeSessionId: "c1",
+      selectedClaudeSessionCwd: "/repo",
+    });
+    rerender(<MainPanel />);
+    expect(screen.queryByTestId("home-screen")).toBeNull();
+  });
+
+  it("does not show Home while a draft is open", () => {
+    useUiStore.setState({
+      draftChat: { repoPath: "/repo", projectId: "p1" } as any,
+    });
+    render(<MainPanel />);
+    expect(screen.queryByTestId("home-screen")).toBeNull();
   });
 });

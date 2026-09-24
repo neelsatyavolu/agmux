@@ -30,19 +30,54 @@ function findThreadById(threads: Record<string, Thread[]>, threadId: string | nu
   return null;
 }
 
+/** Skills / Memory / Issues take over the main column, above any session views. */
+function SidebarTabOverlay() {
+  const sidebarTab = useUiStore((s) => s.sidebarTab);
+  if (sidebarTab === "agents") return null;
+  return (
+    <div className="absolute inset-0 z-20 min-w-0 overflow-hidden">
+      {sidebarTab === "skills" && <SkillsMainPanel />}
+      {sidebarTab === "memory" && <MemoryMainPanel />}
+      {sidebarTab === "issues" && <IssuesMainPanel />}
+    </div>
+  );
+}
+
 export function MainPanel() {
   const multiViewEnabled = useSettingsStore((s) => s.settings.multiViewEnabled);
 
   // When multi-view is enabled, delegate to the split view panel
-  if (multiViewEnabled) {
-    return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <SplitViewPanel enabled={multiViewEnabled} />
-      </div>
-    );
-  }
+  if (multiViewEnabled) return <MultiViewPanel />;
 
   return <SingleViewPanel />;
+}
+
+/**
+ * Split view keeps its panes mounted (running sessions keep their state) and
+ * lays Home / Skills / Memory / Issues over them, as the single view does.
+ */
+function MultiViewPanel() {
+  const showHome = useUiStore(
+    (s) =>
+      s.sidebarTab === "agents" &&
+      s.draftChat === null &&
+      s.selectedThreadId === null &&
+      s.selectedCodexSessionId === null &&
+      s.selectedClaudeSessionId === null &&
+      s.selectedTerminalSessionId === null,
+  );
+
+  return (
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <SplitViewPanel enabled />
+      <SidebarTabOverlay />
+      {showHome && (
+        <div className="absolute inset-0 z-20 flex min-h-0 min-w-0 flex-col overflow-hidden panel-bg">
+          <HomeScreen />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SingleViewPanel() {
@@ -265,21 +300,7 @@ function SingleViewPanel() {
     // agent tabs): without it the panel grows with content and HomeScreen's
     // overflow-y-auto never receives a bounded height.
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col panel-bg">
-      {sidebarTab === "skills" && (
-        <div className="absolute inset-0 z-20 min-w-0 overflow-hidden">
-          <SkillsMainPanel />
-        </div>
-      )}
-      {sidebarTab === "memory" && (
-        <div className="absolute inset-0 z-20 min-w-0 overflow-hidden">
-          <MemoryMainPanel />
-        </div>
-      )}
-      {sidebarTab === "issues" && (
-        <div className="absolute inset-0 z-20 min-w-0 overflow-hidden">
-          <IssuesMainPanel />
-        </div>
-      )}
+      <SidebarTabOverlay />
       {renderedViews.map((view) => {
         const isActive = view.key === activeViewKey;
         return (

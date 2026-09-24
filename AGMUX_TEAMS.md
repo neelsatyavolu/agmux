@@ -40,7 +40,11 @@ before login/upload. Administrative disable/delete remain available without the 
 Keep the key stable: replacing it does not migrate existing ciphertext. Key rotation
 requires a controlled re-encryption migration; do not blindly replace the secret.
 Migration 013 and the encryption secret were configured on 2026-09-21. Production
-Worker version: `84ac9ca1-fdb8-4376-8699-7a9bc38ab0f8`.
+Worker version: `fc068a6e-5352-4fef-9b8c-bdc71a3a4174` (2026-09-23, usage check route +
+`lastRemainingPercent`). It was built by patching the downloaded live `84ac9ca1` bundle,
+not from this checkout, so legacy policy and assets are unchanged (13 public responses/assets
+byte-identical before/after). Uploaded via the versions API with `keep_assets` and
+`keep_bindings: ["secret_text"]`. Roll back with `wrangler versions deploy 84ac9ca1-fdb8-4376-8699-7a9bc38ab0f8@100%`.
 
 **Deployment compatibility boundary:** production intentionally retains the legacy
 policy implementation (`src/routes/policy.ts` from `acd290ea`) and its existing web
@@ -79,9 +83,12 @@ tokens; allocate/renew/release require a desktop bearer device token.
 | POST `/allocate` | `{provider, sessionId, excludeIds?: string[]}` | `{account: AccountMetadata, leaseId, credentials, expiresAt}` |
 | POST `/leases/:leaseId/renew` | `{credentials?: nativeJSON, blockedUntil?: number, remainingPercent?: number}` | `{leaseId, expiresAt}` |
 | DELETE `/leases/:leaseId` | none | `{deleted:true}` |
+| POST `/:id/check` | none | same as allocate. Short exact lease for a desktop usage check; ignores capacity; 409 `provider_account_in_use` when leased; device token required |
 
 `AccountMetadata` is `{id,provider,label,enabled,canManage,createdBy,scope,createdAt,updatedAt,
-lastUsedAt,blockedUntil,remainingPercent,healthReportedAt,leasedUntil}`. Scope is
+lastUsedAt,blockedUntil,remainingPercent,healthReportedAt,leasedUntil,lastRemainingPercent}`
+(`lastRemainingPercent` is the last measurement regardless of age, null after an elapsed reset;
+display-only, and older clients ignore it). Scope is
 `team` or `manager`. All timestamps are **Unix seconds**, nullable where unreported;
 remainingPercent is null or 0–100. `canManage` is true for owners and the creating
 manager only, false for employees and staff previews; clients parsing older responses

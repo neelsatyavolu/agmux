@@ -34,8 +34,13 @@ async function waitForProjectMemorySync(): Promise<void> {
 
 // ── Window ────────────────────────────────────────────────
 
-export async function setWindowTheme(mode: "dark" | "light" | "system"): Promise<void> {
-  return invoke<void>("set_window_theme", { mode });
+/** `isLight` is the resolved mode (system included); new Claude terminals
+ *  start in the matching Claude theme. */
+export async function setWindowTheme(
+  mode: "dark" | "light" | "system",
+  isLight: boolean,
+): Promise<void> {
+  return invoke<void>("set_window_theme", { mode, isLight });
 }
 
 /**

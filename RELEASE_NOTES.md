@@ -25,10 +25,15 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ## Unreleased
 
 ### New
+- **Focus** — An optional group at the top of the sidebar that gathers the threads you've been working on lately from every project, so you don't need to keep every project open. Threads leave it after a while without activity (you choose how long), and ones that are still working or have unread replies stay put. Starting a new session from Focus asks which project it belongs to. Turn it on in Settings → General.
 
 ### Improved
+- **Claude terminals in light mode** — Claude terminals now use Claude's light colors when agmux is in light mode, and switch between light and dark as soon as you change modes. If you chose a colorblind-friendly or custom theme in Claude, it's kept.
+- **Agent account usage** — Settings → Agent accounts now checks usage on its own, so a newly added account shows its limits without clicking Check usage. Team accounts have a Check usage button too, and keep showing their last reading, with when it was checked, instead of going blank.
 
 ### Fixed
+- **Local model switch prompt** — The "switch your local model" popup can now be closed (Not now, the X, or Esc), and Open Settings actually takes you to Settings instead of leaving the popup stuck on top. It's also readable in light mode, and it lets you switch to a model you've already downloaded without downloading it again. Setup no longer offers the retired Qwen2.5 models.
+- **Home and Memory in split view** — Clicking Home or Memory in the sidebar now opens them while split view is on, instead of doing nothing. Your split sessions are still there when you pick one again.
 
 ## v4.2.0 — 2026-09-23
 

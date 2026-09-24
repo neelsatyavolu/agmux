@@ -575,8 +575,40 @@ pub async fn provider_accounts_remove(id: String, team_id: Option<String>) -> Re
 }
 #[tauri::command]
 pub async fn provider_accounts_refresh(id: String, team_id: Option<String>) -> Result<(), String> {
-    if team_id.is_some() { return Err("Team usage refreshes automatically while an account is allocated.".into()); }
-    refresh_account(&id).await
+    match team_id {
+        Some(team_id) => refresh_team_account(&team_id, &id).await,
+        None => refresh_account(&id).await,
+    }
+}
+
+/// Measures an idle team account through a short exact lease, reports the reading
+/// with any refreshed OAuth tokens, then releases it. Nothing runs on the account.
+async fn refresh_team_account(team_id: &str, id: &str) -> Result<(), String> {
+    let held = bindings().lock().await.values()
+        .any(|b| b.assignment.account_id == id && b.team.as_ref().is_some_and(|lease| lease.team_id == team_id));
+    if held { return refresh_account(id).await; }
+    let lease = team::check_lease(team_id, id).await?;
+    let scratch = uuid::Uuid::new_v4().to_string();
+    let result = async {
+        let home = storage::prepare_home(&scratch, &lease.provider)?;
+        storage::validate_credentials(&lease.provider, &lease.credentials)?;
+        storage::write_json(&home.join("auth.json"), &lease.credentials)?;
+        let usage = quota::fetch(&lease.provider, &home).await;
+        // A quota probe may refresh OAuth; the server must receive the latest token.
+        let credentials = storage::read_json(&home.join("auth.json"))?;
+        let (remaining, blocked_until) = match &usage {
+            Ok(usage) => {
+                let (remaining, reset) = quota::summarize(usage, now());
+                (remaining, if usage.allowance_usable { Some(0) } else { team_block_until(remaining, reset) })
+            }
+            Err(_) => (None, None),
+        };
+        team::renew(&lease, credentials, remaining, blocked_until).await?;
+        usage.map(|_| ()).map_err(|_| "Could not check this account's usage. Try again later.".to_string())
+    }.await;
+    if let Ok(home) = storage::home(&scratch) { let _ = std::fs::remove_dir_all(home); }
+    let released = team::release(&lease).await;
+    result.and(released)
 }
 
 

@@ -1,3 +1,4 @@
+import { DEFAULT_FOCUS_WINDOW_HOURS } from "../lib/focusView";
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { isQuickOpenAction, type QuickOpenAction } from "../lib/quickOpen";
@@ -324,6 +325,10 @@ export interface AppSettings {
   projectThreadsVisible: Record<string, number>;
   /** Per-project filter: when true, list only running / unread / needs-attention / selected items. */
   projectShowOnlyRunning: Record<string, boolean>;
+  /** Opt-in "Focus" sidebar group: recently active threads from every project. */
+  focusEnabled: boolean;
+  /** Hours without activity before a thread leaves Focus. */
+  focusWindowHours: number;
 
   // ── Providers (Usage panel) ──
   /** Extra providers shown in the Usage panel (alongside built-in Claude + Codex).
@@ -461,6 +466,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultThreadsVisible: 5,
   projectThreadsVisible: {},
   projectShowOnlyRunning: {},
+  focusEnabled: false,
+  focusWindowHours: DEFAULT_FOCUS_WINDOW_HOURS,
   usageProviders: {
     warp: { ...DEFAULT_USAGE_PROVIDER_CONFIG },
     gemini: { ...DEFAULT_USAGE_PROVIDER_CONFIG },

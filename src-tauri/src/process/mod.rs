@@ -1,4 +1,5 @@
 pub mod claude_models;
+pub mod claude_theme;
 pub mod droid_model;
 pub mod kimi_session;
 pub mod pi_session;

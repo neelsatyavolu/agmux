@@ -132,6 +132,7 @@ import * as commands from "../../../lib/commands";
 import * as mlx from "../../../lib/mlx";
 import type { Project, Thread, ClaudeSession, KimiSession, GrokSession } from "../../../lib/types";
 import type { CodexThread } from "../CodexSessionsList";
+import { requestFocusNewSession } from "../../../lib/focusView";
 
 const project: Project = {
   id: "p1",
@@ -2637,6 +2638,116 @@ describe("ProjectGroup — Final coverage gaps", () => {
       });
       render(<ProjectGroup {...baseProps} />);
       expect(screen.getByText("IdleThread")).toBeTruthy();
+    });
+  });
+
+  describe("Focus", () => {
+    const HOUR = 60 * 60 * 1000;
+    const hoursAgo = (h: number) => new Date(Date.now() - h * HOUR).toISOString().replace("Z", "");
+
+    function renderWithFocus() {
+      const focusEl = document.createElement("div");
+      document.body.appendChild(focusEl);
+      const utils = render(
+        <ProjectGroup {...baseProps} focusPortal={focusEl} focusSince={Date.now() - 24 * HOUR} />,
+      );
+      return { focusEl, ...utils };
+    }
+
+    it("portals rows active inside the window into the Focus list, labelled with the project", () => {
+      useThreadStore.setState({
+        threads: {
+          p1: [
+            makeThread({ id: "recent", name: "Recent Thread", last_active: hoursAgo(1) }),
+            makeThread({ id: "old", name: "Old Thread", last_active: hoursAgo(48) }),
+          ],
+        },
+      });
+      const { focusEl } = renderWithFocus();
+      expect(focusEl.textContent).toContain("Recent Thread");
+      expect(focusEl.textContent).toContain("TestProj ·");
+      expect(focusEl.textContent).not.toContain("Old Thread");
+      // The project list still shows both.
+      expect(screen.getAllByText("Recent Thread")).toHaveLength(2);
+      expect(screen.getAllByText("Old Thread")).toHaveLength(1);
+    });
+
+    it("keeps old rows that are still working in Focus", () => {
+      useThreadStore.setState({
+        threads: { p1: [makeThread({ id: "busy", name: "Busy Thread", last_active: hoursAgo(72) })] },
+      });
+      useUiStore.setState({ claudeProcessingById: { busy: true } } as Partial<ReturnType<typeof useUiStore.getState>>);
+      const { focusEl } = renderWithFocus();
+      expect(focusEl.textContent).toContain("Busy Thread");
+    });
+
+    it("orders Focus rows newest first across projects via CSS order", () => {
+      useThreadStore.setState({
+        threads: {
+          p1: [
+            makeThread({ id: "a", name: "Older", last_active: hoursAgo(5) }),
+            makeThread({ id: "b", name: "Newer", last_active: hoursAgo(1) }),
+          ],
+        },
+      });
+      const { focusEl } = renderWithFocus();
+      const orderOf = (name: string) => {
+        const row = Array.from(focusEl.children).find((c) => c.textContent?.includes(name)) as HTMLElement;
+        return Number(row.style.order);
+      };
+      expect(orderOf("Newer")).toBeLessThan(orderOf("Older"));
+    });
+
+    it("renders nothing into Focus when no portal is given", () => {
+      useThreadStore.setState({ threads: { p1: [makeThread({ name: "Solo" })] } });
+      render(<ProjectGroup {...baseProps} />);
+      expect(screen.getAllByText("Solo")).toHaveLength(1);
+    });
+
+    it("renames only the copy the rename started from", () => {
+      useThreadStore.setState({
+        threads: { p1: [makeThread({ id: "r1", name: "Rename Me", last_active: hoursAgo(1) })] },
+      });
+      const { focusEl } = renderWithFocus();
+      const focusRow = focusEl.querySelector("[data-session-nav='r1']") as HTMLElement;
+      fireEvent.contextMenu(focusRow);
+      fireEvent.click(screen.getByText("Rename"));
+      expect(focusEl.querySelector("input")).toBeTruthy();
+      expect(screen.getAllByDisplayValue("Rename Me")).toHaveLength(1);
+    });
+
+    it("ends a Focus rename when the row ages out of Focus", () => {
+      useThreadStore.setState({
+        threads: { p1: [makeThread({ id: "r2", name: "Aging", last_active: hoursAgo(1) })] },
+      });
+      const focusEl = document.createElement("div");
+      document.body.appendChild(focusEl);
+      const { rerender } = render(
+        <ProjectGroup {...baseProps} focusPortal={focusEl} focusSince={Date.now() - 24 * HOUR} />,
+      );
+      fireEvent.contextMenu(focusEl.querySelector("[data-session-nav='r2']") as HTMLElement);
+      fireEvent.click(screen.getByText("Rename"));
+      expect(focusEl.querySelector("input")).toBeTruthy();
+      rerender(<ProjectGroup {...baseProps} focusPortal={focusEl} focusSince={Date.now()} />);
+      expect(screen.queryByDisplayValue("Aging")).toBeNull();
+      // A later rename from the project list works normally.
+      fireEvent.contextMenu(screen.getByText("Aging"));
+      fireEvent.click(screen.getByText("Rename"));
+      expect(screen.getByDisplayValue("Aging")).toBeTruthy();
+    });
+
+    it("opens this project's New menu when Focus asks for a session here", () => {
+      render(<ProjectGroup {...baseProps} />);
+      const anchor = document.createElement("button");
+      document.body.appendChild(anchor);
+      act(() => {
+        requestFocusNewSession({ projectId: "other", anchor });
+      });
+      expect(screen.queryByText("New in")).toBeNull();
+      act(() => {
+        requestFocusNewSession({ projectId: "p1", anchor });
+      });
+      expect(screen.getByText("New in")).toBeTruthy();
     });
   });
 });

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { ACCOUNT_CHANGED_EVENT, providerAccounts, type ProviderAccountsState } from "../lib/providerAccounts";
+import { ACCOUNT_CHANGED_EVENT, providerAccounts, type ProviderAccount, type ProviderAccountsState } from "../lib/providerAccounts";
 
 const TTL = 5 * 60_000;
 interface Snapshot { data: ProviderAccountsState | null; loading: boolean; error: string | null }
@@ -11,6 +11,26 @@ const listeners = new Set<() => void>();
 let stopPolling: (() => void) | null = null;
 
 export function getAccountUsageSnapshot() { return snapshot; }
+
+/** Personal rows whose quota is unknown or older than the shared TTL. Never team rows. */
+export function personalUsageDue(account: ProviderAccount, force = false) {
+  return !account.teamId && account.status !== "needs_login"
+    && (force || account.lastCheckedAt === null || Date.now() - account.lastCheckedAt * 1000 >= TTL);
+}
+
+/** Checks accounts two at a time and returns the IDs whose check failed. */
+export async function checkAccountUsage(accounts: ProviderAccount[]): Promise<Set<string>> {
+  let next = 0;
+  const failed = new Set<string>();
+  await Promise.all(Array.from({ length: Math.min(2, accounts.length) }, async () => {
+    while (next < accounts.length) {
+      const account = accounts[next++];
+      try { await providerAccounts.refresh(account.id, account.teamId); }
+      catch { failed.add(account.id); }
+    }
+  }));
+  return failed;
+}
 function publish(update: Partial<Snapshot>) {
   snapshot = { ...snapshot, ...update };
   listeners.forEach(listener => listener());
@@ -28,17 +48,8 @@ export function refreshAccountUsage(force = false): Promise<void> {
       let data = await providerAccounts.list();
       if (!Array.isArray(data?.accounts) || !Array.isArray(data?.teams)) throw new Error("Invalid account metadata");
       publish({ data }); // Names and cached limits appear before slower quota probes.
-      const queue = data.accounts.filter(account => !account.teamId && account.status !== "needs_login"
-        && (force || account.lastCheckedAt === null || Date.now() - account.lastCheckedAt * 1000 >= TTL));
-      let next = 0;
-      const failed = new Set<string>();
-      await Promise.all(Array.from({ length: Math.min(2, queue.length) }, async () => {
-        while (next < queue.length) {
-          const account = queue[next++];
-          try { await providerAccounts.refresh(account.id, null); }
-          catch { failed.add(account.id); }
-        }
-      }));
+      const queue = data.accounts.filter(account => personalUsageDue(account, force));
+      const failed = await checkAccountUsage(queue);
       if (queue.length > 0) {
         data = await providerAccounts.list();
         if (!Array.isArray(data?.accounts) || !Array.isArray(data?.teams)) throw new Error("Invalid account metadata");

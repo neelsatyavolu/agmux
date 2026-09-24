@@ -33,6 +33,7 @@ import {
   reattachCanvas,
   lightTheme,
   darkTheme,
+  colorSchemeReport,
   type XtermBundle,
 } from "../../lib/xterm-loader";
 import {
@@ -1193,12 +1194,17 @@ export function ClaudeTerminalView({
   // Update terminal theme live when the app's light/dark mode flips. The
   // Canvas addon caches glyph bitmaps (including their foreground color) at
   // attach time, so the addon is re-attached to force a fresh glyph cache.
+  // Claude's "auto" theme subscribes to color scheme reports (mode 2031);
+  // on the report it re-reads the new background over OSC 11 and restyles.
   useEffect(() => {
     const bundle = bundleRef.current;
     if (!bundle) return;
     const bg = isLight ? "#ffffff" : "#000000";
     bundle.term.options.theme = isLight ? lightTheme(bg) : darkTheme(bg);
     reattachCanvas(bundle);
+    if (bundle.colorSchemeUpdates()) {
+      sendPtyInput(threadId, colorSchemeReport(isLight)).catch(() => {});
+    }
   }, [isLight]);
 
   return (

@@ -210,7 +210,11 @@ fn grok_mode_suppresses_approval_notify(mode: &str) -> bool {
 /// disabled for this subprocess (used when the user has opted into agmux's
 /// top-bar Row 2 rendering the same info). When false, the user's normal
 /// statusline runs unmodified.
-pub fn build_hook_settings_json(script_path: &str, suppress_status_line: bool) -> String {
+pub fn build_hook_settings_json(
+    script_path: &str,
+    suppress_status_line: bool,
+    theme: Option<&str>,
+) -> String {
     fn hook_entry(script: &str, event: &str, timeout: u32, is_async: bool) -> serde_json::Value {
         let mut hook = serde_json::json!({
             "type": "command",
@@ -244,6 +248,10 @@ pub fn build_hook_settings_json(script_path: &str, suppress_status_line: bool) -
         // used `null` here, but `/doctor` schema-validates statusLine as
         // an object — empty-command is the schema-valid equivalent.
         settings["statusLine"] = serde_json::json!({ "type": "command", "command": "" });
+    }
+    if let Some(theme) = theme {
+        // Flag settings outrank the user's for this subprocess only.
+        settings["theme"] = serde_json::json!(theme);
     }
 
     settings.to_string()

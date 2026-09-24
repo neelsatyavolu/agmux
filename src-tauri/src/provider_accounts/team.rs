@@ -14,6 +14,7 @@ const READ_ERROR: &str = "Teams accounts response could not be read.";
 const BUSY_ERROR: &str = "Teams accounts is busy. Try again shortly.";
 const SERVICE_ERROR: &str = "Teams accounts service is unavailable. Try again later.";
 const NO_TEAM_ACCOUNT: &str = "No team account is currently available. Check account limits or ask your team administrator.";
+const ACCOUNT_IN_USE: &str = "This account is in use right now. Its usage updates while it runs.";
 
 pub(super) fn transport_error(error: &str) -> bool { matches!(error, NETWORK_ERROR | READ_ERROR) }
 
@@ -160,6 +161,9 @@ struct AccountRow {
     #[serde(default)]
     can_manage: bool,
     remaining_percent: Option<f64>,
+    // Older servers omit it; display-only, never a capacity verdict.
+    #[serde(default)]
+    last_remaining_percent: Option<f64>,
     blocked_until: Option<i64>,
     health_reported_at: Option<i64>,
     leased_until: Option<i64>,
@@ -168,7 +172,7 @@ struct AccountRow {
 impl AccountRow {
     fn into_account(self, team_id: &str) -> Result<super::Account, String> {
         if self.id.is_empty() || !matches!(self.provider.as_str(), "codex" | "grok")
-            || self.remaining_percent.is_some_and(|n| !n.is_finite() || !(0.0..=100.0).contains(&n)) {
+            || [self.remaining_percent, self.last_remaining_percent].iter().flatten().any(|n| !n.is_finite() || !(0.0..=100.0).contains(n)) {
             return Err(INVALID_RESPONSE.into());
         }
         // The service returns measurements, not a health verdict. Unknown capacity
@@ -185,7 +189,9 @@ impl AccountRow {
         Ok(super::Account {
             id: self.id, provider: self.provider, label: self.label, email: None, plan: None, native: false, current_login: false, enabled: self.enabled, can_manage: self.can_manage,
             priority: 0, team_id: Some(team_id.into()), status: status.into(),
-            remaining_percent: remaining, resets_at: self.blocked_until,
+            // Show the last measurement with its age; status above still treats it as unknown.
+            remaining_percent: remaining.or(if reset_passed { None } else { self.last_remaining_percent }),
+            resets_at: self.blocked_until,
             usage: None,
             last_checked_at: self.health_reported_at, error: None,
         })
@@ -253,17 +259,35 @@ fn parse_allocation(status: StatusCode, bytes: &[u8], team_id: &str, provider: &
         }
     }
     if !status.is_success() { return Err(status_error(status)); }
-    let data: LeaseResponse = decode(bytes)?;
+    lease_assignment(decode(bytes)?, team_id, provider).map(Some)
+}
+
+fn lease_assignment(data: LeaseResponse, team_id: &str, provider: &str) -> Result<TeamAssignment, String> {
     if !data.account.enabled || data.account.provider != provider || data.account.id.is_empty() || data.lease_id.is_empty()
         || !data.credentials.is_object() || data.credentials.as_object().is_some_and(|o| o.is_empty())
         || data.expires_at <= chrono::Utc::now().timestamp() {
         return Err(INVALID_RESPONSE.into());
     }
-    Ok(Some(TeamAssignment {
+    Ok(TeamAssignment {
         team_id: team_id.into(), lease_id: data.lease_id, account_id: data.account.id,
         provider: data.account.provider, label: data.account.label,
         credentials: data.credentials, expires_at: data.expires_at,
-    }))
+    })
+}
+
+fn parse_check(status: StatusCode, bytes: &[u8], team_id: &str, account_id: &str) -> Result<TeamAssignment, String> {
+    if status == StatusCode::CONFLICT { return Err(ACCOUNT_IN_USE.into()); }
+    if !status.is_success() { return Err(status_error(status)); }
+    let data: LeaseResponse = decode(bytes)?;
+    let provider = data.account.provider.clone();
+    if data.account.id != account_id || !matches!(provider.as_str(), "codex" | "grok") { return Err(INVALID_RESPONSE.into()); }
+    lease_assignment(data, team_id, &provider)
+}
+
+/// Leases one exact team account only long enough to measure its quota.
+pub async fn check_lease(team_id: &str, account_id: &str) -> Result<TeamAssignment, String> {
+    let (status, bytes) = Api::load()?.send(Method::POST, &["api", "teams", team_id, "provider-accounts", account_id, "check"], None).await?;
+    parse_check(status, &bytes, team_id, account_id)
 }
 
 fn pool_configured(status: StatusCode, bytes: &[u8], provider: &str) -> Result<bool, String> {
@@ -502,6 +526,37 @@ mod tests {
         assert_eq!(reset.remaining_percent, None);
         row["remainingPercent"] = json!(101);
         assert!(serde_json::from_value::<AccountRow>(row).unwrap().into_account("t").is_err());
+    }
+
+    #[test]
+    fn stale_headroom_is_shown_as_last_known_without_claiming_readiness() {
+        let row = json!({ "id": "a", "provider": "codex", "label": "Work", "enabled": true,
+            "remainingPercent": null, "lastRemainingPercent": 62, "blockedUntil": null, "healthReportedAt": 100, "leasedUntil": null });
+        let account = serde_json::from_value::<AccountRow>(row.clone()).unwrap().into_account("t").unwrap();
+        assert_eq!(account.remaining_percent, Some(62.0));
+        assert_eq!(account.last_checked_at, Some(100));
+        assert_eq!(account.status, "unknown");
+        let mut elapsed = row.clone();
+        elapsed["blockedUntil"] = json!(1);
+        assert_eq!(serde_json::from_value::<AccountRow>(elapsed).unwrap().into_account("t").unwrap().remaining_percent, None);
+        let mut invalid = row;
+        invalid["lastRemainingPercent"] = json!(101);
+        assert!(serde_json::from_value::<AccountRow>(invalid).unwrap().into_account("t").is_err());
+    }
+
+    #[test]
+    fn usage_check_lease_must_be_the_requested_account() {
+        let data = json!({"ok": true, "data": {
+            "account": { "id": "pac_1", "provider": "grok", "label": "Work", "enabled": true,
+                "remainingPercent": null, "blockedUntil": null, "healthReportedAt": null, "leasedUntil": null },
+            "leaseId": "pal_1", "expiresAt": chrono::Utc::now().timestamp() + 300,
+            "credentials": { "https://auth.x.ai::grok-build": { "key": "secret-token" } }
+        }});
+        let bytes = serde_json::to_vec(&data).unwrap();
+        assert_eq!(parse_check(StatusCode::OK, &bytes, "team", "pac_1").unwrap().provider, "grok");
+        assert!(parse_check(StatusCode::OK, &bytes, "team", "pac_2").is_err());
+        let busy = parse_check(StatusCode::CONFLICT, b"", "team", "pac_1").err().unwrap();
+        assert!(busy.contains("in use"));
     }
 
     #[test]

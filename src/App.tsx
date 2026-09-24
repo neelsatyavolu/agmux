@@ -325,7 +325,20 @@ function App() {
       // Cmd+Up/Down for start/end of prompt (see textFieldNav / terminalCmdArrow).
       if (key === "arrowup" || key === "arrowdown") {
         if (isEditableKeyboardTarget(e.target)) return;
-        const els = Array.from(document.querySelectorAll<HTMLElement>("[data-session-nav]"));
+        // Focus repeats rows from project groups and orders its portaled rows
+        // with CSS, so walk visible rows top-to-bottom and skip repeats.
+        const seen = new Set<string>();
+        const els = Array.from(document.querySelectorAll<HTMLElement>("[data-session-nav]"))
+          .filter((el) => el.getClientRects().length > 0)
+          .map((el) => ({ el, top: el.getBoundingClientRect().top }))
+          .sort((a, b) => a.top - b.top)
+          .map(({ el }) => el)
+          .filter((el) => {
+            const id = el.dataset.sessionNav ?? "";
+            if (seen.has(id)) return false;
+            seen.add(id);
+            return true;
+          });
         if (els.length === 0) return;
         e.preventDefault();
         e.stopPropagation();

@@ -26,8 +26,14 @@ vi.mock("../../../lib/commands", () => ({
 
 // Avoid pulling in heavy children — they are tested separately.
 vi.mock("../../sidebar/ProjectGroup", () => ({
-  ProjectGroup: ({ project }: { project: { name: string } }) => (
-    <div data-testid="project-group">{project.name}</div>
+  ProjectGroup: ({ project, focusPortal, focusSince }: { project: { name: string }; focusPortal?: HTMLElement | null; focusSince?: number | null }) => (
+    <div
+      data-testid="project-group"
+      data-focus-portal={focusPortal?.hasAttribute("data-focus-list") ? "list" : "none"}
+      data-focus-since={focusSince ?? ""}
+    >
+      {project.name}
+    </div>
   ),
 }));
 vi.mock("../../sidebar/NewProjectDialog", () => ({
@@ -1124,5 +1130,43 @@ describe("Sidebar — Final coverage gaps", () => {
     useUiStore.setState({ sidebarCollapsed: true });
     render(<Sidebar />);
     expect(screen.getByTestId("sidebar-tabs")).toBeTruthy();
+  });
+});
+
+describe("Sidebar Focus", () => {
+  const alpha = { id: "p1", name: "alpha", repo_path: "/alpha", created_at: "2025-01-01", conventions: "{}" } as any;
+
+  beforeEach(() => {
+    useProjectStore.setState({ projects: [alpha], loading: false });
+  });
+  afterEach(() => {
+    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusEnabled: false, focusWindowHours: 24 } }));
+  });
+
+  it("is off by default", () => {
+    render(<Sidebar />);
+    expect(screen.queryByTestId("focus-section")).toBeNull();
+    expect(screen.getByText("Threads")).toBeTruthy();
+    expect(screen.getByTestId("project-group").dataset.focusPortal).toBe("none");
+  });
+
+  it("shows Focus above the projects and gives each group the list and window", () => {
+    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusEnabled: true, focusWindowHours: 4 } }));
+    const before = Date.now();
+    render(<Sidebar />);
+    expect(screen.getByTestId("focus-section")).toBeTruthy();
+    expect(screen.getByText("Projects")).toBeTruthy();
+    const group = screen.getByTestId("project-group");
+    expect(group.dataset.focusPortal).toBe("list");
+    const since = Number(group.dataset.focusSince);
+    expect(since).toBeGreaterThanOrEqual(before - 4 * 60 * 60 * 1000);
+    expect(since).toBeLessThanOrEqual(Date.now() - 4 * 60 * 60 * 1000);
+  });
+
+  it("stays hidden in cowork mode", () => {
+    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusEnabled: true } }));
+    useUiStore.setState({ appMode: "cowork" });
+    render(<Sidebar />);
+    expect(screen.queryByTestId("focus-section")).toBeNull();
   });
 });

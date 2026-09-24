@@ -92,6 +92,46 @@ describe("provider account pool", () => {
     expect(reset.data.account.remainingPercent).toBeNull();
   });
 
+  it("reports the last measured headroom separately from fresh capacity", async () => {
+    const { env, add, call } = await fixture();
+    const a = (await add()).data.account;
+    const time = Math.floor(Date.now() / 1000);
+    await env.DB.prepare("UPDATE provider_accounts SET remaining_percent=90,health_reported_at=? WHERE id=?").bind(time-3600, a.id).run();
+    let row = (await call("employee")).data.accounts[0];
+    expect(row.remainingPercent).toBeNull();
+    expect(row.lastRemainingPercent).toBe(90);
+    expect(row.healthReportedAt).toBe(time-3600);
+    await env.DB.prepare("UPDATE provider_accounts SET remaining_percent=0,blocked_until=? WHERE id=?").bind(time-1, a.id).run();
+    row = (await call("employee")).data.accounts[0];
+    expect(row.remainingPercent).toBeNull();
+    expect(row.lastRemainingPercent).toBeNull();
+  });
+
+  it("leases one exact account for a usage check, including exhausted ones, and never a leased or paused one", async () => {
+    const { env, add, call, allocate } = await fixture();
+    const a = (await add()).data.account, b = (await add()).data.account;
+    const time = Math.floor(Date.now() / 1000);
+    await env.DB.prepare("UPDATE provider_accounts SET remaining_percent=0,blocked_until=?,health_reported_at=? WHERE id=?").bind(time+600, time, a.id).run();
+    const check = await call("employee", "POST", `/${a.id}/check`);
+    expect(check.status).toBe(200);
+    expect(check.headers.get("cache-control")).toBe("no-store");
+    expect(check.data.account.id).toBe(a.id);
+    expect(check.data.credentials.tokens.refresh_token).toBe("refresh-secret");
+    expect((await call("other", "POST", `/${a.id}/check`)).status).toBe(409);
+    expect((await allocate("other", { excludeIds: [b.id] })).status).toBe(409);
+    const renewed = await call("employee", "POST", `/leases/${check.data.leaseId}/renew`, { remainingPercent: 40, blockedUntil: 0 });
+    expect(renewed.status).toBe(200);
+    expect((await call("employee", "DELETE", `/leases/${check.data.leaseId}`)).status).toBe(200);
+    const row = (await call("owner")).data.accounts.find((x: any) => x.id === a.id);
+    expect(row.remainingPercent).toBe(40);
+    expect(row.leasedUntil).toBeNull();
+    await call("owner", "PATCH", `/${b.id}`, { enabled: false });
+    expect((await call("employee", "POST", `/${b.id}/check`)).status).toBe(404);
+    expect((await call("employee", "POST", "/missing/check")).status).toBe(404);
+    expect((await call("staff", "POST", `/${a.id}/check`)).status).toBe(403);
+    expect((await call("cookie", "POST", `/${a.id}/check`)).status).toBe(403);
+  });
+
   it("normalizes blockedUntil zero to NULL and preserves fresh positive capacity after clearing a block", async () => {
     const { env, add, call, allocate } = await fixture();
     await add();

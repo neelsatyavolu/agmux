@@ -307,13 +307,52 @@ describe("AccountsSection", () => {
     fireEvent.click(screen.getByText("Retry team connection"));
     await waitFor(() => expect(screen.queryByText("Team accounts unavailable")).toBeNull());
   });
-  it("team managers see automatic usage without unsupported refresh or priority controls", async () => {
+  it("checks new and stale personal usage on open without being asked", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    state.accounts = [account, { ...account, id: "fresh", label: "Fresh", lastCheckedAt: now }, { ...account, id: "signed-out", label: "Out", status: "needs_login" }];
+    vi.mocked(providerAccounts.refresh).mockImplementation(async id => {
+      state = { ...state, accounts: state.accounts.map(row => row.id === id ? { ...row, remainingPercent: 70, lastCheckedAt: now } : row) };
+    });
+    render(<AccountsSection />);
+    expect(await screen.findByText("70%")).toBeTruthy();
+    expect(providerAccounts.refresh).toHaveBeenCalledExactlyOnceWith("one", null);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh accounts" }));
+    await waitFor(() => expect(providerAccounts.refresh).toHaveBeenCalledWith("fresh", null));
+    expect(providerAccounts.refresh).not.toHaveBeenCalledWith("signed-out", null);
+  });
+  it("checks a team account's usage once when it has never been measured", async () => {
+    state.teams = [{ id: "t", name: "Studio", role: "employee", canManage: true }];
+    state.accounts = [{ ...account, teamId: "t" }, { ...account, id: "paused", teamId: "t", enabled: false }, { ...account, id: "known", teamId: "t", lastCheckedAt: 100 }];
+    vi.mocked(providerAccounts.refresh).mockRejectedValue(new Error("This account is in use right now."));
+    render(<AccountsSection />);
+    await waitFor(() => expect(providerAccounts.refresh).toHaveBeenCalledExactlyOnceWith("one", "t"));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Refresh accounts" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh accounts" }));
+    await waitFor(() => expect(providerAccounts.list).toHaveBeenCalledTimes(3));
+    expect(providerAccounts.refresh).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("any team member can check an enabled team account and sees when it was measured", async () => {
+    state.teams = [{ id: "t", name: "Studio", role: "employee", canManage: true }];
+    state.accounts = [{ ...account, teamId: "t", remainingPercent: 62, lastCheckedAt: 100 }, { ...account, id: "paused", label: "Paused team", teamId: "t", enabled: false, lastCheckedAt: 100 }];
+    await open(); fireEvent.change(screen.getByLabelText("Accounts for"), { target: { value: "t" } });
+    const row = within(screen.getByRole("article", { name: "My Codex" }));
+    expect(row.getByText(/checked/)).toBeTruthy();
+    expect(within(screen.getByRole("article", { name: "Paused team" })).queryByText("Check usage")).toBeNull();
+    fireEvent.click(row.getByRole("button", { name: "Check usage" }));
+    await waitFor(() => expect(providerAccounts.refresh).toHaveBeenCalledWith("one", "t"));
+    vi.mocked(providerAccounts.refresh).mockRejectedValueOnce(new Error("This account is in use right now."));
+    await waitFor(() => expect((row.getByRole("button", { name: "Check usage" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(row.getByRole("button", { name: "Check usage" }));
+    expect(await screen.findByText("This account is in use right now.")).toBeTruthy();
+  });
+  it("team managers get a usage check without personal-only priority controls", async () => {
     state.teams = [{ id: "t", name: "Studio", role: "manager", canManage: true }];
     state.accounts = [{ ...account, teamId: "t", canManage: true }];
     await open(); fireEvent.change(screen.getByLabelText("Accounts for"), { target: { value: "t" } });
     options();
     expect(screen.queryByText("Team usage refreshes automatically while accounts are allocated.")).toBeNull();
-    expect(screen.queryByText("Check usage")).toBeNull();
+    expect(screen.getAllByText("Check usage")).toHaveLength(1);
     expect(screen.queryByLabelText("Priority for My Codex")).toBeNull();
     expect(screen.getByLabelText("Refresh accounts")).toBeTruthy();
     expect(screen.getByText("Pause")).toBeTruthy();
@@ -352,7 +391,7 @@ describe("AccountsSection", () => {
     await screen.findByText("Account removed."); expect(providerAccounts.remove).toHaveBeenCalledWith("one", null);
   });
   it("pauses an account, updates priority, and saves auto-switch", async () => {
-    state.accounts = [account]; await open(); options(); fireEvent.click(screen.getByText("Pause"));
+    state.accounts = [{ ...account, lastCheckedAt: Math.floor(Date.now() / 1000) }]; await open(); options(); fireEvent.click(screen.getByText("Pause"));
     await waitFor(() => expect(providerAccounts.list).toHaveBeenCalledTimes(2));
     expect(providerAccounts.update).toHaveBeenCalledWith("one", { enabled: false, teamId: null });
     const priority = screen.getByLabelText("Priority for My Codex");
