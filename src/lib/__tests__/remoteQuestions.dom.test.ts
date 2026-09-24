@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const html = readFileSync("remote-relay/public/app.html", "utf8");
 
 function questionSheet() {
-  document.body.innerHTML = html.slice(html.indexOf('      <div class="appr-scrim"'), html.indexOf('      <div class="phone-home"'));
+  const sheetStart = html.indexOf('<div class="appr-scrim"');
+  document.body.innerHTML = html.slice(sheetStart, html.indexOf("<script>", sheetStart));
   const send = vi.fn();
   const next = vi.fn();
   const api = new Function("document", "ws", "showNextPending", `
