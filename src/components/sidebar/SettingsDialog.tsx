@@ -1830,7 +1830,7 @@ function AccountsPage({
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: 10.5,
-            color: "var(--accent, var(--accent))",
+            color: "var(--accent)",
             textTransform: "uppercase",
             letterSpacing: "0.2em",
             marginBottom: 8,
@@ -3371,7 +3371,7 @@ function SettingsCard({
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 10.5,
-                color: "var(--accent, var(--accent))",
+                color: "var(--accent)",
                 textTransform: "uppercase",
                 letterSpacing: "0.2em",
                 marginBottom: 8,
@@ -3470,8 +3470,8 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean
       aria-pressed={enabled}
       className={`settings-toggle ${enabled ? "settings-toggle-on" : "settings-toggle-off"} relative inline-flex h-[18px] w-8 items-center rounded-full border transition-all`}
       style={{
-        background: enabled ? "var(--accent, var(--accent))" : undefined,
-        borderColor: enabled ? "var(--accent, var(--accent))" : undefined,
+        background: enabled ? "var(--accent)" : undefined,
+        borderColor: enabled ? "var(--accent)" : undefined,
         boxShadow: enabled ? "0 0 0 4px var(--accent-dim, color-mix(in srgb, var(--accent) 15%, transparent))" : "none",
         transitionTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
         transitionDuration: "200ms",
@@ -3584,7 +3584,7 @@ function Slider({
         />
         <div
           className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full"
-          style={{ height: 4, width: `${pct}%`, background: "var(--accent, var(--accent))" }}
+          style={{ height: 4, width: `${pct}%`, background: "var(--accent)" }}
         />
         <div
           className="settings-slider-thumb absolute top-1/2 -translate-y-1/2 rounded-full"
@@ -3592,7 +3592,7 @@ function Slider({
             left: `calc(${pct}% - 7px)`,
             width: 14,
             height: 14,
-            border: "1px solid var(--accent, var(--accent))",
+            border: "1px solid var(--accent)",
             boxShadow:
               "0 1px 3px rgba(0,0,0,0.4), 0 0 0 3px var(--accent-dim, color-mix(in srgb, var(--accent) 15%, transparent))",
           }}

@@ -709,7 +709,7 @@ export function RemoteControlSection() {
                 className="flex size-7 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold"
                 style={{
                   background: "var(--accent-dim, color-mix(in srgb, var(--accent) 15%, transparent))",
-                  color: "var(--accent, var(--accent))",
+                  color: "var(--accent)",
                 }}
               >
                 {item.step}

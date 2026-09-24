@@ -42,7 +42,7 @@ export function SettingsCard({
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 10.5,
-                color: "var(--accent, var(--accent))",
+                color: "var(--accent)",
                 textTransform: "uppercase",
                 letterSpacing: "0.2em",
                 marginBottom: 8,
@@ -166,8 +166,8 @@ export function Toggle({
       aria-checked={enabled}
       className={`settings-toggle ${enabled ? "settings-toggle-on" : "settings-toggle-off"} relative inline-flex h-[18px] w-8 items-center rounded-full border transition-all disabled:opacity-50`}
       style={{
-        background: enabled ? "var(--accent, var(--accent))" : undefined,
-        borderColor: enabled ? "var(--accent, var(--accent))" : undefined,
+        background: enabled ? "var(--accent)" : undefined,
+        borderColor: enabled ? "var(--accent)" : undefined,
         boxShadow: enabled ? "0 0 0 4px var(--accent-dim, color-mix(in srgb, var(--accent) 15%, transparent))" : "none",
         transitionTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
         transitionDuration: "200ms",
