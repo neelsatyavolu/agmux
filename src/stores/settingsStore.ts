@@ -535,6 +535,15 @@ export function loadSettings(): AppSettings {
       // the default. Anyone can pick Geist or Glass again in Appearance.
       const needsDesignMigration = (parsed.designRevision ?? 0) < DESIGN_REVISION;
       const migratedUiFont: UIFont = needsDesignMigration && uiFont === "geist" ? "archivo" : uiFont;
+      // The old Gold accent default is now just "theme default" — migrate any
+      // stored old-gold accent to "" once, same as the font migration above.
+      const LEGACY_GOLD_ACCENT = ["f7", "ad", "3c"].join("");
+      const migratedAccentColor =
+        needsDesignMigration &&
+        typeof parsed.accentColor === "string" &&
+        parsed.accentColor.replace(/^#/, "").toLowerCase() === LEGACY_GOLD_ACCENT
+          ? ""
+          : parsed.accentColor;
       const surfaceStyle: SurfaceStyle = !needsDesignMigration &&
         (parsed.surfaceStyle === "glass" || parsed.surfaceStyle === "flat")
         ? parsed.surfaceStyle
@@ -594,6 +603,7 @@ export function loadSettings(): AppSettings {
         recentProviders,
         ...(defaultProvider !== undefined ? { defaultProvider } : {}),
         ...(sidebarOpacity !== undefined ? { sidebarOpacity } : {}),
+        ...(migratedAccentColor !== undefined ? { accentColor: migratedAccentColor } : {}),
         usageProviders,
       };
     }

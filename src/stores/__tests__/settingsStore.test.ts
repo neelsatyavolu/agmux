@@ -144,4 +144,30 @@ describe("settingsStore", () => {
     localStorage.setItem("agmux-settings", JSON.stringify({ surfaceStyle: "chrome", designRevision: DESIGN_REVISION }));
     expect(loadSettings().surfaceStyle).toBe("flat");
   });
+
+  it("migrates a stored old-gold accentColor to the theme default once", async () => {
+    localStorage.setItem("agmux-settings", JSON.stringify({ accentColor: "#f7ad3c" }));
+    const { loadSettings } = await import("../settingsStore");
+    expect(loadSettings().accentColor).toBe("");
+  });
+
+  it("migrates the old-gold accentColor case-insensitively", async () => {
+    localStorage.setItem("agmux-settings", JSON.stringify({ accentColor: "#F7AD3C" }));
+    const { loadSettings } = await import("../settingsStore");
+    expect(loadSettings().accentColor).toBe("");
+  });
+
+  it("keeps a custom accentColor through the migration", async () => {
+    localStorage.setItem("agmux-settings", JSON.stringify({ accentColor: "#6b8ff8" }));
+    const { loadSettings } = await import("../settingsStore");
+    expect(loadSettings().accentColor).toBe("#6b8ff8");
+  });
+
+  it("does not re-migrate an old-gold accentColor chosen again after the redesign", async () => {
+    const { loadSettings, DESIGN_REVISION } = await import("../settingsStore");
+    localStorage.setItem("agmux-settings", JSON.stringify({
+      accentColor: "#f7ad3c", designRevision: DESIGN_REVISION,
+    }));
+    expect(loadSettings().accentColor).toBe("#f7ad3c");
+  });
 });
