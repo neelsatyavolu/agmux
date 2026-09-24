@@ -156,7 +156,7 @@ paths:
 ## Styling
 - Tailwind CSS v4 with `@import "tailwindcss"` in index.css
 - `@tailwindcss/vite` plugin in vite.config.ts
-- Dark theme: zinc-950 bg, zinc-100 text, blue-600 accents
+- Unified design (2026-09, shared with agmux.dev + the phone app): `src/styles/unified.css` loads after `index.css` (unlayered, beats Tailwind). Slate tokens `--ui-*`; brand gold `#f2a516` via `--accent`; blue = working, gold = needs you, green = done, red = error. `settings.surfaceStyle` (`flat` default | `glass`) → `html[data-surface]`; flat surface rules live only in `unified.css`, glass is the original `index.css` look. Archivo is the default UI font; mono only for machine text (code, paths, branches, shortcuts). Never hard-code the gold: use `var(--accent)` (`accentLiterals.test.ts` enforces it).
 - All icons from lucide-react
 
 ## Subagent Conversations (`src/components/thread/subagents/`)

@@ -39,6 +39,7 @@ Stored per-thread in `threads.interaction_mode` (default `pty`):
 ## App modes (UI)
 
 - agent (default) Cmd+Shift+A · cowork (briefcase; own folder list — starts empty, user adds folders; Claude/ChatGPT Work desktop sessions attach to those folders; Opening Cowork overlay while lists load) · task Cmd+Shift+T · ide Cmd+Shift+.
+- Look: flat slate surfaces by default (Settings → Appearance → Surfaces); Glass keeps the frosted `.codex-wall`/`.codex-glass` panes. See `.claude/rules/src.md` → Styling.
 
 ## Database
 
