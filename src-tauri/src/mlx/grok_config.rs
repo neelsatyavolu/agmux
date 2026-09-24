@@ -40,9 +40,8 @@ pub fn render_managed_config(models: &[MlxModel], port: u16) -> String {
         out.push_str("model_provider = \"agmux-local\"\n");
         out.push_str(&format!("model = \"local/{id}\"\n"));
         out.push_str(&format!("name = \"{name}\"\n"));
-        if let Some(ctx) = m.context_window {
-            out.push_str(&format!("context_window = {ctx}\n"));
-        }
+        let ctx = crate::mlx::memory::plan(m).context;
+        out.push_str(&format!("context_window = {ctx}\n"));
     }
     out
 }

@@ -31,6 +31,28 @@ test("maps each installed model into the provider", () => {
   assert.equal(cfg.provider.local.models["mlx-community/Phi-4-mini"].tool_call, true);
 });
 
+test("declares the context and output limits Rust sends", () => {
+  const cfg = buildOpencodeConfig(
+    [{ id: "a/b", contextWindow: 32768, maxOutput: 8192 }],
+    21434,
+  );
+  assert.deepEqual(cfg.provider.local.models["a/b"].limit, { context: 32768, output: 8192 });
+});
+
+test("omits limits when either value is missing or invalid", () => {
+  const cfg = buildOpencodeConfig(
+    [
+      { id: "a/b" },
+      { id: "c/d", contextWindow: 32768 },
+      { id: "e/f", contextWindow: 0, maxOutput: 8192 },
+    ],
+    21434,
+  );
+  for (const id of ["a/b", "c/d", "e/f"]) {
+    assert.equal(cfg.provider.local.models[id].limit, undefined);
+  }
+});
+
 test("falls back to the id when no display name is given", () => {
   const cfg = buildOpencodeConfig([{ id: "a/b" }], 21434);
   assert.equal(cfg.provider.local.models["a/b"].name, "a/b");

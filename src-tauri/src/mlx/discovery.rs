@@ -50,7 +50,11 @@ pub fn quant_from_config(cfg: &serde_json::Value) -> Option<String> {
 }
 
 pub fn context_window_from_config(cfg: &serde_json::Value) -> Option<u32> {
-    cfg.get("max_position_embeddings").and_then(|v| v.as_u64()).map(|n| n as u32)
+    // Vision and hybrid models (Qwen 3.5+, GLM-V) nest it under `text_config`.
+    cfg.get("max_position_embeddings")
+        .or_else(|| cfg.get("text_config")?.get("max_position_embeddings"))
+        .and_then(|v| v.as_u64())
+        .map(|n| n.min(u32::MAX as u64) as u32)
 }
 
 /// The one marker that reliably separates a tool-calling chat template from a
@@ -107,7 +111,10 @@ fn dir_size_bytes(dir: &Path) -> u64 {
     let mut total = 0u64;
     if let Ok(entries) = std::fs::read_dir(dir) {
         for ent in entries.flatten() {
-            if let Ok(meta) = ent.metadata() {
+            // Follow symlinks: HuggingFace snapshots (including agmux's own
+            // downloads) link every file into `blobs/`, and `DirEntry::metadata`
+            // would measure the ~50-byte links instead of the weights.
+            if let Ok(meta) = std::fs::metadata(ent.path()) {
                 if meta.is_file() { total += meta.len(); }
             }
         }
@@ -252,6 +259,25 @@ mod tests {
     fn context_window_parsed_from_config() {
         let cfg: serde_json::Value = serde_json::from_str(r#"{"max_position_embeddings": 32768}"#).unwrap();
         assert_eq!(context_window_from_config(&cfg), Some(32768));
+    }
+
+    #[test]
+    fn context_window_read_from_nested_text_config() {
+        let cfg = serde_json::json!({ "text_config": { "max_position_embeddings": 262144 } });
+        assert_eq!(context_window_from_config(&cfg), Some(262144));
+    }
+
+    /// HuggingFace snapshot layout: every file is a symlink into `blobs/`.
+    #[test]
+    fn size_counts_the_files_symlinks_point_at() {
+        let root = tempfile::tempdir().unwrap();
+        let blobs = root.path().join("blobs");
+        let snap = root.path().join("snapshots/abc");
+        std::fs::create_dir_all(&blobs).unwrap();
+        std::fs::create_dir_all(&snap).unwrap();
+        std::fs::write(blobs.join("w"), vec![0u8; 10_000]).unwrap();
+        std::os::unix::fs::symlink("../../blobs/w", snap.join("model.safetensors")).unwrap();
+        assert_eq!(dir_size_bytes(&snap), 10_000);
     }
 
     /// Minimal but *valid* MLX model dir, so `build_mlx_model` accepts it.

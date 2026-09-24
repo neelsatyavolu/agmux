@@ -17,7 +17,13 @@ export function buildOpencodeConfig(models, port) {
     // tool_call: true — OpenCode only routes agentic edits through models that
     // advertise tool calling; local installs are already filtered to tool-capable
     // templates on the Rust side, so declare it explicitly here (defensive).
-    entries[m.id] = { name: m.displayName || m.id, tool_call: true };
+    const entry = { name: m.displayName || m.id, tool_call: true };
+    // Without `limit.context` OpenCode never auto-compacts a local session;
+    // it keeps growing past what the backend holds in memory.
+    if (isPositiveInt(m.contextWindow) && isPositiveInt(m.maxOutput)) {
+      entry.limit = { context: m.contextWindow, output: m.maxOutput };
+    }
+    entries[m.id] = entry;
   }
   if (Object.keys(entries).length === 0) return {};
   return {
@@ -35,6 +41,10 @@ export function buildOpencodeConfig(models, port) {
       },
     },
   };
+}
+
+function isPositiveInt(n) {
+  return Number.isInteger(n) && n > 0;
 }
 
 /**

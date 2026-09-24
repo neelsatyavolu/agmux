@@ -2,17 +2,21 @@
 //!
 //! Three picks (`speed` / `balanced` / `quality`) for each unified-memory
 //! tier (8 / 12 / 16 / 24 / 32 / 48 / 64 / 96 / 128 / 256 GB). Snapshot:
-//! August 2026, cross-checked against HuggingFace `mlx-community` +
+//! September 2026, cross-checked against HuggingFace `mlx-community` +
 //! `lmstudio-community` downloads, on-disk safetensors sizes, and mlx-lm
-//! 0.31 tool parsers (`qwen3_coder`, `json_tools`, …).
+//! 0.31.3 (latest PyPI) model + tool parser modules (`qwen3_coder`, `json_tools`, …).
 //!
 //! Selection rules:
 //! - Prefer models mlx-lm can load (`qwen3`, `qwen3_5`, `qwen3_next`,
 //!   `qwen3_moe`, …) and that expose a chat template with tool/function
 //!   calling (required for OpenCode / agent harnesses).
 //! - Weights should land ~50–70% of the tier so OS + KV cache still fit.
-//! - MoE (Coder-30B-A3B, 35B-A3B, Coder-Next, 122B-A10B) for speed-at-size.
+//! - Qwen 3.8 27B (dense, `qwen3_5`) is the quality pick from 24GB up: it
+//!   beats every larger MoE here on SWE-bench Pro / Terminal Bench.
+//! - MoE (35B-A3B, Coder-Next, 122B-A10B) for speed-at-size.
 //! - OptiQ / mxfp4 variants when they are text-side-only and fit better.
+//! - Not yet listed: Qwen 3.8 Flash-Next (`qwen4_exp`, no mlx-lm support in
+//!   0.31.3) and MTP draft-head repos (no mlx-lm speculative support).
 
 use serde::{Deserialize, Serialize};
 use std::process::Command;
@@ -223,13 +227,13 @@ fn m(
     }
 }
 
-/// Curated catalog of MLX coding models — August 2026 snapshot.
+/// Curated catalog of MLX coding models — September 2026 snapshot.
 ///
 /// Sources:
 ///  - HuggingFace `mlx-community` / `lmstudio-community` (sizes from tree API)
-///  - mlx-lm 0.31 model + tool_parser modules (`qwen3_5`, `qwen3_coder`, …)
-///  - Community coding/agent evals (SWE-bench Verified, LiveCodeBench, practical
-///    OpenCode/Aider-style usage) as summarized in the Aug 2026 model audit
+///  - mlx-lm 0.31.3 model + tool_parser modules (`qwen3_5`, `qwen3_coder`, …)
+///  - Qwen model-card coding/agent evals (SWE-bench Pro/Verified, Terminal
+///    Bench, LiveCodeBench) for Qwen 3.5 / 3.6 / 3.8
 pub fn catalog() -> Vec<CatalogModel> {
     use HardwareTier::*;
     use ModelRole::*;
@@ -393,13 +397,13 @@ pub fn catalog() -> Vec<CatalogModel> {
             false,
         ),
         m(
-            "mlx-community/Qwen3.6-27B-4bit",
-            "Qwen 3.6 27B",
+            "mlx-community/Qwen3.8-27B-4bit",
+            "Qwen 3.8 27B",
             "27B",
             "4bit",
             14.95,
             18.0,
-            "Dense 27B coding workhorse. Community SWE-bench Verified ~77% class.",
+            "Strongest local coder here (SWE-bench Pro 61.7). Dense 27B that fits 24GB.",
             Gb24,
             Balanced,
             Some(4),
@@ -408,13 +412,13 @@ pub fn catalog() -> Vec<CatalogModel> {
             false,
         ),
         m(
-            "mlx-community/Qwen3.6-27B-OptiQ-4bit",
-            "Qwen 3.6 27B OptiQ",
+            "mlx-community/Qwen3.8-27B-OptiQ-4bit",
+            "Qwen 3.8 27B OptiQ",
             "27B",
             "OptiQ-4bit",
-            18.61,
-            22.0,
-            "OptiQ text quant of 27B — highest quality dense fit for 24GB.",
+            19.24,
+            22.5,
+            "OptiQ text quant of Qwen 3.8 27B — highest quality dense fit for 24GB.",
             Gb24,
             Quality,
             Some(4),
@@ -423,7 +427,7 @@ pub fn catalog() -> Vec<CatalogModel> {
             false,
         ),
 
-        // ── 32 GB ── coding MoE comes online
+        // ── 32 GB ── Qwen 3.8 27B at higher bits
         m(
             "mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit",
             "Qwen 3.6 35B-A3B OptiQ",
@@ -440,13 +444,13 @@ pub fn catalog() -> Vec<CatalogModel> {
             false,
         ),
         m(
-            "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit",
-            "Qwen 3 Coder 30B-A3B",
-            "30B MoE / 3B active",
-            "4bit",
-            16.0,
-            20.0,
-            "Coding MoE with mlx-lm qwen3_coder tool parser. Agent-friendly daily driver.",
+            "lmstudio-community/Qwen3.8-27B-MLX-5bit",
+            "Qwen 3.8 27B (5bit)",
+            "27B",
+            "5bit",
+            18.09,
+            23.0,
+            "Top dense coder at 5bit with room for a 32K context on 32GB.",
             Gb32,
             Balanced,
             None,
@@ -455,13 +459,13 @@ pub fn catalog() -> Vec<CatalogModel> {
             false,
         ),
         m(
-            "lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-6bit",
-            "Qwen 3 Coder 30B-A3B (6bit)",
-            "30B MoE / 3B active",
+            "lmstudio-community/Qwen3.8-27B-MLX-6bit",
+            "Qwen 3.8 27B (6bit)",
+            "27B",
             "6bit",
-            23.10,
-            28.0,
-            "Higher-bit coding MoE. Best agentic quality that still fits 32GB.",
+            21.22,
+            27.0,
+            "Near-lossless Qwen 3.8 27B. Best agentic quality that still fits 32GB.",
             Gb32,
             Quality,
             None,
@@ -472,13 +476,13 @@ pub fn catalog() -> Vec<CatalogModel> {
 
         // ── 48 GB ── Coder-Next entry
         m(
-            "lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-8bit",
-            "Qwen 3 Coder 30B-A3B (8bit)",
-            "30B MoE / 3B active",
-            "8bit",
-            30.21,
-            36.0,
-            "Full-fidelity coding MoE at still-high tok/s. Great 48GB speed pick.",
+            "lmstudio-community/Qwen3.6-35B-A3B-MLX-6bit",
+            "Qwen 3.6 35B-A3B (6bit)",
+            "35B MoE / 3B active",
+            "6bit",
+            27.06,
+            32.0,
+            "High-bit MoE at still-high tok/s. Great 48GB speed pick.",
             Gb48,
             Speed,
             None,
@@ -502,17 +506,17 @@ pub fn catalog() -> Vec<CatalogModel> {
             false,
         ),
         m(
-            "mlx-community/Qwen3-Coder-Next-mxfp4",
-            "Qwen 3 Coder Next mxfp4",
-            "Coder-Next",
-            "mxfp4",
-            39.45,
-            44.0,
-            "mxfp4 Coder-Next — often better quality-per-byte than plain 4bit.",
+            "mlx-community/Qwen3.8-27B-8bit",
+            "Qwen 3.8 27B (8bit)",
+            "27B",
+            "8bit",
+            27.47,
+            34.0,
+            "Full-fidelity Qwen 3.8 27B — the strongest local coder, with 64K context.",
             Gb48,
             Quality,
             None,
-            Some(32768),
+            Some(65536),
             true,
             false,
         ),
@@ -549,19 +553,19 @@ pub fn catalog() -> Vec<CatalogModel> {
             false,
         ),
         m(
-            "mlx-community/Qwen2.5-Coder-32B-Instruct-8bit",
-            "Qwen 2.5 Coder 32B (8bit)",
-            "32B",
+            "lmstudio-community/Qwen3.8-27B-MLX-8bit",
+            "Qwen 3.8 27B (8bit)",
+            "27B",
             "8bit",
-            32.42,
-            42.0,
-            "Highest-fidelity dense coder that fits 64GB with long-context room.",
+            27.47,
+            38.0,
+            "Strongest local coder at 8bit with 128K context room on 64GB.",
             Gb64,
             Quality,
             None,
-            Some(65536),
+            Some(131072),
             true,
-            true,
+            false,
         ),
 
         // ── 96 GB ── 122B class opens up
@@ -596,17 +600,17 @@ pub fn catalog() -> Vec<CatalogModel> {
             false,
         ),
         m(
-            "mlx-community/Qwen3.5-122B-A10B-4bit",
-            "Qwen 3.5 122B-A10B",
-            "122B MoE / 10B active",
-            "4bit",
-            64.81,
-            78.0,
-            "Standard 4bit 122B-A10B. Maximum quality under 96GB with KV restraint.",
+            "mlx-community/Qwen3.8-27B-mxfp8",
+            "Qwen 3.8 27B mxfp8",
+            "27B",
+            "mxfp8",
+            26.69,
+            42.0,
+            "Strongest local coder at 8bit with its full 256K context on 96GB.",
             Gb96,
             Quality,
-            Some(4),
-            Some(32768),
+            None,
+            Some(262144),
             true,
             false,
         ),
@@ -643,22 +647,37 @@ pub fn catalog() -> Vec<CatalogModel> {
             false,
         ),
         m(
-            "mlx-community/Qwen3-235B-A22B-Instruct-2507-4bit",
-            "Qwen 3 235B-A22B",
-            "235B MoE / 22B active",
-            "4bit",
-            123.16,
-            140.0,
-            "Frontier MoE instruct. Heavy — keep context moderate on 128GB machines.",
+            "mlx-community/Qwen3.8-27B-bf16",
+            "Qwen 3.8 27B (bf16)",
+            "27B",
+            "bf16",
+            50.95,
+            66.0,
+            "Unquantized Qwen 3.8 27B with full 256K context. Maximum coding fidelity.",
             Gb128,
             Quality,
-            Some(4),
-            Some(32768),
+            None,
+            Some(262144),
             true,
             false,
         ),
 
         // ── 256 GB ── max fidelity
+        m(
+            "mlx-community/Qwen3.6-35B-A3B-bf16",
+            "Qwen 3.6 35B-A3B (bf16)",
+            "35B MoE / 3B active",
+            "bf16",
+            65.39,
+            75.0,
+            "Unquantized fast MoE — ~3B active keeps it quick with long-context agents.",
+            Gb256,
+            Speed,
+            None,
+            None,
+            true,
+            false,
+        ),
         m(
             "mlx-community/Qwen3.5-122B-A10B-8bit",
             "Qwen 3.5 122B-A10B (8bit)",
@@ -668,7 +687,7 @@ pub fn catalog() -> Vec<CatalogModel> {
             145.0,
             "Highest practical 122B quant. Plenty of room for long-context agents.",
             Gb256,
-            Speed,
+            Balanced,
             None,
             None,
             true,
@@ -681,26 +700,11 @@ pub fn catalog() -> Vec<CatalogModel> {
             "4bit",
             208.49,
             230.0,
-            "Very large MoE. Top non-coder quality class available in MLX 4bit.",
-            Gb256,
-            Balanced,
-            Some(4),
-            Some(65536),
-            true,
-            false,
-        ),
-        m(
-            "mlx-community/Qwen3-Coder-480B-A35B-Instruct-4bit",
-            "Qwen 3 Coder 480B-A35B",
-            "480B MoE / 35B active",
-            "4bit",
-            251.54,
-            270.0,
-            "Largest coding MoE in MLX. Needs a 256GB machine; cap context if tight.",
+            "Largest model that fits — broadest knowledge. Qwen 3.8 27B still codes better.",
             Gb256,
             Quality,
             Some(4),
-            Some(32768),
+            Some(65536),
             true,
             false,
         ),
@@ -779,7 +783,7 @@ mod tests {
     fn offerable_catalog_keeps_every_tool_capable_entry() {
         let all = catalog();
         let offered = offerable_catalog();
-        // August 2026 catalog is tool-capable throughout — if that changes,
+        // September 2026 catalog is tool-capable throughout — if that changes,
         // update this test deliberately rather than silently shipping duds.
         assert_eq!(offered.len(), all.len());
         assert!(offered.iter().all(|m| m.supports_native_tools));

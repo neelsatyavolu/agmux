@@ -13,30 +13,33 @@ use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
 use tokio::sync::{Mutex, Notify};
 
-/// Memory kept away from local models for macOS, agmux, and the user's apps.
+/// Memory kept away from models that share the machine, for macOS, agmux,
+/// and the user's apps.
 const RESERVE_MB: u64 = 6 * 1024;
-/// Cost assumed for a model with no catalog entry and no readable weights.
-const DEFAULT_COST_MB: u64 = 6 * 1024;
+/// Floor kept free even for a single model running alone. The catalog's
+/// per-tier picks are sized to leave this much, so a 6 GB reserve refused
+/// every 8/12/16 GB recommendation outright.
+const SOLO_RESERVE_MB: u64 = 2 * 1024;
 
-pub fn budget_mb() -> u64 {
-    let hw = crate::mlx::catalog::detect_hardware();
-    let total = (hw.total_ram_gb as u64) * 1024;
-    total.saturating_sub(RESERVE_MB).max(2 * 1024)
+fn total_ram_mb() -> u64 {
+    // Cached: detection shells out to sysctl, and memory plans ask for every
+    // installed model each time the harness configs are written.
+    static TOTAL: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *TOTAL.get_or_init(|| (crate::mlx::catalog::detect_hardware().total_ram_gb as u64) * 1024)
 }
 
-/// Runtime cost estimate. Catalog entries already fold in KV-cache headroom;
-/// otherwise fall back to on-disk weight size plus a flat allowance.
+pub fn budget_mb() -> u64 {
+    total_ram_mb().saturating_sub(RESERVE_MB).max(2 * 1024)
+}
+
+pub fn solo_cap_mb() -> u64 {
+    total_ram_mb().saturating_sub(SOLO_RESERVE_MB).max(budget_mb())
+}
+
+/// Runtime cost estimate: measured weights plus the KV cache for the context
+/// declared to the harnesses (see `memory::plan`).
 pub fn model_cost_mb(model: &str) -> u64 {
-    if let Some(entry) = crate::mlx::catalog::lookup(model) {
-        return (entry.ram_gb * 1024.0).ceil() as u64;
-    }
-    if let Some(m) = crate::mlx::discovery::scan_all().into_iter().find(|m| m.id == model) {
-        let weights_mb = m.size_bytes / (1024 * 1024);
-        if weights_mb > 0 {
-            return weights_mb + 2 * 1024;
-        }
-    }
-    DEFAULT_COST_MB
+    crate::mlx::memory::plan_for_id(model).cost_mb
 }
 
 pub struct Lease {
@@ -95,7 +98,7 @@ impl ModelPool {
     pub fn new(venv_python: Option<PathBuf>) -> Self {
         Self {
             venv_python: Arc::new(Mutex::new(venv_python)),
-            residency: Arc::new(StdMutex::new(Residency::new(budget_mb()))),
+            residency: Arc::new(StdMutex::new(Residency::new(budget_mb(), solo_cap_mb()))),
             backends: Arc::new(Mutex::new(HashMap::new())),
             load_lock: Arc::new(Mutex::new(())),
             loading: Arc::new(Mutex::new(HashMap::new())),
@@ -124,7 +127,15 @@ impl ModelPool {
                 continue;
             }
 
-            let cost = model_cost_mb(model);
+            // Cost only matters for a model that isn't loaded yet, and
+            // computing it walks every model folder on disk — skip that on
+            // the hot path (every turn and tool call of a loaded model).
+            let resident = self
+                .residency
+                .lock()
+                .expect("residency mutex poisoned")
+                .contains(model);
+            let cost = if resident { 0 } else { model_cost_mb(model) };
             let plan = {
                 let mut r = self.residency.lock().expect("residency mutex poisoned");
                 r.admit(model, cost).map_err(|e| e.to_string())?
@@ -228,37 +239,55 @@ impl ModelPool {
         }
     }
 
-    /// Unload all but the `keep_newest` most-recently-used models, skipping
-    /// any that are mid-request. Runs on a timer so RAM comes back without
-    /// waiting for memory pressure.
+    /// Unload models idle for at least `min_idle`, always keeping the
+    /// `keep_newest` most-recently-used ones. Runs on a timer so RAM comes
+    /// back without waiting for memory pressure. Pressure itself is handled
+    /// by `admit`'s LRU eviction, so this only needs to catch the idle.
+    ///
+    /// The age threshold matters: chat and terminal on two different models
+    /// take turns, and unloading the older one on a fixed tick threw away its
+    /// weights and prompt cache mid-conversation, forcing a reload plus a
+    /// full re-prefill on its next turn.
     ///
     /// Busy models are skipped, never counted against `keep_newest`: a model
     /// with an outstanding request is by definition in use, and unloading it
     /// would kill that turn with no visible cause.
-    pub async fn sweep_idle(&self, keep_newest: usize) {
+    pub async fn sweep_idle(&self, keep_newest: usize, min_idle: std::time::Duration) {
         let _guard = self.load_lock.lock().await;
+        let now = std::time::Instant::now();
 
         // Snapshot idle candidates, newest last.
-        let mut idle: Vec<(String, u64)> = {
+        let mut idle: Vec<(String, u64, std::time::Duration)> = {
             let r = self.residency.lock().expect("residency mutex poisoned");
             r.resident()
                 .into_iter()
-                .filter(|m| !r.is_busy(m))
-                .filter_map(|m| r.idle_since(&m).map(|t| (m, t)))
+                .filter_map(|m| {
+                    let idle_for = r.idle_for(&m, now)?;
+                    r.idle_since(&m).map(|t| (m, t, idle_for))
+                })
                 .collect()
         };
         if idle.len() <= keep_newest {
             return;
         }
-        idle.sort_by_key(|(_, t)| *t);
+        idle.sort_by_key(|(_, t, _)| *t);
         let drop_count = idle.len() - keep_newest;
+        let stale: Vec<String> = idle
+            .into_iter()
+            .take(drop_count)
+            .filter(|(_, _, idle_for)| *idle_for >= min_idle)
+            .map(|(m, _, _)| m)
+            .collect();
 
-        for (model, _) in idle.into_iter().take(drop_count) {
+        for model in stale {
             // Re-check under the lock: a request may have arrived since the
             // snapshot. The load_lock does not cover request arrival.
             let claimed = {
                 let mut r = self.residency.lock().expect("residency mutex poisoned");
-                if r.is_busy(&model) {
+                let still_idle = r
+                    .idle_for(&model, std::time::Instant::now())
+                    .is_some_and(|d| d >= min_idle);
+                if !still_idle {
                     false
                 } else {
                     r.remove(&model);
@@ -357,7 +386,7 @@ mod tests {
         let pool = ModelPool::new(None);
         // Guards against the lock-ordering mistake this method invites:
         // holding the residency lock while taking the backends lock.
-        tokio::time::timeout(std::time::Duration::from_secs(5), pool.sweep_idle(1))
+        tokio::time::timeout(std::time::Duration::from_secs(5), pool.sweep_idle(1, std::time::Duration::ZERO))
             .await
             .expect("sweep_idle deadlocked");
     }
@@ -372,7 +401,7 @@ mod tests {
         pool.test_seed_idle("b", 1);
         pool.test_seed_idle("c", 1);
 
-        tokio::time::timeout(std::time::Duration::from_secs(5), pool.sweep_idle(1))
+        tokio::time::timeout(std::time::Duration::from_secs(5), pool.sweep_idle(1, std::time::Duration::ZERO))
             .await
             .expect("sweep_idle deadlocked");
 
@@ -384,6 +413,30 @@ mod tests {
             resident,
             vec!["c".to_string()],
             "only the newest (most recently admitted) entry should survive"
+        );
+    }
+
+    #[tokio::test]
+    async fn sweep_idle_keeps_recently_used_models_loaded() {
+        let pool = ModelPool::new(None);
+        pool.test_seed_idle("chat-model", 1);
+        pool.test_seed_idle("terminal-model", 1);
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            pool.sweep_idle(1, std::time::Duration::from_secs(600)),
+        )
+        .await
+        .expect("sweep_idle deadlocked");
+
+        let resident = {
+            let r = pool.residency.lock().expect("residency mutex poisoned");
+            r.resident()
+        };
+        assert_eq!(
+            resident,
+            vec!["chat-model".to_string(), "terminal-model".to_string()],
+            "a model used moments ago must not be unloaded just for not being newest"
         );
     }
 }

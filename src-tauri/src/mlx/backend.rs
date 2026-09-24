@@ -7,32 +7,31 @@ use std::path::{Path, PathBuf};
 use tokio::process::{Child, Command};
 
 const SITECUSTOMIZE: &str = include_str!("sitecustomize.py");
+/// Spawn → weights evaluated by the warm-up. Big models read tens of GB from
+/// disk on first use.
+const READY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
 
-/// Catalog KV-cache limits to apply at `mlx_lm.server` spawn.
-/// mlx-lm 0.31's server CLI has no `--kv-bits` / `--max-kv-size`; we inject
-/// them via `sitecustomize.py` on PYTHONPATH (see `apply_kv_limits`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct KvLimits {
+/// Limits injected into `mlx_lm.server` through `sitecustomize.py` (0.31 has
+/// no `--kv-bits` flag, and only enforces `--prompt-cache-bytes` on its
+/// batched path, which quantized caches never take).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RuntimeLimits {
     pub kv_bits: Option<u8>,
-    pub max_kv_size: Option<u32>,
+    /// Cap on mlx-lm's LRU of per-conversation KV caches. Unbounded, it keeps
+    /// up to ten full conversations resident, far past the RAM the residency
+    /// budget charged for the model.
+    pub prompt_cache_bytes: u64,
+    /// Quantized caches get a small prefill step: without a fused kernel
+    /// their attention scores scale with it (see `memory`).
+    pub prefill_step: Option<u32>,
 }
 
-impl KvLimits {
-    pub fn is_empty(self) -> bool {
-        self.kv_bits.is_none() && self.max_kv_size.is_none()
-    }
-}
-
-/// Look up per-model KV limits. Unknown / non-catalog ids get none — we
-/// never invent a cap from the path. `local/` prefix is stripped if present.
-pub fn kv_limits_for(model: &str) -> KvLimits {
-    let id = model.strip_prefix("local/").unwrap_or(model);
-    match crate::mlx::catalog::lookup(id) {
-        Some(entry) => KvLimits {
-            kv_bits: entry.kv_bits,
-            max_kv_size: entry.max_kv_size,
-        },
-        None => KvLimits::default(),
+pub fn runtime_limits_for(model: &str) -> RuntimeLimits {
+    let plan = crate::mlx::memory::plan_for_id(model);
+    RuntimeLimits {
+        kv_bits: plan.kv_bits,
+        prompt_cache_bytes: plan.prompt_cache_bytes,
+        prefill_step: plan.prefill_step,
     }
 }
 
@@ -53,11 +52,7 @@ pub fn ensure_kv_wrap(dir: &Path) -> Result<PathBuf, String> {
 }
 
 /// Set AGMUX_MLX_* + PYTHONPATH so sitecustomize can patch mlx_lm.server.
-/// No-op when both limits are unset (unconstrained catalog entries / unknown models).
-pub fn apply_kv_limits(cmd: &mut Command, limits: KvLimits) -> Result<(), String> {
-    if limits.is_empty() {
-        return Ok(());
-    }
+pub fn apply_runtime_limits(cmd: &mut Command, limits: RuntimeLimits) -> Result<(), String> {
     let wrap = kv_wrap_dir();
     ensure_kv_wrap(&wrap)?;
     let mut pythonpath = wrap.display().to_string();
@@ -71,9 +66,7 @@ pub fn apply_kv_limits(cmd: &mut Command, limits: KvLimits) -> Result<(), String
     if let Some(bits) = limits.kv_bits {
         cmd.env("AGMUX_MLX_KV_BITS", bits.to_string());
     }
-    if let Some(size) = limits.max_kv_size {
-        cmd.env("AGMUX_MLX_MAX_KV_SIZE", size.to_string());
-    }
+    cmd.env("AGMUX_MLX_PROMPT_CACHE_BYTES", limits.prompt_cache_bytes.to_string());
     Ok(())
 }
 
@@ -112,13 +105,14 @@ impl Backend {
         let models_dir = crate::mlx::xanom_models_dir();
         std::fs::create_dir_all(&models_dir).map_err(|e| format!("models dir: {e}"))?;
         let (model_arg, used_local) = resolve_model_arg(model);
-        let limits = kv_limits_for(model);
+        let limits = runtime_limits_for(model);
         let port = free_port()?;
         tracing::info!(
             target: "xanom::mlx::backend",
             %model, port, used_local,
             kv_bits = ?limits.kv_bits,
-            max_kv_size = ?limits.max_kv_size,
+            prompt_cache_bytes = limits.prompt_cache_bytes,
+            prefill_step = ?limits.prefill_step,
             "spawning mlx_lm.server"
         );
         let mut cmd = Command::new(venv_python);
@@ -127,11 +121,14 @@ impl Backend {
             "--model", &model_arg,
             "--host", "127.0.0.1",
             "--port", &port.to_string(),
-        ])
-        .env("HF_HOME", &models_dir)
-        .env("TRANSFORMERS_CACHE", &models_dir)
-        .kill_on_drop(true);
-        apply_kv_limits(&mut cmd, limits)?;
+        ]);
+        if let Some(step) = limits.prefill_step {
+            cmd.args(["--prefill-step-size", &step.to_string()]);
+        }
+        cmd.env("HF_HOME", &models_dir)
+            .env("TRANSFORMERS_CACHE", &models_dir)
+            .kill_on_drop(true);
+        apply_runtime_limits(&mut cmd, limits)?;
         // Do NOT set HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE. mlx_lm.server calls
         // snapshot_download() per request to resolve the model; offline mode
         // makes that 404 even for fully-local models, which surfaces as a
@@ -162,34 +159,42 @@ impl Backend {
         })
     }
 
-    /// Poll until `/v1/models` succeeds, or fail fast if the child has exited.
+    /// Fail fast if the process already died (bad model path, OOM, …)
+    /// instead of waiting out the whole deadline.
+    fn check_alive(&mut self) -> Result<(), String> {
+        let Some(child) = self.child.as_mut() else { return Ok(()) };
+        match child.try_wait() {
+            Ok(Some(status)) => Err(format!(
+                "local model '{}' process exited before ready ({status})",
+                self.model
+            )),
+            Ok(None) => Ok(()),
+            Err(e) => Err(format!(
+                "local model '{}': failed to poll process: {e}",
+                self.model
+            )),
+        }
+    }
+
+    /// Ready means a completion actually works, not just that the HTTP port
+    /// answers. mlx_lm.server serves `/v1/models` before its generator thread
+    /// has loaded the weights — and keeps serving it after that thread dies,
+    /// at which point every chat request hangs. A one-token warm-up waits out
+    /// the load (so the first real turn doesn't) and surfaces load failures.
     pub async fn wait_ready(&mut self) -> Result<(), String> {
+        let deadline = std::time::Instant::now() + READY_TIMEOUT;
+        self.wait_listening(deadline).await?;
+        self.warm_up(deadline).await
+    }
+
+    async fn wait_listening(&mut self, deadline: std::time::Instant) -> Result<(), String> {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(2))
             .build()
             .map_err(|e| e.to_string())?;
         let url = format!("{}/v1/models", self.base_url());
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
         while std::time::Instant::now() < deadline {
-            // Fail fast if the process already died (bad model path, OOM, …)
-            // instead of spinning on HTTP for the full 180s.
-            if let Some(child) = self.child.as_mut() {
-                match child.try_wait() {
-                    Ok(Some(status)) => {
-                        return Err(format!(
-                            "local model '{}' process exited before ready ({status})",
-                            self.model
-                        ));
-                    }
-                    Ok(None) => {}
-                    Err(e) => {
-                        return Err(format!(
-                            "local model '{}': failed to poll process: {e}",
-                            self.model
-                        ));
-                    }
-                }
-            }
+            self.check_alive()?;
             if let Ok(Ok(resp)) = tokio::time::timeout(
                 std::time::Duration::from_millis(500),
                 client.get(&url).send(),
@@ -202,10 +207,54 @@ impl Backend {
             }
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
-        Err(format!(
-            "local model '{}' did not finish loading within 180s",
-            self.model
-        ))
+        Err(self.timeout_error())
+    }
+
+    async fn warm_up(&mut self, deadline: std::time::Instant) -> Result<(), String> {
+        let client = reqwest::Client::builder().build().map_err(|e| e.to_string())?;
+        let body = serde_json::json!({
+            "model": self.model_arg,
+            "messages": [{ "role": "user", "content": "hi" }],
+            "max_tokens": 1,
+            "stream": false,
+        });
+        let request = client
+            .post(format!("{}/v1/chat/completions", self.base_url()))
+            .json(&body)
+            .send();
+        tokio::pin!(request);
+        loop {
+            tokio::select! {
+                result = &mut request => {
+                    let resp = result.map_err(|e| {
+                        format!("local model '{}' failed its first request: {e}", self.model)
+                    })?;
+                    if resp.status().is_success() {
+                        return Ok(());
+                    }
+                    let status = resp.status();
+                    let detail: String = resp.text().await.unwrap_or_default().chars().take(300).collect();
+                    return Err(format!(
+                        "local model '{}' failed to load ({status}): {detail}",
+                        self.model
+                    ));
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_millis(500)) => {
+                    self.check_alive()?;
+                    if std::time::Instant::now() >= deadline {
+                        return Err(self.timeout_error());
+                    }
+                }
+            }
+        }
+    }
+
+    fn timeout_error(&self) -> String {
+        format!(
+            "local model '{}' did not finish loading within {}s",
+            self.model,
+            READY_TIMEOUT.as_secs()
+        )
     }
 
     pub async fn shutdown(mut self) {
@@ -273,30 +322,30 @@ mod tests {
         assert!(!local);
     }
 
-    #[test]
-    fn kv_limits_match_catalog_for_tight_and_roomy_picks() {
-        let tight = kv_limits_for("mlx-community/Qwen3.5-4B-MLX-4bit");
-        assert_eq!(tight.kv_bits, Some(4));
-        assert_eq!(tight.max_kv_size, Some(8192));
-
-        let prefixed = kv_limits_for("local/mlx-community/Qwen3.5-4B-MLX-4bit");
-        assert_eq!(prefixed, tight);
-
-        let mid = kv_limits_for("lmstudio-community/Qwen3.5-9B-MLX-8bit");
-        assert_eq!(mid.kv_bits, None);
-        assert_eq!(mid.max_kv_size, Some(16384));
-
-        let roomy = kv_limits_for("mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit");
-        assert_eq!(roomy.kv_bits, None);
-        assert_eq!(roomy.max_kv_size, Some(65536));
-        assert!(!roomy.is_empty());
+    /// Any catalog entry with both KV settings — the combination that used to
+    /// crash every backend at load.
+    fn quantized_catalog_entry() -> crate::mlx::catalog::CatalogModel {
+        crate::mlx::catalog::catalog()
+            .into_iter()
+            .find(|m| m.kv_bits.is_some() && m.max_kv_size.is_some())
+            .expect("catalog has a quantized-KV entry")
     }
 
     #[test]
-    fn kv_limits_are_empty_for_unknown_models() {
-        let none = kv_limits_for("definitely-not-installed/xyz-999");
-        assert!(none.is_empty());
-        assert_eq!(none, KvLimits::default());
+    fn runtime_limits_carry_catalog_kv_bits_and_a_bounded_prompt_cache() {
+        let entry = quantized_catalog_entry();
+        let limits = runtime_limits_for(&entry.repo_id);
+        assert_eq!(limits.kv_bits, entry.kv_bits);
+        assert!(limits.prompt_cache_bytes > 0);
+        let prefixed = runtime_limits_for(&format!("local/{}", entry.repo_id));
+        assert_eq!(prefixed, limits);
+    }
+
+    #[test]
+    fn unknown_models_get_no_kv_quantization_but_still_a_cache_cap() {
+        let limits = runtime_limits_for("definitely-not-installed/xyz-999");
+        assert_eq!(limits.kv_bits, None);
+        assert!(limits.prompt_cache_bytes > 0);
     }
 
     #[test]
@@ -309,8 +358,8 @@ mod tests {
         let path = ensure_kv_wrap(&dir).expect("write wrap");
         let body = std::fs::read_to_string(&path).expect("read wrap");
         assert!(body.contains("AGMUX_MLX_KV_BITS"));
+        assert!(body.contains("AGMUX_MLX_PROMPT_CACHE_BYTES"));
         assert!(body.contains("make_prompt_cache"));
-        assert!(body.contains("BatchGenerator"));
         // Second write is a no-op with the same contents.
         ensure_kv_wrap(&dir).expect("rewrite wrap");
         let again = std::fs::read_to_string(&path).expect("reread wrap");
@@ -333,6 +382,53 @@ mod tests {
             .expect("python3");
         assert!(status.success(), "sitecustomize.py failed to compile");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Runs sitecustomize against a stand-in `mlx_lm` laid out like the real
+    /// one: the package re-exports a `generate` *function* that shadows the
+    /// `generate` submodule. `import mlx_lm.generate as generate` bound that
+    /// function, so the old patch raised inside every backend's model load.
+    #[test]
+    fn sitecustomize_patches_a_package_whose_generate_is_shadowed() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let fake = root.path().join("fake");
+        let files = [
+            ("mlx_lm/__init__.py", "from .generate import generate\n"),
+            (
+                "mlx_lm/generate.py",
+                "def generate():\n    pass\n\ndef maybe_quantize_kv_cache(c, quantized_kv_start, kv_group_size, kv_bits):\n    c.append(kv_bits)\n",
+            ),
+            ("mlx_lm/models/__init__.py", ""),
+            (
+                "mlx_lm/models/cache.py",
+                "def make_prompt_cache(model, max_kv_size=None):\n    return []\n\nclass LRUPromptCache:\n    def __init__(self, max_size=10, max_bytes=1 << 63):\n        self.max_bytes = max_bytes\n",
+            ),
+            ("mlx_lm/server.py", "from .models.cache import make_prompt_cache, LRUPromptCache\n"),
+        ];
+        for (rel, body) in files {
+            let path = fake.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, body).unwrap();
+        }
+        let wrap = root.path().join("wrap");
+        ensure_kv_wrap(&wrap).expect("write wrap");
+
+        let out = std::process::Command::new("python3")
+            .arg("-c")
+            .arg(
+                "from mlx_lm.models.cache import make_prompt_cache, LRUPromptCache\n\
+                 assert make_prompt_cache(None) == [4], make_prompt_cache(None)\n\
+                 assert LRUPromptCache(10).max_bytes == 123\n\
+                 print('ok')",
+            )
+            .env("PYTHONPATH", format!("{}:{}", wrap.display(), fake.display()))
+            .env("AGMUX_MLX_KV_BITS", "4")
+            .env("AGMUX_MLX_PROMPT_CACHE_BYTES", "123")
+            .output()
+            .expect("python3");
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(out.status.success(), "patched cache misbehaved: {stderr}");
+        assert!(!stderr.contains("limits not applied"), "sitecustomize failed: {stderr}");
     }
 
     #[test]

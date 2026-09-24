@@ -439,9 +439,10 @@ pub fn run() {
                     let pool = state.mlx.pool.clone();
                     tauri::async_runtime::spawn(async move {
                         loop {
-                            tokio::time::sleep(std::time::Duration::from_secs(300)).await;
+                            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
                             let p = pool.clone();
-                            if tauri::async_runtime::spawn(async move { p.sweep_idle(1).await })
+                            let min_idle = std::time::Duration::from_secs(10 * 60);
+                            if tauri::async_runtime::spawn(async move { p.sweep_idle(1, min_idle).await })
                                 .await
                                 .is_err()
                             {

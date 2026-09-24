@@ -18,6 +18,7 @@ pub mod discovery;
 pub mod downloader;
 pub mod gateway;
 pub mod grok_config;
+pub mod memory;
 pub mod pi_config;
 pub mod pool;
 pub mod residency;

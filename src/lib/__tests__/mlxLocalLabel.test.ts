@@ -42,6 +42,15 @@ describe("formatLocalModelLabel", () => {
     ).toBe("Qwen 3 Coder Next");
   });
 
+  it("strips 5bit and mxfp8 quant suffixes", () => {
+    expect(formatLocalModelLabel("lmstudio-community/Qwen3.8-27B-MLX-5bit")).toBe(
+      "Qwen 3.8 27B",
+    );
+    expect(formatLocalModelLabel("mlx-community/Qwen3.8-27B-mxfp8")).toBe(
+      "Qwen 3.8 27B",
+    );
+  });
+
   it("accepts bare discovery ids", () => {
     expect(formatLocalModelLabel("mlx-community/Qwen3.5-9B-MLX-4bit")).toBe(
       "Qwen 3.5 9B",

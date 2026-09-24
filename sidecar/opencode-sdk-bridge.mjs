@@ -29,33 +29,74 @@ import {
   isBypassPermissionMode,
 } from "./opencode-permissions.mjs";
 import { buildOpencodeConfig, parseModelSlug } from "./opencode-local-provider.mjs";
+import { createRestartGate } from "./opencode-restart-gate.mjs";
 
 // --- Shared process-level state ---
 let serverProcess = null;   // `opencode serve` subprocess (null if external URL used)
 let serverUrl = null;        // base URL for HTTP client
 let client = null;           // OpencodeClient
 let globalEventsAbort = null; // AbortController for the global event subscription
-let localModels = [];        // locally-installed models surfaced to the OpenCode provider
-let localModelsKey = "[]";   // JSON fingerprint of localModels baked into serve config
+let localModels = [];        // locally-installed models the next serve spawn declares
+let localModelsKey = "[]";   // JSON fingerprint of localModels
+let servedLocalIds = new Set(); // local model ids the running serve was spawned with
+let serveOptions = null;     // { binaryPath, serverPassword } for restarts
 const sessions = new Map();  // threadId → SessionContext
 const openCodeSessionToThread = new Map(); // openCodeSessionId → threadId (for event routing)
+const restartGate = createRestartGate(restartServe);
 
 function fingerprintLocalModels(models) {
   return JSON.stringify(Array.isArray(models) ? models : []);
 }
 
-/** Tear down a self-spawned `opencode serve` so it can be restarted with a new config. */
-function teardownServe() {
+function connectClient(url, serverPassword) {
+  serverUrl = url;
+  client = createOpencodeClient({
+    baseUrl: url,
+    ...(serverPassword ? {
+      headers: { Authorization: "Basic " + Buffer.from(`opencode:${serverPassword}`).toString("base64") },
+    } : {}),
+    throwOnError: true,
+  });
+}
+
+async function spawnAndConnect() {
+  const spawned = await spawnOpencodeServe(serveOptions.binaryPath, localModels);
+  serverProcess = spawned.child;
+  servedLocalIds = new Set(localModels.map((m) => m?.id).filter(Boolean));
+  connectClient(spawned.url, serveOptions.serverPassword);
+  await startGlobalEventSubscription();
+}
+
+/**
+ * Respawn `opencode serve` with the current `localModels`. Runs through
+ * `restartGate`, so no turn is in flight. Chats keep their sessions: OpenCode
+ * stores them on disk, so the same session ids resume on the new server and
+ * the thread ↔ session routing below stays valid.
+ */
+async function restartServe() {
+  log(`restarting opencode serve for ${localModels.length} local model(s); keeping ${sessions.size} session(s)`);
   try { globalEventsAbort?.abort(); } catch {}
   globalEventsAbort = null;
   try { serverProcess?.kill(); } catch {}
   serverProcess = null;
   client = null;
-  serverUrl = null;
-  // Old OpenCode session IDs die with the process — drop routing so we don't
-  // fan events into ghosts. Callers re-startSession as needed.
-  sessions.clear();
-  openCodeSessionToThread.clear();
+  // Permission and question prompts belong to turns, and none are running.
+  for (const ctx of sessions.values()) {
+    ctx.pendingPermissions.clear();
+    ctx.pendingQuestions.clear();
+  }
+  await spawnAndConnect();
+}
+
+/**
+ * A turn on a `local/<id>` that the next serve declares but the running one
+ * doesn't. A model missing from both gains nothing from a restart; it fails
+ * with OpenCode's own "model not found".
+ */
+function needsNewLocalModel(model) {
+  const { providerID, modelID } = parseModelSlug(model);
+  if (providerID !== "local" || !modelID || servedLocalIds.has(modelID)) return false;
+  return localModels.some((m) => m?.id === modelID);
 }
 
 // --- I/O helpers (match claude-sdk-bridge.mjs) ---
@@ -269,13 +310,23 @@ function requireSession(id, threadId) {
 
 // --- Request dispatcher ---
 async function handleRequest({ id, method, params }) {
+  let turnStarted = false;
   try {
+    if (method === "sendMessage" && sessions.has(params?.threadId)) {
+      // Count the turn so a serve restart can't cut it off; a turn on a
+      // just-installed local model first waits for the restart that adds it.
+      await restartGate.beginTurn(needsNewLocalModel(sessions.get(params.threadId).model));
+      turnStarted = true;
+    } else if (method !== "initialize" && method !== "stop" && method !== "shutdown") {
+      // `client` is briefly swapped out while serve restarts.
+      await restartGate.settled();
+    }
     switch (method) {
       case "initialize": {
         // `localModels` are baked into OPENCODE_CONFIG_CONTENT at serve spawn.
         // If the installed set changes after the first initialize (model
-        // download, first local install after a cloud-only session), we must
-        // respawn serve — returning alreadyInitialized freezes the old set.
+        // download, first local install after a cloud-only session), serve
+        // needs a restart — returning alreadyInitialized freezes the old set.
         const { binaryPath, serverUrl: externalUrl, serverPassword } = params ?? {};
         const nextModels = Array.isArray(params?.localModels) ? params.localModels : [];
         const nextKey = fingerprintLocalModels(nextModels);
@@ -288,31 +339,31 @@ async function handleRequest({ id, method, params }) {
             respond(id, { serverUrl, alreadyInitialized: true });
             return;
           }
-          log(`localModels changed (${localModels.length} → ${nextModels.length}); respawning opencode serve`);
-          teardownServe();
+          // Restart without dropping anyone: the gate waits for running turns
+          // to finish, and sessions carry over (see restartServe). Not awaited
+          // — a turn on a newly installed model waits for it in sendMessage.
+          log(`localModels changed (${localModels.length} → ${nextModels.length}); restart queued behind ${restartGate.inFlight} running turn(s)`);
+          localModels = nextModels;
+          localModelsKey = nextKey;
+          if (binaryPath) serveOptions = { binaryPath, serverPassword };
+          restartGate.request().catch((err) => log(`opencode serve restart failed: ${stringifyError(err)}`));
+          respond(id, { serverUrl, alreadyInitialized: true });
+          return;
         }
 
         localModels = nextModels;
         localModelsKey = nextKey;
         if (externalUrl) {
-          serverUrl = externalUrl;
+          connectClient(externalUrl, serverPassword);
+          await startGlobalEventSubscription();
         } else {
           if (!binaryPath) {
             respondError(id, "binaryPath or serverUrl required");
             return;
           }
-          const spawned = await spawnOpencodeServe(binaryPath, localModels);
-          serverProcess = spawned.child;
-          serverUrl = spawned.url;
+          serveOptions = { binaryPath, serverPassword };
+          await spawnAndConnect();
         }
-        client = createOpencodeClient({
-          baseUrl: serverUrl,
-          ...(serverPassword ? {
-            headers: { Authorization: "Basic " + Buffer.from(`opencode:${serverPassword}`).toString("base64") },
-          } : {}),
-          throwOnError: true,
-        });
-        await startGlobalEventSubscription();
         respond(id, { serverUrl });
         return;
       }
@@ -835,6 +886,8 @@ async function handleRequest({ id, method, params }) {
   } catch (err) {
     log(`Error handling ${method}:`, err?.stack ?? err?.message ?? err);
     respondError(id, stringifyError(err));
+  } finally {
+    if (turnStarted) restartGate.endTurn();
   }
 }
 

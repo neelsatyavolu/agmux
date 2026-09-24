@@ -840,7 +840,17 @@ fn local_models_payload(models: &[crate::mlx::types::MlxModel]) -> Vec<Value> {
         // OpenCode edits files exclusively through structured tool calls, so a
         // model whose template can't emit them must never reach its picker.
         .filter(|m| m.supports_tools)
-        .map(|m| json!({ "id": m.id, "displayName": m.display_name }))
+        .map(|m| {
+            // Without a declared context OpenCode never compacts, and its
+            // output default overshoots what the backend has memory for.
+            let context = crate::mlx::memory::plan(m).context;
+            json!({
+                "id": m.id,
+                "displayName": m.display_name,
+                "contextWindow": context,
+                "maxOutput": crate::mlx::memory::agent_max_output(context),
+            })
+        })
         .collect()
 }
 
@@ -1452,6 +1462,18 @@ mod local_models_payload_tests {
         assert_eq!(out.len(), 1);
         assert_eq!(out[0]["id"].as_str(), Some("mlx-community/Qwen3-8B-4bit"));
         assert_eq!(out[0]["displayName"].as_str(), Some("Qwen3-8B-4bit"));
+        assert!(out[0]["contextWindow"].as_u64().is_some());
+        assert!(out[0]["maxOutput"].as_u64().is_some());
+    }
+
+    #[test]
+    fn declares_a_context_window_opencode_can_compact_against() {
+        let out = local_models_payload(&[model("unknown/model", "M")]);
+        assert_eq!(
+            out[0]["contextWindow"].as_u64(),
+            Some(crate::mlx::memory::UNKNOWN_CONTEXT_CAP as u64)
+        );
+        assert_eq!(out[0]["maxOutput"].as_u64(), Some(16_384));
     }
 
     #[test]

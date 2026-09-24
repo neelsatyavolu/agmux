@@ -122,6 +122,12 @@ pub struct CatalogModelWithStatus {
     #[serde(flatten)]
     pub model: crate::mlx::catalog::CatalogModel,
     pub installed: bool,
+    /// Memory agmux reserves for this model on this Mac (`memory::plan`),
+    /// including its conversation cache. Replaces the catalog's static
+    /// `ramGb`, which left the cache out.
+    pub memory_gb: f32,
+    /// Whether this Mac can run it at all.
+    pub fits_this_mac: bool,
 }
 
 #[derive(serde::Serialize)]
@@ -154,15 +160,23 @@ pub async fn mlx_model_catalog() -> Result<Vec<CatalogModelWithStatus>, String> 
     // already on disk", and a model we've decided not to offer must still show
     // as installed so the row keeps its Delete button instead of inviting a
     // second download.
-    let installed: std::collections::HashSet<String> = crate::mlx::discovery::scan_all()
-        .into_iter()
-        .map(|m| m.id.to_lowercase())
-        .collect();
+    let installed: std::collections::HashMap<String, crate::mlx::types::MlxModel> =
+        crate::mlx::discovery::scan_all()
+            .into_iter()
+            .map(|m| (m.id.to_lowercase(), m))
+            .collect();
+    let solo_cap_mb = crate::mlx::pool::solo_cap_mb();
     let out = crate::mlx::catalog::offerable_catalog()
         .into_iter()
         .map(|m| {
-            let installed = installed.contains(&m.repo_id.to_lowercase());
-            CatalogModelWithStatus { model: m, installed }
+            let on_disk = installed.get(&m.repo_id.to_lowercase());
+            let plan = crate::mlx::memory::plan_catalog(&m, on_disk);
+            CatalogModelWithStatus {
+                installed: on_disk.is_some(),
+                memory_gb: plan.cost_mb as f32 / 1024.0,
+                fits_this_mac: plan.cost_mb <= solo_cap_mb,
+                model: m,
+            }
         })
         .collect();
     Ok(out)

@@ -23,7 +23,10 @@ pub fn render_local_provider(models: &[MlxModel], port: u16) -> Value {
         .iter()
         .filter(|m| m.supports_tools)
         .map(|m| {
-            let mut entry = json!({
+            // Declared, not the model's native maximum: Pi compacts against
+            // this, and the backend only has memory set aside for this much.
+            let context = crate::mlx::memory::plan(m).context;
+            json!({
                 "id": m.id,
                 "name": m.display_name,
                 "reasoning": false,
@@ -34,11 +37,9 @@ pub fn render_local_provider(models: &[MlxModel], port: u16) -> Value {
                     "cacheRead": 0,
                     "cacheWrite": 0
                 },
-            });
-            if let Some(ctx) = m.context_window {
-                entry["contextWindow"] = json!(ctx);
-            }
-            entry
+                "contextWindow": context,
+                "maxTokens": crate::mlx::memory::agent_max_output(context),
+            })
         })
         .collect();
     json!({
@@ -240,6 +241,22 @@ mod tests {
         assert_eq!(models.len(), 2);
         assert_eq!(models[0]["id"], "a/b");
         assert_eq!(models[1]["id"], "c/d");
+    }
+
+    #[test]
+    fn declares_the_agent_context_and_output_budget() {
+        let out = render_local_provider(&[model("a/b")], 21434);
+        let entry = &out["models"][0];
+        // Fixture's native window is 32K; unknown models are never widened.
+        assert_eq!(entry["contextWindow"], 32_768);
+        assert_eq!(entry["maxTokens"], 8_192);
+
+        let huge = MlxModel { context_window: Some(262_144), ..model("c/d") };
+        let out = render_local_provider(&[huge], 21434);
+        assert_eq!(
+            out["models"][0]["contextWindow"],
+            crate::mlx::memory::UNKNOWN_CONTEXT_CAP
+        );
     }
 
     #[test]

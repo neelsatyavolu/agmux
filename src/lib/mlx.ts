@@ -102,7 +102,7 @@ export function prettifyMlxModelName(name: string): string {
   if (base.includes("/")) base = base.split("/").pop() || base;
 
   const cleaned = base
-    .replace(/[-_](?:[3468]bit|bf16|fp16|q[2-8]|mxfp4|mxfp8|optiq)$/i, "")
+    .replace(/[-_](?:[2-8]bit|bf16|fp16|q[2-8]|mxfp4|mxfp8|optiq)$/i, "")
     .replace(/[-_](?:mlx|MLX)$/g, "")
     // Dated instruct builds: Qwen3-4B-Instruct-2507 → drop the date token later
     .replace(/[-_]\d{4}$/g, "");
@@ -232,7 +232,13 @@ export interface CatalogModel {
   params: string;
   quant: string;
   sizeGb: number;
+  /** Catalog's static estimate. Display `memoryGb` instead. */
   ramGb: number;
+  /** Memory agmux reserves for this model on this Mac, conversation cache
+   *  included — the same figure it checks before loading the model. */
+  memoryGb: number;
+  /** False when this Mac doesn't have enough memory to run it. */
+  fitsThisMac: boolean;
   description: string;
   tier: HardwareTier;
   role: ModelRole;
