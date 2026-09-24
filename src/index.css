@@ -342,7 +342,7 @@ html[data-mode="light"] .cowork-switch-label {
   --focus-ring: rgba(59, 130, 246, 0.45);
 
   /* Typography scale */
-  --text-eyebrow: 10px;  /* uppercase section labels */
+  --text-eyebrow: 11px;  /* uppercase section labels */
   --text-meta: 11px;     /* metadata, timestamps, badges */
   --text-compact: 12px;  /* dense list/row content */
   --text-ui: 13px;       /* tabs, buttons, inputs, panel + card titles */
@@ -353,7 +353,7 @@ html[data-mode="light"] .cowork-switch-label {
      secondary body content
      tertiary  supporting metadata
      muted     disabled, placeholder, empty-state */
-  --panel-eyebrow-tracking: 0.16em;
+  --panel-eyebrow-tracking: 0.08em;
 }
 
 html, body {

@@ -210,3 +210,190 @@ html[data-surface="flat"] .drag-drop-overlay {
   font-weight: 700;
   letter-spacing: 0.08em;
 }
+
+/* ═══════════════ Redesign v2 (2026-09-24) ═══════════════
+   Typography/radius classes apply in both surfaces. Anything that paints a
+   color or surface lives under html[data-surface="flat"] so Glass is untouched.
+   fx-* helpers are flat-only and !important so they also beat inline styles. */
+
+:root {
+  --ui-hover: rgba(255, 255, 255, 0.045);
+  --ui-press: rgba(255, 255, 255, 0.08);
+  --ui-bubble: #242a35;
+  --ui-term: #0b0d10;
+  --ui-accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --ui-accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
+  --ui-gold-soft: color-mix(in srgb, var(--brand-gold) 12%, transparent);
+  --ui-blue-soft: color-mix(in srgb, var(--status-blue) 14%, transparent);
+  --ui-green-soft: color-mix(in srgb, var(--status-green) 14%, transparent);
+  --ui-red-soft: color-mix(in srgb, var(--status-red) 12%, transparent);
+  --ui-violet-soft: color-mix(in srgb, var(--status-purple) 14%, transparent);
+  --ui-dot-need: var(--brand-gold);
+  --ui-dot-done: #3ecf7e;
+}
+html[data-mode="light"] {
+  --ui-hover: rgba(23, 27, 34, 0.045);
+  --ui-press: rgba(23, 27, 34, 0.08);
+  --ui-bubble: #e3e7ed;
+  --ui-term: #fbfbfc;
+  --ui-gold-soft: color-mix(in srgb, var(--brand-gold) 14%, transparent);
+  --ui-dot-done: #16a35a;
+}
+
+/* ── Type vocabulary (both surfaces; never sets color in the base rule) ── */
+.ui-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+html[data-surface="flat"] .ui-eyebrow { color: var(--text-tertiary); }
+.ui-title-xl {
+  font-family: var(--font-sans);
+  font-stretch: 70%;
+  font-variation-settings: "wdth" 70;
+  font-weight: 800;
+  font-size: 34px;
+  letter-spacing: -0.012em;
+  line-height: 0.95;
+}
+.ui-title-d {
+  font-family: var(--font-sans);
+  font-stretch: 78%;
+  font-variation-settings: "wdth" 78;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
+.ui-meta { font-family: var(--font-sans); font-variant-numeric: tabular-nums; letter-spacing: normal; }
+.ui-diff { font-family: var(--font-sans); font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+.ui-chip.sm { height: 19px; padding: 0 7px; font-size: 10.5px; gap: 4px; }
+.ui-kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.3;
+  padding: 1px 5px;
+  border-radius: 5px;
+  letter-spacing: normal;
+}
+html[data-surface="flat"] .ui-kbd {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+  color: var(--text-tertiary);
+}
+
+/* ── fx-* : flat-only helpers (add next to existing Tailwind colors) ── */
+html[data-surface="flat"] .fx-ink { color: var(--text-primary) !important; }
+html[data-surface="flat"] .fx-ink-2 { color: var(--text-secondary) !important; }
+html[data-surface="flat"] .fx-graphite { color: var(--text-tertiary) !important; }
+html[data-surface="flat"] .fx-muted { color: var(--text-muted) !important; }
+html[data-surface="flat"] .fx-gold { color: var(--status-amber) !important; }
+html[data-surface="flat"] .fx-blue { color: var(--status-blue) !important; }
+html[data-surface="flat"] .fx-green { color: var(--status-green) !important; }
+html[data-surface="flat"] .fx-red { color: var(--status-red) !important; }
+html[data-surface="flat"] .fx-violet { color: var(--status-purple) !important; }
+
+html[data-surface="flat"] .fx-canvas { background: var(--ui-canvas) !important; }
+html[data-surface="flat"] .fx-sidebar { background: var(--ui-sidebar) !important; }
+html[data-surface="flat"] .fx-panel { background: var(--ui-panel) !important; }
+html[data-surface="flat"] .fx-panel-2 { background: var(--ui-panel-2) !important; }
+html[data-surface="flat"] .fx-code { background: var(--ui-code) !important; }
+html[data-surface="flat"] .fx-term { background: var(--ui-term) !important; }
+html[data-surface="flat"] .fx-bubble { background: var(--ui-bubble) !important; }
+html[data-surface="flat"] .fx-scrim { background: var(--ui-scrim) !important; }
+
+html[data-surface="flat"] .fx-fill-gold { background: var(--ui-dot-need) !important; }
+html[data-surface="flat"] .fx-fill-green { background: var(--status-green) !important; }
+html[data-surface="flat"] .fx-fill-red { background: var(--status-red) !important; }
+html[data-surface="flat"] .fx-fill-blue { background: var(--status-blue) !important; }
+html[data-surface="flat"] .fx-fill-muted { background: var(--text-muted) !important; }
+
+html[data-surface="flat"] .fx-ring { border-color: transparent !important; box-shadow: inset 0 0 0 1px var(--ui-rule) !important; }
+html[data-surface="flat"] .fx-ring-2 { border-color: transparent !important; box-shadow: inset 0 0 0 1px var(--ui-rule-2) !important; }
+html[data-surface="flat"] .fx-hairline { border-color: var(--ui-rule) !important; }
+html[data-surface="flat"] .fx-hairline-2 { border-color: var(--ui-rule-2) !important; }
+html[data-surface="flat"] .fx-noshadow { box-shadow: none !important; }
+html[data-surface="flat"] .fx-hover:hover { background: var(--ui-hover) !important; }
+
+html[data-surface="flat"] .fx-card {
+  background: var(--ui-panel) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--ui-rule) !important;
+}
+html[data-surface="flat"] .fx-dialog {
+  background: var(--ui-panel) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2), var(--ui-shadow-pop) !important;
+}
+html[data-surface="flat"] .fx-input {
+  background: var(--ui-canvas) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2) !important;
+  color: var(--text-primary) !important;
+}
+html[data-surface="flat"] .fx-input:focus,
+html[data-surface="flat"] .fx-input:focus-within {
+  box-shadow: inset 0 0 0 1px var(--ui-accent-line), 0 0 0 3px var(--ui-accent-soft) !important;
+  outline: none !important;
+}
+html[data-surface="flat"] .fx-press {
+  background: var(--ui-panel-2) !important;
+  color: var(--text-primary) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2) !important;
+}
+html[data-surface="flat"] .fx-quiet {
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2) !important;
+}
+html[data-surface="flat"] .fx-ghost {
+  background: transparent !important;
+  color: var(--text-tertiary) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+html[data-surface="flat"] .fx-danger {
+  background: transparent !important;
+  color: var(--status-red) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--status-red) 30%, transparent) !important;
+}
+html[data-surface="flat"] .fx-chip-q {
+  background: transparent !important;
+  color: var(--text-tertiary) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2) !important;
+}
+html[data-surface="flat"] .fx-soft-gold { background: var(--ui-gold-soft) !important; color: var(--status-amber) !important; border-color: transparent !important; box-shadow: none !important; }
+html[data-surface="flat"] .fx-soft-blue { background: var(--ui-blue-soft) !important; color: var(--status-blue) !important; border-color: transparent !important; box-shadow: none !important; }
+html[data-surface="flat"] .fx-soft-green { background: var(--ui-green-soft) !important; color: var(--status-green) !important; border-color: transparent !important; box-shadow: none !important; }
+html[data-surface="flat"] .fx-soft-red { background: var(--ui-red-soft) !important; color: var(--status-red) !important; border-color: transparent !important; box-shadow: none !important; }
+html[data-surface="flat"] .fx-soft-violet { background: var(--ui-violet-soft) !important; color: var(--status-purple) !important; border-color: transparent !important; box-shadow: none !important; }
+/* Keep LAST among the role helpers: a primary that also carries fx-quiet/fx-press must resolve to accent. */
+html[data-surface="flat"] .fx-accent {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
