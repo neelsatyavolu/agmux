@@ -116,7 +116,7 @@ describe("ThemeProvider", () => {
   it("keeps midnight brand accent in dark mode", () => {
     useSettingsStore.getState().updateSettings({ theme: "midnight-glass", colorMode: "dark" });
     render(<ThemeProvider><div /></ThemeProvider>);
-    expect(document.documentElement.style.getPropertyValue("--accent")).toBe("#f7ad3c");
+    expect(document.documentElement.style.getPropertyValue("--accent")).toBe("#f2a516");
     expect(document.documentElement.getAttribute("data-theme")).toBe("midnight-glass");
   });
 
@@ -131,7 +131,7 @@ describe("ThemeProvider", () => {
   });
 
   it("darkens bright accents in light mode for contrast", () => {
-    useSettingsStore.getState().updateSettings({ theme: "obsidian-gold", colorMode: "light" });
+    useSettingsStore.getState().updateSettings({ theme: "obsidian-gold", colorMode: "light", surfaceStyle: "glass" });
     render(<ThemeProvider><div /></ThemeProvider>);
     expect(document.documentElement.getAttribute("data-mode")).toBe("light");
     const accent = document.documentElement.style.getPropertyValue("--accent");
@@ -169,7 +169,7 @@ describe("theme transitions and light contrast", () => {
   });
 
   it("preserves custom accent and sidebar opacity when glass settings change", () => {
-    useSettingsStore.getState().updateSettings({ accentColor: "#123456", sidebarOpacity: 23 });
+    useSettingsStore.getState().updateSettings({ accentColor: "#123456", sidebarOpacity: 23, surfaceStyle: "glass" });
     render(<ThemeProvider><div /></ThemeProvider>);
     const sidebar = value("--glass-sidebar");
     act(() => useSettingsStore.getState().updateSettings({ glassIntensity: 80, borderBrightness: 80 }));
@@ -191,4 +191,67 @@ describe("theme transitions and light contrast", () => {
       expect((luminance([235, 235, 235]) + 0.05) / (luminance(accent) + 0.05)).toBeGreaterThanOrEqual(4.5);
     },
   );
+});
+
+describe("unified design surfaces", () => {
+  const value = (name: string) => document.documentElement.style.getPropertyValue(name);
+  beforeEach(() => {
+    useSettingsStore.getState().updateSettings({
+      theme: "midnight-glass", colorMode: "dark", accentColor: "",
+      surfaceStyle: "flat", glassIntensity: 50, borderBrightness: 50, sidebarOpacity: 65,
+    });
+  });
+
+  it("marks the root with the surface style", () => {
+    render(<ThemeProvider><div /></ThemeProvider>);
+    expect(document.documentElement.getAttribute("data-surface")).toBe("flat");
+    act(() => useSettingsStore.getState().updateSettings({ surfaceStyle: "glass" }));
+    expect(document.documentElement.getAttribute("data-surface")).toBe("glass");
+  });
+
+  it("paints flat dark surfaces with the slate tokens", () => {
+    render(<ThemeProvider><div /></ThemeProvider>);
+    expect(value("--glass-bg")).toBe("#0f1115");
+    expect(value("--glass-sidebar")).toBe("#13161b");
+    expect(value("--glass-card")).toBe("#1a1e25");
+    expect(value("--glass-border")).toBe("#252a33");
+    expect(value("--text-primary")).toBe("#eef0f3");
+    expect(value("--text-tertiary")).toBe("#98a1af");
+  });
+
+  it("paints flat light surfaces with the light slate tokens", () => {
+    useSettingsStore.getState().updateSettings({ colorMode: "light" });
+    render(<ThemeProvider><div /></ThemeProvider>);
+    expect(value("--glass-bg")).toBe("#f7f8fa");
+    expect(value("--glass-sidebar")).toBe("#edf0f3");
+    expect(value("--glass-card")).toBe("#ffffff");
+    expect(value("--text-primary")).toBe("#171b22");
+  });
+
+  it("uses the new brand gold for Midnight", () => {
+    render(<ThemeProvider><div /></ThemeProvider>);
+    expect(value("--accent")).toBe("#f2a516");
+    expect(value("--accent-foreground")).toBe("#000000");
+  });
+
+  it("keeps each theme's accent on flat surfaces", () => {
+    useSettingsStore.getState().updateSettings({ theme: "forest-green" });
+    render(<ThemeProvider><div /></ThemeProvider>);
+    expect(value("--accent")).toBe("#34d399");
+    expect(value("--glass-card")).toBe("#1a1e25");
+  });
+
+  it("restores the original glass values when Glass is chosen", () => {
+    useSettingsStore.getState().updateSettings({ surfaceStyle: "glass" });
+    render(<ThemeProvider><div /></ThemeProvider>);
+    expect(value("--glass-card")).toBe("rgba(0, 0, 0, 0.25)");
+    expect(value("--glass-sidebar")).toBe("rgba(0, 0, 0, 0.65)");
+    expect(value("--text-primary")).toBe("#ffffff");
+  });
+
+  it("maps the Archivo font setting", () => {
+    useSettingsStore.getState().updateSettings({ uiFont: "archivo" });
+    render(<ThemeProvider><div /></ThemeProvider>);
+    expect(value("--font-sans").startsWith('"Archivo"')).toBe(true);
+  });
 });

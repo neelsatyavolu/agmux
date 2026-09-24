@@ -24,9 +24,9 @@ const THEME_BASES: Record<Exclude<AppTheme, "custom">, {
   textMuted: string;
 }> = {
   "midnight-glass": {
-    // Brand accent matches marketing site oklch(0.80 0.15 73) → #f7ad3c (yellow on black).
+    // Brand gold shared with agmux.dev and the phone app (#f2a516).
     // Leave alone — default product look.
-    tint: [0, 0, 0], border: [255, 255, 255], accent: "#f7ad3c", accentRgb: [247, 173, 60],
+    tint: [0, 0, 0], border: [255, 255, 255], accent: "#f2a516", accentRgb: [242, 165, 22],
     textPrimary: "#ffffff", textSecondary: "#e4e4e7", textTertiary: "#d4d4d8", textMuted: "#a1a1aa",
   },
   "forest-green": {
@@ -194,6 +194,48 @@ function buildThemeVars(
   };
 }
 
+/**
+ * Flat surfaces (the unified agmux.dev / phone look): opaque slate instead of
+ * tinted glass. Accent handling stays in the theme effect, so every theme and
+ * custom accent keeps working. Values mirror remote-relay/public/app.html.
+ */
+export function buildFlatVars(lightMode: boolean): Record<string, string> {
+  if (lightMode) {
+    return {
+      "--glass-bg": "#f7f8fa",
+      "--glass-bg-heavy": "#edf0f3",
+      "--glass-sidebar": "#edf0f3",
+      "--glass-header": "#f7f8fa",
+      "--glass-card": "#ffffff",
+      "--glass-border": "#dde1e6",
+      "--glass-border-highlight": "#cdd2d9",
+      "--glass-border-strong": "#b9c0c9",
+      "--glass-hover": "rgba(23, 27, 34, 0.045)",
+      "--glass-active": "rgba(23, 27, 34, 0.08)",
+      "--text-primary": "#171b22",
+      "--text-secondary": "#2b313b",
+      "--text-tertiary": "#586170",
+      "--text-muted": "#818a98",
+    };
+  }
+  return {
+    "--glass-bg": "#0f1115",
+    "--glass-bg-heavy": "#13161b",
+    "--glass-sidebar": "#13161b",
+    "--glass-header": "#0f1115",
+    "--glass-card": "#1a1e25",
+    "--glass-border": "#252a33",
+    "--glass-border-highlight": "#313744",
+    "--glass-border-strong": "#3b4250",
+    "--glass-hover": "rgba(255, 255, 255, 0.045)",
+    "--glass-active": "rgba(255, 255, 255, 0.08)",
+    "--text-primary": "#eef0f3",
+    "--text-secondary": "#cfd4dc",
+    "--text-tertiary": "#98a1af",
+    "--text-muted": "#6c7482",
+  };
+}
+
 /** Resolve effective light/dark mode from setting + system preference. */
 export function useResolvedColorMode(): boolean {
   const colorMode = useSettingsStore((s) => s.settings.colorMode) ?? "dark";
@@ -277,6 +319,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const glassIntensity = useSettingsStore((s) => s.settings.glassIntensity);
   const borderBrightness = useSettingsStore((s) => s.settings.borderBrightness);
   const customThemeColor = useSettingsStore((s) => s.settings.customThemeColor);
+  const surfaceStyle = useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat";
   const isLightMode = useResolvedColorMode();
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -352,7 +395,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       vars["--accent-border"] = `rgba(${r}, ${g}, ${b}, ${isLightMode ? 0.32 : 0.40})`;
     }
 
-    if (isLightMode) {
+    if (surfaceStyle === "flat") {
+      Object.assign(vars, buildFlatVars(isLightMode));
+    } else if (isLightMode) {
       // Match light-mode paper formula so sidebar doesn't fight the theme wash.
       let accentRgb: [number, number, number];
       if (theme === "custom") {
@@ -381,8 +426,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     root.setAttribute("data-theme", theme);
     root.setAttribute("data-mode", isLightMode ? "light" : "dark");
+    root.setAttribute("data-surface", surfaceStyle);
     root.style.colorScheme = isLightMode ? "light" : "dark";
-  }, [theme, glassIntensity, borderBrightness, customThemeColor, isLightMode, accentColor, sidebarOpacity]);
+  }, [theme, glassIntensity, borderBrightness, customThemeColor, isLightMode, accentColor, sidebarOpacity, surfaceStyle]);
 
   // Sync macOS window theme with color mode so vibrancy material adapts
   useEffect(() => {
@@ -393,7 +439,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Font family overrides
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--font-sans", UI_FONT_MAP[uiFont ?? "geist"]);
+    root.style.setProperty("--font-sans", UI_FONT_MAP[uiFont ?? "archivo"]);
   }, [uiFont]);
 
   useEffect(() => {
