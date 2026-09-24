@@ -97,7 +97,7 @@ export const CodexToolRow = memo(function CodexToolRow({
         {status === "running" ? <Loader2 size={13} className="animate-spin text-[color:var(--status-blue)]" /> : icon}
       </span>
 
-      <span className={leadColor}>{lead}</span>
+      <span className={`font-sans font-semibold ${leadColor}`}>{lead}</span>
 
       {subject && (
         <span className={`min-w-0 truncate ${subjectClassName ?? "text-[var(--text-secondary)]"}`} title={subject}>

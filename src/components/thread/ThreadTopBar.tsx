@@ -1114,7 +1114,7 @@ export function ThreadTopBar({
               className="flex items-center"
               style={{
                 gap: 8,
-                fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 10.5,
                 minWidth: 0,
               }}

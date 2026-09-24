@@ -158,3 +158,39 @@ html[data-surface="flat"] .approval-footer {
   background: transparent;
   border-top-color: var(--ui-rule);
 }
+
+/* ── Metadata reads as words, not code ──
+   Mono stays for machine text: code, paths, branches, shortcuts, avatars. */
+.sb-mt,
+.pg-h .pcount,
+.sb-arch .h .n,
+.card-h .eye,
+.app-card-head .eye,
+.card-h .cnt,
+.app-card-head .cnt,
+.card-h .lnk,
+.proj .pt,
+.proj .tm,
+.sess .sub,
+.app-chip,
+.agent-top-chrome-scope .count,
+.agent-top-chrome-pill .count,
+.usage-manage-btn,
+.mem-health,
+.mem-filter,
+.mem-count,
+.mem-kind,
+.mem-section-label {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.sb-mt {
+  font-size: 11.5px;
+}
+/* Section labels: phone-app eyebrow (11px, 700, .08em caps). */
+.card-h .eye,
+.app-card-head .eye,
+.mem-section-label {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}

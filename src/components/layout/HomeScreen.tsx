@@ -750,10 +750,7 @@ export function HomeScreen() {
               >
                 {clock}
               </span>
-              <h1
-                className="ui-display text-[28px] font-semibold leading-tight text-zinc-100"
-                style={{ letterSpacing: "-0.02em" }}
-              >
+              <h1 className="ui-display text-[28px] font-semibold leading-tight text-zinc-100">
                 Welcome back, {greetingName}.{" "}
                 <span className="font-medium text-zinc-400">
                   Let's get{" "}

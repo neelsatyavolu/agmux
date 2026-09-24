@@ -3309,10 +3309,7 @@ function AboutPage({
 function PageHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="mb-6 flex items-baseline gap-3 pb-4 border-b border-white/[0.05]">
-      <h1
-        className="m-0 text-[26px] font-semibold leading-[1.1] text-[var(--text-primary)]"
-        style={{ letterSpacing: "-0.02em" }}
-      >
+      <h1 className="ui-display m-0 text-[26px] font-semibold leading-[1.1] text-[var(--text-primary)]">
         {title}
       </h1>
       {description && (
