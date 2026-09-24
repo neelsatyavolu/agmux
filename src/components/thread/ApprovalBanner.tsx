@@ -409,8 +409,8 @@ export function ApprovalBanner({
         );
       }
       return (
-        <div className="mx-3 my-2 flex items-center gap-3.5 rounded-[10px] border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3 animate-pulse-border">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
+        <div className="approval-card mx-3 my-2 flex items-center gap-3.5 rounded-[10px] border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3 animate-pulse-border">
+          <div className="approval-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
             <AlertTriangle size={14} strokeWidth={2} />
           </div>
           <div className="min-w-0 flex-1">
@@ -453,7 +453,7 @@ export function ApprovalBanner({
                 </button>
               )
             )}
-            <GlassButton variant="accent" onClick={onApprove}>
+            <GlassButton variant="accent" className="approval-accept" onClick={onApprove}>
               Accept <span className="font-mono text-[10px] opacity-70">⌘⏎</span>
             </GlassButton>
           </div>
@@ -465,10 +465,10 @@ export function ApprovalBanner({
     return (
       <div className="absolute inset-0 z-40 flex items-center justify-center p-6">
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-        <div className="relative w-full max-w-2xl rounded-[10px] border border-amber-500/25 bg-amber-500/[0.08] shadow-2xl shadow-black/50 backdrop-blur-xl animate-glass-in">
+        <div className="approval-card relative w-full max-w-2xl rounded-[10px] border border-amber-500/25 bg-amber-500/[0.08] shadow-2xl shadow-black/50 backdrop-blur-xl animate-glass-in">
           {/* Header row — mirrors the inline banner layout */}
           <div className="flex items-center gap-3.5 px-4 py-3.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
+            <div className="approval-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
               <AlertTriangle size={14} strokeWidth={2} />
             </div>
             <div className="min-w-0 flex-1">
@@ -512,7 +512,7 @@ export function ApprovalBanner({
                     </button>
                   )
                 )}
-                <GlassButton variant="accent" onClick={onApprove}>
+                <GlassButton variant="accent" className="approval-accept" onClick={onApprove}>
                   Accept <span className="font-mono text-[10px] opacity-70">⌘⏎</span>
                 </GlassButton>
               </div>
@@ -521,12 +521,12 @@ export function ApprovalBanner({
 
           {/* Expanded detail panel — command / file / etc. */}
           {description && (
-            <div className="border-t border-amber-500/15 bg-black/20 px-4 py-3">
+            <div className="approval-footer border-t border-amber-500/15 bg-black/20 px-4 py-3">
               <ToolDetail toolName={toolName} detail={description} workDir={workDir} />
             </div>
           )}
           {timedOut && (
-            <div className="flex items-center gap-2 border-t border-amber-500/15 bg-black/20 px-4 py-2.5 text-xs italic text-zinc-400">
+            <div className="approval-footer flex items-center gap-2 border-t border-amber-500/15 bg-black/20 px-4 py-2.5 text-xs italic text-zinc-400">
               <span className="flex-1">Approval timed out</span>
               <button
                 type="button"

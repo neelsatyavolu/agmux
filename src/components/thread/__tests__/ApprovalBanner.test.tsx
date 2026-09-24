@@ -126,6 +126,41 @@ describe("ApprovalBanner — approval type (banner variant)", () => {
   });
 });
 
+describe("ApprovalBanner — flat style surfaces", () => {
+  it("marks the inline banner surfaces for the flat style", () => {
+    const { container } = render(
+      <ApprovalBanner
+        type="approval"
+        toolName="Bash"
+        onApprove={noop}
+        onReject={noop}
+        onAnswer={noop}
+      />
+    );
+    expect(container.querySelector(".approval-card")).toBeTruthy();
+    expect(container.querySelector(".approval-icon")).toBeTruthy();
+    expect(container.querySelector(".approval-accept")?.textContent).toMatch(/Accept/);
+  });
+
+  it("marks the dialog surfaces for the flat style", () => {
+    const { container } = render(
+      <ApprovalBanner
+        type="approval"
+        variant="dialog"
+        toolName="Bash"
+        description={JSON.stringify({ command: "npm install" })}
+        onApprove={noop}
+        onReject={noop}
+        onAnswer={noop}
+      />
+    );
+    expect(container.querySelector(".approval-card")).toBeTruthy();
+    expect(container.querySelector(".approval-icon")).toBeTruthy();
+    expect(container.querySelector(".approval-accept")?.textContent).toMatch(/Accept/);
+    expect(container.querySelector(".approval-footer")).toBeTruthy();
+  });
+});
+
 describe("ApprovalBanner — approval type (dialog variant)", () => {
   it("renders in dialog variant without crashing", () => {
     render(

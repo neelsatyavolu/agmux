@@ -1979,10 +1979,7 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
               ))}
             </div>
           )}
-          <div
-            className="relative rounded-[18px] p-px shadow-[0_18px_50px_-20px_rgba(0,0,0,0.7)]"
-            style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.02))" }}
-          >
+          <div className="composer-shell relative rounded-[18px] p-px shadow-[0_18px_50px_-20px_rgba(0,0,0,0.7)]">
           <div
             ref={dropZoneRef}
             className={`codex-composer relative rounded-[17px] border border-transparent ${composerFocused ? "codex-composer-focus" : ""}`}

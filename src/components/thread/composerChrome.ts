@@ -26,15 +26,15 @@ export const CBTN_FAST =
   "!text-[color:var(--accent)] bg-[var(--accent-dim)] !border-[color:var(--accent-border)] hover:!bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]";
 
 export const SEND_BTN_ACTIVE =
-  "ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] " +
-  "bg-[var(--accent)] text-[#14110a] shadow-[0_4px_16px_-4px_color-mix(in_srgb,var(--accent)_60%,transparent)] " +
+  "ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full " +
+  "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[0_4px_16px_-4px_color-mix(in_srgb,var(--accent)_60%,transparent)] " +
   "transition-all duration-150 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed";
 
 export const SEND_BTN_IDLE =
-  "ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] " +
+  "ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full " +
   "bg-white/[0.07] text-white/40 transition-all duration-150 disabled:cursor-not-allowed";
 
 export const STOP_BTN =
-  "ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] " +
+  "ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full " +
   "bg-red-500/20 text-red-400 shadow-[0_4px_16px_-4px_rgba(248,113,113,0.4)] " +
   "transition-all hover:bg-red-500/30 active:scale-95";
