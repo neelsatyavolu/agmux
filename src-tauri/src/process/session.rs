@@ -100,12 +100,6 @@ impl PolicyWriter {
     }
 
     pub fn input_checkpoint(&self) -> (u64, Option<u64>) { (self.input_revision, self.input_offset) }
-
-    // Only the remote handler with a consumed, live approval may use this.
-    pub(crate) fn deny_approval(&mut self) -> std::io::Result<()> {
-        self.inner.write_all(b"n\r")?;
-        self.inner.flush()
-    }
 }
 
 fn is_terminal_cancel(data: &[u8]) -> bool {

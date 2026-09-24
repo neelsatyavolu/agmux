@@ -263,6 +263,10 @@ class DesktopHub {
     if (meta?.role === "phone" && this.desktop) {
       this.sendDevicesSnapshot(this.desktop);
     }
+    // Drop idle hubs from memory; saved auth reloads on the next connection.
+    if (this.sessions.size === 0 && !this.pairCode && hubs.get(this.desktopId) === this) {
+      hubs.delete(this.desktopId);
+    }
   }
 
   handleMessage(ws, raw) {
@@ -599,9 +603,10 @@ class DesktopHub {
       if (!this.desktop || this.desktop.readyState !== 1) {
         this.send(ws, {
           type: "error", message: "desktop offline",
-          ...((msg.type === "message.send" || msg.type === "thread.create") && msg.requestId
-            ? { requestId: msg.requestId } : {}),
-          ...(msg.type === "message.send" ? { threadId: msg.threadId } : {}),
+          // Echo correlation so the phone can release the exact pending action
+          // (send, create, approval, question, model catalog).
+          ...(typeof msg.requestId === "string" ? { requestId: msg.requestId } : {}),
+          ...(typeof msg.threadId === "string" ? { threadId: msg.threadId } : {}),
         });
         return;
       }
@@ -643,7 +648,8 @@ const server = http.createServer((req, res) => {
   res.end("not found");
 });
 
-const wss = new WebSocketServer({ noServer: true });
+// maxPayload rejects oversized frames before they are buffered.
+const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES });
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);

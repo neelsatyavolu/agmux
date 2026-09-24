@@ -326,6 +326,43 @@ impl RemoteClientHandle {
         }
     }
 
+    /// Drop every approval and question still open for `thread_id` — its turn
+    /// ended, was interrupted, or its process died, so no answer can land —
+    /// and tell phones to clear each card. Returns the cleared approval ids.
+    pub async fn clear_thread_requests(&self, thread_id: &str) -> Vec<String> {
+        let approvals: Vec<String> = {
+            let mut map = self.inner.pending_approvals.lock().await;
+            let ids = map.values().filter(|p| p.thread_id == thread_id)
+                .map(|p| p.request_id.clone()).collect();
+            map.retain(|_, p| p.thread_id != thread_id);
+            ids
+        };
+        let questions: Vec<String> = {
+            let mut map = self.inner.pending_user_inputs.lock().await;
+            let ids = map.values().filter_map(|message| match message {
+                WireMessage::UserInputRequested { thread_id: tid, request_id, .. } if tid == thread_id => Some(request_id.clone()),
+                _ => None,
+            }).collect::<Vec<_>>();
+            for id in &ids {
+                map.remove(&approval_key(thread_id, id));
+            }
+            ids
+        };
+        if self.inner.connected.load(Ordering::SeqCst) {
+            for request_id in &approvals {
+                let _ = self.send(WireMessage::ApprovalResolved {
+                    request_id: request_id.clone(), thread_id: Some(thread_id.to_string()),
+                }).await;
+            }
+            for request_id in questions {
+                let _ = self.send(WireMessage::UserInputResolved {
+                    request_id, thread_id: Some(thread_id.to_string()),
+                }).await;
+            }
+        }
+        approvals
+    }
+
     /// Drop pending approvals older than `ttl` so a crashed/abandoned session
     /// doesn't leave a permanent phantom needs-approval chip. Tells phones to
     /// clear each pruned chip via ApprovalResolved.
@@ -405,6 +442,9 @@ impl RemoteClientHandle {
     pub async fn revoke_all_devices(&self) -> Result<(), String> {
         self.mark_revoke_all_pending(true).await?;
         self.send_revoke_all_and_wait(Duration::from_secs(3)).await?;
+        // The hub voids the live pair code with the phones.
+        *self.inner.pair_code.lock().await = None;
+        *self.inner.pair_expires_at.lock().await = None;
         Ok(())
     }
 
@@ -828,20 +868,7 @@ async fn connect_once(inner: Arc<Inner>, app: AppHandle, my_gen: u64) -> Result<
     // on the old channel was dropped with it.
     inner.push_dedup.lock().await.reset();
 
-    // Hello (include friendly Mac name so the phone can show "Neel's MacBook Pro").
-    // `capabilities` gates phone UI that needs a matching desktop (e.g. image attach).
-    let hello = WireMessage::Hello {
-        role: "desktop".into(),
-        token: creds.desktop_secret.clone(),
-        desktop_id: Some(creds.desktop_id.clone()),
-        device_name: Some(device_display_name()),
-        app_version: Some(env!("CARGO_PKG_VERSION").to_string()),
-        capabilities: Some(vec![
-            // message.send.images — save/temp + multimodal chat delivery.
-            "images".into(),
-            "message-ack".into(),
-        ]),
-    };
+    let hello = desktop_hello(&creds);
     let hello_json = serde_json::to_string(&hello).map_err(|e| e.to_string())?;
     write
         .send(Message::Text(hello_json.into()))
@@ -1040,11 +1067,29 @@ async fn replay_pending_requests(inner: &Arc<Inner>, thread_id: Option<&str>) {
     }
 }
 
+/// Hello (include friendly Mac name so the phone can show "Neel's MacBook Pro").
+/// `capabilities` gates phone UI that needs a matching desktop (e.g. image attach).
+fn desktop_hello(creds: &auth::RemoteCredentials) -> WireMessage {
+    WireMessage::Hello {
+        role: "desktop".into(),
+        token: creds.desktop_secret.clone(),
+        desktop_id: Some(creds.desktop_id.clone()),
+        device_name: Some(device_display_name()),
+        app_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        capabilities: Some(vec![
+            // message.send.images — save/temp + multimodal chat delivery.
+            "images".into(),
+            "message-ack".into(),
+        ]),
+    }
+}
+
 async fn handle_inbound(inner: &Arc<Inner>, app: &AppHandle, text: &str) {
     let msg: WireMessage = match serde_json::from_str(text) {
         Ok(m) => m,
         Err(e) => {
-            tracing::debug!("remote inbound parse: {e} body={text}");
+            // Never log the body: phone frames carry prompts and images.
+            tracing::debug!("remote inbound parse: {e} ({} bytes)", text.len());
             return;
         }
     };
@@ -1084,6 +1129,14 @@ async fn handle_inbound(inner: &Arc<Inner>, app: &AppHandle, text: &str) {
             phones_online,
         } => {
             let empty = devices.is_empty();
+            // The hub consumes the one-time code when a phone pairs, so a
+            // device enrolled after the code was issued means the on-screen
+            // QR no longer works.
+            let pair_expires_at = *inner.pair_expires_at.lock().await;
+            if pair_code_consumed(pair_expires_at, &devices) {
+                *inner.pair_code.lock().await = None;
+                *inner.pair_expires_at.lock().await = None;
+            }
             *inner.devices.lock().await = devices;
             *inner.phones_online.lock().await = phones_online;
             if empty
@@ -1161,7 +1214,7 @@ async fn handle_inbound(inner: &Arc<Inner>, app: &AppHandle, text: &str) {
                                 let _ = tx.send(WireMessage::Error {
 
                                     request_id: None,
-                                    thread_id: None,
+                                    thread_id: Some(tid),
                                     message: format!("timeline: {e}"),
                                 });
                             }
@@ -1284,14 +1337,17 @@ async fn handle_inbound(inner: &Arc<Inner>, app: &AppHandle, text: &str) {
                 if reject_phone_while_revoking(&inner, "turn.interrupt").await {
                     return;
                 }
-                if let Err(e) = super::dispatch::interrupt_turn(&app, &thread_id).await {
-                    if let Some(tx) = inner.outbound.lock().await.as_ref() {
-                        let _ = tx.send(WireMessage::Error {
-
-                            request_id: None,
-                            thread_id: None,
-                            message: e.to_string(),
-                        });
+                match super::dispatch::interrupt_turn(&app, &thread_id).await {
+                    // The interrupted turn's approvals/questions can't be answered.
+                    Ok(()) => super::notify_thread_requests_cleared(&app, &thread_id),
+                    Err(e) => {
+                        if let Some(tx) = inner.outbound.lock().await.as_ref() {
+                            let _ = tx.send(WireMessage::Error {
+                                request_id: None,
+                                thread_id: Some(thread_id.clone()),
+                                message: e.to_string(),
+                            });
+                        }
                     }
                 }
             });
@@ -1496,7 +1552,7 @@ async fn handle_inbound(inner: &Arc<Inner>, app: &AppHandle, text: &str) {
                         let _ = tx.send(WireMessage::Error {
 
                             request_id: None,
-                            thread_id: None,
+                            thread_id: Some(thread_id.clone()),
                             message: format!("set config: {e}"),
                         });
                     }
@@ -1543,6 +1599,20 @@ async fn handle_inbound(inner: &Arc<Inner>, app: &AppHandle, text: &str) {
             });
         }
         WireMessage::Error { message, .. } => {
+            // Once online, hub errors concern a single frame (size, routing)
+            // and must not stick in Settings as the connection status.
+            if inner.connected.load(Ordering::SeqCst) {
+                tracing::warn!("remote hub error: {message}");
+                // The hub lost this socket's session (hibernation) — sign in
+                // again on the same socket, as the phone does.
+                if message.contains("re-hello") {
+                    let creds = inner.credentials.read().await.clone();
+                    if let (Some(creds), Some(tx)) = (creds, inner.outbound.lock().await.as_ref()) {
+                        let _ = tx.send(desktop_hello(&creds));
+                    }
+                }
+                return;
+            }
             // Surface hub enrollment / token failures clearly.
             *inner.last_error.lock().await = Some(message);
             emit_status(inner, app).await;
@@ -1770,7 +1840,7 @@ fn apply_dispatch_processing(threads: &mut [RemoteThread], in_flight: &std::coll
 }
 
 /// DB catalog + on-disk provider sessions the desktop sidebar shows without a
-/// `threads` row (Claude/Codex terminals from the discovered-sessions lists).
+/// `threads` row (Claude/Codex/Kimi/Pi/Grok terminals from the discovered-sessions lists).
 pub async fn list_remote_threads_merged(
     app: &AppHandle,
     state: &AppState,
@@ -1785,6 +1855,7 @@ pub async fn list_remote_threads_merged(
     let suppressed = suppressed_catalog_ids(&state.db, &prefs).await;
     let mut discovered = discovered_claude_threads(app, state).await;
     discovered.extend(discovered_codex_threads(state).await);
+    discovered.extend(super::discovered_terminals::discovered_terminal_threads(app, state).await);
     for mut rt in discovered {
         if known.contains(&rt.id) || suppressed.contains(&rt.id) {
             continue;
@@ -1866,7 +1937,7 @@ async fn suppressed_catalog_ids(
 }
 
 /// Max discovered (non-thread) Claude sessions listed per project.
-const DISCOVERED_PER_PROJECT: usize = 15;
+pub(super) const DISCOVERED_PER_PROJECT: usize = 15;
 
 /// On-disk Claude sessions per project, mapped to catalog rows. Scanning every
 /// project dir each 2s poller tick is wasteful — cache the static fields for
@@ -2337,14 +2408,7 @@ fn provider_disk_activity_ms(t: &Thread) -> Option<i64> {
         }
         "ClaudeCode" => {
             let sid = t.sdk_session_id.as_deref().filter(|s| !s.is_empty())?;
-            let enc = crate::encode_claude_project_path(&t.work_dir);
-            file_mtime_ms(
-                &home
-                    .join(".claude")
-                    .join("projects")
-                    .join(enc)
-                    .join(format!("{sid}.jsonl")),
-            )
+            file_mtime_ms(&crate::commands::claude_chat::session_file_path(&t.work_dir, sid))
         }
         "Codex" => {
             let sid = t
@@ -2657,7 +2721,7 @@ fn maintenance_due() -> bool {
 /// SQLite `datetime('now')` is naive UTC; phones need an unambiguous instant.
 /// Safari/JSC parse naive "YYYY-MM-DD HH:MM:SS" as *local* time, which made
 /// every session show "now" on the phone.
-fn last_active_rfc3339(raw: &str) -> String {
+pub(super) fn last_active_rfc3339(raw: &str) -> String {
     let s = raw.trim();
     if s.is_empty() {
         return String::new();
@@ -2940,11 +3004,50 @@ pub async fn remote_reset_identity(
     handle.reset_identity(app, re_enable).await
 }
 
+/// Lifetime of a hub pair code (`desktop-hub.ts` / `server.mjs`).
+const PAIR_CODE_TTL_MS: i64 = 10 * 60 * 1000;
+
+/// True when a phone enrolled after the current pair code was issued. The hub
+/// voids a code on its first successful pair, so it must leave the screen.
+fn pair_code_consumed(pair_expires_at: Option<i64>, devices: &[PairedDevice]) -> bool {
+    let Some(expires_at) = pair_expires_at else {
+        return false;
+    };
+    let issued_at = expires_at - PAIR_CODE_TTL_MS;
+    devices.iter().any(|d| d.created_at >= issued_at)
+}
+
 // For unit tests on mapping without DB
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::{HashMap, HashSet};
+
+    fn paired_device(created_at: i64) -> PairedDevice {
+        PairedDevice {
+            id: format!("d{created_at}"),
+            token_prefix: "abcd1234".into(),
+            created_at,
+            last_seen_at: created_at,
+            expires_at: created_at + 1,
+            label: "Phone".into(),
+        }
+    }
+
+    #[test]
+    fn pair_code_is_consumed_only_by_a_phone_paired_after_it_was_issued() {
+        let expires_at = 1_000_000_000;
+        let issued_at = expires_at - PAIR_CODE_TTL_MS;
+        assert!(!pair_code_consumed(None, &[paired_device(issued_at + 5)]));
+        assert!(
+            !pair_code_consumed(Some(expires_at), &[paired_device(issued_at - 1)]),
+            "phones paired earlier must not hide a fresh code"
+        );
+        assert!(pair_code_consumed(
+            Some(expires_at),
+            &[paired_device(issued_at - 1), paired_device(issued_at + 5)]
+        ));
+    }
 
     #[tokio::test]
     async fn reconnect_replays_questions_raised_while_disconnected() {
@@ -3010,6 +3113,84 @@ mod tests {
         assert!(remote.inner.pending_user_inputs.lock().await.contains_key(&approval_key("gemini", "1")));
         assert_eq!(remote.inner.pending_approvals.lock().await.len(), 1);
         assert_eq!(remote.inner.pending_user_inputs.lock().await.len(), 1);
+    }
+
+    async fn connected_remote() -> (RemoteClientHandle, mpsc::UnboundedReceiver<WireMessage>) {
+        let remote = RemoteClientHandle::new();
+        let (tx, rx) = mpsc::unbounded_channel();
+        *remote.inner.outbound.lock().await = Some(tx);
+        remote.inner.connected.store(true, Ordering::SeqCst);
+        (remote, rx)
+    }
+
+    fn drain(rx: &mut mpsc::UnboundedReceiver<WireMessage>) -> Vec<WireMessage> {
+        std::iter::from_fn(|| rx.try_recv().ok()).collect()
+    }
+
+    #[tokio::test]
+    async fn clearing_a_finished_turn_resolves_only_that_threads_cards() {
+        let (remote, mut rx) = connected_remote().await;
+        remote.push_approval_requested("t1", "a1", "Bash", "ls").await;
+        remote.push_approval_requested("t1", "a2", "Edit", "/tmp/example.rs").await;
+        remote.push_user_input_requested("t1", "q1", serde_json::json!([])).await;
+        remote.push_approval_requested("t2", "a1", "Bash", "pwd").await;
+        remote.push_user_input_requested("t2", "q2", serde_json::json!([])).await;
+        drain(&mut rx);
+
+        let mut cleared = remote.clear_thread_requests("t1").await;
+        cleared.sort();
+        assert_eq!(cleared, vec!["a1".to_string(), "a2".to_string()]);
+        let frames = drain(&mut rx);
+        let mut approvals: Vec<String> = frames.iter().filter_map(|f| match f {
+            WireMessage::ApprovalResolved { request_id, thread_id } => {
+                assert_eq!(thread_id.as_deref(), Some("t1"));
+                Some(request_id.clone())
+            }
+            _ => None,
+        }).collect();
+        approvals.sort();
+        assert_eq!(approvals, vec!["a1", "a2"]);
+        assert!(frames.iter().any(|f| matches!(f,
+            WireMessage::UserInputResolved { request_id, thread_id } if request_id == "q1" && thread_id.as_deref() == Some("t1"))));
+        assert_eq!(frames.len(), 3);
+
+        assert!(!remote.take_pending_approval("t1", "a1").await, "a late phone tap must not reach the terminal");
+        assert!(remote.take_pending_approval("t2", "a1").await, "other threads keep their cards");
+        assert!(remote.inner.pending_user_inputs.lock().await.contains_key(&approval_key("t2", "q2")));
+        assert!(remote.clear_thread_requests("t1").await.is_empty());
+        assert!(drain(&mut rx).is_empty());
+    }
+
+    #[tokio::test]
+    async fn terminal_permission_hook_publishes_an_answerable_card() {
+        use super::super::terminal_approvals::{Change, Tracker};
+        let (remote, mut rx) = connected_remote().await;
+        let mut tracker = Tracker::default();
+        let payload = serde_json::json!({ "tool_name": "Bash", "tool_input": { "command": "cargo test" } });
+        let changes = tracker.on_hook("t1", None, "permission-request", &payload, Some("ClaudeCode"));
+        let [Change::Publish { request_id, tool_name, detail }] = &changes[..] else { panic!("{changes:?}") };
+        remote.push_approval_requested("t1", request_id, tool_name, detail).await;
+        assert!(matches!(drain(&mut rx)[..], [WireMessage::ApprovalRequested { request_id: ref rid, .. }] if rid == request_id));
+
+        let changes = tracker.on_hook("t1", None, "stop", &serde_json::json!({}), None);
+        let [Change::Resolve { request_id: resolved }] = &changes[..] else { panic!("{changes:?}") };
+        assert_eq!(resolved, request_id);
+        remote.push_approval_resolved(resolved, Some("t1")).await;
+        assert!(!remote.take_pending_approval("t1", request_id).await);
+    }
+
+    #[tokio::test]
+    async fn codex_desktop_resolve_with_thread_id_clears_the_right_duplicate() {
+        let (remote, mut rx) = connected_remote().await;
+        remote.push_approval_requested("codex-a", "7", "commandExecution", "ls").await;
+        remote.push_approval_requested("codex-b", "7", "commandExecution", "pwd").await;
+        drain(&mut rx);
+        remote.push_approval_resolved("7", None).await;
+        assert!(drain(&mut rx).is_empty(), "ambiguous without a thread id");
+        remote.push_approval_resolved("7", Some("codex-b")).await;
+        assert!(matches!(&drain(&mut rx)[..], [WireMessage::ApprovalResolved { request_id, thread_id }]
+            if request_id == "7" && thread_id.as_deref() == Some("codex-b")));
+        assert!(remote.take_pending_approval("codex-a", "7").await);
     }
 
     #[test]

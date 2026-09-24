@@ -113,6 +113,20 @@ pub fn save_credentials(creds: &RemoteCredentials) -> Result<(), String> {
     Ok(())
 }
 
+/// A relay override must be `wss://`, or plain `ws://` only on this Mac: the
+/// desktop secret is sent in the first frame.
+pub fn validate_relay_ws_base(base: &str) -> Result<String, String> {
+    let trimmed = base.trim();
+    let url = url::Url::parse(trimmed).map_err(|e| format!("invalid relay URL: {e}"))?;
+    let loopback = matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "[::1]"));
+    match url.scheme() {
+        "wss" => Ok(trimmed.to_string()),
+        "ws" if loopback => Ok(trimmed.to_string()),
+        "ws" => Err("relay URL must use wss:// unless it runs on this Mac".into()),
+        other => Err(format!("relay URL must be a WebSocket URL, not {other}://")),
+    }
+}
+
 /// WebSocket URL including `desktopId` query param.
 pub fn relay_ws_url(creds: &RemoteCredentials) -> String {
     let base = creds
@@ -146,6 +160,16 @@ pub fn pair_page_url(desktop_id: &str, code: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn relay_override_requires_tls_off_this_mac() {
+        assert!(validate_relay_ws_base("wss://relay.example.com/ws").is_ok());
+        assert!(validate_relay_ws_base("ws://127.0.0.1:8787/ws").is_ok());
+        assert!(validate_relay_ws_base("ws://localhost:8787/ws").is_ok());
+        assert!(validate_relay_ws_base("ws://relay.example.com/ws").is_err());
+        assert!(validate_relay_ws_base("https://relay.example.com/ws").is_err());
+        assert!(validate_relay_ws_base("not a url").is_err());
+    }
 
     #[test]
     fn relay_ws_url_appends_desktop_id() {

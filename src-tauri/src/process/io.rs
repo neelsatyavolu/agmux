@@ -424,6 +424,8 @@ pub fn start_stdout_reader(
                 exit_code,
             },
         );
+        // A dead terminal can't answer its permission dialog.
+        crate::remote::terminal_approvals::forget(&app_handle, &thread_id);
 
         // Update thread status in DB
         let pool = db_pool;

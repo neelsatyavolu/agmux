@@ -443,6 +443,12 @@ pub async fn resolve_thread(
             return Ok((synthetic_pty_thread(id, "Codex", p), true));
         }
     }
+    // Discovered Kimi / Pi / Grok terminals (sidebar kimiSessions /
+    // piSessions / grokSessions). Readers use sdk_session_id; the first send
+    // claims a host row (see send_pty_line).
+    if let Some((provider, p)) = crate::remote::discovered_terminals::locate(&home, &projects, id).await {
+        return Ok((synthetic_pty_thread(id, provider, p), true));
+    }
     Err(DispatchError::Message(format!("thread not found: {id}")))
 }
 
@@ -815,6 +821,17 @@ async fn send_pty_line(
     synthetic: bool,
     text: &str,
 ) -> Result<(), DispatchError> {
+    // Discovered Kimi/Pi/Grok sessions: host them in a threads row first, like
+    // the desktop sidebar click, then resume through ensure_pty_session below.
+    let claimed: Thread;
+    let (thread, synthetic) = if synthetic && crate::remote::discovered_terminals::needs_claim(&thread.provider) {
+        claimed = crate::remote::discovered_terminals::claim_discovered_terminal(app, thread)
+            .await
+            .map_err(DispatchError::Message)?;
+        (&claimed, false)
+    } else {
+        (thread, synthetic)
+    };
     let thread_id = thread.id.as_str();
     // Grok PTY MCP is project-scoped (shared config.toml) and resolves the
     // session via AGMUX_ACTIVE_THREAD_FILE — refresh on each send so handoffs
@@ -952,13 +969,22 @@ pub async fn send_pty_raw(state: &AppState, thread_id: &str, data: &str) -> Resu
 /// Consume a terminal approval only after the target and writer are ready.
 /// Once writing begins, failures may include delivered bytes: never restore
 /// the request automatically after a write/flush error.
+/// Keys come from the live PTY's provider (Claude/Kimi numbered dialog:
+/// `1` allows once, Esc denies — `n` would be ignored and Enter would allow).
 pub(crate) async fn send_pty_approval(
     state: &AppState,
     thread_id: &str,
     request_id: &str,
-    data: &str,
+    approve: bool,
 ) -> Result<(), DispatchError> {
-    send_pty_raw_checked(state, thread_id, data, Some(request_id)).await
+    let provider = state.sessions.lock().await.get(thread_id)
+        .map(|s| s.provider.clone())
+        .ok_or_else(|| DispatchError::Message("no active terminal session".into()))?;
+    let data = crate::remote::terminal_approvals::approval_keys(&provider, approve)
+        .ok_or_else(|| DispatchError::Message("terminal approvals are not supported for this agent".into()))?;
+    send_pty_raw_checked(state, thread_id, data, Some(request_id)).await?;
+    crate::remote::terminal_approvals::answered(thread_id, request_id);
+    Ok(())
 }
 
 async fn send_pty_raw_checked(
@@ -967,14 +993,13 @@ async fn send_pty_raw_checked(
     data: &str,
     approval_request_id: Option<&str>,
 ) -> Result<(), DispatchError> {
-    let denial = approval_request_id.is_some() && data == "n\r";
     let input_ticket = {
         let sessions = state.sessions.lock().await;
         let session = sessions.get(thread_id)
             .ok_or_else(|| DispatchError::Message("no active terminal session".into()))?;
         session.input_ticket(matches!(data, "\x03" | "\x1b"))
     };
-    if !denial && !matches!(data, "\x03" | "\x1b" | "") {
+    if !matches!(data, "\x03" | "\x1b" | "") {
         // Refresh before acquiring the global session registry: cancellation
         // must not wait behind an online policy fetch.
         crate::teams::policy::refresh_for_execution().await.map_err(DispatchError::Message)?;
@@ -995,9 +1020,6 @@ async fn send_pty_raw_checked(
             return Err(DispatchError::Message("approval already resolved".into()));
         }
     }
-    if denial {
-        return writer.deny_approval().map_err(|e| DispatchError::Message(format!("pty denial: {e}")));
-    }
     use std::io::Write;
     writer
         .write_all(data.as_bytes())
@@ -1008,7 +1030,8 @@ async fn send_pty_raw_checked(
     // Don't log control-only writes (Ctrl-U clear, bare CR, Ctrl-C, ESC…) as
     // user Input — phones would show a blank/garbage bubble and Ctrl-U `\x15`
     // was appearing as a user turn after remote path-inject.
-    if !data.is_empty() && !data.chars().all(|c| c.is_control()) {
+    // An approval key (`1`) is a dialog answer, not a user message.
+    if approval_request_id.is_none() && !data.is_empty() && !data.chars().all(|c| c.is_control()) {
         let pool = state.db.clone();
         let tid = thread_id.to_string();
         let content = data.to_string();
@@ -1017,9 +1040,8 @@ async fn send_pty_raw_checked(
         });
     }
 
-    // Phone interrupt sends Ctrl-C for PTY. Clear hooks only when that key is
-    // the provider's stop (Grok = Ctrl-C; others also treat Ctrl-C from phone
-    // interrupt_turn as intentional stop).
+    // Clear hooks only when the key is the provider's stop (phone interrupt
+    // sends `terminal_stop_key`: Ctrl-C for Grok, Escape for the rest).
     if data == "\x03" || data == "\x1b" {
         let pool = state.db.clone();
         let tid = thread_id.to_string();
@@ -1031,7 +1053,6 @@ async fn send_pty_raw_checked(
                 .map(|t| t.provider.as_str())
                 .unwrap_or("");
             let is_grok = provider.eq_ignore_ascii_case("Grok");
-            // Phone interrupt_turn always sends Ctrl-C for PTY — always clear.
             // Escape only clears non-Grok (desktop parity).
             let clear = key == "\x03" || (!is_grok && key == "\x1b");
             if !clear {

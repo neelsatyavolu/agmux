@@ -96,6 +96,27 @@ pub fn droid_session_exists(work_dir: &str, session_id: &str) -> bool {
         .is_file()
 }
 
+/// Resolve `~/.factory/sessions/<cwd-hash>/<session_id>.jsonl`. When the
+/// thread's cwd no longer matches (moved repo, worktree), fall back to the one
+/// cwd directory that holds this session id.
+pub fn find_droid_session_file(work_dir: &str, session_id: &str) -> Option<PathBuf> {
+    find_droid_session_file_in(factory_sessions_dir()?.as_path(), work_dir, session_id)
+}
+
+fn find_droid_session_file_in(sessions_root: &Path, work_dir: &str, session_id: &str) -> Option<PathBuf> {
+    uuid::Uuid::parse_str(session_id.trim()).ok()?;
+    let file_name = format!("{}.jsonl", session_id.trim());
+    let direct = sessions_root.join(cwd_to_hash(work_dir)).join(&file_name);
+    if direct.is_file() {
+        return Some(direct);
+    }
+    fs::read_dir(sessions_root)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path().join(&file_name))
+        .find(|p| p.is_file())
+}
+
 /// Write a minimal per-thread settings file that Droid will merge via its
 /// `--settings <path>` flag. Contains only the keys we want to override
 /// (model, reasoningEffort) so droid's own settings.json still provides
@@ -247,6 +268,27 @@ mod tests {
         let parsed: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(parsed["model"], json!("claude-opus-4-6"));
         assert!(parsed.get("reasoningEffort").is_none());
+    }
+
+    #[test]
+    fn find_droid_session_file_prefers_cwd_then_scans_and_rejects_bad_ids() {
+        let dir = tempfile::tempdir().unwrap();
+        let sid = "00000000-0000-4000-8000-000000000001";
+        let other = dir.path().join("-other-cwd");
+        fs::create_dir_all(&other).unwrap();
+        fs::write(other.join(format!("{sid}.jsonl")), "").unwrap();
+        assert_eq!(
+            find_droid_session_file_in(dir.path(), "/example/repo", sid),
+            Some(other.join(format!("{sid}.jsonl")))
+        );
+        let own = dir.path().join("-example-repo");
+        fs::create_dir_all(&own).unwrap();
+        fs::write(own.join(format!("{sid}.jsonl")), "").unwrap();
+        assert_eq!(
+            find_droid_session_file_in(dir.path(), "/example/repo/", sid),
+            Some(own.join(format!("{sid}.jsonl")))
+        );
+        assert!(find_droid_session_file_in(dir.path(), "/example/repo", "../escape").is_none());
     }
 
     #[test]

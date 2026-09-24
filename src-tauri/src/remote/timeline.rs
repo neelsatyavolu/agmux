@@ -7,6 +7,15 @@ use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
+mod cline;
+mod droid;
+mod gemini_pty;
+mod hermes;
+mod kimi;
+mod native;
+mod opencode_pty;
+mod sqlite_ro;
+
 /// Cap mobile timelines so phones never wait on multi-thousand PTY log dumps.
 const MAX_TIMELINE_ENTRIES: usize = 250;
 const MAX_AGENT_LOGS: i64 = 200;
@@ -91,6 +100,14 @@ async fn load_timeline_uncapped(
             }
         }
         "Gemini" => {
+            if thread.interaction_mode == "pty" {
+                let saved = thread.clone();
+                if let Ok(Some(entries)) = tokio::task::spawn_blocking(move || gemini_pty::try_gemini_pty_history(&saved)).await {
+                    if !entries.is_empty() {
+                        return Ok((entries, None));
+                    }
+                }
+            }
             let logs = agent_logs_fallback(pool, thread).await?;
             if logs.is_empty() {
                 let hint = if thread.interaction_mode == "gemini-sdk" {
@@ -106,6 +123,42 @@ async fn load_timeline_uncapped(
         "Pi" => {
             let saved = thread.clone();
             if let Ok(Some(entries)) = tokio::task::spawn_blocking(move || try_pi_history(&saved)).await {
+                if !entries.is_empty() {
+                    return Ok((entries, None));
+                }
+            }
+            let logs = agent_logs_fallback(pool, thread).await?;
+            Ok((logs, None))
+        }
+        "Hermes" => {
+            let saved = thread.clone();
+            if let Ok(Some(entries)) = tokio::task::spawn_blocking(move || hermes::try_hermes_history(&saved)).await {
+                if !entries.is_empty() {
+                    return Ok((entries, None));
+                }
+            }
+            let logs = agent_logs_fallback(pool, thread).await?;
+            Ok((logs, None))
+        }
+        "Droid" | "Kimi" | "Cline" => {
+            let saved = thread.clone();
+            let reader: fn(&Thread) -> Option<Vec<MobileTimelineEntry>> = match thread.provider.as_str() {
+                "Droid" => droid::try_droid_history,
+                "Kimi" => kimi::try_kimi_history,
+                _ => cline::try_cline_history,
+            };
+            if let Ok(Some(entries)) = tokio::task::spawn_blocking(move || reader(&saved)).await {
+                if !entries.is_empty() {
+                    return Ok((entries, None));
+                }
+            }
+            let logs = agent_logs_fallback(pool, thread).await?;
+            Ok((logs, None))
+        }
+        // opencode-sdk chats already log through the bridge (falls to `_`).
+        "OpenCode" if thread.interaction_mode == "pty" => {
+            let saved = thread.clone();
+            if let Ok(Some(entries)) = tokio::task::spawn_blocking(move || opencode_pty::try_opencode_pty_history(&saved)).await {
                 if !entries.is_empty() {
                     return Ok((entries, None));
                 }
@@ -939,12 +992,7 @@ fn apply_claude_queue_overlay(
     session_id: &str,
 ) {
     use std::io::{Read, Seek, SeekFrom};
-    let Some(home) = dirs::home_dir() else { return };
-    let path = home
-        .join(".claude")
-        .join("projects")
-        .join(crate::encode_claude_project_path(work_dir))
-        .join(format!("{session_id}.jsonl"));
+    let path = crate::commands::claude_chat::session_file_path(work_dir, session_id);
     let Ok(mut file) = std::fs::File::open(&path) else { return };
     // Queued messages are recent by nature — scan only the file tail.
     const TAIL: u64 = 256 * 1024;
@@ -1558,7 +1606,7 @@ fn try_grok_chat_history(thread: &Thread) -> Option<Vec<MobileTimelineEntry>> {
     if !history_path.is_file() {
         return None;
     }
-    let content = std::fs::read_to_string(&history_path).ok()?;
+    let (first_line, lines) = read_jsonl_tail(&history_path, GROK_HISTORY_MAX_BYTES)?;
     // updates.jsonl carries both the terminal tool status and the only real
     // timestamps this session has — chat_history.jsonl lines are untimed.
     let updates = load_tool_updates(&session_dir.join("updates.jsonl"));
@@ -1571,11 +1619,43 @@ fn try_grok_chat_history(thread: &Thread) -> Option<Vec<MobileTimelineEntry>> {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0);
-    Some(parse_grok_history_lines(
-        &content.lines().map(|l| l.to_string()).collect::<Vec<_>>(),
-        &updates,
-        base_ms,
-    ))
+    Some(parse_grok_history_lines(&lines, &updates, base_ms, first_line))
+}
+
+/// Grok transcripts reach tens of MB and are re-read every refresh.
+const GROK_HISTORY_MAX_BYTES: u64 = 8 * 1024 * 1024;
+
+/// Last `max_bytes` of a JSONL file as whole lines, plus the file line number
+/// of the first returned line. The skipped prefix is only scanned for newlines.
+fn read_jsonl_tail(path: &std::path::Path, max_bytes: u64) -> Option<(usize, Vec<String>)> {
+    use std::io::{BufRead, Read, Seek, SeekFrom};
+    let file = std::fs::File::open(path).ok()?;
+    let start = file.metadata().ok()?.len().saturating_sub(max_bytes);
+    let mut reader = std::io::BufReader::new(file);
+    let mut first_line = 0;
+    let mut mid_line = false;
+    if start > 0 {
+        let mut prefix = (&mut reader).take(start);
+        loop {
+            let buf = prefix.fill_buf().ok()?;
+            let Some(&last) = buf.last() else { break };
+            first_line += buf.iter().filter(|&&b| b == b'\n').count();
+            mid_line = last != b'\n';
+            let len = buf.len();
+            prefix.consume(len);
+        }
+        reader.seek(SeekFrom::Start(start)).ok()?;
+    }
+    let mut bytes = Vec::new();
+    reader.read_to_end(&mut bytes).ok()?;
+    let text = String::from_utf8_lossy(&bytes);
+    let mut lines = text.lines();
+    // Starting mid-line: drop the partial line, which is line `first_line`.
+    if mid_line {
+        lines.next();
+        first_line += 1;
+    }
+    Some((first_line, lines.map(str::to_string).collect()))
 }
 
 /// Terminal status + first-seen timestamp per Grok tool call.
@@ -1753,10 +1833,13 @@ fn grok_line_timestamps(
     out
 }
 
+/// `first_line` is the file line number of `lines[0]` (non-zero when only the
+/// tail was read) so entry ids stay stable as the transcript grows.
 fn parse_grok_history_lines(
     lines: &[String],
     updates: &GrokToolUpdates,
     base_ms: i64,
+    first_line: usize,
 ) -> Vec<MobileTimelineEntry> {
     let failed = &updates.failed;
     let mut out = Vec::new();
@@ -1775,6 +1858,7 @@ fn parse_grok_history_lines(
         };
         let typ = entry.get("type").and_then(|t| t.as_str()).unwrap_or("");
         let ts = line_ts[i];
+        let n = first_line + i;
         match typ {
             "user" => {
                 if entry.get("synthetic_reason").is_some() {
@@ -1784,7 +1868,7 @@ fn parse_grok_history_lines(
                 let query = extract_user_query(&text);
                 let Some(query) = query else { continue };
                 out.push(MobileTimelineEntry {
-                    id: format!("grok-{i}-user"),
+                    id: format!("grok-{n}-user"),
                     kind: "user".into(),
                     text: Some(query),
                     streaming: None,
@@ -1807,7 +1891,7 @@ fn parse_grok_history_lines(
                 let summary = extract_reasoning_summary(&entry);
                 if !summary.trim().is_empty() {
                     out.push(MobileTimelineEntry {
-                        id: format!("grok-{i}-think"),
+                        id: format!("grok-{n}-think"),
                         kind: "thinking".into(),
                         text: Some(summary),
                         streaming: None,
@@ -1830,7 +1914,7 @@ fn parse_grok_history_lines(
                 if let Some(reasoning) = entry.get("reasoning").and_then(|r| r.as_str()) {
                     if !reasoning.is_empty() {
                         out.push(MobileTimelineEntry {
-                            id: format!("grok-{i}-think"),
+                            id: format!("grok-{n}-think"),
                             kind: "thinking".into(),
                             text: Some(reasoning.to_string()),
                             streaming: None,
@@ -1852,7 +1936,7 @@ fn parse_grok_history_lines(
                 let text = extract_text(entry.get("content"));
                 if !text.trim().is_empty() {
                     out.push(MobileTimelineEntry {
-                        id: format!("grok-{i}-asst"),
+                        id: format!("grok-{n}-asst"),
                         kind: "assistant".into(),
                         text: Some(text),
                         streaming: None,
@@ -1907,7 +1991,7 @@ fn parse_grok_history_lines(
                             tool_idx.insert(id.clone(), idx);
                         }
                         let mut e = MobileTimelineEntry {
-                            id: format!("grok-{i}-tool-{j}"),
+                            id: format!("grok-{n}-tool-{j}"),
                             kind: "tool".into(),
                             text: None,
                             streaming: None,
@@ -2347,13 +2431,27 @@ mod tests {
     }
 
     #[test]
+    fn jsonl_tail_keeps_file_line_numbers() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("h.jsonl");
+        std::fs::write(&path, "aaaa\nbbbb\ncccc\ndddd\n").unwrap();
+        // Whole file.
+        assert_eq!(read_jsonl_tail(&path, 100).unwrap(), (0, vec!["aaaa".into(), "bbbb".into(), "cccc".into(), "dddd".into()]));
+        // Tail starts exactly on a line boundary: keep that line.
+        assert_eq!(read_jsonl_tail(&path, 10).unwrap(), (2, vec!["cccc".into(), "dddd".into()]));
+        // Tail starts mid-line: drop the partial line.
+        assert_eq!(read_jsonl_tail(&path, 12).unwrap(), (2, vec!["cccc".into(), "dddd".into()]));
+        assert_eq!(read_jsonl_tail(&path, 9).unwrap(), (3, vec!["dddd".into()]));
+    }
+
+    #[test]
     fn grok_skills_system_reminder_is_not_a_user_turn() {
         let lines = vec![
             r#"{"type":"system","content":"You are Grok"}"#.to_string(),
             r#"{"type":"user","synthetic_reason":"system_reminder","content":[{"type":"text","text":"<system-reminder>skills dump</system-reminder>"}]}"#
                 .to_string(),
         ];
-        let e = parse_grok_history_lines(&lines, &Default::default(), 0);
+        let e = parse_grok_history_lines(&lines, &Default::default(), 0, 0);
         assert!(e.is_empty());
     }
 
@@ -2363,7 +2461,7 @@ mod tests {
             r#"{"type":"user","content":"<user_query>fix the bug</user_query>"}"#.to_string(),
             r#"{"type":"assistant","content":"Sure"}"#.to_string(),
         ];
-        let e = parse_grok_history_lines(&lines, &Default::default(), 0);
+        let e = parse_grok_history_lines(&lines, &Default::default(), 0, 0);
         assert_eq!(e.len(), 2);
         assert_eq!(e[0].text.as_deref(), Some("fix the bug"));
         assert_eq!(e[1].kind, "assistant");
@@ -2379,7 +2477,7 @@ mod tests {
                 .to_string(),
             r#"{"type":"tool_result","tool_call_id":"t1","content":"ok"}"#.to_string(),
         ];
-        let e = parse_grok_history_lines(&lines, &Default::default(), 0);
+        let e = parse_grok_history_lines(&lines, &Default::default(), 0, 0);
         assert!(e.iter().any(|x| x.kind == "thinking"));
         let tool = e.iter().find(|x| x.kind == "tool").expect("tool");
         assert_eq!(tool.status.as_deref(), Some("ok"));
@@ -2406,7 +2504,7 @@ mod tests {
                 ("t2".to_string(), 1_000_000_060_000), // one minute later
             ]),
         };
-        let e = parse_grok_history_lines(&lines, &updates, 0);
+        let e = parse_grok_history_lines(&lines, &updates, 0, 0);
         let tools: Vec<&MobileTimelineEntry> = e.iter().filter(|x| x.kind == "tool").collect();
         assert_eq!(tools.len(), 2);
         assert_eq!(tools[0].ts, 1_000_000_000_000);
@@ -2429,7 +2527,7 @@ mod tests {
                 .to_string(),
             r#"{"type":"assistant","content":"done"}"#.to_string(),
         ];
-        let e = parse_grok_history_lines(&lines, &Default::default(), 5_000_000);
+        let e = parse_grok_history_lines(&lines, &Default::default(), 5_000_000, 0);
         assert_eq!(e.len(), 3);
         assert!(e.windows(2).all(|w| w[0].ts <= w[1].ts));
         assert!(
@@ -2687,7 +2785,7 @@ mod tests {
                 .to_string(),
             r#"{"type":"tool_result","tool_call_id":"t1","content":"ok"}"#.to_string(),
         ];
-        let e = parse_grok_history_lines(&lines, &Default::default(), 0);
+        let e = parse_grok_history_lines(&lines, &Default::default(), 0, 0);
         let tool = e.iter().find(|x| x.kind == "tool").expect("tool");
         assert_eq!(tool.lead.as_deref(), Some("Edited"));
         assert_eq!(tool.additions, Some(1));
@@ -2707,7 +2805,7 @@ mod tests {
                 .to_string(),
             r#"{"type":"tool_result","tool_call_id":"t1","content":"ok"}"#.to_string(),
         ];
-        let e = parse_grok_history_lines(&lines, &Default::default(), 0);
+        let e = parse_grok_history_lines(&lines, &Default::default(), 0, 0);
         let tool = e.iter().find(|x| x.kind == "tool").expect("tool");
         assert_eq!(tool.lead.as_deref(), Some("Edited"));
         assert_eq!(tool.subject.as_deref(), Some("src/a.ts"));

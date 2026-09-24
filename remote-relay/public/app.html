@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-shell="capacitor" lang="en">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>agmux Remote</title>
 <link rel="icon" href="icons/agmux.png">
+<link rel="apple-touch-icon" href="icons/agmux-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preload" href="icons/claude.svg" as="image">
 <link rel="preload" href="icons/codex.svg" as="image">
@@ -471,35 +472,9 @@ code, kbd, pre {
     background:
       radial-gradient(90% 60% at 10% -10%, #16140f 0%, #0a0a0b 55%, #050505 100%),
       radial-gradient(80% 60% at 100% 110%, rgba(247,173,60,0.10), transparent 60%);}
-  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 16px;border-bottom:1px solid var(--hair);
-    background:rgba(8,8,8,0.6);backdrop-filter:blur(20px);flex-shrink:0}
-  .tb-brand{display:flex;align-items:center;gap:9px;margin-right:6px}
-  .tb-mark{width:22px;height:22px;border-radius:6px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--font-mono);font-weight:700;font-size:13px}
-  .tb-brand .nm{font-size:13px;font-weight:600;color:#fafafa}
-  .tb-brand .tag{font-family:var(--font-mono);font-size:9.5px;text-transform:uppercase;letter-spacing:0.18em;color:var(--text-faint);padding:2px 6px;border:1px solid var(--hair);border-radius:9999px}
-  .tb-grow{flex:1}
-  .tb-group{display:flex;align-items:center;gap:6px}
-  .tb-label{font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:0.16em;color:var(--text-faint)}
-  .seg{display:inline-flex;padding:3px;border-radius:9px;gap:1px;background:rgba(0,0,0,0.32);border:1px solid var(--hair)}
-  .seg button{padding:4px 10px;font-size:11px;font-weight:500;border:none;background:transparent;color:rgba(255,255,255,0.5);border-radius:6px;display:inline-flex;align-items:center;gap:5px}
-  .seg button svg{width:13px;height:13px}
-  .seg button.on{color:#fff;background:rgba(255,255,255,0.09);box-shadow:inset 0 0.5px 0 rgba(255,255,255,0.14),0 1px 3px rgba(0,0,0,0.25)}
-  .tb-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:8px;font-size:11.5px;font-weight:500;color:var(--text-tertiary);background:rgba(255,255,255,0.03);border:1px solid var(--hair)}
-  .tb-btn:hover{background:rgba(255,255,255,0.07);color:var(--text-secondary)}
-  .tb-btn svg{width:13px;height:13px}
 
   .deck{flex:1;display:grid;place-items:center;padding:20px;min-height:0}
   .device{position:relative;overflow:hidden;box-shadow:0 30px 90px -30px rgba(0,0,0,0.8)}
-  #stage[data-device=desktop] .device{width:min(1440px,100%);height:100%;border-radius:14px;border:1px solid var(--hair-2)}
-  #stage[data-device=phone] .device{width:390px;height:min(844px,100%);border-radius:46px;border:11px solid #090b0a;box-shadow:0 30px 90px -30px rgba(0,0,0,0.85),0 0 0 1px rgba(255,255,255,0.05)}
-
-  /* phone status/home chrome */
-  .phone-status,.phone-home{display:none}
-  #stage[data-device=phone] .phone-status{position:absolute;top:0;left:0;right:0;height:44px;z-index:40;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font-size:13px;font-weight:600;color:#fafafa;pointer-events:none}
-  #stage[data-device=phone] .phone-status .notch{position:absolute;left:50%;top:9px;transform:translateX(-50%);width:104px;height:26px;background:#090b0a;border-radius:0 0 16px 16px}
-  #stage[data-device=phone] .phone-status .st-r{display:flex;gap:6px;align-items:center}
-  #stage[data-device=phone] .phone-status .st-r svg{width:16px;height:12px}
-  #stage[data-device=phone] .phone-home{display:block;position:absolute;bottom:7px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:9999px;background:rgba(255,255,255,0.35);z-index:40}
 
   /* ── App shell ────────────────────────────────────────────── */
   .app{position:absolute;inset:0;container-type:inline-size;overflow:hidden}
@@ -508,7 +483,6 @@ code, kbd, pre {
       radial-gradient(90% 70% at 94% 108%, rgba(247,173,60,0.16), transparent 60%),
       radial-gradient(70% 60% at 100% 0%, rgba(247,173,60,0.08), transparent 55%);}
   .wall::after{content:"";position:absolute;inset:0;background:radial-gradient(140% 120% at 50% 40%, transparent 55%, rgba(0,0,0,0.5) 100%)}
-  #stage[data-device=phone] .app{padding-top:44px;padding-bottom:26px}
 
   /* view switching */
   .pairview{display:none}
@@ -606,10 +580,6 @@ code, kbd, pre {
     font-size:10px;font-weight:700;color:#fff;letter-spacing:-0.02em;
     overflow:hidden;
   }
-  .srow .av.claude{background:#C15F3C}
-  .srow .av.codex{background:#10a37f}
-  .srow .av.grok{background:#0a0a0a;border:1px solid rgba(255,255,255,0.12);color:#7dd3e8}
-  .srow .av.gemini{background:#0b1220}
   .srow img.av{background:transparent;border:none;object-fit:cover}
 
   .srow .sb-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -678,6 +648,7 @@ code, kbd, pre {
   .side-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:48px 20px;color:var(--text-muted)}
   .side-empty .eic{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;background:rgba(255,255,255,0.03);border:1px solid var(--hair)}
   .side-empty .eic svg{width:20px;height:20px;color:var(--text-tertiary)}
+  .side-empty .eic .spin{animation:spin 1s linear infinite}
   .side-empty .et{font-size:13.5px;font-weight:500;color:var(--text-secondary)}
   .side-empty .es{font-size:12px;line-height:1.5;max-width:230px}
 
@@ -1124,10 +1095,15 @@ code, kbd, pre {
   .session-timeline-panel strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
   .session-timeline-panel small{display:block;margin-top:5px;font-size:11px;line-height:1.5;opacity:.65}
   .session-timeline-panel p{padding:12px;font-size:12px;opacity:.65}
-  /* Dense toolbar on narrow panes — hide labels, keep icons */
+  /* Dense toolbar on narrow panes — hide labels, keep icons (model label stays, truncated) */
   @media (max-width:520px){
-    .cbtn .lbl,.cbtn .car{display:none}
+    .cbtn:not(#modelChip) .lbl,.cbtn .car{display:none}
+    #modelChip .lbl{max-width:88px}
     .cbtn:not(.sq){padding:0 8px}
+  }
+  /* iOS zooms into focused inputs under 16px — keep touch/phone inputs at 16px. */
+  @media (max-width:799px),(pointer:coarse){
+    .comp-text,.side-search input,.field input,.comp-menu .cm-search-inner input{font-size:16px}
   }
 
   /* ── Pair screen ──────────────────────────────────────────── */
@@ -1161,30 +1137,22 @@ code, kbd, pre {
   #stage[data-pair=pairing] .pair-btn{background:rgba(247,173,60,0.16);color:var(--accent);box-shadow:none;pointer-events:none}
   #stage[data-pair=success] .pair-btn{background:var(--accent);color:var(--accent-ink)}
   .pair-btn .lbl-idle,.pair-btn .lbl-pairing,.pair-btn .lbl-success{display:none}
-  #stage[data-pair=idle] .lbl-idle,#stage[data-pair=empty] .lbl-idle,#stage[data-pair=error] .lbl-idle{display:inline-flex;align-items:center;gap:9px}
+  #stage[data-pair=idle] .lbl-idle,#stage[data-pair=error] .lbl-idle{display:inline-flex;align-items:center;gap:9px}
   #stage[data-pair=pairing] .lbl-pairing{display:inline-flex;align-items:center;gap:9px}
   #stage[data-pair=success] .lbl-success{display:inline-flex;align-items:center;gap:9px}
   /* Same-device desktop web: open agmux:// and bounce back with #pair= */
   .easy-pair{display:none;flex-direction:column;gap:10px;margin-bottom:16px}
-  #stage[data-device=desktop] .easy-pair{display:flex}
-  #stage[data-device=desktop] .pair-qr{display:none}
+  #stage[data-easy-pair="1"] .easy-pair{display:flex}
   .easy-pair-btn{width:100%;height:48px;border-radius:12px;border:none;background:var(--accent);color:var(--accent-ink);font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:9px;box-shadow:0 8px 24px -8px rgba(247,173,60,0.6);cursor:pointer}
   .easy-pair-btn:hover{filter:brightness(1.06)}
   .easy-pair-btn:disabled{opacity:0.55;pointer-events:none}
   .easy-pair-hint{font-size:11.5px;line-height:1.5;color:var(--text-tertiary);margin:0}
   .easy-pair-hint b{color:var(--text-secondary);font-weight:500}
   .pair-or{display:none;align-items:center;gap:10px;margin:4px 0 14px;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--text-faint)}
-  #stage[data-device=desktop] .pair-or{display:flex}
+  #stage[data-easy-pair="1"] .pair-or{display:flex}
   .pair-or::before,.pair-or::after{content:"";flex:1;height:1px;background:var(--hair)}
   .pair-secure{display:flex;align-items:flex-start;gap:8px;margin-top:15px;padding-top:15px;border-top:1px solid var(--hair);font-size:11px;line-height:1.5;color:var(--text-muted)}
   .pair-secure svg{width:14px;height:14px;color:var(--text-tertiary);flex-shrink:0;margin-top:1px}
-  .pair-qr{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:12px;border-radius:12px;background:rgba(0,0,0,0.22);border:1px solid var(--hair)}
-  .qr{width:66px;height:66px;flex-shrink:0;border-radius:8px;background:#fafafa;padding:6px;display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);gap:1px}
-  .qr i{background:#0a0a0b;border-radius:1px}.qr i.o{background:transparent}
-  .pair-qr .qt{font-size:11.5px;line-height:1.5;color:var(--text-tertiary)}
-  .pair-qr .qt b{color:var(--text-secondary);font-weight:500}
-  .pair-empty-hint{display:none;font-size:11px;color:#fbbf24aa;margin:-4px 0 12px}
-  #stage[data-pair=empty] .pair-empty-hint{display:block}
 
   /* ── Approval modal / sheet ───────────────────────────────── */
   .appr-scrim{position:absolute;inset:0;z-index:50;background:rgba(0,0,0,0.5);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .2s}
@@ -1194,7 +1162,7 @@ code, kbd, pre {
   .appr{left:50%;top:50%;transform:translate(-50%,-46%);width:min(440px,calc(100% - 48px));border-radius:16px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
   #stage[data-approval="1"] .appr{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
   /* mobile: bottom sheet */
-  #stage[data-device=phone] .appr{left:0;right:0;bottom:0;top:auto;width:auto;transform:translateY(100%);border-radius:22px 22px 0 0;border-bottom:none;padding-bottom:34px;transition:transform .28s cubic-bezier(0.16,1,0.3,1)}
+  #stage[data-device=phone] .appr{left:0;right:0;bottom:0;top:auto;width:auto;transform:translateY(100%);border-radius:22px 22px 0 0;border-bottom:none;padding-bottom:max(16px, env(safe-area-inset-bottom));transition:transform .28s cubic-bezier(0.16,1,0.3,1)}
   #stage[data-device=phone][data-approval="1"] .appr{transform:translateY(0)}
   .appr-in{padding:22px 22px 20px}
   #stage[data-device=phone] .appr-in{padding:16px 20px 8px}
@@ -1226,8 +1194,8 @@ code, kbd, pre {
   .appr-acts .allow:hover{filter:brightness(1.06)}
   .appr-acts kbd{font-family:var(--font-mono);font-size:10px;opacity:0.7}
 
-  /* ── wide (desktop split) container query ─────────────────── */
-  @container (min-width:720px){
+  /* ── wide (desktop split) layout — same 800px breakpoint as below ── */
+  @media (min-width:800px){
     .panes{display:flex}
     .sidebar{display:flex!important;width:var(--sidebar-w,308px);min-width:230px;max-width:520px;flex:none;border-right:1px solid var(--hair)}
     .workspace{display:flex!important}
@@ -1243,7 +1211,7 @@ code, kbd, pre {
     .chat-back{display:none!important}
     .brand .rm{display:inline-block}
   }
-  @container (max-width:719px){
+  @media (max-width:799px){
     .brand .rm{display:none}
     .chat-back{display:grid}
     .chat-head .brand{display:none}
@@ -1257,8 +1225,6 @@ code, kbd, pre {
 /* Production: full-bleed, no prototype device frame */
 html,body{height:100%;overflow:hidden}
 #stage{position:fixed!important;inset:0!important}
-.toolbar{display:none!important}
-.phone-status,.phone-home{display:none!important}
 .deck{flex:1!important;min-height:0!important;padding:0!important;display:block!important}
 .device{width:100%!important;height:100%!important;border-radius:0!important;border:none!important;box-shadow:none!important}
 .app{position:absolute!important;inset:0!important;padding-top:0!important;padding-bottom:0!important}
@@ -1299,45 +1265,13 @@ html,body{height:100%;overflow:hidden}
 .composer-dock{padding-bottom:max(10px, env(safe-area-inset-bottom))}
 
 </style>
-<script src="native-bridge.js" defer></script>
 </head>
 <body>
 
 <div id="stage" data-device="desktop" data-paired="0" data-route="list" data-conn="offline" data-selected="" data-approval="0" data-pair="idle" data-list="empty" data-running="0" data-loading="0" data-draft="0">
 
-  <!-- prototype controls -->
-  <div class="toolbar">
-    <div class="tb-brand"><span class="tb-mark">a</span><span class="nm">agmux Remote</span><span class="tag">prototype</span></div>
-    <div class="tb-grow"></div>
-    <div class="tb-group"><span class="tb-label">Device</span>
-      <div class="seg" id="segDevice">
-        <button data-device="desktop" class="on"><svg data-icon="monitor"></svg>Desktop</button>
-        <button data-device="phone"><svg data-icon="smartphone"></svg>Phone</button>
-      </div>
-    </div>
-    <div class="tb-group"><span class="tb-label">Connection</span>
-      <div class="seg" id="segConn">
-        <button data-conn="connected" class="on">Connected</button>
-        <button data-conn="connecting">Connecting</button>
-        <button data-conn="offline">Offline</button>
-        <button data-conn="desktop-offline">Desktop off</button>
-      </div>
-    </div>
-    <div class="tb-group"><span class="tb-label">List</span>
-      <div class="seg" id="segList">
-        <button data-list="populated" class="on">Rows</button>
-        <button data-list="loading">Loading</button>
-        <button data-list="empty">Empty</button>
-      </div>
-    </div>
-    <button class="tb-btn" id="btnReset"><svg data-icon="scan-line"></svg>Pair screen</button>
-    <button class="tb-btn" id="btnAppr"><svg data-icon="alert-triangle"></svg>Approval</button>
-  </div>
-
   <div class="deck">
     <div class="device">
-      <div class="phone-status"><span class="st-l">9:41</span><span class="notch"></span><span class="st-r"><svg data-icon="wifi"></svg><svg data-icon="battery"></svg></span></div>
-
       <div class="app">
         <div class="wall"></div>
 
@@ -1357,13 +1291,8 @@ html,body{height:100%;overflow:hidden}
             </div>
             <div class="pair-or">or enter a code</div>
 
-            <div class="pair-qr" hidden>
-              <div class="qr" id="qr"></div>
-            </div>
-
             <div class="field"><label>Desktop ID</label><input id="fDesk" value="" spellcheck="false"></div>
             <div class="field code"><label>Pair code</label><input id="fCode" maxlength="8" value="" spellcheck="false"></div>
-            <div class="pair-empty-hint">Enter the 8-character code from Settings → Remote control.</div>
             <div class="pair-err"><svg data-icon="circle-alert"></svg><span id="errText">That code is invalid or expired. Generate a new one on your Mac.</span></div>
 
             <button class="pair-btn" id="pairBtn">
@@ -1372,7 +1301,7 @@ html,body{height:100%;overflow:hidden}
               <span class="lbl-success"><svg data-icon="check"></svg>Paired</span>
             </button>
 
-            <div class="pair-secure"><svg data-icon="shield-check"></svg><span>Traffic runs directly between this browser and your Mac over a short-lived, single-use token. Nothing routes through agmux servers.</span></div>
+            <div class="pair-secure"><svg data-icon="shield-check"></svg><span>Messages pass through the agmux relay, encrypted in transit (wss). The pair code works once; this phone then stays paired for 90 days unless you revoke it on your Mac.</span></div>
           </div></div>
         </div>
 
@@ -1388,7 +1317,7 @@ html,body{height:100%;overflow:hidden}
                 <button type="button" data-act="reconnect"><svg data-icon="refresh-cw"></svg>Reconnect</button>
                 <button type="button" data-act="status"><svg data-icon="monitor"></svg>Desktop status</button>
                 <div class="sep"></div>
-                <button type="button" class="danger" data-act="unlink"><svg data-icon="link-2"></svg>Unlink this phone</button>
+                <button type="button" class="danger" data-act="unlink"><svg data-icon="link-2"></svg>Forget this Mac</button>
               </div>
             </div>
           </div>
@@ -1398,7 +1327,7 @@ html,body{height:100%;overflow:hidden}
           <div class="panes">
             <!-- Session list -->
             <aside class="sidebar">
-              <div class="side-head"><h2>Sessions</h2><span class="count" id="sCount">5</span><span class="grow"></span><button class="newchat" id="newChatBtn" title="New chat"><svg data-icon="plus"></svg></button></div>
+              <div class="side-head"><h2>Sessions</h2><span class="count" id="sCount">0</span><span class="grow"></span><button class="newchat" id="newChatBtn" title="New chat"><svg data-icon="plus"></svg></button></div>
               <div class="side-search"><svg data-icon="search"></svg><input placeholder="Filter sessions" spellcheck="false"></div>
               <div class="side-list" id="sideList"></div>
               <div class="side-foot">
@@ -1422,7 +1351,7 @@ html,body{height:100%;overflow:hidden}
                     <button type="button" data-act="reconnect"><svg data-icon="refresh-cw"></svg>Reconnect</button>
                     <button type="button" data-act="status"><svg data-icon="monitor"></svg>Desktop status</button>
                     <div class="sep"></div>
-                    <button type="button" class="danger" data-act="unlink"><svg data-icon="link-2"></svg>Unlink this phone</button>
+                    <button type="button" class="danger" data-act="unlink"><svg data-icon="link-2"></svg>Forget this Mac</button>
                   </div>
                 </div>
               </div>
@@ -1430,7 +1359,7 @@ html,body{height:100%;overflow:hidden}
               <div class="ws-empty">
                 <div class="eic"><svg data-icon="message-square"></svg></div>
                 <h3>Pick a session</h3>
-                <p>Select a session on the left to read its live timeline and send messages. New sessions are started on the Mac.</p>
+                <p>Select a session on the left to read its live timeline and send messages, or tap + to start a new chat.</p>
               </div>
 
               <div class="chat">
@@ -1439,8 +1368,8 @@ html,body{height:100%;overflow:hidden}
                   <div class="brand"><img class="logo" src="icons/agmux.png" width="24" height="24" alt=""><span class="wm">agmux</span><span class="rm">remote</span></div>
                   <div class="chat-av"><svg data-icon="sparkles"></svg></div>
                   <div class="ch-meta">
-                    <div class="t" id="chTitle">Marketing hero — gold accent</div>
-                    <div class="s"><span id="chProv">Claude</span><span class="d">·</span><span id="chMode">chat</span><span class="d">·</span><span id="chProj">apps/web</span></div>
+                    <div class="t" id="chTitle"></div>
+                    <div class="s"><span id="chProv"></span><span class="d">·</span><span id="chMode"></span><span class="d">·</span><span id="chProj"></span></div>
                   </div>
                   <span class="conn connected conn-pill" id="connPill"><span class="dot"></span><span class="ct">Connected</span></span>
                   <details class="session-timeline" id="sessionTimeline">
@@ -1453,7 +1382,7 @@ html,body{height:100%;overflow:hidden}
                       <button type="button" data-act="reconnect"><svg data-icon="refresh-cw"></svg>Reconnect</button>
                       <button type="button" data-act="status"><svg data-icon="monitor"></svg>Desktop status</button>
                       <div class="sep"></div>
-                      <button type="button" class="danger" data-act="unlink" id="unlinkMenu"><svg data-icon="link-2"></svg>Unlink this phone</button>
+                      <button type="button" class="danger" data-act="unlink" id="unlinkMenu"><svg data-icon="link-2"></svg>Forget this Mac</button>
                     </div>
                   </div>
                 </div>
@@ -1462,7 +1391,7 @@ html,body{height:100%;overflow:hidden}
                   <div class="draft-empty" id="draftEmpty">
                     <div class="eic"><svg data-icon="message-square-plus"></svg></div>
                     <h3>New chat</h3>
-                    <p>Pick Claude, Codex, Grok, Gemini, OpenCode, or Cursor below — same controls as the desktop draft composer. Chats run on your Mac.</p>
+                    <p>Pick Claude, Codex, Grok, Gemini, OpenCode, or Cursor below — the chat runs on your Mac. Terminals for other agents are started on the Mac, then usable from here.</p>
                   </div>
                   <div class="tl-loading">
                     <div class="tl-fetch" id="tlFetch">Loading session…</div>
@@ -1545,20 +1474,17 @@ html,body{height:100%;overflow:hidden}
         <div class="grab"></div>
         <div class="appr-top">
           <div class="ic"><svg data-icon="shield-alert"></svg></div>
-          <div><div class="h" id="apprTitle">Approval needed</div><div class="m" id="apprSess">Fix flaky auth test · Codex</div></div>
+          <div><div class="h" id="apprTitle">Approval needed</div><div class="m" id="apprSess"></div></div>
         </div>
         <div class="appr-tool"><span class="k">tool</span><span class="v" id="apprTool">Bash</span></div>
-        <div class="appr-detail" id="apprDetail"><span class="c">$</span> pnpm test <span class="k">--filter</span> auth <span class="k">--runInBand</span>
-<span class="c"># cwd</span> services/api</div>
+        <div class="appr-detail" id="apprDetail"></div>
         <div class="appr-questions" id="apprQuestions"></div>
-        <div class="appr-meta" id="apprMeta">Runs a shell command on your Mac · expires in 42s</div>
+        <div class="appr-meta" id="apprMeta"></div>
         <div class="appr-acts">
-          <button class="deny" id="denyBtn">Deny <kbd>⌘⌫</kbd></button>
-          <button class="allow" id="allowBtn">Allow <kbd>⌘⏎</kbd></button>
+          <button class="deny" id="denyBtn"><span class="lbl">Deny</span> <kbd>⌘⌫</kbd></button>
+          <button class="allow" id="allowBtn"><span class="lbl">Allow</span> <kbd>⌘⏎</kbd></button>
         </div>
       </div></div>
-
-      <div class="phone-home"></div>
     </div>
   </div>
 </div>
@@ -1682,6 +1608,8 @@ const AUTH_FAIL_UNPAIR_AFTER = 3;
 let ws = null;
 let auth = null;
 let threads = [];
+/** False until the first catalog arrives — the empty list shows a loading/offline state. */
+let catalogLoaded = false;
 let activeThreadId = null;
 let pendingApproval = null;
 let pendingUserInput = null;
@@ -1705,28 +1633,34 @@ function escapeHtml(s) {
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function shortProvider(p) {
-  if (p === 'ClaudeCode' || p === 'claude') return 'Claude';
-  if (p === 'Codex' || p === 'codex') return 'Codex';
-  if (p === 'Grok' || p === 'grok') return 'Grok';
-  if (p === 'Gemini' || p === 'gemini') return 'Gemini';
-  if (p === 'OpenCode' || p === 'opencode') return 'OpenCode';
-  if (p === 'Cursor' || p === 'cursor') return 'Cursor';
-  if (p === 'Kimi' || p === 'kimi') return 'Kimi';
-  if (p === 'MLX' || p === 'mlx' || p === 'local') return 'Local';
-  return p || '';
+/** Desktop provider ids (src/lib/types.ts Provider) → phone label + icon.
+ *  Anything unknown gets a neutral letter avatar, never another provider's icon. */
+const PROVIDERS = {
+  ClaudeCode: { label: 'Claude', icon: 'icons/claude.svg' },
+  Codex: { label: 'Codex', icon: 'icons/codex.svg' },
+  Grok: { label: 'Grok', icon: 'icons/grok.svg' },
+  Gemini: { label: 'Gemini', icon: 'icons/gemini.svg' },
+  OpenCode: { label: 'OpenCode', icon: 'icons/opencode.png' },
+  Cursor: { label: 'Cursor', icon: 'icons/cursor.png' },
+  Kimi: { label: 'Kimi', icon: 'icons/kimi.svg' },
+  Droid: { label: 'Droid', icon: 'icons/droid.svg' },
+  Pi: { label: 'Pi', icon: 'icons/pi.svg' },
+  Cline: { label: 'Cline', icon: 'icons/cline.svg' },
+  Hermes: { label: 'Hermes', icon: 'icons/hermes.png' },
+  MLX: { label: 'Local', icon: null },
+};
+const PROVIDER_ALIASES = { claude: 'ClaudeCode', local: 'MLX' };
+
+function providerInfo(p) {
+  const raw = String(p || '');
+  const lower = raw.toLowerCase();
+  const key = PROVIDERS[raw] ? raw
+    : Object.keys(PROVIDERS).find((k) => k.toLowerCase() === lower) || PROVIDER_ALIASES[lower];
+  return key ? PROVIDERS[key] : { label: raw, icon: null };
 }
-function provClass(p) {
-  const s = shortProvider(p).toLowerCase();
-  if (s === 'claude') return 'claude';
-  if (s === 'codex') return 'codex';
-  if (s === 'grok') return 'grok';
-  if (s === 'gemini') return 'gemini';
-  if (s === 'opencode') return 'opencode';
-  if (s === 'cursor') return 'cursor';
-  if (s === 'kimi') return 'kimi';
-  if (s === 'local') return 'local';
-  return '';
+
+function shortProvider(p) {
+  return providerInfo(p).label;
 }
 
 function setConn(v) {
@@ -1745,6 +1679,7 @@ function setConn(v) {
   if (st) {
     st.textContent = v === 'connected' ? 'online' : v === 'connecting' ? '…' : 'offline';
   }
+  if (!threads.length) renderList();
 }
 
 function setDeviceName(name) {
@@ -1885,38 +1820,16 @@ function shortModel(m, provider) {
   return tail.length > 18 ? tail.slice(0, 16) + '…' : tail;
 }
 
-function providerAvClass(provider) {
-  const p = String(provider || '').toLowerCase();
-  if (p.includes('claude')) return 'claude';
-  if (p.includes('codex')) return 'codex';
-  if (p.includes('grok')) return 'grok';
-  if (p.includes('gemini')) return 'gemini';
-  if (p.includes('opencode') || p === 'opencode') return 'opencode';
-  if (p.includes('cursor')) return 'cursor';
-  if (p.includes('kimi')) return 'kimi';
-  return 'claude';
-}
-
-/** Provider icon path — OpenCode ships as PNG; others are SVG. */
-function providerIconSrc(iconOrProvider) {
-  const key = String(iconOrProvider || '').toLowerCase();
-  if (key.includes('opencode') || key === 'opencode') return 'icons/opencode.png';
-  const av = providerAvClass(iconOrProvider);
-  if (av === 'opencode') return 'icons/opencode.png';
-  if (key.includes('cursor') || av === 'cursor') return 'icons/cursor.png';
-  if (av === 'claude' || av === 'codex' || av === 'grok' || av === 'gemini') return `icons/${av}.svg`;
-  if (key === 'claude' || key === 'codex' || key === 'grok' || key === 'gemini') return `icons/${key}.svg`;
-  return `icons/${key || 'claude'}.svg`;
+/** Provider icon path, or an inline neutral letter avatar when none ships. */
+function providerIconSrc(provider) {
+  const info = providerInfo(provider);
+  if (info.icon) return info.icon;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20" rx="5" fill="#3f3f46"/><text x="10" y="14" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#e4e4e7">${escapeHtml(providerLetter(provider))}</text></svg>`;
+  return 'data:image/svg+xml,' + encodeURIComponent(svg);
 }
 
 function providerLetter(provider) {
-  const p = String(provider || '');
-  if (p === 'ClaudeCode') return 'C';
-  if (p === 'Codex') return 'X';
-  if (p === 'Grok') return 'G';
-  if (p === 'Gemini') return 'G';
-  if (p === 'OpenCode') return 'O';
-  return (p[0] || '?').toUpperCase();
+  return (providerInfo(provider).label.charAt(0) || '?').toUpperCase();
 }
 
 /** Priority matches desktop StatusDot: attention > working > done_unread > idle. */
@@ -2208,10 +2121,15 @@ function renderList() {
   if (!threads.length) {
     lastListStructureSig = '';
     document.getElementById('sCount').textContent = '0';
+    const [icon, title, sub] = catalogLoaded
+      ? ['message-square', 'No sessions yet', 'Tap + to start a chat, or open any agent session on your Mac — it will appear here.']
+      : get('conn') === 'desktop-offline'
+        ? ['wifi-off', 'Your Mac is offline', 'Open agmux on your Mac with Remote control on. Your sessions will appear here.']
+        : ['loader', 'Loading sessions…', 'Fetching sessions from your Mac.'];
     el.innerHTML = `
-      <div class="side-empty"><div class="eic"><svg data-icon="message-square"></svg></div>
-      <div class="et">No sessions yet</div>
-      <div class="es">Start a Claude, Codex, Grok, Gemini, OpenCode, or Cursor session on your Mac and it will appear here.</div></div>`;
+      <div class="side-empty"><div class="eic"><svg data-icon="${icon}"${icon === 'loader' ? ' class="spin"' : ''}></svg></div>
+      <div class="et">${title}</div>
+      <div class="es">${sub}</div></div>`;
     renderIcons(el);
     return;
   }
@@ -3040,7 +2958,11 @@ let timelineLoadGen = 0;
 function openThread(id) {
   document.getElementById('sessionTimeline').open = false;
   const t = threads.find(x => x.id === id);
-  if (!t || !ws) return;
+  if (!t) return;
+  if (!ws) {
+    showToast('Not connected to your Mac yet');
+    return;
+  }
   saveComposerDraft();
   closeDraft();
   activeThreadId = id;
@@ -3191,6 +3113,7 @@ function forceUnpair(reason, keepDesktopId) {
   saveAuth(null);
   activeThreadId = null;
   threads = [];
+  catalogLoaded = false;
   set('paired', '0');
   set('pair', 'error');
   set('route', 'list');
@@ -3252,11 +3175,16 @@ function connectPhone() {
     if (msg.type === 'pong' || msg.type === 'ping') return;
     handleMsg(msg);
   };
-  sock.onclose = () => {
+  sock.onclose = (ev) => {
     if (gen !== connectGen) return;
     if (ws === sock) ws = null;
     stopLiveness();
     if (intentionalClose) return;
+    // Relay closes with 4003 when this phone was revoked on the Mac or its token expired.
+    if (ev?.code === 4003) {
+      forceUnpair('This phone was revoked on your Mac or its pairing expired. Pair again with a new code from agmux → Settings → Remote control.');
+      return;
+    }
     setConn('offline');
     // Offline: we can no longer track turn state, so clear the "Working…" spinner
     // and Stop button instead of animating them forever.
@@ -3331,6 +3259,7 @@ function handleMsg(msg) {
     case 'threads.snapshot': {
       msg = assembleThreadsSnapshot(msg);
       if (!msg) break;
+      catalogLoaded = true;
       const incoming = msg.threads || [];
       // Desktop marks sessions unread when the Mac isn't viewing them — even if
       // the phone already has the session open. Suppress that for the active row
@@ -3467,7 +3396,7 @@ function handleMsg(msg) {
           break;
         }
         forceUnpair(
-          'This browser is no longer paired (token expired after a relay restart, or the Mac is a different desktop ID). Open agmux → Settings → Remote control, generate a new code, and pair again.',
+          'This phone is no longer paired with that Mac (the pairing was revoked or expired, or the desktop ID changed). Open agmux → Settings → Remote control, generate a new code, and pair again.',
           auth?.desktopId || document.getElementById('fDesk')?.value || '',
         );
         break;
@@ -3484,7 +3413,8 @@ function handleMsg(msg) {
       // Desktop failed while we were loading a timeline — show it in place.
       // Ignore side-channel failures (thread.read unread-mark) so they never
       // clobber the real timeline.snapshot still in flight.
-      if (activeThreadId && stage.getAttribute('data-loading') === '1') {
+      if (activeThreadId && stage.getAttribute('data-loading') === '1'
+          && (!msg.threadId || msg.threadId === activeThreadId)) {
         if (/thread\.read|cannot forward thread\.read/i.test(m)) break;
         set('loading', '0');
         clearTimeout(openThread._timeout);
@@ -3530,10 +3460,24 @@ function doPair() {
   set('pair', 'pairing');
   field?.classList.remove('err');
   const sock = new WebSocket(wsUrl(desktopId));
+  let settled = false;
+  const fail = (text) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    field?.classList.add('err');
+    document.getElementById('errText').textContent = text;
+    set('pair', 'error');
+    try { sock.close(); } catch { /* ignore */ }
+  };
+  const timer = setTimeout(() => fail('Pairing timed out — check your connection and try again.'), CONNECT_TIMEOUT_MS);
   sock.onopen = () => sock.send(JSON.stringify({ type: 'pair.submit', code }));
   sock.onmessage = (ev) => {
     let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+    if (settled) return;
     if (msg.type === 'pair.ok') {
+      settled = true;
+      clearTimeout(timer);
       // Prefer the desktopId we used to open the WS (query/form). Never trust a
       // server-internal DO hex id if it differs — that would reconnect to the wrong hub.
       const resolvedDesk = desktopId || msg.desktopId;
@@ -3547,23 +3491,18 @@ function doPair() {
       set('pair', 'success');
       document.getElementById('fCode')?.closest('.field')?.classList.remove('err');
       reconnectAttempt = 0;
-      void ensurePushPermission();
+      void registerServiceWorker();
       setTimeout(() => connectPhone(), 400);
     } else if (msg.type === 'pair.fail' || msg.type === 'error') {
-      field?.classList.add('err');
-      document.getElementById('errText').textContent = msg.reason || msg.message || 'Pair failed';
-      set('pair', 'error');
-      sock.close();
+      fail(msg.reason || msg.message || 'Pair failed');
     }
   };
-  sock.onerror = () => {
-    field?.classList.add('err');
-    document.getElementById('errText').textContent = 'Connection failed';
-    set('pair', 'error');
-  };
+  sock.onerror = () => fail('Connection failed');
+  sock.onclose = () => fail('Connection closed before pairing finished — try again.');
 }
 
 function unlink() {
+  if (!confirm('Forget your Mac on this phone? This only signs this phone out — to revoke its access, use agmux → Settings → Remote control on your Mac.')) return;
   clearReconnect();
   intentionalClose = true;
   everConnected = false;
@@ -3571,13 +3510,14 @@ function unlink() {
   saveAuth(null);
   activeThreadId = null;
   threads = [];
+  catalogLoaded = false;
   if (ws) try { ws.close(); } catch {}
   ws = null;
   set('paired', '0');
   set('pair', 'idle');
   set('route', 'list');
   set('selected', '');
-  setConn('offline');
+  setConn('offline'); // repaints the now-empty session list
   closeAllMenus();
 }
 
@@ -3724,14 +3664,14 @@ function fileToAttachment(file) {
 
 async function addFilesAsAttachments(fileList) {
   if (!desktopHasCap('images')) {
-    toast('Update agmux on your Mac to attach images', 'warn');
+    showToast('Update agmux on your Mac to attach images');
     return;
   }
   const files = Array.from(fileList || []).filter((f) => f && (f.type || '').startsWith('image/'));
   if (!files.length) return;
   const room = ATTACH_MAX - attachedImages.length;
   if (room <= 0) {
-    toast('Max ' + ATTACH_MAX + ' images', 'warn');
+    showToast('Max ' + ATTACH_MAX + ' images');
     return;
   }
   const take = files.slice(0, room);
@@ -3739,7 +3679,7 @@ async function addFilesAsAttachments(fileList) {
     const next = await Promise.all(take.map(fileToAttachment));
     for (const att of next) {
       if (attachmentPayloadBytes() + att.data.length > ATTACH_BUDGET_CHARS) {
-        toast('Image too large for remote — try a smaller one', 'warn');
+        showToast('Image too large for remote — try a smaller one');
         continue;
       }
       attachedImages.push(att);
@@ -3747,24 +3687,7 @@ async function addFilesAsAttachments(fileList) {
     renderAttachments();
   } catch (err) {
     console.error('[remote] attach failed', err);
-    toast('Could not attach image', 'err');
-  }
-}
-
-function toast(msg, kind) {
-  // Lightweight — reuse offline note styling when present, else console.
-  try {
-    const note = document.querySelector('.comp-note');
-    if (note && kind === 'warn') {
-      // no-op visual; console is fine on mobile
-    }
-  } catch {}
-  console.warn('[remote]', msg);
-  // Brief flash on attach button if available
-  const btn = document.getElementById('attachBtn');
-  if (btn) {
-    btn.title = msg;
-    setTimeout(() => { btn.title = 'Attach image'; }, 2500);
+    showToast('Could not attach image');
   }
 }
 
@@ -3778,7 +3701,7 @@ function wireImageAttachments() {
     e.preventDefault();
     e.stopPropagation();
     if (!desktopHasCap('images')) {
-      toast('Update agmux on your Mac to attach images', 'warn');
+      showToast('Update agmux on your Mac to attach images');
       return;
     }
     input.value = '';
@@ -4028,10 +3951,10 @@ function normalizePendingText(s) {
     .replace(/[ \t]+/g, ' ');
 }
 
-/** Strip quoted/bare `…/.xanom/tmp/…` path tokens (PTY path-inject images). */
+/** Strip quoted/bare `…/.agmux/tmp/…` (or legacy `.xanom`) path tokens (PTY path-inject images). */
 function stripTempImagePathTokens(line) {
   return String(line || '')
-    .replace(/(?:"[^"]*\/\.xanom\/tmp\/[^"]*"|'[^']*\/\.xanom\/tmp\/[^']*'|\S*\/\.xanom\/tmp\/\S*)/gi, ' ')
+    .replace(/(?:"[^"]*\/\.(?:agmux|xanom)\/tmp\/[^"]*"|'[^']*\/\.(?:agmux|xanom)\/tmp\/[^']*'|\S*\/\.(?:agmux|xanom)\/tmp\/\S*)/gi, ' ')
     .replace(/[ \t]+/g, ' ')
     .trim();
 }
@@ -4081,19 +4004,6 @@ function clearPendingById(id) {
     }
   }
   return null;
-}
-
-function clearPendingForThread(threadId, text) {
-  for (let i = pendingSends.length - 1; i >= 0; i--) {
-    const p = pendingSends[i];
-    if (p.threadId !== threadId) continue;
-    if (text != null && !pendingTextMatches(p.text, text)) continue;
-    const id = p.id;
-    pendingSends.splice(i, 1);
-    document.querySelectorAll(`[data-pending-id="${id}"]`).forEach((el) => el.remove());
-    document.querySelectorAll(`[data-pending-boot="${id}"]`).forEach((el) => el.remove());
-  }
-  refreshTermBootChrome();
 }
 
 /** Consume timeline user entries against pendings (fuzzy). */
@@ -4171,18 +4081,15 @@ function appendOptimisticSend(parent, p) {
   }
 }
 
-function markTerminalBooting(threadId) {
-  for (const p of pendingSends) {
-    if (p.threadId === threadId && p.isTerminal) p.boot = true;
-  }
-  refreshTermBootChrome();
-  reapplyPendingSends();
-}
-
 function send() {
   const ct = document.getElementById('compText');
   const v = ct.value.trim();
-  if (!remoteCanSend()) return;
+  // Approval alerts: mobile browsers only allow the permission prompt from a user tap.
+  try { if (typeof Notification !== 'undefined' && Notification.permission === 'default') void Notification.requestPermission(); } catch { /* ignore */ }
+  if (!remoteCanSend()) {
+    showToast('Not connected to your Mac yet — your message is still here');
+    return;
+  }
   if (!desktopHasCap('images') && attachedImages.length) {
     showToast('This Mac cannot receive images — remove them or update agmux');
     return;
@@ -4293,7 +4200,7 @@ function send() {
     try {
       const raw = JSON.stringify(payload);
       if (new TextEncoder().encode(raw).byteLength > 1024 * 1024) {
-        toast('Message too large to send — shorten it or remove an image', 'warn');
+        showToast('Message too large to send — shorten it or remove an image');
         // Don't clear attachments on failure
         clearPendingById(pending.id);
         document.querySelectorAll(`[data-pending-id="${pending.id}"]`).forEach((el) => el.remove());
@@ -4306,7 +4213,7 @@ function send() {
     } catch (err) {
       clearPendingById(pending.id);
       console.error('[remote] send failed', err);
-      toast('Send failed', 'err');
+      showToast('Send failed');
       return;
     }
   }
@@ -4387,7 +4294,7 @@ function modelsForProvider(pid) {
 }
 
 function modelsProjectIdForRequest() {
-  if (typeof isDraftMode === 'function' && isDraftMode()) return draft.projectId || null;
+  if (isDraftMode()) return draft.projectId || null;
   return activeThread()?.projectId || draft.projectId || null;
 }
 
@@ -4465,8 +4372,8 @@ function applyModelsSnapshot(provider, models, requestId) {
   // Refresh open picker if it's showing this provider.
   if (compMenuKind === 'model') {
     const showing =
-      (typeof isDraftMode === 'function' && isDraftMode() && compMenuProvider === pid) ||
-      (!(typeof isDraftMode === 'function' && isDraftMode()) && composerProvider() === pid);
+      (isDraftMode() && compMenuProvider === pid) ||
+      (!isDraftMode() && composerProvider() === pid);
     if (showing) openCompMenu('model', { drill: true, keepSearch: true });
   }
 }
@@ -4609,7 +4516,7 @@ function applyDesktopDraftPrefs(prefs) {
   // Seed in-memory draft only when this browser has never chosen.
   if (!loadLocalDraftPrefs()) {
     hydrateDraftFromPrefs();
-    if (typeof isDraftMode === 'function' && isDraftMode()) refreshComposerChrome();
+    if (isDraftMode()) refreshComposerChrome();
   }
 }
 
@@ -4627,7 +4534,7 @@ function activeThread() {
  */
 function applyViewedAsRead(t) {
   if (!t || !activeThreadId || t.id !== activeThreadId) return t;
-  if (typeof isDraftMode === 'function' && isDraftMode()) return t;
+  if (isDraftMode()) return t;
   if (!t.unread) return t;
   const next = { ...t, unread: false };
   if (String(next.status || '').toLowerCase() === 'done') next.status = 'Idle';
@@ -4637,7 +4544,7 @@ function applyViewedAsRead(t) {
 /** Tell the desktop the open session is read (clears Mac + next catalog). */
 function reassertActiveThreadRead() {
   if (!activeThreadId || !ws || ws.readyState !== 1) return;
-  if (typeof isDraftMode === 'function' && isDraftMode()) return;
+  if (isDraftMode()) return;
   try {
     ws.send(JSON.stringify({ type: 'thread.read', threadId: activeThreadId }));
   } catch { /* ignore */ }
@@ -4647,7 +4554,7 @@ function reassertActiveThreadRead() {
  *  Sidebar soft-patches titles on every snapshot; the open-session header
  *  used to freeze at openThread() until you re-selected the row. */
 function refreshChatHead() {
-  if (typeof isDraftMode === 'function' && isDraftMode()) return;
+  if (isDraftMode()) return;
   const t = activeThread();
   if (!t) return;
   const titleEl = document.getElementById('chTitle');
@@ -4779,7 +4686,7 @@ function ncProjects() {
     if (!prev) {
       byId.set(id, {
         id,
-        name: projectKey(t),
+        name: (t.projectName && String(t.projectName).trim()) || 'Other',
         createdAt,
         sortKey: sortKey != null ? sortKey : Number.MAX_SAFE_INTEGER,
         lastActive,
@@ -4809,7 +4716,7 @@ function projectNameById(id) {
   const hit = ncProjects().find(p => p.id === id);
   if (hit) return hit.name;
   const t = threads.find(x => x.projectId === id);
-  return t ? projectKey(t) : 'Project';
+  return t ? ((t.projectName && String(t.projectName).trim()) || 'Other') : 'Project';
 }
 
 function ensureDraftProject() {
@@ -4953,13 +4860,8 @@ function refreshComposerChrome() {
   if (isChat && planChip) {
     planChip.classList.toggle('plan-on', planMode);
     const pl = document.getElementById('planChipLbl');
-    if (pl) pl.textContent = planMode ? 'Plan' : (isCodex ? 'Plan' : 'Chat');
+    if (pl) pl.textContent = planMode ? 'Plan' : 'Chat';
     setSvgIcon(document.getElementById('planChipIcon'), planMode ? 'map' : 'bot');
-    // Codex plan is a toggle-on pill (label always "Plan"); Claude/Grok flip Chat/Plan.
-    if (isCodex) {
-      if (pl) pl.textContent = 'Plan';
-      setSvgIcon(document.getElementById('planChipIcon'), 'map');
-    }
   }
 
   if (isChat && permChip) {
@@ -5005,11 +4907,6 @@ function refreshComposerChrome() {
     showEl(permChip, false);
     showEl(fastChip, false);
   }
-}
-
-/** @deprecated alias — openThread / catalog still call this */
-function updateComposerChips(_t) {
-  refreshComposerChrome();
 }
 
 /** Keep data-running (Stop button + working indicator) in sync with the
@@ -5198,7 +5095,14 @@ function openCompMenu(kind, opts = {}) {
           ['auto', 'Auto Review', 'Subagent reviews risky actions', 'zap'],
           ['full', 'Full permissions', 'Auto-approve all actions', 'shield-off'],
         ]
-      : [
+      : provider === 'Cursor'
+        // Cursor has no per-call approvals — mirrors desktop ClaudeInputBar copy.
+        ? [
+            ['default', 'Supervised', 'Sandbox tool runs (Cursor local policy)', 'lock'],
+            ['auto', 'Auto', 'Cursor Auto-review classifier', 'zap'],
+            ['full', 'Full access', 'No sandbox — full local tools', 'lock-open'],
+          ]
+        : [
           ['default', 'Supervised', 'Approve every tool call', 'lock'],
           ['auto', 'Auto', provider === 'OpenCode' ? 'Automatically approve tool calls' : (provider === 'Grok' || provider === 'Gemini') ? 'Allow file tools; ask before commands' : 'Classifier-supervised autonomy', 'zap'],
           ['full', 'Full access', 'Skip all approval prompts', 'lock-open'],
@@ -5584,12 +5488,9 @@ function notifyBlocked(msg) {
   } catch { /* ignore */ }
 }
 
-async function ensurePushPermission() {
+/** Notification permission is requested from send() — mobile browsers only allow it from a tap. */
+async function registerServiceWorker() {
   try {
-    if (typeof Notification === 'undefined') return;
-    if (Notification.permission === 'default') {
-      await Notification.requestPermission();
-    }
     if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
       // Optional Web Push (needs VAPID on the relay later). Subscription is best-effort.
@@ -5646,8 +5547,8 @@ function showApprovalSheet(msg) {
   document.getElementById('allowBtn').disabled = false;
   document.getElementById('denyBtn').disabled = false;
   document.getElementById('apprMeta').textContent = 'Runs on your Mac · respond to continue';
-  document.getElementById('denyBtn').textContent = 'Deny';
-  document.getElementById('allowBtn').textContent = 'Allow';
+  document.querySelector('#denyBtn .lbl').textContent = 'Deny';
+  document.querySelector('#allowBtn .lbl').textContent = 'Allow';
   const sess = threads.find(t => t.id === msg.threadId);
   document.getElementById('apprSess').textContent = sess
     ? (sess.title + ' · ' + shortProvider(sess.provider))
@@ -5663,8 +5564,8 @@ function showUserInputSheet(msg) {
   renderUserInputQuestions(msg.questions);
   document.getElementById('denyBtn').disabled = false;
   document.getElementById('apprMeta').textContent = 'Answer on your phone · agent is waiting';
-  document.getElementById('denyBtn').textContent = 'Dismiss';
-  document.getElementById('allowBtn').textContent = 'Submit';
+  document.querySelector('#denyBtn .lbl').textContent = 'Dismiss';
+  document.querySelector('#allowBtn .lbl').textContent = 'Submit';
   const uSess = threads.find(t => t.id === msg.threadId);
   document.getElementById('apprSess').textContent = uSess
     ? (uSess.title + ' · ' + shortProvider(uSess.provider))
@@ -5938,27 +5839,22 @@ else {
 
 renderIcons();
 
-// Real phone browsers: phone chrome + hide "Connect this Mac" (deep link is Mac-only).
+// Real phone browsers: phone chrome.
 try {
+  const ua = navigator.userAgent || '';
   const phoneLike =
     matchMedia('(max-width: 640px) and (pointer: coarse)').matches ||
-    /iPhone|Android.+Mobile/i.test(navigator.userAgent || '');
+    /iPhone|Android.+Mobile/i.test(ua);
   if (phoneLike) set('device', 'phone');
+  // "Connect this Mac" opens agmux:// — offer it only on macOS desktop browsers
+  // (iPadOS also reports "Macintosh" but has multi-touch).
+  const macDesktop = !phoneLike && /Macintosh|Mac OS X/i.test(ua) && !(navigator.maxTouchPoints > 1);
+  set('easy-pair', macDesktop ? '1' : '0');
 } catch { /* ignore */ }
-
-// QR placeholder pattern (visual only — real pairing uses the link/code)
-function paintQrPlaceholder() {
-  const qr = document.getElementById('qr');
-  if (qr && !qr.childElementCount) {
-    const pat = [1,1,1,0,1,0,1,1,1,1,0,1,1,0,0,1,0,1,1,1,1,0,1,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,1,0,1,0,0,1,1,0,1,1,0,0,1,1,0,1,1,1,0,1,1,0,1,1,1,1,0,1,0,0,1,0,0,1,1,1,1,0,1,1,1,0,1];
-    pat.forEach(b => { const i = document.createElement('i'); if (!b) i.className = 'o'; qr.appendChild(i); });
-  }
-}
-paintQrPlaceholder();
 
 if (auth?.phoneToken && auth?.desktopId) {
   connectPhone();
-  void ensurePushPermission();
+  void registerServiceWorker();
 } else {
   set('paired', '0');
   setConn('offline');
@@ -5967,6 +5863,20 @@ if (auth?.phoneToken && auth?.desktopId) {
     setTimeout(() => doPair(), 150);
   }
 }
+
+// iOS shell deep links rewrite the hash after boot (remote-mobile bridge) — pair then.
+let lastHashPairCode = '';
+window.addEventListener('hashchange', () => {
+  const { pair, desktopId } = readPairParams();
+  if (!pair && !desktopId) return;
+  if (pair) document.getElementById('fCode').value = pair;
+  if (desktopId) document.getElementById('fDesk').value = desktopId;
+  stripPairFromUrl();
+  // Guard: the bridge fires a synthetic + a real hashchange for one link.
+  if (!pair || !desktopId || pair === lastHashPairCode || get('pair') === 'pairing') return;
+  lastHashPairCode = pair;
+  doPair();
+});
 
 // Service worker click → open thread (when notification was shown from SW push).
 if ('serviceWorker' in navigator) {

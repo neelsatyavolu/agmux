@@ -4,10 +4,12 @@ pub mod auth;
 pub mod client;
 mod frames;
 pub mod deeplink;
+pub mod discovered_terminals;
 pub mod dispatch;
 pub mod draft_prefs;
 pub mod prefs;
 pub mod protocol;
+pub(crate) mod terminal_approvals;
 pub mod timeline;
 pub mod titles;
 pub mod unread;
@@ -131,6 +133,25 @@ pub fn notify_approval_resolved(app: &AppHandle, request_id: &str, thread_id: Op
             None => None,
         };
         remote.push_approval_resolved(&request_id, remote_id.as_deref()).await;
+    });
+}
+
+/// A thread's turn definitively ended (completed, interrupted, process died):
+/// clear every approval/question card it still has on paired phones and close
+/// the matching Teams approval-wait samples.
+pub fn notify_thread_requests_cleared(app: &AppHandle, thread_id: &str) {
+    let Some(state) = app.try_state::<AppState>() else {
+        return;
+    };
+    terminal_approvals::discard(thread_id);
+    let remote = state.remote.clone();
+    let pool = state.db.clone();
+    let thread_id = thread_id.to_string();
+    tauri::async_runtime::spawn(async move {
+        let remote_id = remote_thread_id(&pool, &thread_id).await;
+        for request_id in remote.clear_thread_requests(&remote_id).await {
+            let _ = crate::teams::approval_wait::note_resolved(&pool, &request_id).await;
+        }
     });
 }
 

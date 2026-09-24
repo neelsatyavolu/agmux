@@ -240,7 +240,7 @@ fn strip_tool_status_prefix(title: &str) -> String {
     trimmed.to_string()
 }
 
-fn canonical_tool_name(kind: &str, title: &str) -> String {
+pub(crate) fn canonical_tool_name(kind: &str, title: &str) -> String {
     let stripped = strip_tool_status_prefix(title);
     let lower = stripped.to_ascii_lowercase().replace('-', "_");
     let mapped = match lower.as_str() {
@@ -267,7 +267,7 @@ fn canonical_tool_name(kind: &str, title: &str) -> String {
     }
 }
 
-fn normalize_tool_input(raw_input: &Value) -> Value {
+pub(crate) fn normalize_tool_input(raw_input: &Value) -> Value {
     let mut input = raw_input.clone();
     let Some(obj) = input.as_object_mut() else {
         return input;

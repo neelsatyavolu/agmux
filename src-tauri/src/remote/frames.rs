@@ -82,7 +82,40 @@ pub(super) fn encode(message: &WireMessage) -> Result<Vec<String>, String> {
                 chunk.to_string()
             }).collect())
         }
+        WireMessage::ApprovalRequested { .. } | WireMessage::UserInputRequested { .. } => {
+            // A dropped prompt leaves the phone blind while the Mac waits, so
+            // trim long display text instead. Answers are keyed by question
+            // text and option labels, which stay intact.
+            trim_long_strings(&mut value);
+            let raw = value.to_string();
+            if raw.len() > MAX_FRAME_BYTES {
+                return oversized_error(message);
+            }
+            Ok(vec![raw])
+        }
         _ => oversized_error(message),
+    }
+}
+
+const TRIMMED_FIELD_BYTES: usize = 32 * 1024;
+
+fn trim_long_strings(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, field) in map.iter_mut() {
+                if matches!(key.as_str(), "question" | "label" | "id" | "header" | "threadId" | "requestId") {
+                    continue;
+                }
+                if let Some(text) = field.as_str().filter(|s| s.len() > TRIMMED_FIELD_BYTES) {
+                    *field = json!(format!("{}\n\n[Trimmed for remote viewing. Open this session on your Mac for the full content.]",
+                        crate::text::byte_prefix(text, TRIMMED_FIELD_BYTES)));
+                } else {
+                    trim_long_strings(field);
+                }
+            }
+        }
+        serde_json::Value::Array(items) => items.iter_mut().for_each(trim_long_strings),
+        _ => {}
     }
 }
 
@@ -90,7 +123,9 @@ fn oversized_error(message: &WireMessage) -> Result<Vec<String>, String> {
     let thread_id = match message {
         WireMessage::TimelineSnapshot { thread_id, .. }
         | WireMessage::TimelineAppend { thread_id, .. }
-        | WireMessage::TimelinePatch { thread_id, .. } => Some(thread_id.clone()),
+        | WireMessage::TimelinePatch { thread_id, .. }
+        | WireMessage::ApprovalRequested { thread_id, .. }
+        | WireMessage::UserInputRequested { thread_id, .. } => Some(thread_id.clone()),
         _ => None,
     };
     serde_json::to_string(&WireMessage::Error {
@@ -113,6 +148,34 @@ mod tests {
 
     fn entry(id: usize, text: &str) -> Value {
         json!({ "id": id.to_string(), "kind": "assistant", "text": text, "ts": id })
+    }
+
+    #[test]
+    fn oversized_prompts_trim_display_text_but_keep_answer_keys() {
+        let big = "x".repeat(2 * MAX_FRAME_BYTES);
+        let approval = WireMessage::ApprovalRequested {
+            thread_id: "t1".into(),
+            request_id: "r1".into(),
+            tool_name: "Bash".into(),
+            detail: big.clone(),
+        };
+        let frames = encode(&approval).unwrap();
+        let v: Value = serde_json::from_str(&frames[0]).unwrap();
+        assert_eq!(v["type"], "approval.requested");
+        assert_eq!(v["requestId"], "r1");
+        assert!(frames[0].len() < MAX_FRAME_BYTES);
+
+        let question = WireMessage::UserInputRequested {
+            thread_id: "t1".into(),
+            request_id: "q1".into(),
+            questions: json!([{ "question": "Which layout?", "options": [{ "label": "A", "preview": big }] }]),
+        };
+        let frames = encode(&question).unwrap();
+        let v: Value = serde_json::from_str(&frames[0]).unwrap();
+        assert_eq!(v["type"], "userInput.requested");
+        assert_eq!(v["questions"][0]["question"], "Which layout?");
+        assert_eq!(v["questions"][0]["options"][0]["label"], "A");
+        assert!(frames[0].len() < MAX_FRAME_BYTES);
     }
 
     #[test]

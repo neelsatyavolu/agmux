@@ -77,6 +77,17 @@ pub async fn send_message(
     Ok(())
 }
 
+/// Terminal key that stops a turn, matching the desktop
+/// (`src/lib/terminalUserInterrupt.ts`): Grok cancels on Ctrl-C and ignores
+/// Escape; every other terminal agent stops on Escape.
+fn terminal_stop_key(provider: &str) -> &'static str {
+    if provider.eq_ignore_ascii_case("Grok") {
+        "\x03"
+    } else {
+        "\x1b"
+    }
+}
+
 pub async fn interrupt_turn(app: &AppHandle, thread_id: &str) -> Result<(), DispatchError> {
     let state = app
         .try_state::<AppState>()
@@ -205,9 +216,20 @@ pub async fn interrupt_turn(app: &AppHandle, thread_id: &str) -> Result<(), Disp
             Ok(())
         }
         _ => {
-            // PTY: Ctrl-C (only if live — don't spawn just to interrupt)
-            send_pty_raw(&state, thread_id, "\x03").await
+            // PTY (only if live — don't spawn just to interrupt). Same stop key
+            // as the desktop terminal: a second Ctrl-C quits Claude/Codex.
+            send_pty_raw(&state, thread_id, terminal_stop_key(&thread.provider)).await
         }
+    }
+}
+
+/// Keystrokes approve a terminal dialog, so only a known decision may send
+/// them; anything unrecognised is refused rather than treated as allow.
+fn terminal_decision_approves(decision: &str) -> Option<bool> {
+    match decision {
+        "allow" | "allowProject" | "allow_always" | "approve" | "accept" => Some(true),
+        "deny" | "reject" | "decline" => Some(false),
+        _ => None,
     }
 }
 
@@ -229,6 +251,9 @@ pub async fn respond_approval(
     // resolve_thread (not get_thread) so a discovered/synthetic Codex chat with
     // no DB row still resolves to its provider + work_dir for app-server routing.
     let (thread, _synthetic) = resolve_thread(&state.db, &tid).await?;
+    if !super::protocol::is_remote_eligible_provider(&thread.provider) {
+        return Err(DispatchError::Message("thread not eligible for remote".into()));
+    }
 
     let surface = effective_surface(&state, &thread).await;
     match (thread.provider.as_str(), surface) {
@@ -327,13 +352,16 @@ pub async fn respond_approval(
                 .map_err(DispatchError::Message)?;
             Ok(())
         }
+        // Cursor runs its own policy and never asks for approvals.
+        ("Cursor", _) => Err(DispatchError::Message("Cursor chats have no approvals to answer".into())),
         _ => {
-            // Terminal approvals type y/n into the PTY. Only do that while the
+            // Terminal approvals answer the PTY dialog. Only do that while the
             // matching request is still open — a late phone tap after the Mac
             // already answered (or the prompt moved on) would otherwise land
             // as raw keystrokes in whatever is running now.
-            let key = if decision == "deny" { "n\r" } else { "y\r" };
-            crate::dispatch::send_pty_approval(&state, &tid, request_id, key).await
+            let approve = terminal_decision_approves(decision)
+                .ok_or_else(|| DispatchError::Message(format!("unknown approval decision: {decision}")))?;
+            crate::dispatch::send_pty_approval(&state, &tid, request_id, approve).await
         }
     }
 }
@@ -348,6 +376,9 @@ pub async fn respond_user_input(
         .try_state::<AppState>()
         .ok_or_else(|| DispatchError::Message("app state unavailable".into()))?;
     let (thread, _) = resolve_thread(&state.db, thread_id).await?;
+    if !super::protocol::is_remote_eligible_provider(&thread.provider) {
+        return Err(DispatchError::Message("thread not eligible for remote".into()));
+    }
     match thread.provider.as_str() {
         "ClaudeCode" => {
             let ctx = state.sdk_sessions.lock().await.get(thread_id).cloned()
@@ -551,7 +582,7 @@ pub async fn set_thread_config(
                         .map_err(DispatchError::Message)?;
                 }
             }
-            ("Codex", _) | ("Grok", _) if synthetic => {
+            ("Codex", _) | ("Grok", _) | ("Kimi", _) | ("Pi", _) if synthetic => {
                 // No row to persist into and no live knob for these runtimes —
                 // returning Ok would report success for a change that is never
                 // applied and vanishes on the next catalog push.
@@ -817,6 +848,25 @@ fn _emit_marker(app: &AppHandle) {
 mod tests {
     use super::terminal_turn_observed;
     use super::is_valid_remote_model_id;
+    use super::terminal_stop_key;
+    use super::terminal_decision_approves;
+
+    #[test]
+    fn terminal_approval_needs_a_known_decision() {
+        assert_eq!(terminal_decision_approves("allow"), Some(true));
+        assert_eq!(terminal_decision_approves("allow_always"), Some(true));
+        assert_eq!(terminal_decision_approves("deny"), Some(false));
+        assert_eq!(terminal_decision_approves(""), None);
+        assert_eq!(terminal_decision_approves("cancel"), None);
+    }
+
+    #[test]
+    fn terminal_stop_matches_desktop_interrupt_keys() {
+        assert_eq!(terminal_stop_key("Grok"), "\x03");
+        for provider in ["ClaudeCode", "Codex", "Kimi", "OpenCode", "Pi", "Droid", "Cline", "Hermes", "Gemini"] {
+            assert_eq!(terminal_stop_key(provider), "\x1b", "{provider}");
+        }
+    }
 
     #[test]
     fn terminal_handoff_requires_new_progress_and_accepts_fast_completed_turns() {

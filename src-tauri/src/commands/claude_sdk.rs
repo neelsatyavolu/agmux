@@ -1780,6 +1780,8 @@ fn start_sidecar_reader(
                     }
 
                     let _ = queries::touch_thread_active(&db, &thread_id).await;
+                    // Nothing can answer this turn's approvals/questions now.
+                    crate::remote::notify_thread_requests_cleared(&app, &thread_id);
 
                     // Rolling session handoff. Local LLM only if agent forgot session_upsert.
                     {
@@ -1857,6 +1859,7 @@ fn start_sidecar_reader(
                     {
                         let _ = queries::update_thread_status(&db, &thread_id, status).await;
                     }
+                    crate::remote::notify_thread_requests_cleared(&app, &thread_id);
 
                     let _ = app.emit(
                         &event_channel,
@@ -2034,6 +2037,8 @@ fn start_sidecar_reader(
         let current = sdk_sessions.lock().await.get(&thread_id).cloned()
             .filter(|ctx| Arc::ptr_eq(&ctx.is_shutting_down, &is_shutting_down));
         let Some(ctx) = current else { return; };
+        // Still the thread's process: its open approvals died with it.
+        crate::remote::notify_thread_requests_cleared(&app, &thread_id);
         // This context's unique key is released exactly once after shutdown.
         ctx.kill_tree().await;
         if ctx.shutdown_complete.load(Ordering::SeqCst) {

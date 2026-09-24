@@ -617,12 +617,15 @@ pub async fn codex_respond_to_request(
     validate_work_dir(&work_dir)?;
     let server = state.codex_servers.lock().await.get_for_request(&work_dir, request_id)
         .ok_or_else(|| "Codex approval is no longer pending".to_string())?;
+    // Scope the phone resolve to the raising thread: without it, two pending
+    // requests sharing this id made the resolve ambiguous and it was dropped.
+    let thread_id = server.request_thread(request_id);
     server
         .respond_to_request(request_id, result)
         .await
         .map_err(|e| e.to_string())?;
-    crate::remote::notify_approval_resolved(&app_handle, &request_id.to_string(), None);
-    crate::remote::notify_user_input_resolved(&app_handle, &request_id.to_string(), None);
+    crate::remote::notify_approval_resolved(&app_handle, &request_id.to_string(), thread_id.as_deref());
+    crate::remote::notify_user_input_resolved(&app_handle, &request_id.to_string(), thread_id.as_deref());
     Ok(())
 }
 

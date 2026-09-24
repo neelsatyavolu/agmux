@@ -56,7 +56,7 @@ fn cli_session_json(session_id: &str) -> Option<PathBuf> {
     )
 }
 
-fn cli_messages_json(session_id: &str) -> Option<PathBuf> {
+pub(crate) fn cli_messages_json(session_id: &str) -> Option<PathBuf> {
     if !safe_id(session_id) {
         return None;
     }

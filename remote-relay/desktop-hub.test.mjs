@@ -190,3 +190,17 @@ test('catalog chunk sequence metadata survives relay forwarding', async () => {
   await f.deliver(f.desktop, frame);
   assert.deepEqual(phone.sent.at(-1), frame);
 });
+
+test('desktop-offline replies carry the request and thread they answer', async () => {
+  const f = await fixture();
+  const phone = await pair(f);
+  f.desktop.readyState = 3;
+  phone.sent = [];
+  await f.deliver(phone, { type: 'approval.respond', threadId: 't1', requestId: 'a1', decision: 'allow' });
+  await f.deliver(phone, { type: 'models.list', provider: 'Cursor', requestId: 'm1' });
+  const errors = phone.sent.filter(msg => msg.type === 'error');
+  assert.deepEqual(errors.map(e => [e.message, e.requestId, e.threadId]), [
+    ['desktop offline', 'a1', 't1'],
+    ['desktop offline', 'm1', undefined],
+  ]);
+});

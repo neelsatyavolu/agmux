@@ -67,27 +67,27 @@ pub fn save_draft_prefs(prefs: &RemoteDraftPrefs) -> Result<(), String> {
     Ok(())
 }
 
-/// Remote new-chat allow-list (must stay in sync with is_remote_eligible_provider).
+/// Providers the phone can start a chat with (`dispatch::create_chat_thread`).
+/// Terminal-only providers are started on the Mac, so a last-used one of those
+/// falls back to Claude.
 fn normalize_remote_provider(prefs: &mut RemoteDraftPrefs) {
     let provider = prefs.provider.clone();
     match provider.as_str() {
-        "ClaudeCode" | "Codex" | "Grok" | "Gemini" | "OpenCode" | "Cursor" | "Kimi" | "Pi" | "MLX" => {}
+        "ClaudeCode" | "Codex" | "Grok" | "Gemini" | "OpenCode" | "Cursor" => {}
         "claude" | "Claude" => prefs.provider = "ClaudeCode".into(),
         "codex" => prefs.provider = "Codex".into(),
         "grok" => prefs.provider = "Grok".into(),
         "gemini" => prefs.provider = "Gemini".into(),
         "opencode" | "Open Code" => prefs.provider = "OpenCode".into(),
         "cursor" => prefs.provider = "Cursor".into(),
-        "kimi" => prefs.provider = "Kimi".into(),
-        "pi" => prefs.provider = "Pi".into(),
-        "mlx" | "local" => prefs.provider = "MLX".into(),
-        // Unknown desktop last-use — fall back to Claude.
+        // Unknown or terminal-only desktop last-use — fall back to Claude.
         _ => {
             prefs.provider = "ClaudeCode".into();
             if prefs.model.is_empty()
                 || prefs.model.contains('/')
                 || prefs.model.starts_with("gpt-")
                 || prefs.model.starts_with("grok")
+                || !matches!(provider.to_ascii_lowercase().as_str(), "" | "claudecode")
             {
                 prefs.model = "sonnet".into();
             }
@@ -113,8 +113,23 @@ mod tests {
     }
 
     #[test]
+    fn terminal_only_last_use_falls_back_to_claude() {
+        for prov in ["Kimi", "Pi", "MLX", "local", "Droid"] {
+            let mut p = RemoteDraftPrefs {
+                provider: prov.into(),
+                model: "kimi-k2".into(),
+                reasoning_effort: None,
+                permission_mode: None,
+            };
+            normalize_remote_provider(&mut p);
+            assert_eq!(p.provider, "ClaudeCode", "{prov}");
+            assert_eq!(p.model, "sonnet", "{prov}");
+        }
+    }
+
+    #[test]
     fn keeps_remote_allowlist_providers() {
-        for prov in ["ClaudeCode", "Codex", "Grok", "Gemini", "OpenCode", "Cursor", "Kimi", "Pi", "MLX"] {
+        for prov in ["ClaudeCode", "Codex", "Grok", "Gemini", "OpenCode", "Cursor"] {
             let mut p = RemoteDraftPrefs {
                 provider: prov.into(),
                 model: "x".into(),

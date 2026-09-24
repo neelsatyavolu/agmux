@@ -50,8 +50,9 @@ if (existsSync(bridgeSrc)) cpSync(bridgeSrc, bridgeWww);
 function prepareHtml(html) {
   // Absolute marketing-site favicon → local icon when bundled
   html = html.replace(/href="\/favicon\.png"/g, 'href="icons/agmux.png"');
-  // Inject native bridge once (before any app script that may read hash)
-  if (!html.includes('native-bridge.js')) {
+  // Inject native bridge once (before any app script that may read hash).
+  // The canonical web page never ships it — the web build would 404.
+  if (!html.includes('<script src="native-bridge.js"')) {
     html = html.replace('</head>', '<script src="native-bridge.js" defer></script>\n</head>');
   }
   // Mark shell so CSS can tweak safe-area if needed later
@@ -81,7 +82,7 @@ if (!existsSync(manifestPath)) {
       {
         name: 'agmux Remote',
         short_name: 'agmux',
-        description: 'Control Claude, Codex, and Grok agents from your phone',
+        description: 'Control the coding agents running in agmux on your Mac from your phone',
         start_url: '.',
         display: 'standalone',
         background_color: '#081410',

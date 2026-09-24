@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
  * Thin native shell around the remote PWA.
- * UI assets live in www/ (synced from xanom-website public/remote).
+ * UI assets live in www/ (synced from remote-relay/public by `npm run sync-web`).
  * Control plane is still wss://agmux-remote-relay.xanom.workers.dev/ws.
  */
 const config: CapacitorConfig = {

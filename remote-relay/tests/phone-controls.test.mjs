@@ -29,7 +29,7 @@ function harness(names, extra = {}) {
     renderQueue() {}, renderIcons() {}, watchPendingTurn() {}, refreshTermBootChrome() {}, refreshComposerChrome() {},
     clearAttachments() {}, desktopHasCap: () => true, attachedImages: [],
     isDraftMode: () => attrs.draft === '1', activeThread() { return c.threads[0]; },
-    attachChatPermission: x => x, toast() {}, showToast() {},
+    attachChatPermission: x => x, showToast() {},
     appendOptimisticSend() {}, shouldQueueMessage: t => !!t?.processing,
     draft: { projectId: 'p', provider: 'Grok', pending: false },
     ...extra,

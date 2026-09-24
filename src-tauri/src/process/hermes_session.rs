@@ -17,7 +17,7 @@ pub fn remove_session_id(thread_state_dir: &Path) {
     sidecar_id::remove_sidecar_id(thread_state_dir, STEM);
 }
 
-fn state_db() -> Option<std::path::PathBuf> {
+pub(crate) fn state_db() -> Option<std::path::PathBuf> {
     Some(dirs::home_dir()?.join(".hermes").join("state.db"))
 }
 

@@ -78,19 +78,23 @@ fn encode_repo_path(repo_path: &str) -> String {
     crate::encode_claude_project_path(repo_path)
 }
 
-fn session_file_path(repo_path: &str, session_id: &str) -> PathBuf {
-    let home = dirs::home_dir().expect("could not determine home dir");
-    let encoded = encode_repo_path(repo_path);
-    home.join(".claude")
-        .join("projects")
-        .join(encoded)
-        .join(format!("{}.jsonl", session_id))
+/// Claude CLI config dir for a workspace: Claude Desktop Cowork folders keep
+/// theirs under `local_*/.claude`, everything else uses `~/.claude`.
+pub(crate) fn claude_config_dir(repo_path: &str) -> PathBuf {
+    crate::commands::desktop_cowork::claude_desktop_config_dir(repo_path).unwrap_or_else(|| {
+        dirs::home_dir()
+            .expect("could not determine home dir")
+            .join(".claude")
+    })
+}
+
+pub(crate) fn session_file_path(repo_path: &str, session_id: &str) -> PathBuf {
+    projects_dir(repo_path).join(format!("{}.jsonl", session_id))
 }
 
 fn projects_dir(repo_path: &str) -> PathBuf {
-    let home = dirs::home_dir().expect("could not determine home dir");
     let encoded = encode_repo_path(repo_path);
-    home.join(".claude").join("projects").join(encoded)
+    claude_config_dir(repo_path).join("projects").join(encoded)
 }
 
 // ---------------------------------------------------------------------------
@@ -1979,6 +1983,22 @@ mod tests {
         let p = session_file_path("/tmp/repo-x", "abc");
         let s = p.to_string_lossy().to_string();
         assert!(s.ends_with("/abc.jsonl"), "got: {}", s);
+    }
+
+    #[test]
+    fn test_session_file_path_uses_claude_desktop_cowork_home() {
+        let root = tempfile::tempdir().unwrap();
+        let local = root.path().join("local_abc");
+        let outputs = local.join("outputs");
+        std::fs::create_dir_all(&outputs).unwrap();
+        std::fs::create_dir_all(local.join(".claude")).unwrap();
+        let cwd = outputs.to_string_lossy().to_string();
+        let p = session_file_path(&cwd, "sid");
+        assert!(
+            p.starts_with(local.join(".claude").join("projects")),
+            "got: {}",
+            p.display()
+        );
     }
 
     #[test]

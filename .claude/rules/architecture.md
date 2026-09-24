@@ -95,7 +95,7 @@ Separate Cloudflare service — **not** `remote-relay`, no shared bindings, devi
 - Canonical PWA: `remote-relay/public/app.html`; keep `index.html` identical. Native assets are generated with `npm run sync-web --prefix remote-mobile` from this source.
 - Phone sends/creates carry `requestId`; desktop advertises `message-ack` and responds with `message.accepted` or a scoped error. Acceptance is dispatch completion, which is turn completion for blocking ACP/OpenCode calls but enqueue/start for Claude/Codex. Queue drain also checks processing/history; a dropped acknowledgment must not trigger automatic duplicate delivery.
 - Approval and question IDs are scoped to thread IDs. Reconnect replay is deduplicated in the PWA. Claude answers use question text; Codex uses question IDs with answer arrays; OpenCode uses ordered arrays of choices.
-- Regression commands and remaining provider coverage: `remote-relay/README.md`, `docs/remote-control-audit-2026-09-05.md`.
+- Regression commands and remaining provider coverage: `remote-relay/README.md`, `docs/remote-control-audit-2026-09-23.md`.
 
 ## Debugging
 

@@ -514,7 +514,7 @@ export function RemoteControlSection() {
     <div>
       <PageHeader
         title="Remote Control"
-        description="Control Claude, Codex, and Grok from your phone."
+        description="Control your coding agents from your phone — chats and terminals from every provider."
       />
 
       {/* ── 1. Connection (toggle + status) — needed before pair ── */}
@@ -755,7 +755,9 @@ export function RemoteControlSection() {
       >
         {devices.length === 0 ? (
           <div className="settings-row px-6 py-4 text-[12.5px] text-[var(--text-muted)]">
-            No phones paired yet. Scan the QR above with your phone.
+            {connected
+              ? "No phones paired yet. Scan the QR above with your phone."
+              : "Paired phones appear when this Mac is Online."}
           </div>
         ) : (
           <>
@@ -887,7 +889,7 @@ export function RemoteControlSection() {
             {
               step: "3",
               title: "Chat from anywhere",
-              body: "Open Claude, Codex, or Grok sessions on your phone — they run on this Mac.",
+              body: "Open any chat or terminal session on your phone — it keeps running on this Mac.",
             },
           ].map((item, i, arr) => (
             <div

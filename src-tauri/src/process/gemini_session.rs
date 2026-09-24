@@ -232,7 +232,7 @@ pub fn last_user_prompt_from_transcript(raw: &str) -> Option<String> {
     last.filter(|s| !s.trim().is_empty())
 }
 
-fn user_text_from_value(v: &Value) -> Option<String> {
+pub(crate) fn user_text_from_value(v: &Value) -> Option<String> {
     let step_type = v.get("type").and_then(|x| x.as_str()).unwrap_or("");
     if step_type.eq_ignore_ascii_case("USER_INPUT") {
         if let Some(content) = v.get("content").and_then(|x| x.as_str()) {

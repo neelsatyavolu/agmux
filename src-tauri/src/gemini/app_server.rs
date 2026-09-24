@@ -677,6 +677,7 @@ impl GeminiAppServer {
                     crate::shell_diff::observe_sdk(&app_handle_clone, &tid, &event).await;
                     let channel = format!("sdk-event-{}", tid);
                     let _ = app_handle_clone.emit(&channel, &event);
+                    crate::remote::notify_thread_requests_cleared(&app_handle_clone, &tid);
                 }
             }
         });
@@ -1017,6 +1018,8 @@ impl GeminiAppServer {
             );
             crate::shell_diff::observe_sdk(&self.app_handle, &thread_id, &event).await;
             let _ = self.app_handle.emit(&channel, &event);
+            // session/prompt only returns once its permission requests are settled.
+            crate::remote::notify_thread_requests_cleared(&self.app_handle, &thread_id);
             let state = self.app_handle.state::<crate::state::AppState>();
             super::remote_log::flush_thread(&state.db, &self.log_acc, &thread_id).await;
         }
@@ -1069,6 +1072,8 @@ impl GeminiAppServer {
             );
             crate::shell_diff::observe_sdk(&self.app_handle, &thread_id, &event).await;
             let _ = self.app_handle.emit(&channel, &event);
+            // session/prompt only returns once its permission requests are settled.
+            crate::remote::notify_thread_requests_cleared(&self.app_handle, &thread_id);
             let state = self.app_handle.state::<crate::state::AppState>();
             super::remote_log::flush_thread(&state.db, &self.log_acc, &thread_id).await;
         }

@@ -348,6 +348,7 @@ pub async fn get_pty_snapshot(
 #[tauri::command]
 pub async fn send_pty_input(
     state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
     thread_id: String,
     data: String,
 ) -> Result<(), String> {
@@ -385,6 +386,8 @@ pub async fn send_pty_input(
     writer
         .flush()
         .map_err(|e| format!("Failed to flush PTY: {}", e))?;
+    // Answering the permission dialog here clears the phone's card.
+    crate::remote::terminal_approvals::on_desktop_input(&app_handle, &thread_id, &data);
 
     // Log input
     let pool = state.db.clone();

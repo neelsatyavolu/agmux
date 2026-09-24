@@ -42,13 +42,15 @@ npx wrangler dev --port 8787
 # HOST=0.0.0.0 PORT=8787 node server.mjs   # public bind
 ```
 
-Point desktop at local relay once:
+Point desktop at local relay once (developer override — there is no Settings UI):
 
 ```js
 await invoke("remote_set_relay_ws_base", { base: "ws://127.0.0.1:8787/ws" })
 // clear override:
 await invoke("remote_set_relay_ws_base", { base: null })
 ```
+
+The override must be `wss://`, or `ws://` on this Mac only, and applies the next time Remote control is turned on. The Node hub is for local development: the hosted phone page and pair links always dial the Cloudflare hub, so pairing a real phone through a self-hosted hub is not supported.
 
 ## Deploy
 
@@ -83,6 +85,6 @@ npx tsc --noEmit
 npm run typecheck --prefix remote-relay
 ```
 
-Run these from the repository root. `public/app.html` is canonical; copy it to `public/index.html` and run `npm run sync-web --prefix remote-mobile` after UI changes. See [the provider audit](../docs/remote-control-audit-2026-09-07.md) for tested behavior and open coverage gaps. Changes to `message-ack`/request correlation require the desktop and relay updates as well as the PWA.
+Run these from the repository root. `public/app.html` is canonical; copy it to `public/index.html` and run `npm run sync-web --prefix remote-mobile` after UI changes. See [the provider audit](../docs/remote-control-audit-2026-09-23.md) for tested behavior and open coverage gaps. Changes to `message-ack`/request correlation require the desktop and relay updates as well as the PWA.
 
 Large timelines use ordered snapshot/append frames below the 1 MiB UTF-8 limit. Large catalogs use `snapshotId`, `chunkIndex`, and `chunkCount` on `threads.snapshot`; the phone stages these and replaces its catalog only after all chunks arrive. Ship the updated desktop and phone frontend together. Terminal sends hold the remote busy state through the initial provider handoff; an unconfirmed handoff is shown for review rather than automatically retried.

@@ -38,11 +38,16 @@ pub async fn remote_get_desktop_id(
     Ok(st.desktop_id)
 }
 
-/// Allow tests / Settings to force a local wrangler relay base URL.
+/// Developer override for a local relay (`remote-relay/README.md`). Takes
+/// effect the next time Remote control is turned on.
 #[tauri::command]
 pub async fn remote_set_relay_ws_base(base: Option<String>) -> Result<(), String> {
+    let base = base
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| crate::remote::auth::validate_relay_ws_base(&s))
+        .transpose()?;
     let mut creds = crate::remote::auth::load_or_create_credentials()?;
-    creds.relay_ws_base = base.filter(|s| !s.trim().is_empty());
+    creds.relay_ws_base = base;
     crate::remote::auth::save_credentials(&creds)
 }
 

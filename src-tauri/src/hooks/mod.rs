@@ -1255,6 +1255,18 @@ async fn handle_connection(
                     continue;
                 }
 
+                // Terminal permission dialogs → phone approval cards (and
+                // settle them when the dialog is gone). After dedup so a
+                // repeated identical dialog is not republished.
+                crate::remote::terminal_approvals::on_hook_event(
+                    &app,
+                    event.provider.as_deref(),
+                    &event.event,
+                    &event.session_id,
+                    &event.payload,
+                )
+                .await;
+
                 let provider = event.provider.as_deref().unwrap_or("claude");
                 let channel = match provider {
                     "kimi" => "kimi-hook",

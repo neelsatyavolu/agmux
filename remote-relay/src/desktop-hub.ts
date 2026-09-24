@@ -132,8 +132,12 @@ export class DesktopHub {
       const name = url.searchParams.get("desktopId");
       if (name) {
         this.desktopName = name;
+        // The name is fixed per object (idFromName), so write it once instead
+        // of on every connection attempt, authenticated or not.
         const stored = (await this.state.storage.get<AuthStore>("auth")) ?? {};
-        await this.state.storage.put("auth", { ...stored, desktopName: name });
+        if (stored.desktopName !== name) {
+          await this.state.storage.put("auth", { ...stored, desktopName: name });
+        }
       }
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
@@ -830,9 +834,10 @@ export class DesktopHub {
       if (!desk || desk.readyState !== 1) {
         this.send(ws, {
           type: "error", message: "desktop offline",
-          ...((msg.type === "message.send" || msg.type === "thread.create") && msg.requestId
-            ? { requestId: msg.requestId } : {}),
-          ...(msg.type === "message.send" ? { threadId: msg.threadId } : {}),
+          // Echo correlation so the phone can release the exact pending action
+          // (send, create, approval, question, model catalog).
+          ...("requestId" in msg && typeof msg.requestId === "string" ? { requestId: msg.requestId } : {}),
+          ...("threadId" in msg && typeof msg.threadId === "string" ? { threadId: msg.threadId } : {}),
         });
         return;
       }

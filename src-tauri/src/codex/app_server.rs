@@ -638,6 +638,9 @@ pub struct CodexAppServer {
     pending: Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>>,
     pending_mcp_requests: Arc<Mutex<HashMap<u64, Value>>>,
     request_ids: Arc<std::sync::Mutex<crate::provider_accounts::runtime::RequestIds>>,
+    /// Public request id -> Codex thread that raised it, so desktop answers
+    /// clear the right phone card even when another thread reuses the id.
+    request_threads: Arc<std::sync::Mutex<HashMap<u64, String>>>,
     pub account_id: Option<String>,
     /// Auto-incrementing request ID
     next_id: Arc<AtomicU64>,
@@ -714,6 +717,7 @@ impl CodexAppServer {
                 .env_remove("OPENAI_API_KEY").env_remove("CODEX_API_KEY");
         }
         let request_ids = Arc::new(std::sync::Mutex::new(crate::provider_accounts::runtime::RequestIds::default()));
+        let request_threads = Arc::new(std::sync::Mutex::new(HashMap::<u64, String>::new()));
         let mut memory_mcp_configured = false;
         if crate::memory::is_enabled() {
             let instr_root = repo_path.unwrap_or(work_dir);
@@ -787,6 +791,7 @@ impl CodexAppServer {
             pending: pending.clone(),
             pending_mcp_requests: pending_mcp_requests.clone(),
             request_ids: request_ids.clone(),
+            request_threads: request_threads.clone(),
             account_id: account.map(|a| a.account_id.clone()),
             next_id: Arc::new(AtomicU64::new(1)),
             app_handle: app_handle.clone(),
@@ -981,6 +986,9 @@ impl CodexAppServer {
                 if let Some(id) = maybe_id {
                     let public = request_ids.lock().unwrap_or_else(|e| e.into_inner()).register(id);
                     event_payload["requestId"] = json!(public);
+                    if let Some(tid) = thread_id.as_ref() {
+                        request_threads.lock().unwrap_or_else(|e| e.into_inner()).insert(public, tid.clone());
+                    }
                 }
                 if method == Some("serverRequest/resolved") {
                     if let Some(native) = event_payload["params"]["requestId"].as_u64() {
@@ -1030,6 +1038,8 @@ impl CodexAppServer {
                             if !still_active {
                                 own_turns.remove(tid);
                                 codex_turn_ended(tid);
+                                request_threads.lock().unwrap_or_else(|e| e.into_inner()).retain(|_, t| t != tid);
+                                crate::remote::notify_thread_requests_cleared(&app_handle_clone, tid);
                                 if quota_failed_threads.remove(tid) {
                                     // Prepare a replacement only after native turn completion.
                                     // Never replay a user prompt or a partially executed tool.
@@ -1093,6 +1103,12 @@ impl CodexAppServer {
             // clear the "sending" spinner instead of hanging forever.
             // No further `turn/completed` can arrive on a dead read loop.
             codex_turns_clear(&own_turns);
+            // A dead app-server can't take answers for requests it raised.
+            let orphaned: HashSet<String> = std::mem::take(&mut *request_threads.lock().unwrap_or_else(|e| e.into_inner()))
+                .into_values().collect();
+            for tid in orphaned {
+                crate::remote::notify_thread_requests_cleared(&app_handle_clone, &tid);
+            }
             thread_activity_clone
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
@@ -1606,8 +1622,14 @@ impl CodexAppServer {
 
         pending_mcp.remove(&request_id);
         self.request_ids.lock().unwrap_or_else(|e| e.into_inner()).remove(request_id);
+        self.request_threads.lock().unwrap_or_else(|e| e.into_inner()).remove(&request_id);
 
         Ok(())
+    }
+
+    /// Codex thread that raised a still-pending public request id.
+    pub fn request_thread(&self, request_id: u64) -> Option<String> {
+        self.request_threads.lock().unwrap_or_else(|e| e.into_inner()).get(&request_id).cloned()
     }
 
     /// Replace the in-memory allowlist patterns for this server. Called by

@@ -629,6 +629,9 @@ async fn spawn_bridge(app: &AppHandle) -> Result<Arc<OpenCodeBridge>, String> {
 
             // Session timeline close on idle / error control events.
             if let Some(ev) = parsed.get("event").and_then(|v| v.as_str()) {
+                if ev == "session.idle" {
+                    crate::remote::notify_thread_requests_cleared(&app_clone, &thread_id);
+                }
                 if ev == "session.idle" || ev == "error" {
                     let app_emit = app_clone.clone();
                     let tid = thread_id.clone();
