@@ -27,7 +27,7 @@ export const CBTN_FAST =
 
 export const SEND_BTN_ACTIVE =
   "ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] " +
-  "bg-[var(--accent)] text-[#14110a] shadow-[0_4px_16px_-4px_rgba(247,173,60,0.6)] " +
+  "bg-[var(--accent)] text-[#14110a] shadow-[0_4px_16px_-4px_color-mix(in_srgb,var(--accent)_60%,transparent)] " +
   "transition-all duration-150 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed";
 
 export const SEND_BTN_IDLE =

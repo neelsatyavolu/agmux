@@ -938,7 +938,7 @@ export function AgentTopChrome({ onReady }: Props = {}) {
                 <span className="inline-flex items-center gap-[3px]">
                   {live.a && <i className="block h-[5px] w-[5px] rounded-full bg-amber-400 shadow-[0_0_0_2px_rgba(251,191,36,0.15)]" />}
                   {live.w && <i className="block h-[5px] w-[5px] rounded-full bg-blue-400 shadow-[0_0_0_2px_rgba(96,165,250,0.15)]" />}
-                  {live.d && <i className="block h-[5px] w-[5px] rounded-full bg-[var(--accent)] shadow-[0_0_0_2px_rgba(247,173,60,0.15)]" />}
+                  {live.d && <i className="block h-[5px] w-[5px] rounded-full bg-[var(--accent)] shadow-[0_0_0_2px_color-mix(in_srgb,var(--accent)_15%,transparent)]" />}
                 </span>
               )}
             </button>

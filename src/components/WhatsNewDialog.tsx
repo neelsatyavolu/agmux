@@ -40,8 +40,8 @@ const CAT_STYLES: Record<
 > = {
   new: {
     color: "var(--accent)",
-    bg: "rgba(247,173,60,0.10)",
-    border: "rgba(247,173,60,0.25)",
+    bg: "color-mix(in srgb, var(--accent) 10%, transparent)",
+    border: "color-mix(in srgb, var(--accent) 25%, transparent)",
     label: "New",
     Icon: Sparkles,
   },
@@ -220,7 +220,7 @@ function AgmuxMark({ size = 42 }: { size?: number }) {
         overflow: "hidden",
         border: "1px solid var(--glass-border-highlight)",
         boxShadow:
-          "inset 0 0.5px 0 rgba(255,255,255,0.10), 0 4px 14px rgba(0,0,0,0.4), 0 0 40px rgba(247,173,60,0.15)",
+          "inset 0 0.5px 0 rgba(255,255,255,0.10), 0 4px 14px rgba(0,0,0,0.4), 0 0 40px color-mix(in srgb, var(--accent) 15%, transparent)",
         flexShrink: 0,
       }}
     >
@@ -266,9 +266,9 @@ function DontShowAgain({
           width: 13,
           height: 13,
           borderRadius: 3,
-          background: checked ? "rgba(247,173,60,0.90)" : "var(--glass-card)",
+          background: checked ? "color-mix(in srgb, var(--accent) 90%, transparent)" : "var(--glass-card)",
           border:
-            "1px solid " + (checked ? "rgba(247,173,60,1)" : "var(--glass-border-highlight)"),
+            "1px solid " + (checked ? "color-mix(in srgb, var(--accent) 100%, transparent)" : "var(--glass-border-highlight)"),
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
@@ -399,7 +399,7 @@ export function WhatsNewDialog() {
                   borderBottom: "1px solid var(--hairline)",
                   position: "relative",
                   background:
-                    "radial-gradient(ellipse 60% 80% at 50% 0%, rgba(247,173,60,0.10), transparent 60%)",
+                    "radial-gradient(ellipse 60% 80% at 50% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%)",
                 }}
               >
                 <button
@@ -648,8 +648,8 @@ export function WhatsNewDialog() {
                   style={{
                     padding: "8px 16px",
                     borderRadius: 7,
-                    background: "rgba(247,173,60,0.90)",
-                    border: "1px solid rgba(247,173,60,1)",
+                    background: "color-mix(in srgb, var(--accent) 90%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--accent) 100%, transparent)",
                     color: "#052e1f",
                     fontSize: 12.5,
                     fontWeight: 600,
@@ -663,10 +663,10 @@ export function WhatsNewDialog() {
                     transition: "all 150ms cubic-bezier(0.16,1,0.3,1)",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(247,173,60,1)";
+                    e.currentTarget.style.background = "color-mix(in srgb, var(--accent) 100%, transparent)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "rgba(247,173,60,0.90)";
+                    e.currentTarget.style.background = "color-mix(in srgb, var(--accent) 90%, transparent)";
                   }}
                 >
                   Got it

@@ -395,9 +395,9 @@ export function RemoteControlSection() {
           <div className="settings-row flex flex-col items-center gap-3 px-6 py-8 text-center">
             <div
               className="flex size-14 items-center justify-center rounded-2xl"
-              style={{ background: "var(--accent-dim, rgba(247,173,60,0.12))" }}
+              style={{ background: "var(--accent-dim, color-mix(in srgb, var(--accent) 12%, transparent))" }}
             >
-              <Smartphone className="size-6 text-[var(--accent,#f7ad3c)]" />
+              <Smartphone className="size-6 text-[var(--accent,var(--accent))]" />
             </div>
             <p className="m-0 max-w-sm text-[13px] leading-snug text-[var(--text-muted)]">
               Flip the Remote control switch on, wait for Online, then point your phone camera at
@@ -406,7 +406,7 @@ export function RemoteControlSection() {
           </div>
         ) : !connected ? (
           <div className="settings-row flex flex-col items-center gap-3 px-6 py-8 text-center">
-            <Loader2 className="size-7 animate-spin text-[var(--accent,#f7ad3c)]" />
+            <Loader2 className="size-7 animate-spin text-[var(--accent,var(--accent))]" />
             <p className="m-0 max-w-sm text-[13px] leading-snug text-[var(--text-muted)]">
               Connecting to relay… QR appears when this Mac is Online.
             </p>
@@ -708,8 +708,8 @@ export function RemoteControlSection() {
               <div
                 className="flex size-7 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold"
                 style={{
-                  background: "var(--accent-dim, rgba(247,173,60,0.15))",
-                  color: "var(--accent, #f7ad3c)",
+                  background: "var(--accent-dim, color-mix(in srgb, var(--accent) 15%, transparent))",
+                  color: "var(--accent, var(--accent))",
                 }}
               >
                 {item.step}

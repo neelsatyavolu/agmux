@@ -17,10 +17,10 @@ const EXT_COLORS: Record<string, string> = {
   yml: "#a78bfa",
   rs: "#fb923c",
   toml: "#fb923c",
-  png: "#f7ad3c",
-  jpg: "#f7ad3c",
-  svg: "#f7ad3c",
-  ico: "#f7ad3c",
+  png: "var(--accent)",
+  jpg: "var(--accent)",
+  svg: "var(--accent)",
+  ico: "var(--accent)",
   sh: "#4ade80",
   py: "#60a5fa",
   go: "#22d3ee",
@@ -126,10 +126,10 @@ export function EditorTabs({ inTitlebar = false }: { inTitlebar?: boolean } = {}
                 fontFamily: "var(--font-mono)",
                 fontSize: 11,
                 background: isActive
-                  ? "rgba(247,173,60,0.10)"
+                  ? "color-mix(in srgb, var(--accent) 10%, transparent)"
                   : "transparent",
                 border: `1px solid ${
-                  isActive ? "rgba(247,173,60,0.25)" : "transparent"
+                  isActive ? "color-mix(in srgb, var(--accent) 25%, transparent)" : "transparent"
                 }`,
                 color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
               }}
@@ -177,7 +177,7 @@ export function EditorTabs({ inTitlebar = false }: { inTitlebar?: boolean } = {}
                     width: 5,
                     height: 5,
                     borderRadius: 9999,
-                    background: "#f7ad3c",
+                    background: "var(--accent)",
                     flexShrink: 0,
                   }}
                 />
@@ -226,8 +226,8 @@ export function EditorTabs({ inTitlebar = false }: { inTitlebar?: boolean } = {}
             textTransform: "uppercase",
             letterSpacing: "0.18em",
             color: "var(--accent)",
-            background: "rgba(247,173,60,0.08)",
-            border: "1px solid rgba(247,173,60,0.20)",
+            background: "color-mix(in srgb, var(--accent) 8%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)",
             flexShrink: 0,
           }}
         >

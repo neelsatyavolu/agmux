@@ -223,7 +223,7 @@ function FileTreeNode({
         className="file-tree-row group flex w-full items-center gap-2 py-[3px] pr-2 text-left transition-colors"
         style={{
           paddingLeft: pad,
-          background: isActive ? "rgba(247,173,60,0.10)" : "transparent",
+          background: isActive ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "transparent",
           borderLeft: `2px solid ${isActive ? "var(--accent)" : "transparent"}`,
           color: isActive ? "var(--text-primary, #fff)" : "var(--text-secondary, #e4e4e7)",
           fontFamily: "var(--font-mono)",
@@ -548,8 +548,8 @@ export function FileTree({
                 padding: "1px 7px",
                 borderRadius: 9999,
                 fontSize: 10,
-                background: "rgba(247,173,60,0.10)",
-                border: "1px solid rgba(247,173,60,0.25)",
+                background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
                 color: "var(--accent)",
                 fontFamily: "var(--font-mono)",
                 flexShrink: 0,
@@ -628,7 +628,7 @@ export function FileTree({
                 height: 11,
                 borderRadius: 3,
                 border: `1px solid ${changedOnly ? "var(--accent)" : "var(--glass-border-highlight)"}`,
-                background: changedOnly ? "rgba(247,173,60,0.25)" : "transparent",
+                background: changedOnly ? "color-mix(in srgb, var(--accent) 25%, transparent)" : "transparent",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",

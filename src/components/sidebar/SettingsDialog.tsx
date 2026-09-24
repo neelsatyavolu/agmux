@@ -68,7 +68,7 @@ import { FOCUS_WINDOW_HOURS_OPTIONS, resolveFocusWindowHours } from "../../lib/f
 const EMPTY_GIT_ACCOUNTS: GitAccount[] = [];
 
 export const THEMES: { value: AppTheme; label: string; accent: string; desc: string }[] = [
-  { value: "midnight-glass", label: "Midnight", accent: "#f7ad3c", desc: "Brand yellow on black" },
+  { value: "midnight-glass", label: "Midnight", accent: "#f2a516", desc: "Brand yellow on black" },
   { value: "forest-green", label: "Forest", accent: "#34d399", desc: "Soft emerald" },
   { value: "frosted-indigo", label: "Indigo", accent: "#60a5fa", desc: "Cool sky blue" },
   { value: "obsidian-gold", label: "Golden", accent: "#eab308", desc: "Warm amber" },
@@ -826,7 +826,7 @@ export function SettingsDialog() {
                 borderStyle: "solid",
                 borderWidth: 1,
                 // Focused/query state keeps the accent; idle border comes from CSS.
-                ...(searchQuery ? { borderColor: "rgba(247,173,60,0.35)" } : {}),
+                ...(searchQuery ? { borderColor: "color-mix(in srgb, var(--accent) 35%, transparent)" } : {}),
                 transition: "border-color 150ms cubic-bezier(0.16,1,0.3,1)",
               }}
             >
@@ -1828,7 +1828,7 @@ function AccountsPage({
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: 10.5,
-            color: "var(--accent, #f7ad3c)",
+            color: "var(--accent, var(--accent))",
             textTransform: "uppercase",
             letterSpacing: "0.2em",
             marginBottom: 8,
@@ -1963,7 +1963,7 @@ function AccountsPage({
 // ─── Page: Appearance ─────────────────────────────────────────────────────────
 
 const ACCENT_PRESETS = [
-  { color: "#f7ad3c", label: "Gold" },
+  { color: "#f2a516", label: "Gold" },
   { color: "#34d399", label: "Emerald" },
   { color: "#3b82f6", label: "Blue" },
   { color: "#8b5cf6", label: "Violet" },
@@ -2903,7 +2903,7 @@ function QuickOpenDropdown({
         onClick={() => setOpen((current) => !current)}
         className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors ${
           open
-            ? "border-[var(--accent-border)] bg-[var(--accent-dim)] text-white shadow-[0_0_0_1px_rgba(247,173,60,0.18)]"
+            ? "border-[var(--accent-border)] bg-[var(--accent-dim)] text-white shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_18%,transparent)]"
             : "border-white/10 bg-black/35 text-zinc-100 hover:border-white/15 hover:bg-white/[0.04]"
         }`}
         aria-haspopup="listbox"
@@ -3007,7 +3007,7 @@ function NotificationSoundDropdown({
         onClick={() => setOpen((current) => !current)}
         className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors ${
           open
-            ? "border-[var(--accent-border)] bg-[var(--accent-dim)] text-white shadow-[0_0_0_1px_rgba(247,173,60,0.18)]"
+            ? "border-[var(--accent-border)] bg-[var(--accent-dim)] text-white shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_18%,transparent)]"
             : "border-white/10 bg-black/35 text-zinc-100 hover:border-white/15 hover:bg-white/[0.04]"
         }`}
         aria-haspopup="listbox"
@@ -3349,7 +3349,7 @@ function SettingsCard({
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 10.5,
-                color: "var(--accent, #f7ad3c)",
+                color: "var(--accent, var(--accent))",
                 textTransform: "uppercase",
                 letterSpacing: "0.2em",
                 marginBottom: 8,
@@ -3448,9 +3448,9 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean
       aria-pressed={enabled}
       className={`settings-toggle ${enabled ? "settings-toggle-on" : "settings-toggle-off"} relative inline-flex h-[18px] w-8 items-center rounded-full border transition-all`}
       style={{
-        background: enabled ? "var(--accent, #f7ad3c)" : undefined,
-        borderColor: enabled ? "var(--accent, #f7ad3c)" : undefined,
-        boxShadow: enabled ? "0 0 0 4px var(--accent-dim, rgba(247,173,60,0.15))" : "none",
+        background: enabled ? "var(--accent, var(--accent))" : undefined,
+        borderColor: enabled ? "var(--accent, var(--accent))" : undefined,
+        boxShadow: enabled ? "0 0 0 4px var(--accent-dim, color-mix(in srgb, var(--accent) 15%, transparent))" : "none",
         transitionTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
         transitionDuration: "200ms",
       }}
@@ -3562,7 +3562,7 @@ function Slider({
         />
         <div
           className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full"
-          style={{ height: 4, width: `${pct}%`, background: "var(--accent, #f7ad3c)" }}
+          style={{ height: 4, width: `${pct}%`, background: "var(--accent, var(--accent))" }}
         />
         <div
           className="settings-slider-thumb absolute top-1/2 -translate-y-1/2 rounded-full"
@@ -3570,9 +3570,9 @@ function Slider({
             left: `calc(${pct}% - 7px)`,
             width: 14,
             height: 14,
-            border: "1px solid var(--accent, #f7ad3c)",
+            border: "1px solid var(--accent, var(--accent))",
             boxShadow:
-              "0 1px 3px rgba(0,0,0,0.4), 0 0 0 3px var(--accent-dim, rgba(247,173,60,0.15))",
+              "0 1px 3px rgba(0,0,0,0.4), 0 0 0 3px var(--accent-dim, color-mix(in srgb, var(--accent) 15%, transparent))",
           }}
         />
         <input

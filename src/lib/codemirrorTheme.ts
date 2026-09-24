@@ -37,7 +37,7 @@ const sharedEditorTheme = {
     borderLeftWidth: "2px",
   },
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
-    background: "rgba(247,173,60,0.20)",
+    background: "rgba(242, 165, 22, 0.20)",
   },
   ".cm-gutters": {
     background: "transparent",
@@ -51,8 +51,8 @@ const sharedEditorTheme = {
     minWidth: "40px",
   },
   ".cm-matchingBracket": {
-    background: "rgba(247,173,60,0.10)",
-    outline: "1px solid rgba(247,173,60,0.25)",
+    background: "rgba(242, 165, 22, 0.10)",
+    outline: "1px solid rgba(242, 165, 22, 0.25)",
   },
   ".cm-nonmatchingBracket": {
     color: "#f87171",

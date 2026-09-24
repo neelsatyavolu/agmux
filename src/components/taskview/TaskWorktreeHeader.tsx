@@ -59,8 +59,8 @@ const glassBtn: React.CSSProperties = {
 
 const glassBtnPrimary: React.CSSProperties = {
   ...glassBtn,
-  background: "rgba(247,173,60,0.15)",
-  border: "1px solid rgba(247,173,60,0.40)",
+  background: "color-mix(in srgb, var(--accent) 15%, transparent)",
+  border: "1px solid color-mix(in srgb, var(--accent) 40%, transparent)",
   color: "var(--accent)",
 };
 
@@ -284,8 +284,8 @@ export function TaskWorktreeHeader({ taskId }: TaskWorktreeHeaderProps) {
           width: 28,
           height: 28,
           borderRadius: 7,
-          background: "rgba(247,173,60,0.10)",
-          border: "1px solid rgba(247,173,60,0.24)",
+          background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--accent) 24%, transparent)",
           color: "var(--accent)",
           display: "flex",
           alignItems: "center",

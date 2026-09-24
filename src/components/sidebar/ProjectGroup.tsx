@@ -2018,8 +2018,8 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
               title={a.label}
               className="flex flex-col items-center justify-center gap-1 rounded-[7px] py-1.5 transition-all"
               style={{
-                background: active ? "rgba(247,173,60,0.08)" : "rgba(255,255,255,0.02)",
-                border: `1px solid ${active ? "rgba(247,173,60,0.30)" : "rgba(255,255,255,0.05)"}`,
+                background: active ? "color-mix(in srgb, var(--accent) 8%, transparent)" : "rgba(255,255,255,0.02)",
+                border: `1px solid ${active ? "color-mix(in srgb, var(--accent) 30%, transparent)" : "rgba(255,255,255,0.05)"}`,
               }}
             >
               <AgentAvatar provider={a.provider} size={18} />
@@ -2027,7 +2027,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
                 className="truncate text-[9.5px] lowercase"
                 style={{
                   fontFamily: "var(--font-mono)",
-                  color: active ? "#f7ad3c" : "#71717a",
+                  color: active ? "var(--accent)" : "#71717a",
                 }}
               >
                 {a.label}

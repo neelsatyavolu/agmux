@@ -1002,8 +1002,8 @@ export function ThreadTopBar({
                       textTransform: "uppercase",
                       fontWeight: 600,
                       color: "var(--status-green)",
-                      background: "rgba(247,173,60,0.10)",
-                      border: "1px solid rgba(247,173,60,0.22)",
+                      background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--accent) 22%, transparent)",
                     }}
                     title={`Worktree at ${workDir}`}
                   >

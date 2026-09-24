@@ -43,7 +43,7 @@ const OC_COLORS = {
   fgMuted: "var(--text-tertiary, #a1a1aa)",
   fgSubtle: "var(--text-muted, #71717a)",
   fgDim: "var(--text-dim, #52525b)",
-  accent: "#f7ad3c",
+  accent: "var(--accent)",
 } as const;
 
 function useTick(ms: number, active: boolean): number {

@@ -553,8 +553,8 @@ export function CommandPalette({ open, onClose }: Props) {
                     padding: "8px 14px",
                     margin: "0 6px",
                     borderRadius: 8,
-                    background: isActive ? "rgba(247,173,60,0.08)" : "transparent",
-                    border: isActive ? "1px solid rgba(247,173,60,0.18)" : "1px solid transparent",
+                    background: isActive ? "color-mix(in srgb, var(--accent) 8%, transparent)" : "transparent",
+                    border: isActive ? "1px solid color-mix(in srgb, var(--accent) 18%, transparent)" : "1px solid transparent",
                     transition: "background 100ms, border-color 100ms",
                   }}
                 >

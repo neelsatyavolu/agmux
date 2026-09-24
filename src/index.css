@@ -491,7 +491,7 @@ html[data-mode="light"] ::-webkit-scrollbar-thumb:hover {
    Floating Glass chrome (nav/rows) sits on top of this frosted pane. */
 .sidebar-bg {
   background:
-    radial-gradient(120% 70% at 0% -10%, rgba(247, 173, 60, 0.08), transparent 55%),
+    radial-gradient(120% 70% at 0% -10%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 55%),
     var(--glass-sidebar, rgba(0, 0, 0, 0.30));
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(40px) saturate(160%);
@@ -835,7 +835,7 @@ html[data-mode="light"] .pg-h .pnm {
 }
 .st.running { background: #fbbf24; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.15); }
 .st.pending { background: #60a5fa; box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.15); }
-.st.done { background: var(--accent, #f7ad3c); }
+.st.done { background: var(--accent, var(--accent)); }
 .st.idle { background: #52525b; }
 .st.error { background: #f87171; }
 html[data-mode="light"] .sb-row:hover,
@@ -987,9 +987,9 @@ html[data-mode="light"] .card-h {
 }
 .tile.primary .ib,
 .app-icon-well[data-accent="true"] {
-  background: var(--accent-dim, rgba(247, 173, 60, 0.14));
-  border-color: var(--accent-border, rgba(247, 173, 60, 0.38));
-  color: var(--accent, #f7ad3c);
+  background: var(--accent-dim, color-mix(in srgb, var(--accent) 14%, transparent));
+  border-color: var(--accent-border, color-mix(in srgb, var(--accent) 38%, transparent));
+  color: var(--accent, var(--accent));
 }
 .tile .tt {
   font-size: 13px;
@@ -1062,9 +1062,9 @@ html[data-mode="light"] .app-icon-well {
 }
 .proj.on .pic,
 .proj[data-active="true"] .pic {
-  background: var(--accent-dim, rgba(247, 173, 60, 0.14));
-  border-color: var(--accent-border, rgba(247, 173, 60, 0.38));
-  color: var(--accent, #f7ad3c);
+  background: var(--accent-dim, color-mix(in srgb, var(--accent) 14%, transparent));
+  border-color: var(--accent-border, color-mix(in srgb, var(--accent) 38%, transparent));
+  color: var(--accent, var(--accent));
 }
 .proj .nm {
   font-size: 13px;
@@ -1241,9 +1241,9 @@ html[data-mode="light"] .u-bar {
   color: #a1a1aa;
 }
 .app-chip[data-tone="accent"] {
-  background: var(--accent-dim, rgba(247, 173, 60, 0.14));
-  border-color: var(--accent-border, rgba(247, 173, 60, 0.38));
-  color: var(--accent, #f7ad3c);
+  background: var(--accent-dim, color-mix(in srgb, var(--accent) 14%, transparent));
+  border-color: var(--accent-border, color-mix(in srgb, var(--accent) 38%, transparent));
+  color: var(--accent, var(--accent));
 }
 .app-chip[data-tone="warn"] {
   color: #fbbf24;
@@ -1303,9 +1303,9 @@ html[data-mode="light"] .u-bar {
   color: #e4e4e7;
 }
 .glass-seg[data-active="true"] {
-  background: var(--accent-dim, rgba(247, 173, 60, 0.14));
-  border-color: var(--accent-border, rgba(247, 173, 60, 0.38));
-  color: var(--accent, #f7ad3c);
+  background: var(--accent-dim, color-mix(in srgb, var(--accent) 14%, transparent));
+  border-color: var(--accent-border, color-mix(in srgb, var(--accent) 38%, transparent));
+  color: var(--accent, var(--accent));
 }
 
 /* Settings Floating Glass */
@@ -1335,7 +1335,7 @@ html[data-mode="light"] .u-bar {
 }
 .settings-nav-item[data-active="true"] svg,
 .settings-nav-item[data-active="true"] span {
-  color: var(--accent, #f7ad3c);
+  color: var(--accent, var(--accent));
 }
 
 /* Legacy alias */
@@ -1374,8 +1374,8 @@ html[data-mode="light"] .panel-bg {
   pointer-events: none;
   background:
     radial-gradient(120% 80% at 18% -5%, #14120e 0%, #0a0908 42%, #050504 78%),
-    radial-gradient(90% 70% at 92% 108%, rgba(247, 173, 60, 0.16), transparent 60%),
-    radial-gradient(70% 60% at 100% 0%, rgba(247, 173, 60, 0.06), transparent 55%);
+    radial-gradient(90% 70% at 92% 108%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),
+    radial-gradient(70% 60% at 100% 0%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 55%);
 }
 
 .codex-wall::after {
@@ -1409,8 +1409,8 @@ html[data-mode="light"] .panel-bg {
 }
 @keyframes thread-turn-flash-kf {
   0% {
-    box-shadow: 0 0 0 0 rgba(247, 173, 60, 0.55);
-    background-color: rgba(247, 173, 60, 0.12);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+    background-color: color-mix(in srgb, var(--accent) 12%, transparent);
   }
   100% {
     box-shadow: 0 0 0 0 transparent;
@@ -1441,8 +1441,8 @@ html[data-mode="light"] .thread-turn-flash {
   flex-direction: column;
   width: 100%;
   background:
-    radial-gradient(120% 90% at 8% -20%, rgba(247, 173, 60, 0.10), transparent 55%),
-    radial-gradient(80% 70% at 100% 0%, rgba(247, 173, 60, 0.04), transparent 50%),
+    radial-gradient(120% 90% at 8% -20%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 55%),
+    radial-gradient(80% 70% at 100% 0%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 50%),
     rgba(9, 10, 11, 0.42);
   backdrop-filter: blur(28px) saturate(160%);
   -webkit-backdrop-filter: blur(28px) saturate(160%);
@@ -1539,7 +1539,7 @@ html[data-mode="light"] .thread-turn-flash {
   color: #a1a1aa;
 }
 .agent-top-chrome-scope[data-active="true"] .count {
-  background: rgba(247, 173, 60, 0.14);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: #fbc96a;
 }
 .agent-top-chrome-scope-divider {
@@ -1602,8 +1602,8 @@ html[data-mode="light"] .thread-turn-flash {
 }
 .agent-top-chrome-pill[data-active="true"] {
   color: #a7f3d0;
-  background: rgba(247, 173, 60, 0.10);
-  border-color: rgba(247, 173, 60, 0.28);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
   box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.06);
 }
 .agent-top-chrome-pill .count {
@@ -1636,8 +1636,8 @@ html[data-mode="light"] .thread-turn-flash {
   color: #a1a1aa;
 }
 .agent-top-chrome-filter[data-active="true"] {
-  background: rgba(247, 173, 60, 0.10);
-  border-color: rgba(247, 173, 60, 0.28);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
   color: #fbc96a;
 }
 .agent-top-chrome-chip {
@@ -1705,18 +1705,18 @@ html[data-mode="light"] .thread-turn-flash {
   color: #e4e4e7;
 }
 .agent-top-chrome-create-btn.primary {
-  background: rgba(247, 173, 60, 0.10);
-  border-color: rgba(247, 173, 60, 0.28);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
   color: #fbc96a;
 }
 .agent-top-chrome-create-btn.primary:hover {
-  background: rgba(247, 173, 60, 0.16);
-  border-color: rgba(247, 173, 60, 0.40);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   color: #a7f3d0;
 }
 .agent-top-chrome-create-btn[aria-expanded="true"] {
-  background: rgba(247, 173, 60, 0.16);
-  border-color: rgba(247, 173, 60, 0.40);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   color: #a7f3d0;
 }
 .agent-top-chrome-show-more {
@@ -1873,7 +1873,7 @@ html[data-mode="light"] .agent-top-chrome-chip[data-active="true"] {
 }
 
 .codex-composer-focus {
-  box-shadow: 0 0 0 1px rgba(247, 173, 60, 0.28), 0 0 30px -10px rgba(247, 173, 60, 0.25);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 30px -10px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 /* Run-config toolbar density — auto-set when the chat pane is narrow so
@@ -2202,10 +2202,10 @@ html[data-animation="quick"] *:not(.transition-own) {
 }
 
 .md-code-shell {
-  border-color: rgba(247, 173, 60, 0.14);
+  border-color: color-mix(in srgb, var(--accent) 14%, transparent);
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 1px rgba(247, 173, 60, 0.04);
+    0 0 0 1px color-mix(in srgb, var(--accent) 4%, transparent);
 }
 
 .md-code-head {
@@ -2233,7 +2233,7 @@ html[data-animation="quick"] *:not(.transition-own) {
 .md-copy-btn:focus-visible {
   outline: none;
   color: var(--text-secondary);
-  box-shadow: 0 0 0 1px rgba(247, 173, 60, 0.4);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 /* GFM tables */
@@ -2274,7 +2274,7 @@ html[data-animation="quick"] *:not(.transition-own) {
 }
 
 .md-quote {
-  background: color-mix(in srgb, #f7ad3c 6%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
 /* Light mode */
@@ -2358,7 +2358,7 @@ html[data-mode="light"] .md-quote {
 }
 
 .tool-accent-write {
-  border-left: 2px solid rgba(247, 173, 60, 0.50);
+  border-left: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 .tool-accent-read {
@@ -2408,9 +2408,9 @@ html[data-mode="light"] .md-quote {
 }
 
 .status-pill-done {
-  background: rgba(247, 173, 60, 0.10);
-  border: 1px solid rgba(247, 173, 60, 0.20);
-  color: rgb(247, 173, 60);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
 }
 
 .status-pill-error {
@@ -2446,10 +2446,10 @@ html[data-mode="light"] .md-quote {
   color: var(--text-placeholder);
 }
 .glass-input:focus {
-  border-color: rgba(247, 173, 60, 0.40);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   box-shadow:
-    0 0 0 1px rgba(247, 173, 60, 0.22),
-    0 0 24px -10px rgba(247, 173, 60, 0.30),
+    0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0 24px -10px color-mix(in srgb, var(--accent) 30%, transparent),
     inset 0 1px 2px rgba(0, 0, 0, 0.28);
 }
 
@@ -3415,8 +3415,8 @@ html[data-mode="light"] input[type="range"].slider-thumb::-moz-range-thumb {
   transition: border-color 180ms cubic-bezier(0.16, 1, 0.3, 1), background 180ms;
 }
 .focusable:focus-within {
-  border-color: rgba(247, 173, 60, 0.45) !important;
-  background: rgba(247, 173, 60, 0.04) !important;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent) !important;
+  background: color-mix(in srgb, var(--accent) 4%, transparent) !important;
 }
 
 /* Settings cards — Floating Glass cards (same as .app-card).
@@ -3558,7 +3558,7 @@ html[data-mode="light"] .settings-slider-track {
 .settings-slider-thumb { background: #ffffff; }
 html[data-mode="light"] .settings-slider-thumb {
   background: #ffffff !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 3px var(--accent-dim, rgba(247, 173, 60, 0.18)) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 3px var(--accent-dim, color-mix(in srgb, var(--accent) 18%, transparent)) !important;
 }
 
 /* File tree panel + header — the panel hardcodes rgba(0,0,0,0.35/0.30) which
@@ -3884,8 +3884,8 @@ html[data-mode="light"] .orch-header {
   border-radius: 10px;
   flex-shrink: 0;
   color: #fbc96a;
-  background: rgba(247, 173, 60, 0.10);
-  border: 1px solid rgba(247, 173, 60, 0.22);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.06);
 }
 .orch-pill {
@@ -3916,7 +3916,7 @@ html[data-mode="light"] .orch-header {
   white-space: nowrap;
 }
 .orch-toggle input {
-  accent-color: #f7ad3c;
+  accent-color: var(--accent);
 }
 .orch-body {
   padding: 12px 18px 18px;
@@ -3958,11 +3958,11 @@ html[data-mode="light"] .orch-header {
   margin-bottom: 14px;
   border-radius: 14px;
   color: #fbc96a;
-  background: rgba(247, 173, 60, 0.10);
-  border: 1px solid rgba(247, 173, 60, 0.22);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.06),
-    0 0 28px -8px rgba(247, 173, 60, 0.35);
+    0 0 28px -8px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 /* Agent tile */
@@ -3996,16 +3996,16 @@ html[data-mode="light"] .orch-header {
   transform: translateY(-1px);
 }
 .orch-card-selected {
-  border-color: rgba(247, 173, 60, 0.32);
-  background: rgba(247, 173, 60, 0.06);
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.06),
-    0 0 0 1px rgba(247, 173, 60, 0.12),
-    0 12px 32px -14px rgba(247, 173, 60, 0.18);
+    0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 12px 32px -14px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .orch-card-running { border-left-color: #60a5fa; }
 .orch-card-waiting { border-left-color: #fbbf24; }
-.orch-card-unread  { border-left-color: #f7ad3c; }
+.orch-card-unread  { border-left-color: var(--accent); }
 .orch-card-idle {
   border-left-color: rgba(255, 255, 255, 0.12);
   opacity: 0.9;
@@ -4065,8 +4065,8 @@ html[data-mode="light"] .orch-header {
 }
 .orch-card-status[data-state="unread"] {
   color: #fbc96a;
-  border-color: rgba(247, 173, 60, 0.28);
-  background: rgba(247, 173, 60, 0.10);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .orch-card-body {
   padding: 2px 12px 12px;
@@ -4126,11 +4126,11 @@ html[data-mode="light"] .orch-header {
 }
 .orch-btn:disabled { opacity: 0.5; }
 .orch-btn-allow {
-  background: rgba(247, 173, 60, 0.14);
-  border-color: rgba(247, 173, 60, 0.28);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
   color: #fbc96a;
 }
-.orch-btn-allow:hover:not(:disabled) { background: rgba(247, 173, 60, 0.22); }
+.orch-btn-allow:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .orch-btn-deny {
   background: rgba(248, 113, 113, 0.10);
   border-color: rgba(248, 113, 113, 0.25);
@@ -4224,8 +4224,8 @@ html[data-mode="light"] .issues-toolbar {
 }
 .issues-repo-tab[data-active="true"] {
   color: #a7f3d0;
-  background: rgba(247, 173, 60, 0.12);
-  border-color: rgba(247, 173, 60, 0.28);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 .issues-repo-tab-inner {
   display: inline-flex;
@@ -4267,8 +4267,8 @@ html[data-mode="light"] .issues-toolbar {
   text-align: center;
   font-variant-numeric: tabular-nums;
   color: #a7f3d0;
-  background: rgba(247, 173, 60, 0.14);
-  border: 1px solid rgba(247, 173, 60, 0.22);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .issues-repo-count-pending {
   min-width: 0.75rem;
@@ -4321,8 +4321,8 @@ html[data-mode="light"] .issues-search {
   border-color: rgba(0, 0, 0, 0.08);
 }
 .issues-search:focus-within {
-  border-color: rgba(247, 173, 60, 0.35);
-  box-shadow: 0 0 0 1px rgba(247, 173, 60, 0.14);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 .issues-input {
   background: transparent;
@@ -4420,7 +4420,7 @@ html[data-mode="light"] .issues-table thead th {
   background: rgba(255, 255, 255, 0.04);
 }
 .issues-table tbody tr[data-selected="true"] {
-  background: rgba(247, 173, 60, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .issues-table td {
   padding: 10px 14px;
@@ -4530,8 +4530,8 @@ html[data-mode="light"] .issues-detail {
   color: var(--text-tertiary);
 }
 .issues-textarea:focus {
-  border-color: rgba(247, 173, 60, 0.35);
-  box-shadow: 0 0 0 1px rgba(247, 173, 60, 0.12);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 html[data-mode="light"] .issues-textarea {
   background: rgba(255, 255, 255, 0.65);
@@ -4545,7 +4545,7 @@ html[data-mode="light"] .issues-textarea {
   border-radius: 4px;
 }
 .issues-link-btn:hover {
-  background: rgba(247, 173, 60, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .issues-global-preview {
   margin: 0;
@@ -4583,8 +4583,8 @@ html[data-mode="light"] .issues-textarea {
 }
 .issues-worktree-btn[data-active="true"] {
   color: #a7f3d0;
-  background: rgba(247, 173, 60, 0.1);
-  border-color: rgba(247, 173, 60, 0.28);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 .issues-dispatch-btn {
   margin-top: 14px;
@@ -4598,8 +4598,8 @@ html[data-mode="light"] .issues-textarea {
   font-size: 13px;
   font-weight: 600;
   color: #042f1a;
-  background: linear-gradient(180deg, #fbc96a 0%, #f7ad3c 100%);
-  border: 1px solid rgba(247, 173, 60, 0.5);
+  background: linear-gradient(180deg, #fbc96a 0%, var(--accent) 100%);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset;
   transition: filter 120ms ease, opacity 120ms ease;
 }
@@ -4635,10 +4635,10 @@ html[data-mode="light"] .issues-textarea {
   box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.04);
 }
 .orch-composer-pane:focus-within {
-  border-color: rgba(247, 173, 60, 0.28);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
   box-shadow:
-    0 0 0 1px rgba(247, 173, 60, 0.16),
-    0 0 28px -10px rgba(247, 173, 60, 0.22);
+    0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent),
+    0 0 28px -10px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .orch-composer-target {
   display: flex;
@@ -4677,16 +4677,16 @@ html[data-mode="light"] .issues-textarea {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  border: 1px solid rgba(247, 173, 60, 0.28);
-  background: rgba(247, 173, 60, 0.14);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: #fbc96a;
   flex-shrink: 0;
   cursor: default;
   transition: background 120ms ease, opacity 120ms ease, box-shadow 120ms ease;
 }
 .orch-composer-send:hover:not(:disabled) {
-  background: rgba(247, 173, 60, 0.22);
-  box-shadow: 0 0 18px -6px rgba(247, 173, 60, 0.45);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: 0 0 18px -6px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .orch-composer-send:disabled { opacity: 0.4; }
 
@@ -4969,8 +4969,8 @@ html[data-mode="light"] .orch-composer-input {
 }
 .mem-kind-fact {
   color: #fbc96a;
-  border-color: rgba(247, 173, 60, 0.28);
-  background: rgba(247, 173, 60, 0.1);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .mem-kind-issue {
   color: #fca5a5;

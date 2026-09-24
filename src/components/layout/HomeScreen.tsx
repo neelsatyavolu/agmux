@@ -731,7 +731,7 @@ export function HomeScreen() {
             <div className="relative">
               <div
                 className="home-icon-glow absolute -inset-2 -z-[1] rounded-[20px] opacity-60 blur-md"
-                style={{ background: "radial-gradient(circle, rgba(247,173,60,0.30), transparent 70%)" }}
+                style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%)" }}
               />
               <img
                 src="/xanom-icon.png"

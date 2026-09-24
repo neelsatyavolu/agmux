@@ -512,7 +512,7 @@ export function TaskAgentTabBar({ taskId }: TaskAgentTabBarProps) {
                 <div
                   className="flex h-4 w-4 items-center justify-center rounded-[4px] text-[9px] font-bold text-white"
                   style={{
-                    background: "linear-gradient(135deg, #f7ad3c, #ef4444)",
+                    background: "linear-gradient(135deg, var(--accent), #ef4444)",
                     fontFamily: "var(--font-mono)",
                   }}
                 >

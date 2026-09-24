@@ -22,7 +22,7 @@ const GRID = "var(--glass-border-highlight)";
 export function providerColor(name: string): string {
   const k = name.toLowerCase();
   if (k.includes("claude")) return ACCENT;
-  if (k.includes("codex") || k.includes("gpt")) return "#f7ad3c";
+  if (k.includes("codex") || k.includes("gpt")) return "#f2a516";
   if (k.includes("grok")) return "#a78bfa";
   if (k.includes("cursor")) return "#22d3ee";
   if (k.includes("kimi")) return "#fb7185";

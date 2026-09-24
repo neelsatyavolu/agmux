@@ -100,7 +100,7 @@ describe("EditorTabs", () => {
     const { container } = render(<EditorTabs />);
     // dirty dot is a span 5x5 with brand gold accent
     const dot = container.querySelector(
-      'span[style*="background: rgb(247, 173, 60)"]',
+      'span[style*="background: var(--accent)"]',
     );
     expect(dot).not.toBeNull();
   });

@@ -190,9 +190,9 @@ export function panelDarkTheme(bg: string = PANEL_TERMINAL_BG_DARK): ITheme {
     ...darkTheme(bg, "#3f3f46"),
     foreground: "#e4e4e7",
     // Soft brand wash on selection (matches theme accent).
-    selectionBackground: "rgba(247, 173, 60, 0.24)",
+    selectionBackground: "rgba(242, 165, 22, 0.24)",
     selectionForeground: "#fafafa",
-    cursor: "#f7ad3c",
+    cursor: "#f2a516",
     cursorAccent: bg,
     // ANSI green stays green (terminal semantics); cursor/selection are brand.
     green: "#34d399",
@@ -206,7 +206,7 @@ export function panelDarkTheme(bg: string = PANEL_TERMINAL_BG_DARK): ITheme {
 export function panelLightTheme(bg: string = PANEL_TERMINAL_BG_LIGHT): ITheme {
   return {
     ...lightTheme(bg),
-    selectionBackground: "rgba(247, 173, 60, 0.22)",
+    selectionBackground: "rgba(242, 165, 22, 0.22)",
     selectionForeground: "#14110a",
     cursor: "#d97706",
   };

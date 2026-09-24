@@ -508,9 +508,9 @@ export function ApprovalToast() {
                   style={{
                     padding: "5px 12px",
                     borderRadius: 9999,
-                    background: isLight ? "rgba(217,119,6,0.20)" : "rgba(247,173,60,0.18)",
-                    border: isLight ? "1px solid rgba(217,119,6,0.55)" : "1px solid rgba(247,173,60,0.45)",
-                    color: isLight ? "#b45309" : "#f7ad3c",
+                    background: isLight ? "rgba(217,119,6,0.20)" : "color-mix(in srgb, var(--accent) 18%, transparent)",
+                    border: isLight ? "1px solid rgba(217,119,6,0.55)" : "1px solid color-mix(in srgb, var(--accent) 45%, transparent)",
+                    color: isLight ? "#b45309" : "var(--accent)",
                     fontSize: 11,
                     fontWeight: 500,
                     cursor: "pointer",

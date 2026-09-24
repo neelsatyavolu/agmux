@@ -762,13 +762,13 @@ export function PaneTabBar({ paneId }: Props) {
           const statusColors = !statusLabel ? null
             : glow === "processing" ? { bg: "rgba(96,165,250,0.10)", border: "rgba(96,165,250,0.22)", text: "#93c5fd" }
             : glow === "attention" ? { bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.25)", text: "#fcd34d" }
-            : { bg: "rgba(247,173,60,0.10)", border: "rgba(247,173,60,0.22)", text: "#fbc96a" };
+            : { bg: "color-mix(in srgb, var(--accent) 10%, transparent)", border: "color-mix(in srgb, var(--accent) 22%, transparent)", text: "#fbc96a" };
 
           return (
             <div key={tab.id} className="flex items-end">
               {showDropBefore && (
                 <span
-                  className="mx-[1px] h-[46px] w-[3px] shrink-0 rounded-[2px] bg-[var(--accent)] shadow-[0_0_8px_rgba(247,173,60,0.8)]"
+                  className="mx-[1px] h-[46px] w-[3px] shrink-0 rounded-[2px] bg-[var(--accent)] shadow-[0_0_8px_color-mix(in_srgb,var(--accent)_80%,transparent)]"
                   aria-hidden
                 />
               )}
@@ -955,7 +955,7 @@ export function PaneTabBar({ paneId }: Props) {
         {/* Drop rail at the end of the list */}
         {dragIndex !== null && dropIndex === pane.tabs.length && dropIndex !== dragIndex + 1 && (
           <span
-            className="mx-[1px] h-[46px] w-[3px] shrink-0 rounded-[2px] bg-[var(--accent)] shadow-[0_0_8px_rgba(247,173,60,0.8)] self-center"
+            className="mx-[1px] h-[46px] w-[3px] shrink-0 rounded-[2px] bg-[var(--accent)] shadow-[0_0_8px_color-mix(in_srgb,var(--accent)_80%,transparent)] self-center"
             aria-hidden
           />
         )}

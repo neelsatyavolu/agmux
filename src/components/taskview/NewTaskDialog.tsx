@@ -1325,9 +1325,9 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
           <div
             className="flex h-[22px] w-[22px] items-center justify-center rounded-md"
             style={{
-              background: "rgba(247,173,60,0.12)",
-              border: "1px solid rgba(247,173,60,0.30)",
-              color: "#f7ad3c",
+              background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+              color: "var(--accent)",
             }}
           >
             <GitBranchPlus size={11} />
@@ -1550,8 +1550,8 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
             disabled={!canCreate}
             className="inline-flex items-center gap-1.5 rounded-[7px] px-4 py-[7px] text-[12.5px] font-semibold transition-colors"
             style={{
-              background: canCreate ? "rgba(247,173,60,0.90)" : "rgba(247,173,60,0.25)",
-              border: `1px solid ${canCreate ? "rgba(247,173,60,1)" : "rgba(247,173,60,0.30)"}`,
+              background: canCreate ? "color-mix(in srgb, var(--accent) 90%, transparent)" : "color-mix(in srgb, var(--accent) 25%, transparent)",
+              border: `1px solid ${canCreate ? "color-mix(in srgb, var(--accent) 100%, transparent)" : "color-mix(in srgb, var(--accent) 30%, transparent)"}`,
               color: canCreate ? "#ffffff" : "rgba(255,255,255,0.55)",
               cursor: canCreate ? "pointer" : "not-allowed",
               letterSpacing: "-0.01em",

@@ -36,9 +36,9 @@ export const STATE_META: Record<EffectiveState, StateMeta> = {
     label: "In review",
   },
   merged: {
-    fg: "#f7ad3c",
-    bg: "rgba(247,173,60,0.10)",
-    bd: "rgba(247,173,60,0.24)",
+    fg: "var(--accent)",
+    bg: "color-mix(in srgb, var(--accent) 10%, transparent)",
+    bd: "color-mix(in srgb, var(--accent) 24%, transparent)",
     label: "Merged",
   },
   failed: {

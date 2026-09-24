@@ -317,7 +317,7 @@ export function TeamDashboard({
 function TokenBreakdown({ totals: t }: { totals: TeamOverview["totals"] }) {
   const parts = [
     { key: "Input", n: t.tokensIn, color: "#60a5fa" },
-    { key: "Output", n: t.tokensOut, color: "#f7ad3c" },
+    { key: "Output", n: t.tokensOut, color: "#f2a516" },
     { key: "Cache read", n: t.tokensCacheRead, color: "#a78bfa" },
     { key: "Cache write", n: t.tokensCacheWrite, color: "#22d3ee" },
     { key: "Reasoning", n: t.tokensReasoning, color: "#fbbf24" },
@@ -370,7 +370,7 @@ const MARKER_INK = "var(--text-secondary)";
 /** Fixed order and colour per tool kind, matching the server's `TOOL_KINDS`. */
 const TOOL_KINDS = [
   { key: "bash", label: "Terminal", color: "#fbbf24" },
-  { key: "edit", label: "Edits", color: "#f7ad3c" },
+  { key: "edit", label: "Edits", color: "#f2a516" },
   { key: "read", label: "Reads", color: "#60a5fa" },
   { key: "search", label: "Search", color: "#a78bfa" },
   { key: "web", label: "Web", color: "#22d3ee" },
@@ -498,7 +498,7 @@ export function BudgetPanel({ budget }: { budget: NonNullable<TeamOverview["budg
   const pct = Math.min(100, Math.round(budget.usedShare * 100));
   const over = budget.usedShare >= 1;
   const partial = budget.costIncomplete !== false;
-  const color = over ? "#f87171" : budget.onTrackToExceed || partial ? "#fbbf24" : "#f7ad3c";
+  const color = over ? "#f87171" : budget.onTrackToExceed || partial ? "#fbbf24" : "#f2a516";
   const projPct = Math.min(99, Math.round(budget.projectedShare * 100));
   const spend = fmtMoney(budget.spendUsd);
   const monthly = fmtMoney(budget.monthlyUsd);

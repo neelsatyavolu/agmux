@@ -214,8 +214,8 @@ export function TaskViewLayout({ active = true }: { active?: boolean }) {
               onClick={() => window.dispatchEvent(new CustomEvent("agmux-new-task"))}
               className="mt-5 rounded-lg px-4 py-2 text-[12.5px] font-medium transition-colors"
               style={{
-                background: "rgba(247,173,60,0.12)",
-                border: "1px solid rgba(247,173,60,0.35)",
+                background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--accent) 35%, transparent)",
                 color: "var(--accent)",
                 letterSpacing: "-0.015em",
               }}

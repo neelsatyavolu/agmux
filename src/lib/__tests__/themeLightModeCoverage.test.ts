@@ -28,7 +28,7 @@ const ALLOWLIST: { file: string; pattern: string; reason: string }[] = [
   // submit chrome and var(--accent) fills stay the same in light and dark.
   {
     file: "src/components/thread/ClaudeInputBar.tsx",
-    pattern: "bg-[#f7ad3c]",
+    pattern: "bg-[var(--accent)]",
     reason: "Submit button: brand gold accent, intentional in both dark and light",
   },
   {
@@ -97,7 +97,7 @@ const ALLOWLIST: { file: string; pattern: string; reason: string }[] = [
   },
   {
     file: "src/components/editor/EditorTabs.tsx",
-    pattern: '"#f7ad3c"',
+    pattern: '"var(--accent)"',
     reason: "Unsaved-change dot: brand gold accent, same as CSS variable in both modes",
   },
   {
@@ -371,14 +371,14 @@ describe("audited light-mode component chrome", () => {
   it.each(["CommandPalette.tsx", "thread/CommitDialog.tsx"])(
     "%s themes semantic ink as well as neutral text", (file) => {
       const source = fs.readFileSync(path.resolve(__dirname, "../../components", file), "utf8");
-      expect(source.match(/"#(?:60a5fa|f7ad3c|a78bfa|fbbf24|f87171)"/g) ?? []).toEqual([]);
+      expect(source.match(/"#(?:60a5fa|f2a516|a78bfa|fbbf24|f87171)"/g) ?? []).toEqual([]);
       expect(source.match(/\$\{t\.color\}[0-9a-f]{2}/g) ?? []).toEqual([]);
     }
   );
 
   it("uses themed editor cursors and legible light-mode line numbers", () => {
     const source = fs.readFileSync(path.resolve(__dirname, "../codemirrorTheme.ts"), "utf8");
-    expect(source.match(/(?:caretColor|borderLeftColor): "#f7ad3c"/g) ?? []).toEqual([]);
+    expect(source.match(/(?:caretColor|borderLeftColor): "#f2a516"/g) ?? []).toEqual([]);
     const lightTheme = source.split("export const xanomLightEditorTheme =")[1]
       .split("export const xanomDarkHighlightStyle =")[0];
     expect(lightTheme.match(/color: "#a1a1aa"/g) ?? []).toEqual([]);

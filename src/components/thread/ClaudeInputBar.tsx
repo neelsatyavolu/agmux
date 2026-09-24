@@ -1490,7 +1490,7 @@ export function ClaudeInputBar({ threadId, disabled, currentModel, workDir, acti
                   disabled={disabled || !value.trim() || showDiff}
                   className={`ml-0.5 inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg transition-all duration-150 disabled:cursor-not-allowed ${
                     value.trim() && !disabled && !showDiff
-                      ? "bg-[#f7ad3c] text-[#14110a] shadow-[0_4px_16px_-4px_rgba(247,173,60,0.5)] hover:bg-[#fbc96a]"
+                      ? "bg-[var(--accent)] text-[#14110a] shadow-[0_4px_16px_-4px_color-mix(in_srgb,var(--accent)_50%,transparent)] hover:bg-[#fbc96a]"
                       : "bg-white/[0.07] text-white/40"
                   }`}
                   title={isWorking ? "Queue message" : "Send message"}
