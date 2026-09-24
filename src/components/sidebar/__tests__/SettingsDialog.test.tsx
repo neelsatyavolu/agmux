@@ -200,6 +200,14 @@ describe("SettingsDialog", () => {
     expect(screen.getAllByText("Appearance").length).toBeGreaterThan(0);
   });
 
+  it.each(["surfaces", "flat"])("finds Appearance through %s search", (query) => {
+    useSettingsStore.getState().openSettings();
+    render(<SettingsDialog />);
+    fireEvent.change(screen.getByPlaceholderText("Search settings"), { target: { value: query } });
+    expect(screen.getByRole("button", { name: "Appearance" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Typography" })).toBeNull();
+  });
+
   it("switches surfaces and only shows glass sliders for Glass", async () => {
     useSettingsStore.getState().updateSettings({ surfaceStyle: "flat" });
     useSettingsStore.getState().openSettings();
