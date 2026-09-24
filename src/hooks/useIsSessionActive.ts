@@ -1,3 +1,4 @@
+import { createContext, useContext } from "react";
 import { useSettingsStore } from "../stores/settingsStore";
 import { useSplitViewStore } from "../stores/splitViewStore";
 import { useTaskViewStore } from "../stores/taskViewStore";
@@ -159,4 +160,3 @@ export function useIsPresentationActive(id: string | null | undefined): boolean 
   if (hiddenInPanes || main === "other") return false;
   return true;
 }
-import { createContext, useContext } from "react";
