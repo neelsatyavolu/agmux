@@ -2516,6 +2516,9 @@ async fn generate_commit_via_codex(
             "exec",
             "-m",
             model,
+            // Commit messages are short; low effort keeps generation fast.
+            "-c",
+            "model_reasoning_effort=\"low\"",
             "--output-schema",
             &schema_str,
             "-o",

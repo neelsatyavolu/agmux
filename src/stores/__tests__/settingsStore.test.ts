@@ -70,15 +70,15 @@ describe("settingsStore", () => {
     expect(useSettingsStore.getState().settings.commitMessageModel).toBe("auto");
   });
 
-  it("migrates a saved Spark preference to Luna", async () => {
+  it.each(["gpt-5.3-codex-spark", "gpt-5.6-luna"])("migrates a saved %s preference to GPT-6 Luna", async (saved) => {
     localStorage.setItem("agmux-settings", JSON.stringify({
-      commitMessageModel: "gpt-5.3-codex-spark",
+      commitMessageModel: saved,
     }));
     vi.resetModules();
     const { useSettingsStore: reloadedStore } = await import("../settingsStore");
-    expect(reloadedStore.getState().settings.commitMessageModel).toBe("gpt-5.6-luna");
+    expect(reloadedStore.getState().settings.commitMessageModel).toBe("gpt-6-luna");
     expect(commitMessageCandidates(reloadedStore.getState().settings.commitMessageModel)).toEqual([
-      { provider: "codex", model: "gpt-5.6-luna" },
+      { provider: "codex", model: "gpt-6-luna" },
     ]);
   });
 
@@ -90,7 +90,7 @@ describe("settingsStore", () => {
   it("commitMessageCandidates cascades on auto", () => {
     const c = commitMessageCandidates("auto");
     expect(c.map((x) => x.model)).toEqual([
-      "gpt-5.6-luna",
+      "gpt-6-luna",
       "grok-4.5",
       "haiku",
     ]);
@@ -100,8 +100,8 @@ describe("settingsStore", () => {
     expect(commitMessageCandidates("grok-4.5")).toEqual([
       { provider: "grok", model: "grok-4.5" },
     ]);
-    expect(commitMessageCandidates("gpt-5.6-luna")).toEqual([
-      { provider: "codex", model: "gpt-5.6-luna" },
+    expect(commitMessageCandidates("gpt-6-luna")).toEqual([
+      { provider: "codex", model: "gpt-6-luna" },
     ]);
     expect(commitMessageCandidates("haiku")).toEqual([
       { provider: "claude", model: "haiku" },

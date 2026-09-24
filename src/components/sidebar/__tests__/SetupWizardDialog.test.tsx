@@ -229,6 +229,28 @@ describe("SetupWizardDialog", () => {
     expect(screen.queryByText("Download required")).toBeNull();
   });
 
+  it("keeps the step body a fixed size and starts each step at the top", () => {
+    setWizardState(true, { setupWizardCompleted: false, onboardingRevision: 0 });
+    render(<SetupWizardDialog />);
+    const body = screen.getByTestId("setup-wizard-body");
+    // A content-sized body resizes the centered card on every step change.
+    expect(body.className).toContain("h-[min(560px,72vh)]");
+    expect(body.className).not.toMatch(/(^|\s)(min|max)-h-/);
+    expect(body.className).toContain("[scrollbar-gutter:stable]");
+
+    let scrollTop = 0;
+    Object.defineProperty(body, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (v: number) => { scrollTop = v; },
+    });
+    fireEvent.click(screen.getByText("Continue"));
+    body.scrollTop = 240;
+    fireEvent.click(screen.getByText("Continue"));
+    expect(screen.getByText("Agents & memory")).toBeTruthy();
+    expect(body.scrollTop).toBe(0);
+  });
+
   it("uses upgrade welcome when completed but revision is behind", () => {
     setWizardState(true, {
       setupWizardCompleted: true,

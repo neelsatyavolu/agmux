@@ -1068,6 +1068,12 @@ export function SetupWizardDialog() {
   const stepId = steps[Math.min(stepIndex, steps.length - 1)] ?? "welcome";
   const stepCount = steps.length;
 
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // Runs when the next step mounts (after the old one's exit), so it opens at the top.
+  const scrollBodyToTop = useCallback((node: HTMLDivElement | null) => {
+    if (node && bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, []);
+
   useEffect(() => {
     const s = useSettingsStore.getState().settings;
     if (needsOnboarding(s)) {
@@ -1187,10 +1193,16 @@ export function SetupWizardDialog() {
               </div>
             </div>
 
-            <div className="relative max-h-[min(560px,72vh)] min-h-[340px] overflow-y-auto px-8 py-8">
+            {/* Fixed height + stable gutter: the card is centered, so any size change between steps makes it jump. */}
+            <div
+              ref={bodyRef}
+              data-testid="setup-wizard-body"
+              className="relative h-[min(560px,72vh)] overflow-y-auto overflow-x-hidden px-8 py-8 [scrollbar-gutter:stable]"
+            >
               <AnimatePresence mode="wait" custom={direction}>
                 <motion.div
                   key={stepId}
+                  ref={scrollBodyToTop}
                   custom={direction}
                   variants={slideVariants}
                   initial="enter"

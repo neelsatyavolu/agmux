@@ -836,13 +836,13 @@ describe("SettingsDialog — Maximum coverage", () => {
     expect(useSettingsStore.getState().settings.setupWizardCompleted).toBe(false);
   });
 
-  it("General: commit message model segment pins GPT-5.6 Luna", () => {
+  it("General: commit message model segment pins GPT-6 Luna Low", () => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);
     fireEvent.click(screen.getAllByText("General")[0]);
-    fireEvent.click(screen.getByText("GPT-5.6 Luna"));
+    fireEvent.click(screen.getByText("GPT-6 Luna Low"));
     expect(useSettingsStore.getState().settings.commitMessageModel).toBe(
-      "gpt-5.6-luna",
+      "gpt-6-luna",
     );
   });
 

@@ -50,7 +50,7 @@ export const ONBOARDING_REVISION = 3;
 /** Model preference for AI-generated commit messages in the commit dialog. */
 export type CommitMessageModel =
   | "auto"
-  | "gpt-5.6-luna"
+  | "gpt-6-luna"
   | "grok-4.5"
   | "haiku";
 
@@ -62,12 +62,12 @@ export const COMMIT_MESSAGE_MODEL_OPTIONS: {
   {
     value: "auto",
     label: "Auto",
-    description: "GPT-5.6 Luna → Grok 4.5 → Claude Haiku",
+    description: "GPT-6 Luna Low → Grok 4.5 → Claude Haiku",
   },
   {
-    value: "gpt-5.6-luna",
-    label: "GPT-5.6 Luna",
-    description: "GPT-5.6 Luna via codex CLI",
+    value: "gpt-6-luna",
+    label: "GPT-6 Luna Low",
+    description: "GPT-6 Luna (low reasoning) via codex CLI",
   },
   {
     value: "grok-4.5",
@@ -81,12 +81,15 @@ export const COMMIT_MESSAGE_MODEL_OPTIONS: {
   },
 ];
 
+/** Saved commit model preferences that now map to GPT-6 Luna. */
+const LEGACY_COMMIT_MESSAGE_MODELS: ReadonlySet<string> = new Set(["gpt-5.3-codex-spark", "gpt-5.6-luna"]);
+
 /** Resolve the ordered provider/model candidates for commit message generation. */
 export function commitMessageCandidates(
   pref: CommitMessageModel | string | null | undefined,
 ): { provider: "codex" | "grok" | "claude"; model: string }[] {
   const all: { provider: "codex" | "grok" | "claude"; model: string }[] = [
-    { provider: "codex", model: "gpt-5.6-luna" },
+    { provider: "codex", model: "gpt-6-luna" },
     { provider: "grok", model: "grok-4.5" },
     { provider: "claude", model: "haiku" },
   ];
@@ -559,8 +562,8 @@ function loadSettings(): AppSettings {
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
-        commitMessageModel: (parsed as { commitMessageModel?: string }).commitMessageModel === "gpt-5.3-codex-spark"
-          ? "gpt-5.6-luna"
+        commitMessageModel: LEGACY_COMMIT_MESSAGE_MODELS.has((parsed as { commitMessageModel?: string }).commitMessageModel ?? "")
+          ? "gpt-6-luna"
           : parsed.commitMessageModel ?? DEFAULT_SETTINGS.commitMessageModel,
         uiFont,
         quickOpenAction,

@@ -1175,7 +1175,7 @@ function GeneralPage({
 
         <SettingsRow
           label="Commit message model"
-          description="AI used to draft commit subjects in the commit dialog. Auto tries GPT-5.6 Luna, then Grok 4.5, then Claude Haiku."
+          description="AI used to draft commit subjects in the commit dialog. Auto tries GPT-6 Luna Low, then Grok 4.5, then Claude Haiku."
           stacked
         >
           <div className="flex flex-wrap gap-1.5">
@@ -1183,7 +1183,7 @@ function GeneralPage({
               <SegButton
                 key={opt.value}
                 active={(settings.commitMessageModel ?? "auto") === opt.value}
-                color={opt.value === "gpt-5.6-luna" ? "emerald" : "indigo"}
+                color={opt.value === "gpt-6-luna" ? "emerald" : "indigo"}
                 onClick={() =>
                   updateSettings({ commitMessageModel: opt.value as CommitMessageModel })
                 }
