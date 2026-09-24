@@ -8,6 +8,17 @@ function resetTime(value: string | number | null): number | null {
   return Number.isFinite(time) && time > 0 ? time : null;
 }
 
+function resetCountdown(reset: number, now: number): string {
+  const mins = Math.floor((reset - now) / 60_000);
+  if (mins < 1) return "<1m";
+  if (mins < 60) return `in ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return mins % 60 === 0 ? `in ${hrs}h` : `in ${hrs}h ${mins % 60}m`;
+  return hrs % 24 === 0 ? `in ${Math.floor(hrs / 24)}d` : `in ${Math.floor(hrs / 24)}d ${hrs % 24}h`;
+}
+
+const EYEBROW = { fontSize: "var(--text-eyebrow)", letterSpacing: "var(--panel-eyebrow-tracking)" };
+
 interface Limit { key: string; label: string; remaining: number | null; reset: number | null }
 function limits(account: ProviderAccount): Limit[] {
   const windows = account.provider === "claude"
@@ -41,34 +52,34 @@ export function AccountUsageRows({ accounts, teams, stale = false }: {
       const hasReading = accountLimits.some(limit => limit.remaining !== null);
       const lastKnown = stale || !!account.error || account.lastCheckedAt === null || now - account.lastCheckedAt * 1000 > 5 * 60_000;
       const status = !account.enabled ? "Paused" : account.status === "needs_login" ? "Sign-in needed" : account.status === "exhausted" ? "Limit reached" : null;
-      return <article key={`${account.teamId || "personal"}:${account.id}`} aria-label={`${account.label} · ${scope}`} className="space-y-2 py-3 first:pt-0 last:pb-0">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+      return <article key={`${account.teamId || "personal"}:${account.id}`} aria-label={`${account.label} · ${scope}`} className="space-y-2.5 py-3 first:pt-0 last:pb-0">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <div className="min-w-0">
-            <span className="break-words text-xs font-medium text-[var(--text-secondary)]">{account.label}</span><span className="ml-2 text-[10px] text-[var(--text-muted)]">{scope}</span>
-            {account.email && account.email.trim().toLowerCase() !== account.label.trim().toLowerCase() && <p className="mt-1 break-words text-[11px] text-[var(--text-tertiary)]">{account.email}</p>}
+            <span className="break-words text-[12px] text-[var(--text-secondary)]">{account.label}</span><span className="ml-2 font-mono text-[10px] text-[var(--text-muted)]">{scope}</span>
+            {account.email && account.email.trim().toLowerCase() !== account.label.trim().toLowerCase() && <p className="mt-0.5 break-words font-mono text-[10.5px] text-[var(--text-muted)]">{account.email}</p>}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {account.currentLogin && <span className="rounded-md bg-[var(--accent-dim)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">Current login</span>}
-            {account.plan && <span className="rounded-md bg-[var(--surface-3)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]">{account.plan}</span>}
-            {status && <span className="text-[10px] text-[var(--text-tertiary)]">{status}</span>}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {account.currentLogin && <span className="app-chip px-2 py-[2px] text-[9.5px]" data-tone="accent">Current login</span>}
+            {(account.tier || account.plan) && <span className="app-chip px-2 py-[2px] text-[9.5px]">{account.tier || account.plan}</span>}
+            {status && <span className="font-mono text-[10px] text-[var(--text-muted)]">{status}</span>}
           </div>
         </div>
         {accountLimits.map(limit => {
           const expired = limit.reset !== null && limit.reset <= now;
           const remaining = account.status === "needs_login" || expired ? null : limit.remaining;
-          const reset = limit.reset === null || expired ? null : new Date(limit.reset).toLocaleString(undefined, { month:"short",day:"numeric",hour:"numeric",minute:"2-digit" });
-          return <div key={limit.key} className={lastKnown ? "opacity-65" : undefined}>
-            <div className="flex items-center justify-between gap-2 text-[11px]">
-              <span className="text-[var(--text-tertiary)]">{limit.label}</span>
-              <span className="tabular-nums text-[var(--text-secondary)]">{remaining === null ? expired ? "Awaiting refresh" : "Usage unavailable" : `${Math.round(remaining)}% left`}</span>
+          const reset = limit.reset === null || expired ? null : limit.reset;
+          return <div key={limit.key} className={lastKnown ? "opacity-60" : undefined}>
+            <div className="mb-1 flex items-baseline gap-2">
+              <span className="font-mono uppercase text-[var(--text-muted)]" style={EYEBROW}>{limit.label}</span>
+              <span className="font-mono text-[10.5px] tabular-nums text-[var(--text-secondary)]">{remaining === null ? expired ? "Awaiting refresh" : "Usage unavailable" : `${Math.round(remaining)}% left`}</span>
+              {reset !== null && <span className="ml-auto font-mono text-[10px] text-[var(--text-muted)]" title={new Date(reset).toLocaleString()}>resets {resetCountdown(reset, now)}</span>}
             </div>
-            {remaining !== null && <div role="progressbar" aria-label={`${account.label} ${scope} ${limit.label} remaining`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={remaining} className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--surface-3)]">
-              <div className="h-full rounded-full bg-[var(--accent)]" style={{width:`${remaining}%`}} />
+            {remaining !== null && <div role="progressbar" aria-label={`${account.label} ${scope} ${limit.label} remaining`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={remaining} className="glass-progress h-[6px] w-full">
+              <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 ease-out" style={{width:`${remaining}%`, background:"var(--status-blue)"}} />
             </div>}
-            {reset && <p className="mt-1 text-[10px] text-[var(--text-muted)]">Resets {reset}</p>}
           </div>;
         })}
-        {lastKnown && hasReading && <p className="text-[10px] text-[var(--text-muted)]" title={account.lastCheckedAt ? new Date(account.lastCheckedAt * 1000).toLocaleString() : undefined}>Last known usage</p>}
+        {lastKnown && hasReading && <p className="font-mono text-[10px] text-[var(--text-muted)]" title={account.lastCheckedAt ? new Date(account.lastCheckedAt * 1000).toLocaleString() : undefined}>Last known usage</p>}
       </article>;
     })}
   </div>;

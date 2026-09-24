@@ -75,6 +75,11 @@ describe("account usage limits", () => {
     expect(screen.getByText("75% left")).toBeTruthy(); expect(screen.getByText("20% left")).toBeTruthy();
     expect(screen.getAllByRole("progressbar")).toHaveLength(2);
   });
+  it("shows resets as a countdown like the provider bars", () => {
+    const resetsAt = String(Math.floor(Date.now() / 1000) + 2 * 86_400 + 3 * 3_600 + 30);
+    render(<AccountUsageRows accounts={[{...base,usage:{session:null,weekly:{utilization:40,resetsAt,windowMinutes:10080}}}]} teams={[]} />);
+    expect(screen.getByText("resets in 2d 3h")).toBeTruthy();
+  });
   it("does not invent empty windows or usage for unknown team limits", () => {
     render(<AccountUsageRows accounts={[{...base,teamId:"t",remainingPercent:null}]} teams={[]} />);
     expect(screen.getByText("Usage unavailable")).toBeTruthy();

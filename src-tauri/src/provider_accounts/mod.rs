@@ -8,6 +8,7 @@ mod profile;
 mod native;
 pub(crate) mod login;
 mod team;
+pub(crate) mod transfer;
 pub(crate) mod runtime;
 pub(crate) mod runtime_pty;
 
@@ -27,6 +28,9 @@ pub struct Account {
     pub email: Option<String>,
     #[serde(default)]
     pub plan: Option<String>,
+    /// Display-only tier (e.g. "Max 20x"). Routing compares `plan`, never this.
+    #[serde(default)]
+    pub tier: Option<String>,
     #[serde(default)]
     pub native: bool,
     #[serde(default)]
@@ -101,7 +105,7 @@ fn label(value: &str) -> Result<String, String> {
     Ok(value.to_string())
 }
 fn new_account(id: String, provider: String, name: String, team_id: Option<String>) -> Account {
-    Account { id, provider, label: name, email: None, plan: None, native: false, current_login: false, enabled: true, can_manage: true, priority: 0, team_id,
+    Account { id, provider, label: name, email: None, plan: None, tier: None, native: false, current_login: false, enabled: true, can_manage: true, priority: 0, team_id,
         status: "unknown".into(), remaining_percent: None, resets_at: None, usage: None, last_checked_at: None, error: None }
 }
 
@@ -345,7 +349,15 @@ async fn refresh_personal_account(id: &str) -> Result<(), String> {
     match result {
         Ok(usage) => {
             update_personal_usage(row, &usage, now());
+            // Keep Grok's last reported tier after its CLI log rotates.
+            if row.provider == "grok" { if let Some(tier) = profile::grok_tier(&home) { row.tier = Some(tier); } }
             storage::save(&store)
+        }
+        // A rate-limited check says nothing new; keep the last reading.
+        Err(error) if quota::is_rate_limited(&error) => {
+            row.error = Some(error.clone());
+            storage::save(&store)?;
+            Err(error)
         }
         Err(_) => {
             row.usage = None;
@@ -531,6 +543,7 @@ pub async fn provider_accounts_list() -> Result<AccountsView, String> {
     };
     let mut accounts = store.accounts;
     native::extend_accounts(&mut accounts).await;
+    transfer::attach_team_logins(&mut accounts, &mut shared, &store.team_links);
     accounts.append(&mut shared);
     Ok(AccountsView { accounts, teams, auto_switch: store.auto_switch, team_error })
 }
@@ -604,7 +617,8 @@ async fn refresh_team_account(team_id: &str, id: &str) -> Result<(), String> {
             Err(_) => (None, None),
         };
         team::renew(&lease, credentials, remaining, blocked_until).await?;
-        usage.map(|_| ()).map_err(|_| "Could not check this account's usage. Try again later.".to_string())
+        usage.map(|_| ()).map_err(|error| if quota::is_rate_limited(&error) { error }
+            else { "Could not check this account's usage. Try again later.".to_string() })
     }.await;
     if let Ok(home) = storage::home(&scratch) { let _ = std::fs::remove_dir_all(home); }
     let released = team::release(&lease).await;

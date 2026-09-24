@@ -187,7 +187,7 @@ impl AccountRow {
         } else if remaining.is_some() { "ready" } else { "unknown" };
 
         Ok(super::Account {
-            id: self.id, provider: self.provider, label: self.label, email: None, plan: None, native: false, current_login: false, enabled: self.enabled, can_manage: self.can_manage,
+            id: self.id, provider: self.provider, label: self.label, email: None, plan: None, tier: None, native: false, current_login: false, enabled: self.enabled, can_manage: self.can_manage,
             priority: 0, team_id: Some(team_id.into()), status: status.into(),
             // Show the last measurement with its age; status above still treats it as unknown.
             remaining_percent: remaining.or(if reset_passed { None } else { self.last_remaining_percent }),
@@ -221,11 +221,13 @@ pub async fn list() -> Result<(Vec<super::Account>, Vec<super::Team>), String> {
     Ok((accounts, teams))
 }
 
-pub async fn upload(team_id: &str, provider: &str, label: &str, credentials: Value) -> Result<(), String> {
+/// Returns the team account ID. The service reuses the existing row for the same login.
+pub async fn upload(team_id: &str, provider: &str, label: &str, credentials: Value) -> Result<String, String> {
     super::storage::valid_account_scope(provider, Some(team_id))?;
-    Api::load()?.request::<Value>(Method::POST, &["api", "teams", team_id, "provider-accounts"],
+    let created = Api::load()?.request::<Value>(Method::POST, &["api", "teams", team_id, "provider-accounts"],
         Some(json!({ "provider": provider, "label": label, "credentials": credentials }))).await?;
-    Ok(())
+    created.pointer("/account/id").and_then(Value::as_str).filter(|id| !id.is_empty())
+        .map(str::to_owned).ok_or_else(|| INVALID_RESPONSE.into())
 }
 
 pub async fn update(team_id: &str, id: &str, label: Option<String>, enabled: Option<bool>) -> Result<(), String> {

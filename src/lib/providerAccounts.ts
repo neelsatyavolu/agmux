@@ -16,6 +16,8 @@ export interface ProviderAccount {
   currentLogin?: boolean;
   email?: string | null;
   plan?: string | null;
+  /** Display-only subscription tier reported by the provider, e.g. "Max 20x". */
+  tier?: string | null;
   enabled: boolean;
   priority: number;
   teamId: string | null;
@@ -59,6 +61,7 @@ export const providerAccounts = {
   },
   update: (id: string, changes: Partial<Pick<ProviderAccount, "enabled" | "label" | "priority" | "teamId">>) => invoke<void>("provider_accounts_update", { id, ...changes }).then(changed),
   remove: (id: string, teamId: string | null) => invoke<void>("provider_accounts_remove", { id, teamId }).then(changed),
+  moveToTeam: (id: string, teamId: string) => invoke<void>("provider_accounts_move_to_team", { id, teamId }).then(changed),
   refresh: (id: string, teamId: string | null) => invoke<void>("provider_accounts_refresh", { id, teamId }),
   setAutoSwitch: (enabled: boolean) => invoke<void>("provider_accounts_set_auto_switch", { enabled }).then(changed),
 };

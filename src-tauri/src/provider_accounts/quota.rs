@@ -15,6 +15,15 @@ impl From<UsageData> for AccountUsage {
     fn from(usage: UsageData) -> Self { Self { usage, quota_complete: true, allowance_usable: false, plan: None } }
 }
 
+const RATE_LIMITED: &str = "is limiting usage checks right now. Try again in a few minutes.";
+/// Only for failures the provider itself reported as a rate limit.
+pub(super) fn rate_limited(provider: &str) -> String { format!("{provider} {RATE_LIMITED}") }
+pub(super) fn is_rate_limited(error: &str) -> bool { error.ends_with(RATE_LIMITED) }
+fn says_rate_limited(text: &str) -> bool {
+    let text = text.to_ascii_lowercase();
+    text.contains("429") || text.contains("rate limit") || text.contains("rate_limit") || text.contains("too many requests")
+}
+
 // Native quota refresh can rotate auth.json. Reconnect must hold this same lock.
 pub(super) fn credential_lock(home: &Path) -> std::sync::Arc<tokio::sync::Mutex<()>> {
     use std::sync::{Arc, Mutex, OnceLock, Weak};
@@ -124,7 +133,8 @@ pub async fn fetch(provider: &str, home: &Path) -> Result<AccountUsage, String> 
     if provider == "grok" {
         return tokio::time::timeout(std::time::Duration::from_secs(50), crate::commands::usage::fetch_grok_usage_at(home))
             .await.map_err(|_| "Account usage check timed out".to_string())?
-            .map(AccountUsage::from).map_err(|_| "Could not check Grok account usage".to_string());
+            .map(AccountUsage::from).map_err(|error| if error.starts_with("Rate limited") { rate_limited("Grok") }
+                else { "Could not check Grok account usage".to_string() });
     }
     let mut child = start_codex(home)?;
     let result = tokio::time::timeout(std::time::Duration::from_secs(25), async {
@@ -142,7 +152,10 @@ pub async fn fetch(provider: &str, home: &Path) -> Result<AccountUsage, String> 
             loop {
                 let value = read_message(&mut output).await?;
                 if value["id"].as_i64() != Some(id) { continue; }
-                if !value["error"].is_null() { return Err("Codex could not check this account. Try signing in again.".into()); }
+                if !value["error"].is_null() {
+                    if id == 3 && says_rate_limited(&value["error"].to_string()) { return Err(rate_limited("Codex")); }
+                    return Err("Codex could not check this account. Try signing in again.".into());
+                }
                 if id == 2 {
                     account_plan = value.pointer("/result/account/planType").and_then(Value::as_str).and_then(super::profile::plan_from_value);
                 }
@@ -211,6 +224,20 @@ pub fn summarize(account: &AccountUsage, now: i64) -> (Option<f64>, Option<i64>)
     }
     if unknown_window && remaining != Some(0.0) { return (None, None); }
     (remaining, if unknown_block_reset { None } else { blocked_reset.or(any_reset) })
+}
+
+#[cfg(test)]
+mod rate_limit_tests {
+    use super::*;
+    #[test]
+    fn only_provider_reported_limits_are_called_rate_limits() {
+        assert!(is_rate_limited(&rate_limited("Grok")));
+        assert!(!is_rate_limited("Could not check Grok account usage"));
+        for text in [r#"{"message":"unexpected status 429 Too Many Requests"}"#, "Rate limit reached", r#"{"type":"rate_limit_error"}"#] {
+            assert!(says_rate_limited(text), "{text}");
+        }
+        assert!(!says_rate_limited(r#"{"message":"unauthorized"}"#));
+    }
 }
 
 #[cfg(test)]

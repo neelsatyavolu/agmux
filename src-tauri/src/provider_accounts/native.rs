@@ -12,15 +12,23 @@ fn cache() -> &'static Mutex<HashMap<String, Account>> {
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+fn native_id(provider: &str, identity: &str) -> String { format!("native:{}:{:x}", provider, Sha256::digest(identity.as_bytes())) }
+
+/// The row ID a login would have as the current native login.
+pub(super) fn login_id(provider: &str, credentials: &serde_json::Value) -> Option<String> {
+    profile::identity(provider, credentials).map(|identity| native_id(provider, &identity))
+}
+
 fn from_credentials(provider: &str, credentials: &serde_json::Value, home: PathBuf) -> Option<NativeLogin> {
     storage::validate_credentials(provider, credentials).ok()?;
     let identity = profile::identity(provider, credentials)?;
-    let id = format!("native:{}:{:x}", provider, Sha256::digest(identity.as_bytes()));
+    let id = native_id(provider, &identity);
     let email = profile::email(provider, credentials);
     let label = email.clone().unwrap_or_else(|| if provider == "codex" { "Codex login" } else { "Grok login" }.into());
     let mut account = super::new_account(id, provider.into(), label, None);
     account.native = true; account.current_login = true; account.can_manage = false;
     account.email = email; account.plan = profile::plan(provider, credentials);
+    if provider == "grok" { account.tier = profile::grok_tier(&home); }
     Some(NativeLogin { identity, account, home })
 }
 fn discover_file(provider: &str) -> Option<NativeLogin> {
@@ -32,11 +40,11 @@ async fn discover(provider: &str) -> Option<NativeLogin> {
     if provider != "claude" { return discover_file(provider); }
     let home = storage::native_home(provider).ok()?;
     let metadata = super::claude::status(&home).await.ok()??;
-    let id = format!("native:claude:{:x}", Sha256::digest(metadata.identity.as_bytes()));
+    let id = native_id("claude", &metadata.identity);
     let label = metadata.email.clone().unwrap_or_else(|| "Claude login".into());
     let mut account = super::new_account(id, provider.into(), label, None);
     account.native = true; account.current_login = true; account.can_manage = false;
-    account.email = metadata.email; account.plan = metadata.plan;
+    account.email = metadata.email; account.plan = metadata.plan; account.tier = metadata.tier;
     Some(NativeLogin { identity: metadata.identity, account, home })
 }
 
@@ -75,6 +83,17 @@ pub(super) async fn current(provider: &str) -> Option<(super::AccountAssignment,
     Some((super::AccountAssignment { account_id: login.account.id, home: login.home, label: login.account.label }, plan))
 }
 
+/// Credentials of the current Codex/Grok login, only while it is still the row `id`.
+pub(super) fn current_credentials(id: &str) -> Result<(serde_json::Value, String), String> {
+    let provider = id.split(':').nth(1).ok_or("Invalid native login")?;
+    storage::valid_account_scope(provider, Some("team"))?;
+    let home = storage::native_home(provider)?;
+    let credentials = storage::read_json(&home.join("auth.json"))?;
+    let login = from_credentials(provider, &credentials, home).filter(|login| login.account.id == id)
+        .ok_or("Current login changed. Refresh accounts and try again.")?;
+    Ok((credentials, login.account.label))
+}
+
 pub(super) fn same_identity(provider: &str, credentials: &serde_json::Value) -> bool {
     discover_file(provider).is_some_and(|login| profile::identity(provider, credentials).as_deref() == Some(login.identity.as_str()))
 }
@@ -107,6 +126,7 @@ fn apply_cached(row: &mut Account, cached: &Account) {
     row.resets_at = cached.resets_at; row.usage = cached.usage.clone();
     row.last_checked_at = cached.last_checked_at; row.error = cached.error.clone();
     if cached.plan.is_some() { row.plan = cached.plan.clone(); }
+    if row.tier.is_none() { row.tier = cached.tier.clone(); }
 }
 
 fn merge_current(accounts: &mut Vec<Account>, current: NativeLogin, identities: &HashMap<String, String>, cached: Option<&Account>) {
@@ -115,6 +135,7 @@ fn merge_current(accounts: &mut Vec<Account>, current: NativeLogin, identities: 
         existing.current_login = true;
         if existing.email.is_none() { existing.email = current.account.email; }
         if existing.plan.is_none() { existing.plan = current.account.plan; }
+        if existing.tier.is_none() { existing.tier = current.account.tier; }
         return;
     }
     let mut row = current.account;
@@ -132,7 +153,7 @@ pub(super) async fn extend_accounts(accounts: &mut Vec<Account>) {
             if let Ok(home) = storage::home(&row.id) {
                 match super::claude::status(&home).await {
                     Ok(Some(metadata)) => {
-                        row.email = metadata.email; row.plan = metadata.plan;
+                        row.email = metadata.email; row.plan = metadata.plan; row.tier = metadata.tier;
                         identities.insert(row.id.clone(), metadata.identity);
                     },
                     Ok(None) => { row.status = "needs_login".into(); row.usage = None; row.remaining_percent = None; },
@@ -141,8 +162,9 @@ pub(super) async fn extend_accounts(accounts: &mut Vec<Account>) {
             }
             continue;
         }
-        let credentials = storage::home(&row.id).and_then(|home| storage::read_json(&home.join("auth.json")));
-        if let Ok(credentials) = credentials {
+        let Ok(home) = storage::home(&row.id) else { continue; };
+        if row.provider == "grok" { row.tier = profile::grok_tier(&home).or(row.tier.take()); }
+        if let Ok(credentials) = storage::read_json(&home.join("auth.json")) {
             row.email = profile::email(&row.provider, &credentials);
             if row.plan.is_none() { row.plan = profile::plan(&row.provider, &credentials); }
             if let Some(identity) = profile::identity(&row.provider, &credentials) { identities.insert(row.id.clone(), identity); }
@@ -176,6 +198,8 @@ pub(super) async fn refresh(id: &str) -> Result<(), String> {
     row.last_checked_at = Some(super::now());
     let error = match result {
         Ok(usage) => { super::update_personal_usage(&mut row, &usage, super::now()); None },
+        // A rate-limited check says nothing new; keep the last reading.
+        Err(error) if quota::is_rate_limited(&error) => { row.error = Some(error.clone()); Some(error) },
         Err(_) => {
             row.usage = None;
             if row.status != "exhausted" { row.remaining_percent = None; row.status = "unknown".into(); }

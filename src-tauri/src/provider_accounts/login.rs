@@ -49,7 +49,7 @@ async fn finish_claude(id: &str, name: &str) -> Result<(), String> {
         return Err("Close sessions using this Claude profile before reconnecting it".into());
     }
     let mut account = new_account(id.into(), "claude".into(), name.into(), None);
-    account.email = metadata.email; account.plan = metadata.plan;
+    account.email = metadata.email; account.plan = metadata.plan; account.tier = metadata.tier;
     if let Some(previous) = &previous {
         account.label = previous.label.clone(); account.priority = previous.priority; account.enabled = previous.enabled;
         store.accounts.retain(|account| account.id != previous.id);

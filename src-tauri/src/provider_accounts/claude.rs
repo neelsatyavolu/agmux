@@ -31,6 +31,8 @@ pub struct Metadata {
     pub identity: String,
     pub email: Option<String>,
     pub plan: Option<String>,
+    /// Display-only Max usage level; `plan` stays the compatibility floor.
+    pub tier: Option<String>,
 }
 
 /// A path identifies the current scope, but does NOT imply an environment
@@ -162,7 +164,19 @@ fn parse_metadata(status: &Value, config: &Value) -> Result<Option<Metadata>, St
     } else if let (Some(email), Some(org)) = (email, org) {
         format!("claude:email-org:{}", json!([email.to_ascii_lowercase(), org]))
     } else { return Err("Claude account identity unavailable".into()); };
-    Ok(Some(Metadata { identity, email: email.map(str::to_owned), plan: plan(subscription) }))
+    let plan = plan(subscription);
+    let tier = if verified_config && plan.as_deref() == Some("Max") {
+        text(&account["userRateLimitTier"]).or_else(|| text(&account["organizationRateLimitTier"])).and_then(max_tier)
+    } else { None };
+    Ok(Some(Metadata { identity, email: email.map(str::to_owned), plan, tier }))
+}
+
+/// Native rate-limit tiers look like `default_claude_max_20x`; unknown levels stay unknown.
+fn max_tier(value: &str) -> Option<String> {
+    let value = value.to_ascii_lowercase();
+    if value.ends_with("max_20x") { Some("Max 20x".into()) }
+    else if value.ends_with("max_5x") { Some("Max 5x".into()) }
+    else { None }
 }
 
 pub async fn status(home: &Path) -> Result<Option<Metadata>, String> {
@@ -254,11 +268,12 @@ async fn control_request<W: tokio::io::AsyncWrite + Unpin, R: tokio::io::AsyncBu
     Err("Claude control response exceeded its message limit".into())
 }
 
-async fn control_probe(home: &Path, models: bool) -> Result<Value, String> {
+async fn control_probe(home: &Path, models: bool, debug_log: Option<&Path>) -> Result<Value, String> {
     let mut command = command(home)?;
     command.args(["--print", "--verbose", "--input-format", "stream-json", "--output-format", "stream-json",
         "--no-session-persistence", "--strict-mcp-config", "--mcp-config", "{\"mcpServers\":{}}",
         "--tools", "", "--disable-slash-commands"]).stdin(Stdio::piped());
+    if let Some(path) = debug_log { command.arg("--debug-file").arg(path); }
     let mut child = command.spawn().map_err(|_| "Could not start Claude account probe")?;
     let result = tokio::time::timeout(Duration::from_secs(30), async {
         let mut input = child.stdin.take().ok_or("Missing Claude probe input")?;
@@ -287,9 +302,11 @@ fn window(value: &Value, minutes: i64) -> Option<UsageWindow> {
 
 fn parse_usage(value: &Value) -> Result<AccountUsage, String> {
     let plan = value["subscription_type"].as_str().and_then(plan);
-    if value["rate_limits_available"].as_bool() != Some(true) || !value["rate_limits"].is_object() {
+    if value["rate_limits_available"].as_bool() != Some(true) {
         return Err("Claude subscription usage is unavailable".into());
     }
+    // Claude answers null for any failed usage read, including a 429.
+    if !value["rate_limits"].is_object() { return Err(USAGE_EMPTY.into()); }
     let limits = &value["rate_limits"];
     let usage = UsageData {
         session: window(&limits["five_hour"], 300), weekly: window(&limits["seven_day"], 10080),
@@ -304,9 +321,37 @@ fn parse_usage(value: &Value) -> Result<AccountUsage, String> {
     Ok(AccountUsage { usage, quota_complete, plan, allowance_usable: false })
 }
 
+const USAGE_EMPTY: &str = "Claude did not return usage right now. Try again in a few minutes.";
+const DEBUG_LOG_LIMIT: u64 = 4 * 1024 * 1024;
+
+/// Claude's own debug log is the only place a rate-limited usage read is named.
+fn usage_failure(debug_log: &str) -> String {
+    let limited = debug_log.lines().any(|line| {
+        let line = line.to_ascii_lowercase();
+        line.contains("usage") && (line.contains("429") || line.contains("rate_limit_error") || line.contains("rate limited"))
+    });
+    if limited { super::quota::rate_limited("Claude") } else { USAGE_EMPTY.into() }
+}
+
+async fn usage_probe(home: &Path) -> Result<Value, String> {
+    use std::io::Read;
+    let root = super::storage::root()?;
+    super::storage::private_dir(&root)?;
+    let log = root.join(format!(".usage-probe-{}.log", uuid::Uuid::new_v4()));
+    let raw = control_probe(home, false, Some(&log)).await;
+    let mut text = String::new();
+    let read = std::fs::File::open(&log).and_then(|file| file.take(DEBUG_LOG_LIMIT).read_to_string(&mut text));
+    let _ = std::fs::remove_file(&log);
+    let value = raw?;
+    match parse_usage(&value) {
+        Err(error) if error == USAGE_EMPTY && read.is_ok() => Err(usage_failure(&text)),
+        _ => Ok(value),
+    }
+}
+
 pub async fn usage(home: &Path) -> Result<AccountUsage, String> {
     let before = status(home).await?.ok_or("Claude profile is signed out")?;
-    let result = parse_usage(&control_probe(home, false).await?)?;
+    let result = parse_usage(&usage_probe(home).await?)?;
     if status(home).await?.is_none_or(|after| after.identity != before.identity) {
         return Err("Claude login changed during usage check".into());
     }
@@ -329,7 +374,7 @@ pub async fn supports_model(home: &Path, model: Option<&str>, minimum_plan: Opti
     if model.is_none_or(|m| m.is_empty() || m.trim() != m || m == "default")
         || minimum_plan.and_then(plan).is_none() { return Ok(false); }
     let Some(before) = status(home).await? else { return Ok(false); };
-    let catalog = control_probe(home, true).await?;
+    let catalog = control_probe(home, true, None).await?;
     let after = status(home).await?.ok_or("Claude profile is signed out")?;
     if before.identity != after.identity { return Err("Claude login changed during model check".into()); }
     Ok(compatible(model, minimum_plan, after.plan.as_deref(), &catalog))
@@ -369,6 +414,25 @@ mod tests {
         assert_ne!(other_meta.identity, meta.identity);
         other.as_object_mut().unwrap().remove("orgId");
         assert!(parse_metadata(&other, &config).is_err());
+    }
+
+    #[test]
+    fn max_tier_comes_from_the_verified_profile_and_never_changes_the_plan() {
+        let status = native_status();
+        let config = |tier: Value| json!({"oauthAccount":{"accountUuid":"account-a","emailAddress":"user@example.test",
+            "organizationUuid":"org-a","organizationRateLimitTier":tier,"userRateLimitTier":null}});
+        for (raw, label) in [("default_claude_max_20x", Some("Max 20x")), ("default_claude_max_5x", Some("Max 5x")),
+            ("default_claude_future", None)] {
+            let meta = parse_metadata(&status, &config(json!(raw))).unwrap().unwrap();
+            assert_eq!(meta.tier.as_deref(), label);
+            assert_eq!(meta.plan.as_deref(), Some("Max"));
+        }
+        // A cached profile for another organization or a non-Max plan cannot supply a tier.
+        let mut other = config(json!("default_claude_max_20x"));
+        other["oauthAccount"]["organizationUuid"] = json!("org-b");
+        assert_eq!(parse_metadata(&status, &other).unwrap().unwrap().tier, None);
+        let mut pro = status.clone(); pro["subscriptionType"] = json!("pro");
+        assert_eq!(parse_metadata(&pro, &config(json!("default_claude_max_20x"))).unwrap().unwrap().tier, None);
     }
 
     #[test]
@@ -530,6 +594,20 @@ mod tests {
         value["rate_limits_available"] = json!(false);
         assert!(parse_usage(&value).is_err());
         assert!(parse_usage(&json!({})).is_err());
+        value["rate_limits_available"] = json!(true);
+        value["rate_limits"] = Value::Null;
+        assert_eq!(parse_usage(&value).err().as_deref(), Some(USAGE_EMPTY));
+    }
+
+    #[test]
+    fn empty_usage_is_called_rate_limited_only_when_claude_logged_a_limit() {
+        for log in ["[ERROR] Failed to load usage data: Request failed with status code 429",
+            "[DEBUG] Usage endpoint is rate limited. Please try again in a moment."] {
+            assert!(super::super::quota::is_rate_limited(&usage_failure(log)), "{log}");
+        }
+        for log in ["", "[ERROR] Failed to load usage data: getaddrinfo ENOTFOUND", "[DEBUG] request 429 for telemetry"] {
+            assert_eq!(usage_failure(log), USAGE_EMPTY, "{log}");
+        }
     }
 
     #[test]
@@ -567,13 +645,13 @@ mod tests {
         assert!(!uses_external_auth().await, "This check requires native Claude.ai subscription authentication");
         let before = status(&home).await.expect("Native Claude status failed").expect("Native Claude login required");
         let floor = before.plan.as_deref().expect("Known native Claude plan required");
-        let raw = control_probe(&home, false).await.expect("Native usage control probe failed");
+        let raw = control_probe(&home, false, None).await.expect("Native usage control probe failed");
         assert_eq!(raw["session"]["total_cost_usd"].as_f64(), Some(0.0));
         assert_eq!(raw["session"]["total_api_duration_ms"].as_u64(), Some(0));
         assert!(raw["session"]["model_usage"].as_object().is_some_and(|v| v.is_empty()));
         let usage = usage(&home).await.expect("Native Claude usage adapter failed");
         assert!(usage.usage.session.is_some() || usage.usage.weekly.is_some(), "Native quota windows required");
-        let catalog = control_probe(&home, true).await.expect("Native model catalog failed");
+        let catalog = control_probe(&home, true, None).await.expect("Native model catalog failed");
         let models = catalog["models"].as_array().expect("Native model rows required");
         let model = models.iter().find_map(|entry| text(&entry["resolvedModel"])
             .or_else(|| text(&entry["value"]).filter(|v| *v != "default"))).expect("Native model required");

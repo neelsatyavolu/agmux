@@ -1,5 +1,6 @@
 use base64::Engine;
 use serde_json::Value;
+use std::path::Path;
 
 pub(super) fn identity(provider: &str, value: &Value) -> Option<String> {
     if provider == "codex" {
@@ -75,10 +76,51 @@ pub(super) fn plan_from_value(value: &str) -> Option<String> {
     Some(label.into())
 }
 
+/// Grok's CLI records its own subscription tier (e.g. "SuperGrok Heavy") in its
+/// log when it checks billing. Only that field is read, from a bounded tail.
+pub(super) fn grok_tier(home: &Path) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = std::fs::File::open(home.join("logs").join("unified.jsonl")).ok()?;
+    let length = file.metadata().ok()?.len();
+    file.seek(SeekFrom::Start(length.saturating_sub(GROK_LOG_TAIL))).ok()?;
+    let mut tail = Vec::new();
+    file.take(GROK_LOG_TAIL).read_to_end(&mut tail).ok()?;
+    latest_grok_tier(&String::from_utf8_lossy(&tail))
+}
+const GROK_LOG_TAIL: u64 = 8 * 1024 * 1024;
+
+fn latest_grok_tier(log: &str) -> Option<String> {
+    // The newest report wins, even when it no longer names a tier.
+    let record = log.lines().rev().filter(|line| line.contains("\"subscriptionTier\""))
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .find(|record| record["ctx"].get("subscriptionTier").is_some())?;
+    let tier = nonempty(&record["ctx"]["subscriptionTier"])?;
+    (tier.chars().count() <= 64 && !tier.chars().any(char::is_control)).then(|| tier.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn grok_tier_is_the_latest_cli_reported_value() {
+        let billing = |tier: &str| json!({"msg":"billing: fetched credits config","ctx":{"config":{},"subscriptionTier":tier}}).to_string();
+        let log = [billing("SuperGrok"), "{\"msg\":\"other\"}".into(), "partial line".into(), billing("SuperGrok Heavy"),
+            json!({"msg":"x","ctx":{"subscriptionTier":"elsewhere"},"note":"not ctx"}).to_string().replace("\"ctx\"", "\"other\""),
+            "{\"subscriptionTier\": broken".into()].join("\n");
+        assert_eq!(latest_grok_tier(&log).as_deref(), Some("SuperGrok Heavy"));
+        let lapsed = format!("{log}\n{}", json!({"ctx":{"subscriptionTier":null}}));
+        assert_eq!(latest_grok_tier(&lapsed), None);
+        assert_eq!(latest_grok_tier(&billing("  ")), None);
+        assert_eq!(latest_grok_tier(&billing(&"x".repeat(65))), None);
+        assert_eq!(latest_grok_tier(""), None);
+        let home = tempfile::tempdir().unwrap();
+        assert_eq!(grok_tier(home.path()), None);
+        std::fs::create_dir(home.path().join("logs")).unwrap();
+        std::fs::write(home.path().join("logs").join("unified.jsonl"), log).unwrap();
+        assert_eq!(grok_tier(home.path()).as_deref(), Some("SuperGrok Heavy"));
+    }
 
     fn credentials(claims: Value) -> Value {
         let jwt = format!("e30.{}.sig", base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string()));

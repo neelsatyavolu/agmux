@@ -13,7 +13,13 @@ pub struct Store {
     pub observed_team_pools: Vec<String>,
     #[serde(default)]
     pub claude_identities: std::collections::HashMap<String, String>,
+    /// Current logins shared with a team show under that team, not Personal.
+    #[serde(default)]
+    pub team_links: Vec<TeamLink>,
 }
+/// Links a native login row ID (a hash of its identity, never credentials) to its team account.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TeamLink { pub native_id: String, pub team_id: String, pub account_id: String }
 fn default_auto() -> bool { true }
 
 pub fn root() -> Result<PathBuf, String> {
@@ -92,7 +98,7 @@ fn write_private(path: &Path, bytes: &[u8]) -> Result<(), String> {
 pub fn load() -> Result<Store, String> {
     let path = root()?.join("accounts.json");
     if !path.try_exists().map_err(|_| "Could not read Accounts settings")? {
-        return Ok(Store { auto_switch: true, accounts: Vec::new(), observed_team_pools: Vec::new(), claude_identities: std::collections::HashMap::new() });
+        return Ok(Store { auto_switch: true, accounts: Vec::new(), observed_team_pools: Vec::new(), claude_identities: std::collections::HashMap::new(), team_links: Vec::new() });
     }
     serde_json::from_value(read_json(&path)?).map_err(|_| "Accounts settings are invalid; saved accounts were preserved".into())
 }

@@ -802,6 +802,7 @@ pub fn run() {
             provider_accounts::provider_accounts_set_auto_switch,
             provider_accounts::provider_accounts_update,
             provider_accounts::provider_accounts_remove,
+            provider_accounts::transfer::provider_accounts_move_to_team,
             provider_accounts::provider_accounts_refresh,
             provider_accounts::login::provider_accounts_login_start,
             provider_accounts::login::provider_accounts_login_status,
