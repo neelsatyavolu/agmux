@@ -59,6 +59,23 @@ re-uploading an existing login keeps its team name (rename is PATCH); `POST …/
 `{"purpose":"cli"}` for a member's own CLI lease; renew accepts optional `usage`/`plan`. Desktops send
 `usage`/`plan` in a separate best-effort renew so an older server can never reject a credentials renewal.
 
+**Account activity (current production, 2026-09-24):** version `89f699da-6449-4f21-a761-cf1fbb073836`, the live
+`9728aa23` bundle patched (provider-accounts section only) and uploaded with `wrangler versions upload --no-bundle`
+from a release dir. Static assets are the production set reproduced byte for byte from git (25 files; 24 already on
+the asset store), with only `disclosure.js` changed. Runtime and all 18 bindings were verified identical, and the
+preview served all 25 files identically. Migration `015_provider_account_activity.sql` was applied first; D1
+bookmark before it: `0000433c-000003d2-000050f0-33471cef47b8015257b19b8da0990fee`. Roll back with
+`wrangler versions deploy 9728aa23-4c30-45fd-9e9a-3e83f0adb806@100%` and leave the tables; that restores the
+previous disclosure asset too. A live report/read/clear round trip passed. Behaviour:
+desktops `POST …/provider-accounts/activity` about once a minute with the logins their *running agmux sessions*
+use (`{provider, identityHash, sessions, label?}`; never activity outside agmux, never credentials). Rows expire
+after 180 s. `GET …/activity` returns per-login `activeUsers`/`sessions`/`self`; a Claude login's `label` (email)
+is returned only when the owner enabled `PATCH …/settings {claudeActivity}` and 2+ members are active on it.
+Turning it off deletes Claude rows. Pool list rows add `activeUsers` (reporting members plus a non-check lease
+holder), and allocation ranks by other members active on the same login first, then capacity. The disclosure
+gains one `SHARED`/`SHARED_SHORT` line in both copies, so the release uploads the reproduced production asset
+set with only `disclosure.js` changed.
+
 **Deployment compatibility boundary:** production intentionally retains the legacy
 policy implementation (`src/routes/policy.ts` from `acd290ea`) and its existing web
 assets. Migration 012 / the newer Restrictions behavior are **not deployed**.

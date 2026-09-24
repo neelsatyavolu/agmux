@@ -5,7 +5,7 @@ import { providerAccounts, type ProviderAccountsState, type ProviderAccount } fr
 import { useSettingsStore } from "../../../stores/settingsStore";
 
 vi.mock("../../../lib/providerAccounts", () => ({ providerAccounts: {
-  list: vi.fn(), loginStart: vi.fn(), loginStatus: vi.fn(), loginCancel: vi.fn(), importCurrent: vi.fn(), update: vi.fn(), remove: vi.fn(), moveToTeam: vi.fn(), use: vi.fn(), refresh: vi.fn(), setAutoSwitch: vi.fn(),
+  list: vi.fn(), loginStart: vi.fn(), loginStatus: vi.fn(), loginCancel: vi.fn(), importCurrent: vi.fn(), update: vi.fn(), remove: vi.fn(), moveToTeam: vi.fn(), use: vi.fn(), setClaudeActivity: vi.fn(), refresh: vi.fn(), setAutoSwitch: vi.fn(),
 } }));
 const account: ProviderAccount = { id: "one", provider: "codex", label: "My Codex", enabled: true, priority: 0, teamId: null, status: "ready", remainingPercent: null, resetsAt: null, lastCheckedAt: null, error: null };
 let state: ProviderAccountsState;
@@ -573,5 +573,45 @@ describe("AccountsSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByText("Account renamed.");
     expect(providerAccounts.update).toHaveBeenCalledExactlyOnceWith("one", { label: "Nenu Three", teamId: "t" });
+  });
+  it("shows how many people are active on shared logins, but not when it's only you", async () => {
+    state.teams = [{ id: "t", name: "Studio", role: "employee", canManage: true }];
+    state.accounts = [
+      { ...account, id: "solo", label: "Just me", activeUsers: 1 },
+      { ...account, id: "crowded", label: "Shared personal", activeUsers: 3 },
+      { ...account, id: "pool", teamId: "t", label: "Pool", activeUsers: 1 },
+      { ...account, id: "idle", teamId: "t", label: "Idle", activeUsers: 0 },
+    ];
+    render(<AccountsSection />);
+    await screen.findByText("Pool");
+    expect(within(screen.getByRole("article", { name: "Just me" })).queryByText(/active/)).toBeNull();
+    expect(within(screen.getByRole("article", { name: "Shared personal" })).getByText("· 3 people active")).toBeTruthy();
+    expect(within(screen.getByRole("article", { name: "Pool" })).getByText("· 1 person active")).toBeTruthy();
+    expect(within(screen.getByRole("article", { name: "Idle" })).queryByText(/active/)).toBeNull();
+  });
+  it("lets the owner turn on shared Claude account activity", async () => {
+    state.teams = [{ id: "t", name: "Studio", role: "owner", canManage: true, claudeActivity: false, sharedClaude: [] }];
+    render(<AccountsSection />);
+    const toggle = await screen.findByRole("switch", { name: "Shared Claude account activity for Studio" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    await ready();
+    fireEvent.click(toggle);
+    await screen.findByText("Shared Claude account activity is on.");
+    expect(providerAccounts.setClaudeActivity).toHaveBeenCalledExactlyOnceWith("t", true);
+  });
+  it("lists shared Claude accounts with how many people use them", async () => {
+    state.teams = [{ id: "t", name: "Studio", role: "employee", canManage: true, claudeActivity: true,
+      sharedClaude: [{ label: "shared@example.com", activeUsers: 3, self: true }] }];
+    render(<AccountsSection />);
+    const list = within(await screen.findByRole("list", { name: "Shared Claude accounts on Studio" }));
+    expect(list.getByText("shared@example.com")).toBeTruthy();
+    expect(list.getByText("3 people active · you’re one")).toBeTruthy();
+    expect(screen.queryByRole("switch", { name: /Shared Claude account activity/ })).toBeNull();
+  });
+  it("shows members nothing about Claude activity while the owner has it off", async () => {
+    state.teams = [{ id: "t", name: "Studio", role: "manager", canManage: true, claudeActivity: false, sharedClaude: [] }];
+    render(<AccountsSection />);
+    await screen.findByRole("region", { name: "Studio team" });
+    expect(screen.queryByText("Shared Claude accounts")).toBeNull();
   });
 });

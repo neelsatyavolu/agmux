@@ -249,6 +249,8 @@ pub fn run() {
                 // A CLI signed into a team account stays leased to this member while it
                 // uses it, with its refreshed tokens pushed back to the pool.
                 provider_accounts::cli::spawn_keeper();
+                // Which logins agmux sessions use (opaque hashes), so teams can see crowding.
+                provider_accounts::activity::spawn_reporter();
 
                 // Initialize hook system for Claude Code state tracking
                 let hook_script_path = hooks::ensure_hook_script()
@@ -808,6 +810,7 @@ pub fn run() {
             provider_accounts::provider_accounts_remove,
             provider_accounts::transfer::provider_accounts_move_to_team,
             provider_accounts::cli::provider_accounts_use,
+            provider_accounts::activity::provider_accounts_set_claude_activity,
             provider_accounts::provider_accounts_refresh,
             provider_accounts::login::provider_accounts_login_start,
             provider_accounts::login::provider_accounts_login_status,

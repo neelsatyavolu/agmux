@@ -17,6 +17,9 @@ interface AccountRow {
 }
 /** Lease held so a member's own CLI can use this account; renewed by that desktop. */
 const CLI_SESSION = "native-cli";
+/** A member counts as active on an account while their desktop keeps reporting it. */
+const ACTIVE_TTL = 180;
+const HASH = /^[a-f0-9]{64}$/;
 const USAGE_WINDOWS = ["session", "weekly", "sonnet", "opus", "design", "routines"];
 const TTL = 300;
 const HEALTH_TTL = 300;
@@ -132,7 +135,7 @@ async function decrypt(key: CryptoKey, row: AccountRow): Promise<unknown> {
     return JSON.parse(new TextDecoder().decode(plain));
   } catch { throw unavailable(); }
 }
-function metadata(row: AccountRow, ctx: TeamContext) {
+function metadata(row: AccountRow, ctx: TeamContext, active?: Map<string, Set<string>>) {
   // A reported reset passing means capacity is unknown, not 100%. Keep raw health in storage.
   const resetPassed = row.blocked_until !== null && row.blocked_until <= now();
   const staleHeadroom = row.remaining_percent !== null && row.remaining_percent > 0
@@ -155,7 +158,29 @@ function metadata(row: AccountRow, ctx: TeamContext) {
     } : null,
     plan: row.plan ?? null,
     usage: resetPassed ? null : parseUsage(row.usage_json),
+    ...(active ? { activeUsers: activeUsers(row, active) } : {}),
   };
+}
+/** Distinct members running agmux sessions on this login now, plus whoever holds its lease. */
+function activeUsers(row: AccountRow, active: Map<string, Set<string>>): number {
+  const users = new Set(active.get(`${row.provider}:${row.identity_hash}`) ?? []);
+  const leased = row.lease_expires_at && row.lease_expires_at > now() && row.lease_session_id !== "usage-check";
+  if (leased && row.lease_user_id) users.add(row.lease_user_id);
+  return users.size;
+}
+async function recentActivity(env: Env, team: string) {
+  const rows = await env.DB.prepare(`SELECT provider,identity_hash,user_id,label,sessions FROM provider_account_activity
+    WHERE team_id=? AND reported_at>?`).bind(team, now() - ACTIVE_TTL).all<{ provider: string; identity_hash: string; user_id: string; label: string | null; sessions: number }>();
+  const users = new Map<string, Set<string>>();
+  for (const row of rows.results) {
+    const key = `${row.provider}:${row.identity_hash}`;
+    users.set(key, (users.get(key) ?? new Set()).add(row.user_id));
+  }
+  return { rows: rows.results, users };
+}
+async function claudeActivityOn(env: Env, team: string): Promise<boolean> {
+  const row = await env.DB.prepare("SELECT claude_activity FROM provider_account_settings WHERE team_id=?").bind(team).first<{ claude_activity: number }>();
+  return row?.claude_activity === 1;
 }
 function parseUsage(raw: string | null | undefined): Record<string, unknown> | null {
   if (!raw) return null;
@@ -175,6 +200,9 @@ function usageInput(value: unknown): string | null {
   return Object.keys(windows).length ? JSON.stringify(windows) : null;
 }
 const META_COLUMNS = "id,team_id,provider,label,created_by,scope_kind,enabled,created_at,updated_at,last_used_at,blocked_until,remaining_percent,health_reported_at,lease_expires_at,identity_hash,lease_user_id,lease_session_id,usage_json,plan";
+// Other members' agmux sessions on the same login (e.g. their CLI signed into it): fewest first.
+const OTHERS_ACTIVE = `(SELECT COUNT(DISTINCT a.user_id) FROM provider_account_activity a WHERE a.team_id=provider_accounts.team_id
+  AND a.provider=provider_accounts.provider AND a.identity_hash=provider_accounts.identity_hash AND a.reported_at>? AND a.user_id<>?)`;
 const LEASE_USER_NAME = "(SELECT display_name FROM users WHERE users.id=provider_accounts.lease_user_id) AS lease_user_name";
 
 // All predicates are evaluated at the write, including live membership and creator role.
@@ -216,7 +244,34 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
   const leaseMatch = /^\/leases\/([^/]+)(\/renew)?$/.exec(suffix);
   const allocating = suffix === "/allocate" && req.method === "POST";
   const checkMatch = req.method === "POST" ? /^\/([^/]+)\/check$/.exec(suffix) : null;
-  if (allocating || leaseMatch || checkMatch) {
+  const reporting = suffix === "/activity" && req.method === "POST";
+  if (suffix === "/settings" && req.method === "PATCH") {
+    if (ctx.staffPreview || ctx.role !== "owner") throw forbidden("Only the team owner can change this.");
+    const input = await body(req, ["claudeActivity"]);
+    if (typeof input.claudeActivity !== "boolean") throw badRequest("claudeActivity must be boolean.");
+    await env.DB.prepare(`INSERT INTO provider_account_settings (team_id,claude_activity,updated_at,updated_by) VALUES (?,?,?,?)
+      ON CONFLICT(team_id) DO UPDATE SET claude_activity=excluded.claude_activity,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
+      .bind(team, input.claudeActivity ? 1 : 0, now(), user).run();
+    if (!input.claudeActivity) await env.DB.prepare("DELETE FROM provider_account_activity WHERE team_id=? AND provider='claude'").bind(team).run();
+    return response({ claudeActivity: input.claudeActivity });
+  }
+  if (suffix === "/activity" && req.method === "GET") {
+    // Counts for every member; a Claude account is named only once 2+ members share it.
+    const [{ rows }, claude] = await Promise.all([recentActivity(env, team), claudeActivityOn(env, team)]);
+    const grouped = new Map<string, { provider: string; identityHash: string; users: Set<string>; sessions: number; label: string | null }>();
+    for (const row of rows) {
+      if (row.provider === "claude" && !claude) continue;
+      const key = `${row.provider}:${row.identity_hash}`;
+      const entry = grouped.get(key) ?? { provider: row.provider, identityHash: row.identity_hash, users: new Set(), sessions: 0, label: null };
+      entry.users.add(row.user_id); entry.sessions += row.sessions; entry.label ??= row.label;
+      grouped.set(key, entry);
+    }
+    return response({ claudeActivity: claude, accounts: [...grouped.values()].map(entry => ({
+      provider: entry.provider, identityHash: entry.identityHash, activeUsers: entry.users.size, sessions: entry.sessions,
+      self: entry.users.has(user), label: entry.provider === "claude" && entry.users.size >= 2 ? entry.label : null,
+    })) });
+  }
+  if (allocating || leaseMatch || checkMatch || reporting) {
     if (ctx.staffPreview || principal.via !== "device" || !principal.deviceId) throw forbidden("A member's desktop device token is required.");
   } else if (req.method !== "GET" && (ctx.staffPreview || ctx.role === "employee")) {
     throw forbidden("Only owners and account-creating managers can manage provider accounts.");
@@ -226,7 +281,32 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
     const filter = ctx.staffPreview || ctx.role === "owner" ? "" : ctx.role === "manager" ? ` AND (${ELIGIBLE} OR created_by=?)` : ` AND ${ELIGIBLE}`;
     const args = ctx.staffPreview || ctx.role === "owner" ? [] : [...eligibleArgs(user), ...(ctx.role === "manager" ? [user] : [])];
     const rows = await env.DB.prepare(`SELECT ${META_COLUMNS},${LEASE_USER_NAME} FROM provider_accounts WHERE team_id=?${filter} ORDER BY created_at,id`).bind(team, ...args).all<AccountRow>();
-    return response({ accounts: rows.results.map(row => metadata(row, ctx)) });
+    const { users } = await recentActivity(env, team);
+    return response({ accounts: rows.results.map(row => metadata(row, ctx, users)) });
+  }
+  if (reporting) {
+    // Replaces this device's set: which logins its running agmux sessions use right now.
+    // Opaque identity hashes and counts only; Claude only when the owner turned it on.
+    const input = await body(req, ["accounts"]);
+    if (!Array.isArray(input.accounts) || input.accounts.length > 20) throw badRequest("accounts must list at most 20 logins.");
+    const claude = await claudeActivityOn(env, team), time = now();
+    const entries = new Map<string, { provider: string; hash: string; sessions: number; label: string | null }>();
+    for (const item of input.accounts) {
+      if (!object(item)) throw badRequest("Each account must be an object.");
+      const p = item.provider, hash = item.identityHash, sessions = item.sessions, label = item.label;
+      if ((p !== "claude" && p !== "codex" && p !== "grok") || typeof hash !== "string" || !HASH.test(hash)) throw badRequest("Each account needs a provider and identity hash.");
+      if (typeof sessions !== "number" || !Number.isSafeInteger(sessions) || sessions < 1 || sessions > 100) throw badRequest("sessions must be between 1 and 100.");
+      if (label !== undefined && label !== null && (typeof label !== "string" || label.length > 120 || /[\u0000-\u001f\u007f]/.test(label))) throw badRequest("label must be a short string.");
+      if (p === "claude" && !claude) continue;
+      entries.set(`${p}:${hash}`, { provider: p, hash, sessions, label: p === "claude" && typeof label === "string" && label.trim() ? label.trim() : null });
+    }
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM provider_account_activity WHERE team_id=? AND device_id=?").bind(team, principal.deviceId),
+      ...[...entries.values()].map(e => env.DB.prepare(`INSERT INTO provider_account_activity
+        (team_id,user_id,device_id,provider,identity_hash,label,sessions,reported_at) VALUES (?,?,?,?,?,?,?,?)`)
+        .bind(team, user, principal.deviceId, e.provider, e.hash, e.label, e.sessions, time)),
+    ]);
+    return response({ claudeActivity: claude, reported: entries.size });
   }
   if (!suffix && req.method === "POST") {
     const input = await body(req, ["provider", "label", "credentials"]);
@@ -276,10 +356,10 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
         AND (lease_expires_at IS NULL OR lease_expires_at<=?)
         AND (blocked_until IS NULL OR blocked_until<=?) AND (${capacity} IS NULL OR ${capacity}>0)
         AND ${ELIGIBLE} ${exclude.length ? `AND id NOT IN (${exclude.map(() => "?").join(",")})` : ""}
-        ORDER BY (${capacity} IS NULL), ${capacity} DESC, COALESCE(last_used_at,0),id LIMIT 1
+        ORDER BY ${OTHERS_ACTIVE}, (${capacity} IS NULL), ${capacity} DESC, COALESCE(last_used_at,0),id LIMIT 1
       ) RETURNING *`).bind(lease, user, principal.deviceId, session, time + TTL, time,
         team, p, time, time, time, time - HEALTH_TTL, time, time - HEALTH_TTL,
-        ...eligibleArgs(user), ...exclude, time, time - HEALTH_TTL, time, time - HEALTH_TTL).first<AccountRow>();
+        ...eligibleArgs(user), ...exclude, time - ACTIVE_TTL, user, time, time - HEALTH_TTL, time, time - HEALTH_TTL).first<AccountRow>();
     if (!row) throw new HttpError(409, "No provider account is currently available.", "no_provider_account_available");
     let credentials: unknown;
     try { credentials = await decrypt(key, row); }

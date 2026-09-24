@@ -6,6 +6,7 @@ import { checkAccountUsage, personalUsageDue } from "../../hooks/useAccountUsage
 import { AccountRow, type RowPanel } from "./accounts/AccountRow";
 import { AddAccountForm, providerNames } from "./accounts/AddAccountForm";
 import { AccountGroup, AccountList } from "./accounts/AccountGroup";
+import { SharedClaude } from "./accounts/SharedClaude";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { button } from "./accounts/styles";
 
@@ -247,6 +248,8 @@ export function AccountsSection() {
             hint={`Shared with everyone on ${name}. Nobody needs to sign in to use them.`}
             addLabel={manage && formFor !== teamId ? "Add team account" : null} onAdd={() => startAdding(teamId)}>
             {manage && formFor === teamId && form(manage)}
+            {team && <SharedClaude team={team} locked={locked} onToggle={enabled => void run(() => providerAccounts.setClaudeActivity(teamId, enabled),
+              enabled ? "Shared Claude account activity is on." : "Shared Claude account activity is off.")} />}
             {rows.length > 0 ? <AccountList>{rows.map(row)}</AccountList>
               : !team?.error && <p className="text-xs text-[var(--text-tertiary)]">{manage ? `No team accounts yet. Add one and everyone on ${name} can use it.` : "No team accounts yet."}</p>}
           </AccountGroup>;

@@ -101,7 +101,8 @@ impl Api {
             if t.id.is_empty() || !matches!(t.role.as_str(), "owner" | "manager" | "employee") {
                 return Err(INVALID_RESPONSE.into());
             }
-            Ok(super::Team { id: t.id, name: t.name, can_manage: matches!(t.role.as_str(), "owner" | "manager"), role: t.role, error: None })
+            Ok(super::Team { id: t.id, name: t.name, can_manage: matches!(t.role.as_str(), "owner" | "manager"), role: t.role, error: None,
+                claude_activity: false, shared_claude: Vec::new() })
         }).collect()
     }
 }
@@ -176,6 +177,8 @@ struct AccountRow {
     usage: Option<Value>,
     #[serde(default)]
     plan: Option<String>,
+    #[serde(default)]
+    active_users: Option<u32>,
 }
 
 fn display_text(value: Option<String>, max: usize) -> Option<String> {
@@ -221,7 +224,7 @@ impl AccountRow {
             resets_at: self.blocked_until,
             usage,
             last_checked_at: self.health_reported_at, error: None,
-            in_use, identity_hash,
+            in_use, identity_hash, active_users: self.active_users.filter(|n| *n <= 10_000),
         })
     }
 }
@@ -229,6 +232,11 @@ impl AccountRow {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AccountList { accounts: Vec<AccountRow> }
+
+/// This member's teams, without loading any account lists.
+pub async fn teams() -> Result<Vec<super::Team>, String> {
+    match Api::optional()? { Some(api) => api.memberships().await, None => Ok(Vec::new()) }
+}
 
 pub async fn list() -> Result<(Vec<super::Account>, Vec<super::Team>), String> {
     let Some(api) = Api::optional()? else { return Ok((Vec::new(), Vec::new())); };
@@ -256,6 +264,49 @@ pub async fn upload(team_id: &str, provider: &str, label: &str, credentials: Val
         Some(json!({ "provider": provider, "label": label, "credentials": credentials }))).await?;
     created.pointer("/account/id").and_then(Value::as_str).filter(|id| !id.is_empty())
         .map(str::to_owned).ok_or_else(|| INVALID_RESPONSE.into())
+}
+
+/// One login members are running agmux sessions on, as the team sees it.
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveLogin {
+    pub provider: String,
+    pub identity_hash: String,
+    pub active_users: u32,
+    #[serde(rename = "self", default)]
+    pub mine: bool,
+    #[serde(default)]
+    pub label: Option<String>,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Activity { pub claude_activity: bool, pub accounts: Vec<ActiveLogin> }
+
+/// Older servers have no activity route; that reads as "nothing reported".
+pub async fn activity(team_id: &str) -> Result<Activity, String> {
+    let (status, bytes) = Api::load()?.send(Method::GET, &["api", "teams", team_id, "provider-accounts", "activity"], None).await?;
+    if matches!(status.as_u16(), 404 | 405) { return Ok(Activity { claude_activity: false, accounts: Vec::new() }); }
+    if !status.is_success() { return Err(status_error(status)); }
+    let mut data: Activity = decode(&bytes)?;
+    data.accounts.retain(|a| a.identity_hash.len() == 64 && matches!(a.provider.as_str(), "claude" | "codex" | "grok"));
+    for login in &mut data.accounts { login.label = display_text(login.label.take(), 120); }
+    Ok(data)
+}
+
+/// Replaces this device's report; returns whether the team wants Claude logins reported.
+pub async fn report_activity(team_id: &str, accounts: Value) -> Result<bool, String> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Reported { claude_activity: bool }
+    let reported: Reported = Api::load()?.request(Method::POST, &["api", "teams", team_id, "provider-accounts", "activity"],
+        Some(json!({ "accounts": accounts }))).await?;
+    Ok(reported.claude_activity)
+}
+
+pub async fn set_claude_activity(team_id: &str, enabled: bool) -> Result<(), String> {
+    Api::load()?.request::<Value>(Method::PATCH, &["api", "teams", team_id, "provider-accounts", "settings"],
+        Some(json!({ "claudeActivity": enabled }))).await?;
+    Ok(())
 }
 
 pub async fn update(team_id: &str, id: &str, label: Option<String>, enabled: Option<bool>) -> Result<(), String> {

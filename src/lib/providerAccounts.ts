@@ -25,6 +25,8 @@ export interface ProviderAccount {
   status: "ready" | "signing_in" | "needs_login" | "exhausted" | "in_use" | "unknown";
   /** Team accounts: who has it checked out right now. */
   inUse?: { self: boolean; by: string | null; kind: "session" | "cli" | "check" } | null;
+  /** Team members running agmux sessions on this login right now (you included). */
+  activeUsers?: number | null;
   remainingPercent: number | null;
   resetsAt: number | null;
   lastCheckedAt: number | null;
@@ -37,6 +39,10 @@ export interface AccountTeam {
   role: "owner" | "manager" | "employee";
   canManage: boolean;
   error?: string | null;
+  /** Owner setting: show how many members use each Claude account. */
+  claudeActivity?: boolean;
+  /** Claude accounts 2+ members are active on right now. */
+  sharedClaude?: { label: string; activeUsers: number; self: boolean }[];
 }
 export interface ProviderAccountsState {
   accounts: ProviderAccount[];
@@ -67,5 +73,6 @@ export const providerAccounts = {
   use: (id: string, teamId: string | null) => invoke<void>("provider_accounts_use", { id, teamId }).then(changed),
   moveToTeam: (id: string, teamId: string) => invoke<void>("provider_accounts_move_to_team", { id, teamId }).then(changed),
   refresh: (id: string, teamId: string | null) => invoke<void>("provider_accounts_refresh", { id, teamId }),
+  setClaudeActivity: (teamId: string, enabled: boolean) => invoke<void>("provider_accounts_set_claude_activity", { teamId, enabled }).then(changed),
   setAutoSwitch: (enabled: boolean) => invoke<void>("provider_accounts_set_auto_switch", { enabled }).then(changed),
 };

@@ -77,6 +77,9 @@ describe("provider accounts backward compatibility", () => {
   it("adds only its table/index to the HEAD schema and preserves all existing rows and definitions", async () => {
     const { env, desktop } = await fixture();
     await env.DB.prepare("DROP TABLE provider_accounts").run();
+    // Later additive provider-account tables (migration 015) are not part of this comparison.
+    await env.DB.prepare("DROP TABLE provider_account_activity").run();
+    await env.DB.prepare("DROP TABLE provider_account_settings").run();
     // Compare against the actual pre-feature schema, not a slice of the new schema.
     const head = new DatabaseSync(":memory:");
     try {

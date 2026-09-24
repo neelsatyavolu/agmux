@@ -46,6 +46,7 @@ async fn discover(provider: &str) -> Option<NativeLogin> {
     let mut account = super::new_account(id, provider.into(), label, None);
     account.native = true; account.current_login = true; account.can_manage = false;
     account.email = metadata.email; account.plan = metadata.plan; account.tier = metadata.tier;
+    account.identity_hash = Some(super::activity::claude_hash(&metadata.identity));
     Some(NativeLogin { identity: metadata.identity, account, home })
 }
 
@@ -155,6 +156,7 @@ pub(super) async fn extend_accounts(accounts: &mut Vec<Account>) {
                 match super::claude::status(&home).await {
                     Ok(Some(metadata)) => {
                         row.email = metadata.email; row.plan = metadata.plan; row.tier = metadata.tier;
+                        row.identity_hash = Some(super::activity::claude_hash(&metadata.identity));
                         identities.insert(row.id.clone(), metadata.identity);
                     },
                     Ok(None) => { row.status = "needs_login".into(); row.usage = None; row.remaining_percent = None; },

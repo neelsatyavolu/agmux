@@ -10,11 +10,12 @@ pub(crate) mod login;
 mod team;
 pub(crate) mod transfer;
 pub(crate) mod cli;
+pub(crate) mod activity;
 pub(crate) mod runtime;
 pub(crate) mod runtime_pty;
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
@@ -54,7 +55,13 @@ pub struct Account {
     /// Pool identity hash (sha256 of provider + native identity). Matching only; never sent to the UI.
     #[serde(skip)]
     pub identity_hash: Option<String>,
+    /// Team members running agmux sessions on this login right now (you included).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_users: Option<u32>,
 }
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedLogin { pub label: String, pub active_users: u32, #[serde(rename = "self")] pub mine: bool }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InUse {
@@ -68,6 +75,10 @@ pub struct InUse {
 #[serde(rename_all = "camelCase")]
 pub struct Team {
     pub id: String, pub name: String, pub role: String, pub can_manage: bool, pub error: Option<String>,
+    /// Owner setting: members' desktops report which Claude account their agmux sessions use.
+    pub claude_activity: bool,
+    /// Claude accounts 2+ members are active on right now (named only then).
+    pub shared_claude: Vec<SharedLogin>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -123,7 +134,7 @@ fn label(value: &str) -> Result<String, String> {
 fn new_account(id: String, provider: String, name: String, team_id: Option<String>) -> Account {
     Account { id, provider, label: name, email: None, plan: None, tier: None, native: false, current_login: false, enabled: true, can_manage: true, priority: 0, team_id,
         status: "unknown".into(), remaining_percent: None, resets_at: None, usage: None, last_checked_at: None, error: None,
-        in_use: None, identity_hash: None }
+        in_use: None, identity_hash: None, active_users: None }
 }
 
 fn team_block_until(remaining: Option<f64>, reset: Option<i64>) -> Option<i64> {
@@ -221,7 +232,15 @@ pub async fn acquire(provider: &str, session_key: &str) -> Result<Option<Account
     for id in ids { let _ = refresh_personal_account(&id).await; }
     let store = { let _lock = store_lock().lock().await; storage::load()? };
     let rows: Vec<_> = store.accounts.iter().filter(|a| a.provider == provider).collect();
+    let mut others = HashMap::new();
+    for row in &rows {
+        let Ok(home) = storage::home(&row.id) else { continue; };
+        if let Some(hash) = activity::login_hash(provider, &row.id, &home).await {
+            others.insert(row.id.clone(), activity::others_active(provider, &hash).await);
+        }
+    }
     let mut candidates: Vec<_> = rows.iter().map(|a| selection::Candidate {
+        others: others.get(&a.id).copied().unwrap_or(0),
         id: &a.id, enabled: a.enabled && !route.excluded.contains(&a.id) && !route.model_excluded.contains_key(&a.id)
             && !(provider == "claude" && claude_model_exhaustion(a, route.model.as_deref(), now()).is_some()), needs_login: a.status == "needs_login",
         priority: a.priority, remaining: a.remaining_percent,
@@ -558,12 +577,31 @@ pub async fn release(session_key: &str) -> Result<(), String> {
 #[tauri::command]
 pub async fn provider_accounts_list() -> Result<AccountsView, String> {
     let store = { let _lock = store_lock().lock().await; storage::load()? };
-    let (mut shared, teams, team_error) = match team::list().await {
+    let (mut shared, mut teams, team_error) = match team::list().await {
         Ok((accounts, teams)) => (accounts, teams, None),
         Err(error) => (Vec::new(), Vec::new(), Some(error)),
     };
     let mut accounts = store.accounts;
     native::extend_accounts(&mut accounts).await;
+    // How many members' agmux sessions are on each of your logins, and shared Claude accounts.
+    let mut active: HashMap<String, u32> = HashMap::new();
+    for team in teams.iter_mut().filter(|t| t.error.is_none()) {
+        let Ok(view) = team::activity(&team.id).await else { continue; };
+        team.claude_activity = view.claude_activity;
+        for login in view.accounts {
+            if login.provider == "claude" {
+                if let Some(label) = login.label.clone().filter(|_| login.active_users >= 2) {
+                    team.shared_claude.push(SharedLogin { label, active_users: login.active_users, mine: login.mine });
+                }
+            }
+            let key = format!("{}:{}", login.provider, login.identity_hash);
+            active.entry(key).and_modify(|n| *n = (*n).max(login.active_users)).or_insert(login.active_users);
+        }
+        team.shared_claude.sort_by(|a, b| b.active_users.cmp(&a.active_users).then_with(|| a.label.cmp(&b.label)));
+    }
+    for row in &mut accounts {
+        if let Some(hash) = &row.identity_hash { row.active_users = active.get(&format!("{}:{hash}", row.provider)).copied(); }
+    }
     transfer::attach_team_logins(&mut accounts, &mut shared, &store.team_links);
     accounts.append(&mut shared);
     Ok(AccountsView { accounts, teams, auto_switch: store.auto_switch, team_error })

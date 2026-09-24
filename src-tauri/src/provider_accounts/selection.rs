@@ -8,6 +8,8 @@ pub struct Candidate<'a> {
     pub remaining: Option<f64>,
     pub blocked_until: Option<i64>,
     pub active: usize,
+    /// Teammates running agmux sessions on the same login; a crowded account drains faster.
+    pub others: u32,
 }
 
 /// A connected native login remains primary unless its quota is confirmed exhausted.
@@ -18,6 +20,7 @@ pub fn choose<'a>(accounts: &'a [Candidate<'a>], now: i64) -> Option<&'a str> {
         && !a.blocked_until.is_some_and(|until| until > now)
         && !(a.remaining == Some(0.0) && !a.blocked_until.is_some_and(|until| until <= now)))
         .min_by(|a, b| a.priority.cmp(&b.priority)
+            .then_with(|| a.others.cmp(&b.others))
             .then_with(|| b.remaining.unwrap_or(-1.0).total_cmp(&a.remaining.unwrap_or(-1.0)))
             .then_with(|| a.active.cmp(&b.active))
             .then_with(|| a.id.cmp(b.id)))
@@ -29,7 +32,7 @@ mod tests {
     use super::*;
     fn account(id: &str) -> Candidate<'_> {
         Candidate { id, enabled: true, needs_login: false, priority: 0,
-            remaining: None, blocked_until: None, active: 0 }
+            remaining: None, blocked_until: None, active: 0, others: 0 }
     }
     #[test]
     fn adding_an_account_cannot_displace_a_healthy_or_unknown_native_login() {
@@ -58,6 +61,17 @@ mod tests {
         rows[0].remaining = Some(80.0);
         rows[0].active = 1;
         assert_eq!(choose(&rows, 100), Some("b"));
+    }
+    #[test]
+    fn prefers_a_login_fewer_teammates_are_using_over_more_headroom() {
+        let mut rows = vec![account("crowded"), account("quiet")];
+        rows[0].remaining = Some(90.0);
+        rows[0].others = 2;
+        rows[1].remaining = Some(40.0);
+        assert_eq!(choose(&rows, 100), Some("quiet"));
+        // Your own priority still comes first.
+        rows[0].priority = -1;
+        assert_eq!(choose(&rows, 100), Some("crowded"));
     }
     #[test]
     fn exhausted_unknown_reset_requires_recheck() {

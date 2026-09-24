@@ -34,14 +34,16 @@ async function fixture() {
 describe("provider account pool", () => {
   it("applies the additive migration to an existing database and matches the fresh schema", () => {
     const schema = readFileSync(new URL("../schema.sql", import.meta.url), "utf8");
-    const migration = ["013_provider_accounts.sql", "014_provider_account_display.sql"]
+    const migration = ["013_provider_accounts.sql", "014_provider_account_display.sql", "015_provider_account_activity.sql"]
       .map(name => readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8")).join("\n");
     const upgraded = new DatabaseSync(":memory:"), fresh = new DatabaseSync(":memory:");
     try {
       upgraded.exec(schema.slice(0, schema.indexOf("-- Explicitly shared team OAuth credentials")));
       upgraded.exec(migration);
       fresh.exec(schema);
-      expect(upgraded.prepare("PRAGMA table_info(provider_accounts)").all()).toEqual(fresh.prepare("PRAGMA table_info(provider_accounts)").all());
+      for (const table of ["provider_accounts", "provider_account_activity", "provider_account_settings"]) {
+        expect(upgraded.prepare(`PRAGMA table_info(${table})`).all()).toEqual(fresh.prepare(`PRAGMA table_info(${table})`).all());
+      }
     } finally { upgraded.close(); fresh.close(); }
   });
 
@@ -100,6 +102,65 @@ describe("provider account pool", () => {
     expect((await renew({ usage: null, plan: null })).status).toBe(200);
     const [cleared] = (await call("other")).data.accounts;
     expect([cleared.usage, cleared.plan]).toEqual([null, null]);
+  });
+
+  it("counts members active on each login and names a Claude account only when the owner allows and 2+ share it", async () => {
+    const { add, call } = await fixture();
+    const account = (await add()).data.account;
+    const hash = account.identityHash as string, claude = "c".repeat(64), solo = "d".repeat(64);
+    const report = (who: string, accounts: unknown[]) => call(who, "POST", "/activity", { accounts });
+    const codex = { provider: "codex", identityHash: hash, sessions: 2 };
+    const shared = { provider: "claude", identityHash: claude, sessions: 1, label: "shared@example.test" };
+    expect((await report("employee", [codex, shared])).data).toEqual({ claudeActivity: false, reported: 1 });
+    expect((await report("other", [codex])).status).toBe(200);
+    expect((await call("cookie", "POST", "/activity", { accounts: [] })).status).toBeGreaterThanOrEqual(400); // desktops only
+    expect((await call("owner")).data.accounts[0].activeUsers).toBe(2);
+    let view = (await call("employee", "GET", "/activity")).data;
+    expect(view.claudeActivity).toBe(false);
+    expect(view.accounts).toEqual([{ provider: "codex", identityHash: hash, activeUsers: 2, sessions: 4, self: true, label: null }]);
+    expect((await call("employee", "PATCH", "/settings", { claudeActivity: true })).status).toBe(403);
+    expect((await call("owner", "PATCH", "/settings", { claudeActivity: true })).data).toEqual({ claudeActivity: true });
+    await report("employee", [codex, shared, { provider: "claude", identityHash: solo, sessions: 1, label: "personal@example.test" }]);
+    view = (await call("other", "GET", "/activity")).data;
+    expect(view.accounts.find((a: any) => a.identityHash === claude)).toMatchObject({ activeUsers: 1, label: null, self: false });
+    expect(JSON.stringify(view)).not.toContain("personal@example.test");
+    await report("other", [shared]);
+    view = (await call("other", "GET", "/activity")).data;
+    expect(view.accounts.find((a: any) => a.identityHash === claude)).toMatchObject({ activeUsers: 2, label: "shared@example.test", self: true });
+    expect(view.accounts.find((a: any) => a.identityHash === hash).activeUsers).toBe(1); // "other" stopped using codex
+    expect((await report("employee", [{ provider: "codex", identityHash: "nothex", sessions: 1 }])).status).toBe(400);
+    expect((await report("employee", Array.from({ length: 21 }, () => codex))).status).toBe(400);
+    expect((await call("owner", "PATCH", "/settings", { claudeActivity: false })).status).toBe(200);
+    expect((await call("other", "GET", "/activity")).data.accounts.some((a: any) => a.provider === "claude")).toBe(false);
+  });
+
+  it("stops counting a member whose desktop stops reporting, and counts a lease holder once", async () => {
+    const { env, add, call, allocate } = await fixture();
+    const account = (await add()).data.account;
+    await call("employee", "POST", "/activity", { accounts: [{ provider: "codex", identityHash: account.identityHash, sessions: 1 }] });
+    const lease = (await allocate()).data;
+    expect((await call("owner")).data.accounts[0].activeUsers).toBe(1);
+    await env.DB.prepare("UPDATE provider_account_activity SET reported_at=reported_at-181").run();
+    expect((await call("owner")).data.accounts[0].activeUsers).toBe(1); // still the lease holder
+    await call("employee", "DELETE", `/leases/${lease.leaseId}`);
+    expect((await call("owner")).data.accounts[0].activeUsers).toBe(0);
+  });
+
+  it("lends the login fewest other members are using before capacity", async () => {
+    const { env, add, call, allocate } = await fixture();
+    const busy = (await add()).data.account, quiet = (await add()).data.account;
+    const time = Math.floor(Date.now() / 1000);
+    await env.DB.prepare("UPDATE provider_accounts SET remaining_percent=90,health_reported_at=? WHERE id=?").bind(time, busy.id).run();
+    await env.DB.prepare("UPDATE provider_accounts SET remaining_percent=40,health_reported_at=? WHERE id=?").bind(time, quiet.id).run();
+    await call("other", "POST", "/activity", { accounts: [{ provider: "codex", identityHash: busy.identityHash, sessions: 1 }] });
+    expect((await allocate()).data.account.id).toBe(quiet.id);
+    // The requester's own sessions on a login never count against it.
+    const { env: env2, add: add2, call: call2, allocate: allocate2 } = await fixture();
+    const mine = (await add2()).data.account, other = (await add2()).data.account;
+    await env2.DB.prepare("UPDATE provider_accounts SET remaining_percent=90,health_reported_at=? WHERE id=?").bind(time, mine.id).run();
+    await env2.DB.prepare("UPDATE provider_accounts SET remaining_percent=40,health_reported_at=? WHERE id=?").bind(time, other.id).run();
+    await call2("employee", "POST", "/activity", { accounts: [{ provider: "codex", identityHash: mine.identityHash, sessions: 1 }] });
+    expect((await allocate2()).data.account.id).toBe(mine.id);
   });
 
   it("binds AES-GCM ciphertext to team/account/provider and fails without leaking crypto errors", async () => {

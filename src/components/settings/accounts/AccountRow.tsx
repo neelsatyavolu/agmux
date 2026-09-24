@@ -42,6 +42,9 @@ export function AccountRow({ account, canEdit, canUse, moveTeams, locked, panel,
   const tier = planText(account);
   const status = statusText(account);
   const sharedCli = account.currentLogin && account.inUse && !account.inUse.self;
+  // One person on your own login is just you; on a team account it is worth showing.
+  const active = account.activeUsers ?? 0;
+  const activeText = active >= (account.teamId ? 1 : 2) ? `${active} ${active === 1 ? "person" : "people"} active` : null;
   const menu: MenuAction[] = [];
   if (canUse) menu.push({ label: "Use this account", onSelect: () => setPanel("use") });
   if (!account.teamId || account.enabled) menu.push({ label: "Check usage", onSelect: actions.checkUsage });
@@ -62,6 +65,7 @@ export function AccountRow({ account, canEdit, canUse, moveTeams, locked, panel,
             {account.currentLogin && <span className="rounded-md bg-[var(--accent-dim)] px-2 py-0.5 text-[11px] text-[var(--accent)]" title="The account your CLI is signed into on this Mac">Current login</span>}
             {tier && <span className="rounded-md bg-[var(--surface-3)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">{tier}</span>}
             {status && <span className={`text-[11px] ${account.enabled && account.status === "ready" ? "text-[var(--accent)]" : "text-[var(--text-tertiary)]"}`}>{status}</span>}
+            {activeText && <span className="text-[11px] text-[var(--text-secondary)]" title="Team members running agmux sessions on this login right now">· {activeText}</span>}
           </div>
         </div>
         <AccountMenu label={account.label} actions={menu} disabled={locked} />
