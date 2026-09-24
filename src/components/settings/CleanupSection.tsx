@@ -7,6 +7,7 @@ import { useSplitViewStore } from "../../stores/splitViewStore";
 import { useThreadStore } from "../../stores/threadStore";
 import { useTaskViewStore } from "../../stores/taskViewStore";
 import { GlassButton } from "../ui/GlassButton";
+import { PageHeader, SettingsCard, SettingsRow } from "./settingsLayout";
 
 function protectedSessionIds(): string[] {
   const ui = useUiStore.getState();
@@ -137,61 +138,97 @@ export function CleanupSection() {
   const bytes = (summariesSelected ? preview?.summaries.entries.reduce((sum, item) => sum + item.bytes, 0) ?? 0 : 0)
     + (filesSelected ? preview?.files.files.reduce((sum, item) => sum + item.bytes, 0) ?? 0 : 0);
 
+  const selectedCount = summaryCount + fileCount;
+
   return (
-    <div className="space-y-5 text-[var(--text-primary)]">
-      <div>
-        <h2 className="text-lg font-semibold">Cleanup</h2>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">Review disposable data older than 90 days and choose what to remove.</p>
-      </div>
-      <div className="settings-card rounded-xl p-6 space-y-4">
-        <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
-          Conversations, manual names, project memory, and active threads are kept. Teams data is always kept by this cleanup.
-        </p>
-        <GlassButton icon={Search} onClick={() => void scan()} disabled={busy}>
-          {busy ? "Working…" : "Scan for cleanup"}
-        </GlassButton>
-      </div>
+    <div>
+      <PageHeader title="Cleanup" description="Review disposable data older than 90 days and choose what to remove." />
+      <SettingsCard
+        eyebrow="Scan"
+        title="Old disposable data"
+        description="Conversations, manual names, project memory, and active threads are kept. Teams data is always kept by this cleanup."
+      >
+        <SettingsRow label="Find old data" description="Nothing is removed until you review and confirm.">
+          <GlassButton size="sm" icon={Search} onClick={() => void scan()} disabled={busy}>
+            {busy ? "Working…" : "Scan for cleanup"}
+          </GlassButton>
+        </SettingsRow>
+        {result && <div role="status" className="px-6 py-3.5 text-[12px] text-[var(--text-secondary)]">{result}</div>}
+        {errors.length > 0 && (
+          <div role="alert" className="space-y-1 px-6 py-3.5 text-[12px] text-red-400/90">{errors.map((error, index) => <p key={index} className="m-0">{error}</p>)}</div>
+        )}
+      </SettingsCard>
 
       {preview && (
-        <div className="settings-card rounded-xl p-6 space-y-4">
-          <h3 className="text-sm font-semibold">Available to clean</h3>
-          <label className="flex items-start gap-3 text-sm">
-            <input type="checkbox" checked={summariesSelected} disabled={busy || confirming} onChange={event => setSummariesSelected(event.target.checked)} className="mt-1 accent-[var(--accent)]" />
-            <span>Saved summaries <span className="text-[var(--text-muted)]">· {preview.summaries.entries.length}</span>
-              <span className="block mt-1 text-xs text-[var(--text-secondary)]">Generated names, naming previews, and failed naming attempts for old, inactive sessions. Names can be generated again when you use the conversation.</span>
-            </span>
-          </label>
-          <label className="flex items-start gap-3 text-sm">
-            <input type="checkbox" checked={filesSelected} disabled={busy || confirming} onChange={event => setFilesSelected(event.target.checked)} className="mt-1 accent-[var(--accent)]" />
-            <span>Cached files <span className="text-[var(--text-muted)]">· {preview.files.files.length}</span>
-              <span className="block mt-1 text-xs text-[var(--text-secondary)]">Generated app icons and an old diagnostic log copy that passed the age checks.</span>
-            </span>
-          </label>
-          {preview.summaries.unknownCount > 0 && <p className="text-xs text-[var(--text-muted)]">Keeping {preview.summaries.unknownCount} summary cache entries whose age could not be verified.</p>}
+        <SettingsCard eyebrow="Review" title="Available to clean">
+          <CleanupOption
+            label="Saved summaries"
+            count={preview.summaries.entries.length}
+            description="Generated names, naming previews, and failed naming attempts for old, inactive sessions. Names can be generated again when you use the conversation."
+            checked={summariesSelected}
+            disabled={busy || confirming}
+            onChange={setSummariesSelected}
+          />
+          <CleanupOption
+            label="Cached files"
+            count={preview.files.files.length}
+            description="Generated app icons and an old diagnostic log copy that passed the age checks."
+            checked={filesSelected}
+            disabled={busy || confirming}
+            onChange={setFilesSelected}
+          />
+          {preview.summaries.unknownCount > 0 && (
+            <SettingsRow label="Kept" description={`Keeping ${preview.summaries.unknownCount} summary cache entries whose age could not be verified.`} />
+          )}
           {preview.files.files.length > 0 && (
-            <details className="text-xs text-[var(--text-secondary)]">
-              <summary className="cursor-pointer">Review cached files</summary>
-              <ul className="mt-2 max-h-40 overflow-auto space-y-1">
+            <details className="settings-row px-6 py-3.5 text-[12px] text-[var(--text-muted)]">
+              <summary className="cursor-pointer text-[13.5px] text-[var(--text-primary)]">Review cached files</summary>
+              <ul className="mt-2 max-h-40 space-y-1 overflow-auto">
                 {preview.files.files.map(file => <li key={file.relativePath} className="break-all">{file.relativePath} · {sizeLabel(file.bytes)}</li>)}
               </ul>
             </details>
           )}
-          <p className="text-sm">{summaryCount + fileCount === 0 ? "No eligible items selected." : `${summaryCount + fileCount} items selected · about ${sizeLabel(bytes)}`}</p>
           {!confirming ? (
-            <GlassButton icon={Trash2} onClick={() => setConfirming(true)} disabled={busy || summaryCount + fileCount === 0}>Review cleanup</GlassButton>
+            <SettingsRow
+              label={selectedCount === 0 ? "No eligible items selected." : `${selectedCount} items selected`}
+              description={selectedCount === 0 ? undefined : `About ${sizeLabel(bytes)}`}
+            >
+              <GlassButton size="sm" icon={Trash2} onClick={() => setConfirming(true)} disabled={busy || selectedCount === 0}>Review cleanup</GlassButton>
+            </SettingsRow>
           ) : (
-            <div role="alertdialog" aria-label="Confirm cleanup" className="rounded-lg border border-[var(--glass-border)] p-4 space-y-3">
-              <p className="text-sm">Remove the selected {summaryCount + fileCount} items? This cannot be undone. Anything that changed since the scan will be kept.</p>
-              <div className="flex gap-2">
-                <GlassButton onClick={() => setConfirming(false)} disabled={busy}>Cancel</GlassButton>
-                <GlassButton variant="destructive" icon={Trash2} onClick={() => void clean()} disabled={busy}>Clean up now</GlassButton>
-              </div>
+            <div role="alertdialog" aria-label="Confirm cleanup">
+              <SettingsRow
+                label={`Remove the selected ${selectedCount} items?`}
+                description="This cannot be undone. Anything that changed since the scan will be kept."
+              >
+                <GlassButton size="sm" onClick={() => setConfirming(false)} disabled={busy}>Cancel</GlassButton>
+                <GlassButton size="sm" variant="destructive" icon={Trash2} onClick={() => void clean()} disabled={busy}>Clean up now</GlassButton>
+              </SettingsRow>
             </div>
           )}
-        </div>
+        </SettingsCard>
       )}
-      {result && <p role="status" className="text-sm text-[var(--text-secondary)]">{result}</p>}
-      {errors.length > 0 && <div role="alert" className="text-sm text-[var(--text-secondary)]">{errors.map((error, index) => <p key={index}>{error}</p>)}</div>}
     </div>
+  );
+}
+
+function CleanupOption({ label, count, description, checked, disabled, onChange }: {
+  label: string;
+  count: number;
+  description: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="settings-row flex cursor-pointer items-start gap-3 px-6 py-3.5 transition-colors">
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} className="mt-[3px] accent-[var(--accent)]" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13.5px] text-[var(--text-primary)]" style={{ letterSpacing: "-0.015em" }}>
+          {label} <span className="text-[var(--text-muted)]">· {count}</span>
+        </span>
+        <span className="mt-[3px] block text-[12px] leading-[1.45] text-[var(--text-muted)]">{description}</span>
+      </span>
+    </label>
   );
 }

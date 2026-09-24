@@ -112,7 +112,7 @@ describe("MlxRuntimeSection", () => {
   it("collapses to a quiet confirmation when ready", async () => {
     mockStore({ state: "ready", pythonPath: "/x/python" });
     render(<MlxRuntimeSection />);
-    expect(await screen.findByText("MLX runtime installed.")).toBeTruthy();
+    expect(await screen.findByText("Installed")).toBeTruthy();
     expect(screen.queryByText("Install runtime")).toBeNull();
   });
 

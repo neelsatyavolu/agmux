@@ -1,6 +1,8 @@
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useEffect, useRef, useState } from "react";
 import { getDebugStatus, setDebugEnabled, type DebugStatus } from "../../lib/debugMode";
+import { GlassButton } from "../ui/GlassButton";
+import { PageHeader, SettingsCard, SettingsRow, Toggle } from "./settingsLayout";
 
 export function DebugModeSection() {
   const [status, setStatus] = useState<DebugStatus | null>(null);
@@ -35,31 +37,28 @@ export function DebugModeSection() {
     finally { pending.current = false; setBusy(false); }
   };
   return (
-    <div className="space-y-5">
-      <div>
-        <h3 className="text-sm font-medium text-text-primary">Debug Mode</h3>
-        <p className="mt-1 text-xs text-text-secondary">Record recent performance so an agent can investigate slowdowns.</p>
-      </div>
-      <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
-        <div>
-          <div className="text-sm text-text-primary">{status?.enabled ? "Recording" : "Off"}</div>
-          <div className="mt-1 text-xs text-text-secondary">{status?.recordCount ?? 0} samples saved · Resets to off when agmux restarts</div>
-        </div>
-        {status && <button type="button" role="switch" aria-label="Debug Mode" aria-checked={status.enabled}
-          disabled={busy} onClick={() => void toggle()}
-          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${status.enabled ? "bg-accent" : "bg-text-muted/30"}`}>
-          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${status.enabled ? "left-0.5 translate-x-5" : "left-0.5"}`} />
-        </button>}
-      </div>
-      <p className="text-xs leading-relaxed text-text-secondary">Captures CPU, memory, process counts, interface responsiveness and selected background operation timings every five seconds. Keeps up to ten minutes locally. Starting a new capture replaces the previous one; stopping keeps it available for review.</p>
-      <p className="text-xs leading-relaxed text-text-secondary">No prompts, file contents, command arguments or credentials are recorded. Nothing is uploaded.</p>
-      <div className="rounded-lg border border-border p-4 text-xs text-text-secondary space-y-2">
-        <button type="button" className="text-accent" onClick={() => useSettingsStore.getState().openSettings("support")}>Send a report to Support</button>
-        <p>Ask your agent: “Read agmux’s debug diagnostics and investigate the CPU spikes.”</p>
-        <p>Connected agents can use <code>debug_status</code> and <code>debug_recent</code>. Existing agent sessions may need their MCP connection refreshed after installing this update.</p>
-        <p className="break-all">Local capture: <code>~/.agmux/debug/diagnostics.json</code></p>
-      </div>
-      {(error || status?.lastError) && <p role="alert" className="text-xs text-red-400">{error || status?.lastError}</p>}
+    <div>
+      <PageHeader title="Debug Mode" description="Record recent performance so an agent can investigate slowdowns." />
+      <SettingsCard
+        eyebrow="Recorder"
+        title={status?.enabled ? "Recording" : "Off"}
+        description="Captures CPU, memory, process counts, interface responsiveness and selected background operation timings every five seconds. Keeps up to ten minutes locally. Starting a new capture replaces the previous one; stopping keeps it available for review."
+      >
+        <SettingsRow label="Debug Mode" description={`${status?.recordCount ?? 0} samples saved · Resets to off when agmux restarts`}>
+          {status && <Toggle label="Debug Mode" enabled={status.enabled} disabled={busy} onChange={() => void toggle()} />}
+        </SettingsRow>
+        <SettingsRow label="Privacy" description="No prompts, file contents, command arguments or credentials are recorded. Nothing is uploaded." />
+        {(error || status?.lastError) && (
+          <div role="alert" className="px-6 py-3.5 text-[12px] text-red-400/90">{error || status?.lastError}</div>
+        )}
+      </SettingsCard>
+      <SettingsCard eyebrow="Investigate" title="Share the capture" description="Hand the recording to an agent, or send it to Support.">
+        <SettingsRow label="Ask your agent" description="“Read agmux’s debug diagnostics and investigate the CPU spikes.” Connected agents can use debug_status and debug_recent. Existing agent sessions may need their MCP connection refreshed after installing this update." />
+        <SettingsRow label="Local capture" description={<code className="break-all">~/.agmux/debug/diagnostics.json</code>} />
+        <SettingsRow label="Send a report to Support" description="Attach what you're seeing so it can be looked at directly.">
+          <GlassButton size="sm" onClick={() => useSettingsStore.getState().openSettings("support")}>Open Support</GlassButton>
+        </SettingsRow>
+      </SettingsCard>
     </div>
   );
 }
