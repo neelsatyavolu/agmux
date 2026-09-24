@@ -835,7 +835,7 @@ html[data-mode="light"] .pg-h .pnm {
 }
 .st.running { background: #fbbf24; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.15); }
 .st.pending { background: #60a5fa; box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.15); }
-.st.done { background: var(--accent, var(--accent)); }
+.st.done { background: var(--accent); }
 .st.idle { background: #52525b; }
 .st.error { background: #f87171; }
 html[data-mode="light"] .sb-row:hover,
@@ -989,7 +989,7 @@ html[data-mode="light"] .card-h {
 .app-icon-well[data-accent="true"] {
   background: var(--accent-dim, color-mix(in srgb, var(--accent) 14%, transparent));
   border-color: var(--accent-border, color-mix(in srgb, var(--accent) 38%, transparent));
-  color: var(--accent, var(--accent));
+  color: var(--accent);
 }
 .tile .tt {
   font-size: 13px;
@@ -1064,7 +1064,7 @@ html[data-mode="light"] .app-icon-well {
 .proj[data-active="true"] .pic {
   background: var(--accent-dim, color-mix(in srgb, var(--accent) 14%, transparent));
   border-color: var(--accent-border, color-mix(in srgb, var(--accent) 38%, transparent));
-  color: var(--accent, var(--accent));
+  color: var(--accent);
 }
 .proj .nm {
   font-size: 13px;
@@ -1243,7 +1243,7 @@ html[data-mode="light"] .u-bar {
 .app-chip[data-tone="accent"] {
   background: var(--accent-dim, color-mix(in srgb, var(--accent) 14%, transparent));
   border-color: var(--accent-border, color-mix(in srgb, var(--accent) 38%, transparent));
-  color: var(--accent, var(--accent));
+  color: var(--accent);
 }
 .app-chip[data-tone="warn"] {
   color: #fbbf24;
@@ -1305,7 +1305,7 @@ html[data-mode="light"] .u-bar {
 .glass-seg[data-active="true"] {
   background: var(--accent-dim, color-mix(in srgb, var(--accent) 14%, transparent));
   border-color: var(--accent-border, color-mix(in srgb, var(--accent) 38%, transparent));
-  color: var(--accent, var(--accent));
+  color: var(--accent);
 }
 
 /* Settings Floating Glass */
@@ -1335,7 +1335,7 @@ html[data-mode="light"] .u-bar {
 }
 .settings-nav-item[data-active="true"] svg,
 .settings-nav-item[data-active="true"] span {
-  color: var(--accent, var(--accent));
+  color: var(--accent);
 }
 
 /* Legacy alias */
@@ -1540,7 +1540,7 @@ html[data-mode="light"] .thread-turn-flash {
 }
 .agent-top-chrome-scope[data-active="true"] .count {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
 }
 .agent-top-chrome-scope-divider {
   width: 1px;
@@ -1638,7 +1638,7 @@ html[data-mode="light"] .thread-turn-flash {
 .agent-top-chrome-filter[data-active="true"] {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
 }
 .agent-top-chrome-chip {
   appearance: none;
@@ -1707,7 +1707,7 @@ html[data-mode="light"] .thread-turn-flash {
 .agent-top-chrome-create-btn.primary {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
 }
 .agent-top-chrome-create-btn.primary:hover {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
@@ -3883,7 +3883,7 @@ html[data-mode="light"] .orch-header {
   height: 32px;
   border-radius: 10px;
   flex-shrink: 0;
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.06);
@@ -3957,7 +3957,7 @@ html[data-mode="light"] .orch-header {
   height: 44px;
   margin-bottom: 14px;
   border-radius: 14px;
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   box-shadow:
@@ -4064,7 +4064,7 @@ html[data-mode="light"] .orch-header {
   background: rgba(251, 191, 36, 0.10);
 }
 .orch-card-status[data-state="unread"] {
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
@@ -4128,7 +4128,7 @@ html[data-mode="light"] .orch-header {
 .orch-btn-allow {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
 }
 .orch-btn-allow:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .orch-btn-deny {
@@ -4162,7 +4162,7 @@ html[data-mode="light"] .orch-header {
   align-items: center;
   gap: 4px;
   font-size: 11.5px;
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
   opacity: 0;
   transition: opacity 120ms ease;
 }
@@ -4540,7 +4540,7 @@ html[data-mode="light"] .issues-textarea {
 }
 .issues-link-btn {
   font-size: 11px;
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
   padding: 2px 4px;
   border-radius: 4px;
 }
@@ -4598,7 +4598,7 @@ html[data-mode="light"] .issues-textarea {
   font-size: 13px;
   font-weight: 600;
   color: #042f1a;
-  background: linear-gradient(180deg, #fbc96a 0%, var(--accent) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 65%, white) 0%, var(--accent) 100%);
   border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset;
   transition: filter 120ms ease, opacity 120ms ease;
@@ -4679,7 +4679,7 @@ html[data-mode="light"] .issues-textarea {
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
   flex-shrink: 0;
   cursor: default;
   transition: background 120ms ease, opacity 120ms ease, box-shadow 120ms ease;
@@ -4968,7 +4968,7 @@ html[data-mode="light"] .orch-composer-input {
   background: rgba(129, 140, 248, 0.1);
 }
 .mem-kind-fact {
-  color: #fbc96a;
+  color: color-mix(in srgb, var(--accent) 65%, white);
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }

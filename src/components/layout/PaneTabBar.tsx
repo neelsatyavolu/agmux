@@ -762,7 +762,7 @@ export function PaneTabBar({ paneId }: Props) {
           const statusColors = !statusLabel ? null
             : glow === "processing" ? { bg: "rgba(96,165,250,0.10)", border: "rgba(96,165,250,0.22)", text: "#93c5fd" }
             : glow === "attention" ? { bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.25)", text: "#fcd34d" }
-            : { bg: "color-mix(in srgb, var(--accent) 10%, transparent)", border: "color-mix(in srgb, var(--accent) 22%, transparent)", text: "#fbc96a" };
+            : { bg: "color-mix(in srgb, var(--accent) 10%, transparent)", border: "color-mix(in srgb, var(--accent) 22%, transparent)", text: "color-mix(in srgb, var(--accent) 65%, white)" };
 
           return (
             <div key={tab.id} className="flex items-end">
