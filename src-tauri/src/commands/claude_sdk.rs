@@ -1244,6 +1244,29 @@ fn sdk_lifecycle_status(event_type: &str, reason: Option<&str>) -> Option<&'stat
     }
 }
 
+/// Frontend payload for the sidecar's background-task events.
+fn sdk_task_event_payload(event_type: &str, parsed: &serde_json::Value) -> Option<serde_json::Value> {
+    match event_type {
+        // taskId/status/summary mark a background agent finished in the chat.
+        "task.notification" => Some(serde_json::json!({
+            "type": "task.notification",
+            "taskId": parsed.get("taskId"),
+            "title": parsed.get("title"),
+            "body": parsed.get("body"),
+            "status": parsed.get("status"),
+            "summary": parsed.get("summary"),
+        })),
+        "task.progress" => Some(serde_json::json!({
+            "type": "task.progress",
+            "taskId": parsed.get("taskId"),
+            "status": parsed.get("status"),
+            "lastToolName": parsed.get("lastToolName"),
+            "usage": parsed.get("usage"),
+        })),
+        _ => None,
+    }
+}
+
 /// Whether `session.started` should force DB status back to Idle.
 ///
 /// Opening/resuming a sidecar must not look like an active turn — but a late
@@ -1638,15 +1661,10 @@ fn start_sidecar_reader(
                     }
                 }
 
-                "task.notification" => {
-                    let _ = app.emit(
-                        &event_channel,
-                        serde_json::json!({
-                            "type": "task.notification",
-                            "title": parsed.get("title"),
-                            "body": parsed.get("body"),
-                        }),
-                    );
+                "task.notification" | "task.progress" => {
+                    if let Some(payload) = sdk_task_event_payload(&event_type, &parsed) {
+                        let _ = app.emit(&event_channel, payload);
+                    }
                 }
 
                 "session.started" => {
@@ -3188,12 +3206,44 @@ mod tests {
         claude_projects_dir, claude_session_file_exists, encode_claude_projects_path,
         extract_edit_target_path, extract_user_prompt, parse_sidecar_response,
         recover_sdk_session_id, recover_sdk_session_id_with_time_hint,
-        resolve_transcript_backed_session_id, sdk_lifecycle_status,
+        resolve_transcript_backed_session_id, sdk_lifecycle_status, sdk_task_event_payload,
         session_started_should_force_idle, transcript_user_prompts, DeltaCoalescer,
         SDK_DELTA_COALESCE_INTERVAL,
     };
     use std::fs;
     use std::path::PathBuf;
+
+    #[test]
+    fn background_task_events_keep_the_fields_the_chat_uses() {
+        // Shapes as emitted by sidecar/system-events.mjs.
+        let done = serde_json::json!({
+            "event": "task.notification",
+            "taskId": "task-1",
+            "title": "Notification",
+            "body": "Agent finished",
+            "status": "completed",
+            "summary": "Found 3 call sites",
+        });
+        let payload = sdk_task_event_payload("task.notification", &done).unwrap();
+        assert_eq!(payload["type"], "task.notification");
+        assert_eq!(payload["taskId"], "task-1");
+        assert_eq!(payload["status"], "completed");
+        assert_eq!(payload["summary"], "Found 3 call sites");
+        assert_eq!(payload["body"], "Agent finished");
+
+        let progress = serde_json::json!({
+            "event": "task.progress",
+            "taskId": "task-1",
+            "status": "Reading files",
+            "lastToolName": "Read",
+            "usage": { "toolUses": 4, "durationMs": 1200 },
+        });
+        let payload = sdk_task_event_payload("task.progress", &progress).unwrap();
+        assert_eq!(payload["type"], "task.progress");
+        assert_eq!(payload["taskId"], "task-1");
+        assert_eq!(payload["lastToolName"], "Read");
+        assert_eq!(payload["usage"]["toolUses"], 4);
+    }
 
     #[test]
     fn completed_sdk_turn_becomes_idle_while_session_stays_alive() {
