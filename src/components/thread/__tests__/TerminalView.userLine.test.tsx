@@ -117,4 +117,15 @@ describe("Codex terminal typed line", () => {
     });
     expect(onUserLine).toHaveBeenCalledWith("fix lgino");
   });
+
+  it("reports a submit of a recalled history prompt with no typed text", async () => {
+    const onUserLine = await renderTerminal();
+    act(() => {
+      termOnData!("\r");
+      termOnData!("\x1b[A");
+      termOnData!("\r");
+    });
+    // The bare Enter is not a submission; the recalled prompt is.
+    expect(onUserLine.mock.calls).toEqual([[""]]);
+  });
 });

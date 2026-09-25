@@ -406,6 +406,30 @@ describe("CodexSessionView", () => {
     expect(screen.getByTestId("thread-top-bar").dataset.processing).toBe("true");
   });
 
+  it("checks for a turn when a recalled history prompt is submitted", async () => {
+    vi.useFakeTimers();
+    const commands = await import("../../../lib/commands");
+    const snapshot = { model: null, model_context_window: null, input_tokens: null,
+      output_tokens: null, cached_input_tokens: null, total_input_tokens: null,
+      total_output_tokens: null, total_cached_input_tokens: null, task_active: false,
+      last_task_started_at: new Date(Date.now() - 1000).toISOString(),
+      last_task_complete_at: new Date().toISOString() as string | null };
+    const finish: Array<(value: typeof snapshot) => void> = [];
+    vi.mocked(commands.codexRefreshThreadModel).mockClear().mockImplementation(() => new Promise(resolve => { finish.push(resolve); }));
+    setCodexSessionMode(baseSession.id, "terminal");
+    useUiStore.setState({ selectedCodexSessionId: baseSession.id, sidebarTab: "agents" });
+    await act(async () => { render(<CodexSessionView session={baseSession} />); });
+    expect(finish).toHaveLength(1);
+    // Up-arrow + Enter: the terminal saw a submit but no typed text.
+    act(() => terminalMock.props[terminalMock.props.length - 1]?.onUserLine?.(""));
+    expect(finish).toHaveLength(2);
+    await act(async () => {
+      finish[0](snapshot);
+      finish[1]({ ...snapshot, task_active: true, last_task_started_at: new Date().toISOString(), last_task_complete_at: null });
+    });
+    expect(screen.getByTestId("thread-top-bar").dataset.processing).toBe("true");
+  });
+
   it("shares slow terminal snapshots and uses one active-turn polling cadence", async () => {
     vi.useFakeTimers();
     const commands = await import("../../../lib/commands");
