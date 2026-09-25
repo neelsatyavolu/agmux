@@ -137,6 +137,19 @@ describe("CoworkToolLine", () => {
     expect(commandSubject.className).toContain("font-mono");
   });
 
+  it("read_files with multiple paths renders a prose count, not mono", () => {
+    render(
+      <CoworkToolLine
+        name="read_files"
+        toolId="rf1"
+        input={{ paths: ["/a.ts", "/b.ts", "/c.ts"] }}
+        pending
+      />,
+    );
+    const countSubject = screen.getByText("3 files");
+    expect(countSubject.className).not.toContain("font-mono");
+  });
+
   it("humanizes ToolSearch select: queries and task tools", () => {
     const { rerender } = render(
       <CoworkToolLine

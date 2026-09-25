@@ -439,6 +439,9 @@ html[data-surface="flat"] .fx-accent {
   border-color: transparent !important;
   box-shadow: none !important;
 }
+html[data-surface="flat"] .fx-accent:hover {
+  background: color-mix(in srgb, var(--accent) 88%, white) !important;
+}
 
 /* ── Tailwind neutral remap (flat): zinc utilities become slate ── */
 html[data-surface="flat"] {

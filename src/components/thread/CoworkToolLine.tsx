@@ -362,7 +362,13 @@ function coworkSubjectMono(name: string, input: Record<string, unknown>): boolea
     const cmd = typeof input.command === "string" ? input.command : "";
     return !desc && !!cmd;
   }
-  if (isRead(name) || isWrite(name) || isEdit(name)) return true;
+  if (isRead(name) || isWrite(name) || isEdit(name)) {
+    // read_files with 0 or >1 paths renders a prose count ("3 files"), not a path.
+    if (name === "read_files" && Array.isArray(input.paths) && input.paths.length !== 1) {
+      return false;
+    }
+    return true;
+  }
   if (name === "Glob" || name === "glob" || name === "Grep" || name === "grep") return true;
   if (isFetch(name)) return true;
   return false;

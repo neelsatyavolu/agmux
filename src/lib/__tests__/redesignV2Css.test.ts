@@ -71,6 +71,12 @@ describe("redesign v2 foundation", () => {
   ])("%s sets %s", (cls, prop, value) => {
     expect(decl(unified, `${FLAT} .${cls}`, prop)).toBe(value);
   });
+
+  it("fx-accent has a flat hover state (matches ui-btn[data-variant=accent]:hover)", () => {
+    expect(decl(unified, `${FLAT} .fx-accent:hover`, "background")).toBe(
+      "color-mix(in srgb, var(--accent) 88%, white)",
+    );
+  });
 });
 
 describe("flat neutral remap", () => {
