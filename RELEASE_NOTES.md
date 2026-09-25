@@ -51,6 +51,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 - **Committing files with spaces in their names** — Files whose names contain spaces or accented letters no longer appear twice (once in quotes) in the commit and Create PR lists, and committing them no longer fails. Renamed files show their correct new name.
+- **Archiving a Gemini chat in a task** — Closing a Gemini chat agent's tab in a task now stops it, instead of leaving it working in the background.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
 - **Stopping from your phone** — Tapping Stop on a terminal session from your phone no longer risks closing Claude or Codex.
 - **Phone remote history for Claude Desktop Cowork** — Cowork sessions from Claude Desktop now show their full history on your phone.

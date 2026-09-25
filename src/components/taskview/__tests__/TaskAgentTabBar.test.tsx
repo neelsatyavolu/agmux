@@ -443,6 +443,40 @@ describe("TaskAgentTabBar — Final coverage gaps", () => {
     expect(archiveThread).toHaveBeenCalledWith("p-1", "grok-thread");
   });
 
+  it("terminates gemini-sdk agent before archiving its tab", async () => {
+    const { ask } = await import("@tauri-apps/plugin-dialog");
+    const { terminateThreadProcess } = await import("../../../lib/taskCommands");
+    const archiveThread = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(ask).mockResolvedValueOnce(true);
+    vi.mocked(terminateThreadProcess).mockClear();
+    useThreadStore.setState({
+      threads: {
+        "p-1": [
+          mkThread({
+            id: "gemini-thread",
+            name: "Gemini Worker",
+            provider: "Gemini",
+            interaction_mode: "gemini-sdk",
+          }),
+        ],
+      },
+      archivedThreads: {},
+      archiveThread,
+    } as Partial<ReturnType<typeof useThreadStore.getState>>);
+
+    render(<TaskAgentTabBar taskId="task-1" />);
+    fireEvent.click(screen.getByLabelText("close"));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(terminateThreadProcess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "gemini-thread",
+        interaction_mode: "gemini-sdk",
+      }),
+    );
+    expect(archiveThread).toHaveBeenCalledWith("p-1", "gemini-thread");
+  });
+
   it("clicking a tab fires setActiveAgent", () => {
     const setActiveAgent = vi.fn();
     useTaskViewStore.setState({

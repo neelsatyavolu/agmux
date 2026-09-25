@@ -356,6 +356,7 @@ export function TaskAgentTabBar({ taskId }: TaskAgentTabBarProps) {
                   thread.interaction_mode === "sdk" ||
                   thread.interaction_mode === "opencode-sdk" ||
                   thread.interaction_mode === "grok-sdk" ||
+                  thread.interaction_mode === "gemini-sdk" ||
                   thread.interaction_mode === "cursor-sdk"
                 ) {
                   await terminateThreadProcess(thread);
