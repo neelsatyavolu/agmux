@@ -8,21 +8,22 @@ use sqlx::SqlitePool;
 /// Hyphens are separators, matching FTS5 `unicode61` tokenization. Keeping
 /// `multi-prompt` intact would emit `multi-prompt*` which FTS5 parses as
 /// `multi` NOT `prompt*` (unary `-`) — empty or wrong hits for common
-/// product phrases like "multi-prompt titles".
+/// product phrases like "multi-prompt titles". Dots split too: FTS5
+/// barewords cannot contain `.`, so `main.rs*` is a syntax error.
 fn search_tokens(query: &str) -> Vec<String> {
     query
-        .split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.')
+        .split(|c: char| !c.is_alphanumeric() && c != '_')
         .map(|t| t.trim().to_lowercase())
         .filter(|t| t.chars().count() >= 2)
         .collect()
 }
 
-/// Sanitize a bare FTS5 token (alphanumeric / _ / . only — already filtered).
+/// Sanitize a bare FTS5 token (alphanumeric / _ only — already filtered).
 /// Never emit `-`: FTS5 treats it as the NOT operator.
 /// FTS5 prefix queries must be barewords (`auth*`), not quoted (`"auth"*`).
 fn fts_bare_token(tok: &str) -> String {
     tok.chars()
-        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.'))
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
         .collect()
 }
 
@@ -262,5 +263,39 @@ mod tests {
     fn build_fts_match_phrase_splits_hyphens() {
         let m = build_fts_match("\"multi-prompt titles\"").unwrap();
         assert_eq!(m, "\"multi prompt titles\"");
+    }
+
+    #[tokio::test]
+    async fn search_finds_transcript_hit_for_dotted_file_name() {
+        // FTS5 barewords cannot contain "." — `main.rs*` is a syntax error
+        // that soft-failed to zero hits for file names and versions.
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let proj = crate::db::queries::create_project(&pool, "demo", "/w").await.unwrap();
+        let thread_id = uuid::Uuid::new_v4().to_string();
+        crate::db::queries::create_thread(
+            &pool, &thread_id, &proj.id, "generic session", "ClaudeCode", "/w", "/s",
+            None, None, false, "DirectRepo", None, None, None,
+        )
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO search_messages (body, thread_id, project_id, source, role, external_id)
+             VALUES (?, ?, ?, 'claude', 'user', 'u1')",
+        )
+        .bind("please fix the panic in main.rs before release")
+        .bind(&thread_id)
+        .bind(&proj.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let hits = search_threads_fts(&pool, "main.rs", 10).await.unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].thread_id, thread_id);
     }
 }
