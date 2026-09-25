@@ -1032,7 +1032,9 @@ fn scan_claude_queue<'a>(lines: impl Iterator<Item = &'a str>) -> ClaudeQueueSca
                     // Claude Code writes `dequeue` without `content` when it
                     // sends the front of the queue (e.g. a `!` bash command
                     // typed mid-turn), so an unmatched dequeue pops the oldest.
-                    "dequeue" | "remove" => {
+                    // `popAll` (one per command) pulls a queued message back
+                    // into the input box for editing.
+                    "dequeue" | "remove" | "popAll" => {
                         let pos = pending
                             .iter()
                             .position(|(c, _)| c == content)
@@ -2221,6 +2223,20 @@ mod tests {
         let (delivered, pending) = scan_claude_queue(log.into_iter());
         assert!(delivered.is_empty());
         assert_eq!(pending.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(), vec!["second"]);
+    }
+
+    #[test]
+    fn claude_queue_pop_all_returns_message_to_input() {
+        // Real Claude Code shape: Up-arrow pulls a queued message back into
+        // the input (one `popAll` per command), then it is resubmitted and sent.
+        let log = [
+            r#"{"type":"queue-operation","operation":"enqueue","timestamp":"2026-09-24T18:04:51.084Z","content":"fix the tests"}"#,
+            r#"{"type":"queue-operation","operation":"popAll","timestamp":"2026-09-24T18:04:53.000Z","content":"fix the tests"}"#,
+            r#"{"type":"queue-operation","operation":"enqueue","timestamp":"2026-09-24T18:04:55.000Z","content":"fix the tests"}"#,
+            r#"{"type":"queue-operation","operation":"dequeue","timestamp":"2026-09-24T18:05:45.022Z"}"#,
+        ];
+        let (_, pending) = scan_claude_queue(log.into_iter());
+        assert!(pending.is_empty(), "stale queued bubble: {pending:?}");
     }
 
     #[test]

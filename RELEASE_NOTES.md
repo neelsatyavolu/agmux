@@ -50,7 +50,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Phone remote polish** — The phone shows when it's loading or your Mac is offline, shows errors instead of failing silently, keeps the current model visible on small screens, no longer zooms in while you type on iPhone, and signs out right away if you revoke it on your Mac. Pairing no longer hangs, and pairing links from the iPhone app now work.
 
 ### Fixed
-- **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
+- **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs, including when you pulled it back into the message box to edit it first.
 - **Stopping from your phone** — Tapping Stop on a terminal session from your phone no longer risks closing Claude or Codex.
 - **Phone remote history for Claude Desktop Cowork** — Cowork sessions from Claude Desktop now show their full history on your phone.
 - **Pairing code in Settings** — After a phone pairs, Settings → Remote Control no longer keeps showing a code that has already been used.
