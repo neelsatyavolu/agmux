@@ -58,6 +58,13 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Search finds recent work summaries** — The summary of what an agent did in its latest turn can now be found in search, instead of staying missing until you started another turn.
 - **Session times in the command palette** — Recent and other sessions in the command palette now show how long ago they were used, instead of "now" (or a time off by several hours, depending on your time zone).
 - **Search results match what you typed** — Search no longer sometimes shows results for an earlier, shorter version of your search.
+- **Committing files with spaces in their names** — Files whose names contain spaces or accented letters no longer appear twice (once in quotes) in the commit and Create PR lists, and committing them no longer fails. Renamed files show their correct new name.
+- **Faster task creation** — Creating a task no longer copies Claude Code's own worktree folders into the new task, which could take a long time and use a lot of disk space.
+- **Deleting a task whose folder is gone** — Delete Task now works when the task's folder was already removed outside agmux, instead of failing with a "No such file or directory" error.
+- **Branch changes in a new task** — The Git panel's branch and committed views, and the committed list in Commit, now show only the task's own work, not other people's changes from the main branch, when your local main branch is out of date.
+- **Task pull request descriptions** — The automatic title and description for a task's pull request now describe only the task's own changes, even when your local copy of the main branch is out of date.
+- **Reusing a deleted task's name** — Creating a task with the same name as one you deleted now explains that the branch name is taken, instead of claiming a folder already exists.
+- **Archiving a Gemini chat in a task** — Closing a Gemini chat agent's tab in a task now stops it, instead of leaving it working in the background.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
 - **Stopping from your phone** — Tapping Stop on a terminal session from your phone no longer risks closing Claude or Codex.
 - **Phone remote history for Claude Desktop Cowork** — Cowork sessions from Claude Desktop now show their full history on your phone.
@@ -74,6 +81,8 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Local models fit your Mac** — agmux now works out how much memory each local model really needs for a long conversation, and sets it up to fit your Mac. When there's room, it uses the faster setup that remembers text more accurately. A model too big for your Mac is turned away with a clear message, instead of loading and slowing the whole Mac down. Settings → Local Models shows the memory each model will really use on your Mac, and warns before you download one that's too big.
 - **Terminals stay in light or dark mode** — With Color mode set to System on a light Mac, terminal sessions briefly turned dark each time they were opened or switched to, and a Codex terminal that started during that moment could keep dark colors. Terminals now open in the right mode. Switching Color mode to System also follows your Mac's appearance again.
 - **Downloading a local model no longer interrupts other chats** — Installing a new local model used to cut off any chat that was answering at the time, and could leave other chats unable to continue. Chats now finish what they're doing and carry on as normal.
+- **New task keyboard shortcut** — Pressing ⌘Enter in New Task no longer creates the task when the branch name is flagged as already in use or invalid, matching the disabled Create button.
+- **Commit & Create PR with deleted files** — Committing a task's changes before opening a pull request no longer fails with "did not match any files" when an agent had deleted a file.
 
 ## v4.2.0 — 2026-09-23
 

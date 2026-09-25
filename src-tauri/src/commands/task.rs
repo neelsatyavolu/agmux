@@ -251,13 +251,7 @@ pub async fn create_task(
             .await;
 
         let stderr = String::from_utf8_lossy(&output.stderr);
-        // ── Fix 2: Friendly error when the path already exists ───────────────
-        if stderr.contains("already exists") {
-            return Err(format!(
-                "A worktree already exists at {worktree_path}. Remove it first or choose a different branch name."
-            ));
-        }
-        return Err(format!("git worktree add failed: {}", stderr.trim()));
+        return Err(worktree_add_error(&stderr, &worktree_path, &branch_name));
     }
 
     // Copy agent / IDE config files that may be gitignored first. The
@@ -288,6 +282,23 @@ pub async fn create_task(
     }
 
     Ok(task)
+}
+
+/// ── Fix 2: Friendly error when the path already exists ───────────────────────
+fn worktree_add_error(stderr: &str, worktree_path: &str, branch_name: &str) -> String {
+    // Deleting a task keeps its branch, so reusing the name fails on the
+    // branch while the folder is gone.
+    if stderr.contains("a branch named") {
+        return format!(
+            "A branch named '{branch_name}' already exists. Choose a different branch name."
+        );
+    }
+    if stderr.contains("already exists") {
+        return format!(
+            "A worktree already exists at {worktree_path}. Remove it first or choose a different branch name."
+        );
+    }
+    format!("git worktree add failed: {}", stderr.trim())
 }
 
 /// Copies a curated allowlist of agent / IDE config files from the main repo
@@ -324,7 +335,10 @@ fn copy_agent_configs(main_repo: &Path, worktree: &Path) {
             continue;
         }
         let result = if src.is_dir() {
-            copy_dir_recursive(&src, &dst)
+            // Claude Code keeps full checkouts of its own worktrees (with
+            // build output) in .claude/worktrees — never clone those.
+            let skip: &[&str] = if *entry == ".claude" { &["worktrees"] } else { &[] };
+            copy_dir_skipping(&src, &dst, skip)
         } else {
             std::fs::copy(&src, &dst).map(|_| ())
         };
@@ -340,9 +354,17 @@ fn copy_agent_configs(main_repo: &Path, worktree: &Path) {
 /// Recursive directory copy — std::fs has no equivalent and we want to avoid
 /// pulling in a crate just for this. Matches shell `cp -R src dst`.
 fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    copy_dir_skipping(src, dst, &[])
+}
+
+/// `copy_dir_recursive`, leaving out the named top-level entries of `src`.
+fn copy_dir_skipping(src: &Path, dst: &Path, skip: &[&str]) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
+        if skip.iter().any(|name| entry.file_name() == *name) {
+            continue;
+        }
         let ty = entry.file_type()?;
         let from = entry.path();
         let to = dst.join(entry.file_name());
@@ -462,10 +484,19 @@ pub async fn delete_task(
     remove_worktree: bool,
     force: bool,
 ) -> Result<(), String> {
+    delete_task_in(&state.db, &id, remove_worktree, force).await
+}
+
+async fn delete_task_in(
+    db: &sqlx::SqlitePool,
+    id: &str,
+    remove_worktree: bool,
+    force: bool,
+) -> Result<(), String> {
     // Fetch first so we know the worktree path before deleting.
     let task = sqlx::query_as::<sqlx::Sqlite, Task>("SELECT * FROM tasks WHERE id = ?")
-        .bind(&id)
-        .fetch_one(&state.db)
+        .bind(id)
+        .fetch_one(db)
         .await
         .map_err(|e| format!("Failed to find task: {e}"))?;
 
@@ -473,9 +504,12 @@ pub async fn delete_task(
     // the task is still recoverable from the database.
     if remove_worktree {
         let augmented_path = build_augmented_path();
+        // A folder removed outside agmux has no uncommitted work to protect,
+        // and walking up from it could land in an unrelated repo.
+        let worktree_exists = Path::new(&task.worktree_path).exists();
 
         // ── Fix 3: Dirty-file guard when force=false ──────────────────────────
-        if !force {
+        if !force && worktree_exists {
             let status_out = Command::new("git")
                 .args(["status", "--porcelain"])
                 .current_dir(&task.worktree_path)
@@ -504,7 +538,7 @@ pub async fn delete_task(
 
         // Find the repo root by looking for the .git dir going up from worktree_path.
         let worktree = Path::new(&task.worktree_path);
-        if let Some(repo_root) = find_repo_root(worktree) {
+        if let Some(repo_root) = find_repo_root(worktree).filter(|_| worktree_exists) {
             let mut args = vec!["worktree", "remove"];
             if force {
                 args.push("--force");
@@ -543,7 +577,7 @@ pub async fn delete_task(
                 "SELECT repo_path FROM projects WHERE id = ?",
             )
             .bind(&task.project_id)
-            .fetch_one(&state.db)
+            .fetch_one(db)
             .await
             {
                 let _ = Command::new("git")
@@ -561,13 +595,13 @@ pub async fn delete_task(
     sqlx::query("DELETE FROM threads WHERE project_id = ? AND worktree_branch = ?")
         .bind(&task.project_id)
         .bind(&task.branch_name)
-        .execute(&state.db)
+        .execute(db)
         .await
         .map_err(|e| format!("Failed to delete task threads: {e}"))?;
 
     sqlx::query("DELETE FROM tasks WHERE id = ?")
-        .bind(&id)
-        .execute(&state.db)
+        .bind(id)
+        .execute(db)
         .await
         .map_err(|e| format!("Failed to delete task: {e}"))?;
 
@@ -863,7 +897,13 @@ async fn read_range_context(
     base_branch: &str,
 ) -> Result<(String, String, String), String> {
     let augmented_path = build_augmented_path();
-    let range = format!("{base_branch}...HEAD");
+    // Only the task's own commits: from where HEAD left the newer of local
+    // <base> and origin/<base>. An unknown base keeps the old range so git
+    // reports the error.
+    let range = match crate::commands::git::branch_point(worktree_path, &augmented_path, base_branch).await {
+        Some(point) => format!("{point}..HEAD"),
+        None => format!("{base_branch}...HEAD"),
+    };
 
     let run_git = |args: &[&str]| {
         let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
@@ -1087,9 +1127,10 @@ pub async fn get_worktree_changes(worktree_path: String) -> Result<Vec<ChangedFi
     validate_path(&worktree_path)?;
     let augmented_path = build_augmented_path();
 
-    // git diff HEAD --numstat (tracked changes with line counts)
+    // git diff HEAD --numstat (tracked changes with line counts). `-z` keeps
+    // paths verbatim (no C-quoting, no `dir/{old => new}` rename shorthand).
     let numstat_output = Command::new("git")
-        .args(["diff", "HEAD", "--numstat"])
+        .args(["diff", "HEAD", "--numstat", "-z"])
         .current_dir(&worktree_path)
         .env("PATH", &augmented_path)
         .output()
@@ -1101,9 +1142,10 @@ pub async fn get_worktree_changes(worktree_path: String) -> Result<Vec<ChangedFi
         return Err(format!("git diff --numstat failed: {}", stderr.trim()));
     }
 
-    // git status --porcelain (for untracked files)
+    // git status --porcelain (for untracked files). Without `-z` git quotes
+    // any path containing spaces or non-ASCII bytes.
     let status_output = Command::new("git")
-        .args(["status", "--porcelain"])
+        .args(["status", "--porcelain", "-z"])
         .current_dir(&worktree_path)
         .env("PATH", &augmented_path)
         .output()
@@ -1120,28 +1162,23 @@ pub async fn get_worktree_changes(worktree_path: String) -> Result<Vec<ChangedFi
 
     // Build path → status map from porcelain output.
     //
-    // Format of a porcelain line: `XY <path>` (and for renames/copies:
-    // `XY <old> -> <new>`). The first two columns are the XY status codes,
-    // then a space, then the path. We split on the space AFTER index-1 using
-    // char_indices so multi-byte unicode paths don't panic on byte-indexed
-    // slicing. Rename / copy entries record ONLY the new path — the old path
-    // is irrelevant for review and is what `git diff HEAD --numstat` reports.
+    // Format of a `-z` porcelain record: `XY <path>\0`; renames/copies are
+    // `XY <new>\0<old>\0`. The first two columns are the XY status codes,
+    // then a space, then the path. Rename / copy entries record ONLY the new
+    // path — the old path is irrelevant for review.
     let mut status_map = std::collections::HashMap::<String, String>::new();
-    for line in status_str.lines() {
-        let bytes = line.as_bytes();
-        if bytes.len() < 4 {
+    let mut status_records = status_str.split('\0');
+    while let Some(record) = status_records.next() {
+        if record.len() < 4 || !record.is_char_boundary(3) {
             continue;
         }
-        let code = &line[..2];
-        // Path starts at byte 3 (space at byte 2). Safe to slice at ASCII
-        // byte 3 since it sits at an ASCII space boundary.
-        let rest = &line[3..];
-        let path = if let Some(idx) = rest.find(" -> ") {
-            // Renamed / copied: `<old> -> <new>` — keep only the new path.
-            rest[idx + 4..].trim().to_string()
-        } else {
-            rest.trim().to_string()
-        };
+        let code = &record[..2];
+        // Path starts at byte 3 (space at byte 2).
+        let path = record[3..].to_string();
+        if code.contains('R') || code.contains('C') {
+            // Skip the source path that follows a rename / copy record.
+            status_records.next();
+        }
         let trimmed_code = code.trim();
         let status = match trimmed_code {
             "A" | "AM" => "added",
@@ -1161,22 +1198,25 @@ pub async fn get_worktree_changes(worktree_path: String) -> Result<Vec<ChangedFi
     let mut numstat_entries = Vec::<(String, i64, i64)>::new();
     let mut untracked_paths = Vec::<String>::new();
 
-    // Parse numstat lines: "<added>\t<removed>\t<path>".
-    // For renames, git prints "<added>\t<removed>\t<old> => <new>" OR a two-
-    // line record depending on version; handle the arrow form by keeping
-    // only the new path.
-    for line in numstat_str.lines() {
-        let parts: Vec<&str> = line.splitn(3, '\t').collect();
+    // Parse `-z` numstat records: "<added>\t<removed>\t<path>\0". For renames
+    // the path field is empty and is followed by "<old>\0<new>\0"; keep only
+    // the new path.
+    let mut numstat_records = numstat_str.split('\0');
+    while let Some(record) = numstat_records.next() {
+        let parts: Vec<&str> = record.splitn(3, '\t').collect();
         if parts.len() != 3 {
             continue;
         }
         let added: i64 = parts[0].parse().unwrap_or(0);
         let removed: i64 = parts[1].parse().unwrap_or(0);
-        let raw_path = parts[2];
-        let path = if let Some(idx) = raw_path.find(" => ") {
-            raw_path[idx + 4..].trim().to_string()
+        let path = if parts[2].is_empty() {
+            numstat_records.next();
+            match numstat_records.next() {
+                Some(new_path) => new_path.to_string(),
+                None => continue,
+            }
         } else {
-            raw_path.to_string()
+            parts[2].to_string()
         };
         numstat_entries.push((path, added, removed));
     }
@@ -1386,21 +1426,55 @@ pub async fn worktree_commit_and_push(
     // git add -- <path>... (safer than -A — only the explicitly chosen paths
     // get staged, so untracked secrets can't sneak in unless the caller
     // explicitly picks them).
-    let mut add_args: Vec<String> =
-        vec!["add".into(), "--".into()];
-    add_args.extend(files_to_stage.iter().cloned());
-
-    let add_output = Command::new("git")
-        .args(add_args.drain(..))
+    //
+    // A deletion already staged (e.g. `git rm`) is no longer on disk or in
+    // the index, so `git add` rejects it as an unmatched pathspec; the
+    // commit below includes it anyway.
+    let mut staged_del_args: Vec<String> = vec![
+        "diff".into(),
+        "--cached".into(),
+        "--name-only".into(),
+        "--diff-filter=D".into(),
+        "-z".into(),
+        "--".into(),
+    ];
+    staged_del_args.extend(files_to_stage.iter().cloned());
+    let staged_del_output = Command::new("git")
+        .args(staged_del_args)
         .current_dir(&worktree_path)
         .env("PATH", &augmented_path)
         .output()
         .await
-        .map_err(|e| format!("Failed to run git add: {e}"))?;
+        .map_err(|e| format!("Failed to run git diff --cached: {e}"))?;
+    let staged_del_raw = String::from_utf8_lossy(&staged_del_output.stdout).to_string();
+    let staged_deletions: std::collections::HashSet<&str> =
+        staged_del_raw.split('\0').filter(|p| !p.is_empty()).collect();
+    let to_add: Vec<String> = files_to_stage
+        .iter()
+        .filter(|p| {
+            !staged_deletions.contains(p.as_str())
+                || Path::new(&worktree_path).join(p).symlink_metadata().is_ok()
+        })
+        .cloned()
+        .collect();
 
-    if !add_output.status.success() {
-        let stderr = String::from_utf8_lossy(&add_output.stderr);
-        return Err(format!("git add failed: {}", stderr.trim()));
+    if !to_add.is_empty() {
+        let mut add_args: Vec<String> =
+            vec!["add".into(), "--".into()];
+        add_args.extend(to_add);
+
+        let add_output = Command::new("git")
+            .args(add_args.drain(..))
+            .current_dir(&worktree_path)
+            .env("PATH", &augmented_path)
+            .output()
+            .await
+            .map_err(|e| format!("Failed to run git add: {e}"))?;
+
+        if !add_output.status.success() {
+            let stderr = String::from_utf8_lossy(&add_output.stderr);
+            return Err(format!("git add failed: {}", stderr.trim()));
+        }
     }
 
     // git commit -m <message>
@@ -2049,6 +2123,111 @@ prunable gitdir file points to non-existent location
         assert!(r.is_err());
     }
 
+    #[tokio::test]
+    async fn delete_task_succeeds_when_worktree_folder_is_already_gone() {
+        // A task whose folder was removed outside agmux must still be
+        // deletable from the sidebar (non-force Delete), not stuck on a
+        // `git status` that cannot run in a missing directory.
+        let tmp = tempdir().unwrap();
+        let repo = tmp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_repo(&repo).await;
+        commit_file(&repo, "a.txt", "hi\n", "init").await;
+        let wt = tmp.path().join("worktrees").join("demo").join("fix-login");
+        let wt_str = wt.to_string_lossy().to_string();
+        assert!(run_git(&repo, &["worktree", "add", "-q", "-b", "fix-login", &wt_str, "main"])
+            .await
+            .status
+            .success());
+        std::fs::remove_dir_all(&wt).unwrap();
+
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let project = crate::db::queries::create_project(&pool, "demo", repo.to_str().unwrap())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO tasks (id, project_id, name, branch_name, worktree_path, base_branch, status)
+             VALUES ('task-1', ?, 'Fix login', 'fix-login', ?, 'main', 'in_progress')",
+        )
+        .bind(&project.id)
+        .bind(&wt_str)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        delete_task_in(&pool, "task-1", true, false).await.unwrap();
+
+        let left: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tasks")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(left, 0);
+        let listed = run_git(&repo, &["worktree", "list", "--porcelain"]).await;
+        assert!(!String::from_utf8_lossy(&listed.stdout).contains(&wt_str));
+    }
+
+    #[tokio::test]
+    async fn worktree_add_error_names_existing_branch_not_missing_folder() {
+        // Deleting a task removes its worktree but keeps the branch, so a new
+        // task with the same name hits "a branch named … already exists" while
+        // the folder does not exist.
+        let tmp = tempdir().unwrap();
+        let repo = tmp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_repo(&repo).await;
+        commit_file(&repo, "a.txt", "hi\n", "init").await;
+        let wt = tmp.path().join("wt").to_string_lossy().to_string();
+        assert!(run_git(&repo, &["worktree", "add", "-b", "fix-login", &wt, "main"]).await.status.success());
+        assert!(run_git(&repo, &["worktree", "remove", &wt]).await.status.success());
+
+        let out = run_git(&repo, &["worktree", "add", "-b", "fix-login", &wt, "main"]).await;
+        assert!(!out.status.success());
+        let msg = worktree_add_error(&String::from_utf8_lossy(&out.stderr), &wt, "fix-login");
+        assert!(msg.contains("fix-login"), "{msg}");
+        assert!(!msg.contains("A worktree already exists"), "{msg}");
+
+        // An existing folder still gets the worktree message.
+        std::fs::create_dir_all(tmp.path().join("taken/x")).unwrap();
+        let taken = tmp.path().join("taken").to_string_lossy().to_string();
+        let out = run_git(&repo, &["worktree", "add", "-b", "other", &taken, "main"]).await;
+        let msg = worktree_add_error(&String::from_utf8_lossy(&out.stderr), &taken, "other");
+        assert!(msg.starts_with("A worktree already exists at"), "{msg}");
+    }
+
+    #[tokio::test]
+    async fn get_worktree_changes_reports_real_paths_for_spaces_and_renames() {
+        // git status --porcelain quotes paths containing spaces and numstat
+        // prints renames as `dir/{old => new}`. Each change must come back
+        // exactly once under its real on-disk path so it can be staged.
+        let tmp = tempdir().unwrap();
+        init_repo(tmp.path()).await;
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        commit_file(tmp.path(), "tracked file.txt", "v1\n", "init").await;
+        commit_file(tmp.path(), "src/old.rs", "fn a() {}\n", "add old").await;
+        std::fs::write(tmp.path().join("tracked file.txt"), "v1\nv2\n").unwrap();
+        std::fs::write(tmp.path().join("new notes.md"), "a\nb\n").unwrap();
+        assert!(run_git(tmp.path(), &["mv", "src/old.rs", "src/new.rs"]).await.status.success());
+
+        let r = get_worktree_changes(tmp.path().to_string_lossy().to_string())
+            .await
+            .unwrap();
+        let mut paths: Vec<&str> = r.iter().map(|f| f.path.as_str()).collect();
+        paths.sort();
+        assert_eq!(paths, vec!["new notes.md", "src/new.rs", "tracked file.txt"]);
+
+        let tracked = r.iter().find(|f| f.path == "tracked file.txt").unwrap();
+        assert_eq!((tracked.status.as_str(), tracked.added), ("modified", 1));
+        let untracked = r.iter().find(|f| f.path == "new notes.md").unwrap();
+        assert_eq!((untracked.status.as_str(), untracked.added), ("untracked", 2));
+        let renamed = r.iter().find(|f| f.path == "src/new.rs").unwrap();
+        assert_eq!(renamed.status, "renamed");
+    }
+
     // ── get_worktree_ahead_behind ─────────────────────────────────────────────
 
     #[tokio::test]
@@ -2411,6 +2590,40 @@ prunable gitdir file points to non-existent location
     }
 
     #[tokio::test]
+    async fn worktree_commit_and_push_includes_files_removed_with_git_rm() {
+        // Agents often delete with `git rm`, which leaves a staged deletion
+        // that `git add -- <path>` rejects as an unmatched pathspec.
+        let tmp = tempdir().unwrap();
+        let origin = tmp.path().join("origin.git");
+        assert!(run_git(tmp.path(), &["init", "-q", "--bare", origin.to_str().unwrap()]).await.status.success());
+        let repo = tmp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_repo(&repo).await;
+        commit_file(&repo, "gone.txt", "old\n", "init").await;
+        commit_file(&repo, "kept.txt", "v1\n", "add kept").await;
+        assert!(run_git(&repo, &["remote", "add", "origin", origin.to_str().unwrap()]).await.status.success());
+        assert!(run_git(&repo, &["push", "-q", "origin", "main"]).await.status.success());
+        assert!(run_git(&repo, &["rm", "-q", "gone.txt"]).await.status.success());
+        std::fs::write(repo.join("kept.txt"), "v1\nv2\n").unwrap();
+
+        let changed = get_worktree_changes(repo.to_string_lossy().to_string()).await.unwrap();
+        let paths: Vec<String> = changed.into_iter().map(|f| f.path).collect();
+        worktree_commit_and_push(
+            repo.to_string_lossy().to_string(),
+            "checkpoint".to_string(),
+            "main".to_string(),
+            paths,
+        )
+        .await
+        .unwrap();
+
+        let status = run_git(&repo, &["status", "--porcelain"]).await;
+        assert!(String::from_utf8_lossy(&status.stdout).trim().is_empty());
+        let tree = run_git(&repo, &["ls-tree", "--name-only", "origin/main"]).await;
+        assert_eq!(String::from_utf8_lossy(&tree.stdout).trim(), "kept.txt");
+    }
+
+    #[tokio::test]
     async fn worktree_commit_and_push_rejects_empty_stage_path() {
         let tmp = tempdir().unwrap();
         init_repo(tmp.path()).await;
@@ -2543,6 +2756,26 @@ prunable gitdir file points to non-existent location
     }
 
     #[test]
+    fn copy_agent_configs_skips_claude_code_worktrees() {
+        // Claude Code keeps its own worktrees (full checkouts, build output)
+        // under .claude/worktrees; a new task must not clone them.
+        let tmp = tempdir().unwrap();
+        let main_repo = tmp.path().join("main");
+        let worktree = tmp.path().join("worktree");
+        let other = main_repo.join(".claude").join("worktrees").join("agent-1");
+        std::fs::create_dir_all(&other).unwrap();
+        std::fs::create_dir_all(&worktree).unwrap();
+        std::fs::write(other.join(".git"), "gitdir: /example/.git/worktrees/agent-1\n").unwrap();
+        std::fs::write(other.join("big.bin"), "x").unwrap();
+        std::fs::write(main_repo.join(".claude").join("settings.local.json"), "{}").unwrap();
+
+        copy_agent_configs(&main_repo, &worktree);
+
+        assert!(worktree.join(".claude").join("settings.local.json").exists());
+        assert!(!worktree.join(".claude").join("worktrees").exists());
+    }
+
+    #[test]
     fn copy_agent_configs_copies_per_agent_directories() {
         let tmp = tempdir().unwrap();
         let main_repo = tmp.path().join("main");
@@ -2593,6 +2826,69 @@ prunable gitdir file points to non-existent location
         assert!(commit_log.contains("feat: add f"));
         assert!(diff_stat.contains("f.txt"));
         assert!(diff_patch.contains("f.txt"));
+    }
+
+    #[tokio::test]
+    async fn read_range_context_ignores_unpushed_commits_on_local_base() {
+        // Offline task creation falls back to local <base>; when that base is
+        // ahead of origin its unpushed commits are not the task's work.
+        let tmp = tempdir().unwrap();
+        let upstream = tmp.path().join("upstream");
+        std::fs::create_dir_all(&upstream).unwrap();
+        init_repo(&upstream).await;
+        commit_file(&upstream, "a.txt", "v1\n", "init").await;
+        let repo = tmp.path().join("repo");
+        assert!(run_git(tmp.path(), &["clone", "-q", upstream.to_str().unwrap(), repo.to_str().unwrap()])
+            .await
+            .status
+            .success());
+        init_repo(&repo).await;
+        commit_file(&repo, "local.txt", "local\n", "local: unpushed").await;
+        let wt = tmp.path().join("wt");
+        assert!(run_git(&repo, &["worktree", "add", "-q", "-b", "task", wt.to_str().unwrap(), "main"])
+            .await
+            .status
+            .success());
+        commit_file(&wt, "t.txt", "task\n", "task: add t").await;
+
+        let (commit_log, diff_stat, _) = read_range_context(wt.to_str().unwrap(), "main")
+            .await
+            .unwrap();
+        assert!(commit_log.contains("task: add t"), "{commit_log}");
+        assert!(!commit_log.contains("local: unpushed"), "{commit_log}");
+        assert!(!diff_stat.contains("local.txt"), "{diff_stat}");
+    }
+
+    #[tokio::test]
+    async fn read_range_context_compares_against_origin_when_local_base_is_stale() {
+        // create_task branches off origin/<base>; a stale local <base> must not
+        // pull other people's upstream commits into the PR description.
+        let tmp = tempdir().unwrap();
+        let upstream = tmp.path().join("upstream");
+        std::fs::create_dir_all(&upstream).unwrap();
+        init_repo(&upstream).await;
+        commit_file(&upstream, "a.txt", "v1\n", "init").await;
+        let repo = tmp.path().join("repo");
+        assert!(run_git(tmp.path(), &["clone", "-q", upstream.to_str().unwrap(), repo.to_str().unwrap()])
+            .await
+            .status
+            .success());
+        init_repo(&repo).await;
+        commit_file(&upstream, "b.txt", "other\n", "upstream: other work").await;
+        assert!(run_git(&repo, &["fetch", "-q", "origin", "main"]).await.status.success());
+        let wt = tmp.path().join("wt");
+        assert!(run_git(&repo, &["worktree", "add", "-q", "-b", "task", wt.to_str().unwrap(), "origin/main^{commit}"])
+            .await
+            .status
+            .success());
+        commit_file(&wt, "t.txt", "task\n", "task: add t").await;
+
+        let (commit_log, diff_stat, _) = read_range_context(wt.to_str().unwrap(), "main")
+            .await
+            .unwrap();
+        assert!(commit_log.contains("task: add t"), "{commit_log}");
+        assert!(!commit_log.contains("upstream: other work"), "{commit_log}");
+        assert!(!diff_stat.contains("b.txt"), "{diff_stat}");
     }
 
     #[tokio::test]

@@ -226,24 +226,17 @@ pub async fn get_git_branch_diff(path: String) -> Result<GitDiffResult, String> 
     validate_path(&path)?;
     let augmented_path = build_augmented_path();
 
-    // Detect default branch: try main, master, develop in order
-    let mut default_branch: Option<String> = None;
+    // Detect default branch: try main, master, develop in order, and diff
+    // from where HEAD left it (see `branch_point`).
+    let mut default_branch: Option<(String, String)> = None;
     for candidate in &["main", "master", "develop"] {
-        let check = Command::new("git")
-            .args(["rev-parse", "--verify", candidate])
-            .current_dir(&path)
-            .env("PATH", &augmented_path)
-            .output()
-            .await;
-        if let Ok(out) = check {
-            if out.status.success() {
-                default_branch = Some(candidate.to_string());
-                break;
-            }
+        if let Some(point) = branch_point(&path, &augmented_path, candidate).await {
+            default_branch = Some((candidate.to_string(), point));
+            break;
         }
     }
 
-    let base = default_branch.ok_or_else(|| {
+    let (base, base_ref) = default_branch.ok_or_else(|| {
         "Could not detect default branch (tried main, master, develop)".to_string()
     })?;
 
@@ -264,7 +257,7 @@ pub async fn get_git_branch_diff(path: String) -> Result<GitDiffResult, String> 
 
     // git diff <default>...HEAD — changes on this branch since it diverged
     let diff_output = Command::new("git")
-        .args(["diff", &format!("{}...HEAD", base)])
+        .args(["diff", &format!("{}..HEAD", base_ref)])
         .current_dir(&path)
         .env("PATH", &augmented_path)
         .output()
@@ -284,6 +277,52 @@ pub async fn get_git_branch_diff(path: String) -> Result<GitDiffResult, String> 
         diff: diff_text,
         has_changes,
     })
+}
+
+/// Where HEAD left `<branch>`: the newer of its merge bases with the local
+/// `<branch>` and with `origin/<branch>`. Task worktrees branch off origin
+/// (a stale local base would add upstream work) while agent-mode branches
+/// are often cut from a local base with unpushed commits (origin would add
+/// those) — the descendant merge base is right in both cases.
+pub(crate) async fn branch_point(path: &str, augmented_path: &str, branch: &str) -> Option<String> {
+    let mut bases = Vec::new();
+    for base_ref in [branch.to_string(), format!("origin/{branch}")] {
+        let out = Command::new("git")
+            .args(["merge-base", "HEAD", &base_ref])
+            .current_dir(path)
+            .env("PATH", augmented_path)
+            .output()
+            .await;
+        if let Ok(out) = out {
+            let sha = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if out.status.success() && !sha.is_empty() {
+                bases.push(sha);
+            }
+        }
+    }
+    let mut bases = bases.into_iter();
+    let first = bases.next()?;
+    let Some(second) = bases.next() else { return Some(first) };
+    let second_is_newer = Command::new("git")
+        .args(["merge-base", "--is-ancestor", &first, &second])
+        .current_dir(path)
+        .env("PATH", augmented_path)
+        .output()
+        .await
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    Some(if second_is_newer { second } else { first })
+}
+
+/// Range for a branch without an upstream: its own commits since it left the
+/// default branch.
+async fn unpushed_fallback_range(path: &str, augmented_path: &str) -> Option<String> {
+    for b in ["main", "master", "develop"] {
+        if let Some(base) = branch_point(path, augmented_path, b).await {
+            return Some(format!("{base}..HEAD"));
+        }
+    }
+    None
 }
 
 /// Returns diff of committed-but-not-pushed commits (HEAD vs upstream).
@@ -311,39 +350,21 @@ pub async fn get_git_committed_diff(path: String) -> Result<GitDiffResult, Strin
         _ => None,
     };
 
-    let base_ref: Option<String> = if let Some(upstream) = upstream_ref {
-        Some(upstream)
-    } else {
+    let range = match upstream_ref {
+        Some(upstream) => format!("{upstream}..HEAD"),
         // Fall back to default branch so we still show something when the
         // branch has never been pushed yet.
-        let mut candidate: Option<String> = None;
-        for b in &["main", "master", "develop"] {
-            let check = Command::new("git")
-                .args(["rev-parse", "--verify", b])
-                .current_dir(&path)
-                .env("PATH", &augmented_path)
-                .output()
-                .await;
-            if let Ok(out) = check {
-                if out.status.success() {
-                    candidate = Some(b.to_string());
-                    break;
-                }
-            }
-        }
-        candidate
+        None => match unpushed_fallback_range(&path, &augmented_path).await {
+            Some(r) => r,
+            None => return Ok(GitDiffResult { diff: String::new(), has_changes: false }),
+        },
     };
 
-    let base = match base_ref {
-        Some(r) => r,
-        None => return Ok(GitDiffResult { diff: String::new(), has_changes: false }),
-    };
-
-    // Compare base..HEAD (two dots) — changes introduced by commits on HEAD
-    // that are not yet on the base. If HEAD is the same commit as base, the
-    // output is empty, which the UI interprets as "nothing committed to push".
+    // Changes introduced by commits on HEAD that are not yet on the base. If
+    // HEAD is the same commit as base, the output is empty, which the UI
+    // interprets as "nothing committed to push".
     let diff_output = Command::new("git")
-        .args(["diff", &format!("{}..HEAD", base)])
+        .args(["diff", &range])
         .current_dir(&path)
         .env("PATH", &augmented_path)
         .output()
@@ -384,36 +405,16 @@ pub async fn get_git_committed_changes(
         _ => None,
     };
 
-    let base_ref: Option<String> = if let Some(upstream) = upstream_ref {
-        Some(upstream)
-    } else {
-        let mut candidate: Option<String> = None;
-        for b in &["main", "master", "develop"] {
-            let check = Command::new("git")
-                .args(["rev-parse", "--verify", b])
-                .current_dir(&path)
-                .env("PATH", &augmented_path)
-                .output()
-                .await;
-            if let Ok(out) = check {
-                if out.status.success() {
-                    candidate = Some(b.to_string());
-                    break;
-                }
-            }
-        }
-        candidate
+    let range = match upstream_ref {
+        Some(upstream) => format!("{upstream}..HEAD"),
+        None => match unpushed_fallback_range(&path, &augmented_path).await {
+            Some(r) => r,
+            None => return Ok(Vec::new()),
+        },
     };
-
-    let base = match base_ref {
-        Some(r) => r,
-        None => return Ok(Vec::new()),
-    };
-
-    let range = format!("{}..HEAD", base);
 
     let numstat_output = Command::new("git")
-        .args(["diff", &range, "--numstat"])
+        .args(["diff", &range, "--numstat", "-z"])
         .current_dir(&path)
         .env("PATH", &augmented_path)
         .output()
@@ -426,7 +427,7 @@ pub async fn get_git_committed_changes(
     }
 
     let name_status_output = Command::new("git")
-        .args(["diff", &range, "--name-status"])
+        .args(["diff", &range, "--name-status", "-z"])
         .current_dir(&path)
         .env("PATH", &augmented_path)
         .output()
@@ -438,26 +439,22 @@ pub async fn get_git_committed_changes(
         return Err(format!("git diff --name-status failed: {}", stderr.trim()));
     }
 
-    // Build a path → status map from --name-status output.
+    // Build a path → status map from `-z` --name-status output:
+    // "<code>\0<path>\0", renames/copies "R100\0<old>\0<new>\0" — keep the
+    // NEW path only. `-z` keeps paths unquoted.
     let ns_str = String::from_utf8_lossy(&name_status_output.stdout);
     let mut status_map = std::collections::HashMap::<String, String>::new();
-    for line in ns_str.lines() {
-        let parts: Vec<&str> = line.split('\t').collect();
-        if parts.is_empty() {
+    let mut ns_fields = ns_str.split('\0');
+    while let Some(code) = ns_fields.next() {
+        if code.is_empty() {
             continue;
         }
-        let code = parts[0];
-        // Renames/copies: "R100\t<old>\t<new>" — keep the NEW path only.
-        let path_str = if code.starts_with('R') || code.starts_with('C') {
-            if parts.len() >= 3 {
-                parts[2].to_string()
-            } else {
-                continue;
-            }
-        } else if parts.len() >= 2 {
-            parts[1].to_string()
-        } else {
-            continue;
+        if code.starts_with('R') || code.starts_with('C') {
+            ns_fields.next();
+        }
+        let path_str = match ns_fields.next() {
+            Some(p) => p.to_string(),
+            None => continue,
         };
         let status = match code.chars().next() {
             Some('A') => "added",
@@ -472,19 +469,23 @@ pub async fn get_git_committed_changes(
 
     let numstat_str = String::from_utf8_lossy(&numstat_output.stdout);
     let mut files: Vec<crate::commands::task::ChangedFile> = Vec::new();
-    for line in numstat_str.lines() {
-        let parts: Vec<&str> = line.splitn(3, '\t').collect();
+    let mut numstat_records = numstat_str.split('\0');
+    while let Some(record) = numstat_records.next() {
+        let parts: Vec<&str> = record.splitn(3, '\t').collect();
         if parts.len() != 3 {
             continue;
         }
         let added: i64 = parts[0].parse().unwrap_or(0);
         let removed: i64 = parts[1].parse().unwrap_or(0);
-        let raw_path = parts[2];
-        // numstat renames use "<old> => <new>" inline
-        let path_str = if let Some(idx) = raw_path.find(" => ") {
-            raw_path[idx + 4..].trim().to_string()
+        // `-z` renames leave the path field empty, then "<old>\0<new>\0".
+        let path_str = if parts[2].is_empty() {
+            numstat_records.next();
+            match numstat_records.next() {
+                Some(new_path) => new_path.to_string(),
+                None => continue,
+            }
         } else {
-            raw_path.to_string()
+            parts[2].to_string()
         };
         let status = status_map
             .get(&path_str)
@@ -3747,6 +3748,97 @@ mod tests {
             .await
             .unwrap();
         assert!(files.iter().any(|f| f.path == "added.txt" && f.status == "added"));
+    }
+
+    #[tokio::test]
+    async fn committed_changes_report_real_paths_for_renames_and_spaces() {
+        let tmp = tempdir().unwrap();
+        init_repo(tmp.path()).await;
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        commit_file(tmp.path(), "src/old.rs", "fn a() {}\n", "init").await;
+        assert!(run_git(tmp.path(), &["checkout", "-qb", "feature"]).await.status.success());
+        assert!(run_git(tmp.path(), &["mv", "src/old.rs", "src/new.rs"]).await.status.success());
+        commit_file(tmp.path(), "my notes.md", "n\n", "rename + notes").await;
+
+        let files = get_git_committed_changes(tmp.path().to_string_lossy().to_string())
+            .await
+            .unwrap();
+        let mut got: Vec<(&str, &str)> =
+            files.iter().map(|f| (f.path.as_str(), f.status.as_str())).collect();
+        got.sort();
+        assert_eq!(got, vec![("my notes.md", "added"), ("src/new.rs", "renamed")]);
+    }
+
+    #[tokio::test]
+    async fn committed_changes_for_branch_off_local_main_ignore_its_unpushed_commits() {
+        // Agent-mode branches are often cut from a local main that is ahead
+        // of origin. Those unpushed main commits are not the branch's work.
+        let tmp = tempdir().unwrap();
+        let upstream = tmp.path().join("upstream");
+        std::fs::create_dir_all(&upstream).unwrap();
+        init_repo(&upstream).await;
+        commit_file(&upstream, "a.txt", "v1\n", "init").await;
+        let repo = tmp.path().join("repo");
+        assert!(run_git(tmp.path(), &["clone", "-q", upstream.to_str().unwrap(), repo.to_str().unwrap()])
+            .await
+            .status
+            .success());
+        init_repo(&repo).await;
+        commit_file(&repo, "local.txt", "local\n", "local: unpushed").await;
+        assert!(run_git(&repo, &["checkout", "-qb", "feature"]).await.status.success());
+        commit_file(&repo, "feature.txt", "f\n", "feature: add").await;
+        let path = repo.to_string_lossy().to_string();
+
+        let files = get_git_committed_changes(path.clone()).await.unwrap();
+        let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, vec!["feature.txt"]);
+
+        let diff = get_git_committed_diff(path.clone()).await.unwrap();
+        assert!(diff.diff.contains("feature.txt"));
+        assert!(!diff.diff.contains("local.txt"), "{}", diff.diff);
+
+        let branch = get_git_branch_diff(path).await.unwrap();
+        assert!(branch.diff.contains("feature.txt"));
+        assert!(!branch.diff.contains("local.txt"), "{}", branch.diff);
+    }
+
+    #[tokio::test]
+    async fn committed_changes_for_unpushed_task_branch_ignore_stale_local_main() {
+        // Task worktrees branch off origin/main with no upstream. A local main
+        // that is behind origin must not make upstream work look like the
+        // branch's own commits.
+        let tmp = tempdir().unwrap();
+        let upstream = tmp.path().join("upstream");
+        std::fs::create_dir_all(&upstream).unwrap();
+        init_repo(&upstream).await;
+        commit_file(&upstream, "a.txt", "v1\n", "init").await;
+        let repo = tmp.path().join("repo");
+        assert!(run_git(tmp.path(), &["clone", "-q", upstream.to_str().unwrap(), repo.to_str().unwrap()])
+            .await
+            .status
+            .success());
+        init_repo(&repo).await;
+        commit_file(&upstream, "other.txt", "other\n", "upstream: other work").await;
+        assert!(run_git(&repo, &["fetch", "-q", "origin", "main"]).await.status.success());
+        let wt = tmp.path().join("wt");
+        assert!(run_git(&repo, &["worktree", "add", "-q", "-b", "task", wt.to_str().unwrap(), "origin/main^{commit}"])
+            .await
+            .status
+            .success());
+        commit_file(&wt, "task.txt", "task\n", "task: add").await;
+        let wt_path = wt.to_string_lossy().to_string();
+
+        let files = get_git_committed_changes(wt_path.clone()).await.unwrap();
+        let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, vec!["task.txt"]);
+
+        let diff = get_git_committed_diff(wt_path.clone()).await.unwrap();
+        assert!(diff.diff.contains("task.txt"));
+        assert!(!diff.diff.contains("other.txt"), "{}", diff.diff);
+
+        let branch = get_git_branch_diff(wt_path).await.unwrap();
+        assert!(branch.diff.contains("task.txt"));
+        assert!(!branch.diff.contains("other.txt"), "{}", branch.diff);
     }
 
     // ── cc_limit_section ──────────────────────────────────────────────────────
