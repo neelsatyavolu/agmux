@@ -226,24 +226,13 @@ pub async fn get_git_branch_diff(path: String) -> Result<GitDiffResult, String> 
     validate_path(&path)?;
     let augmented_path = build_augmented_path();
 
-    // Detect default branch: try main, master, develop in order. Compare
-    // against origin/<b> when present — task worktrees branch off it, and a
-    // stale local <b> would pull upstream commits into the branch diff.
+    // Detect default branch: try main, master, develop in order, and diff
+    // from where HEAD left it (see `branch_point`).
     let mut default_branch: Option<(String, String)> = None;
-    'detect: for candidate in &["main", "master", "develop"] {
-        for base_ref in [format!("origin/{candidate}"), candidate.to_string()] {
-            let check = Command::new("git")
-                .args(["rev-parse", "--verify", "--quiet", &base_ref])
-                .current_dir(&path)
-                .env("PATH", &augmented_path)
-                .output()
-                .await;
-            if let Ok(out) = check {
-                if out.status.success() {
-                    default_branch = Some((candidate.to_string(), base_ref));
-                    break 'detect;
-                }
-            }
+    for candidate in &["main", "master", "develop"] {
+        if let Some(point) = branch_point(&path, &augmented_path, candidate).await {
+            default_branch = Some((candidate.to_string(), point));
+            break;
         }
     }
 
@@ -268,7 +257,7 @@ pub async fn get_git_branch_diff(path: String) -> Result<GitDiffResult, String> 
 
     // git diff <default>...HEAD — changes on this branch since it diverged
     let diff_output = Command::new("git")
-        .args(["diff", &format!("{}...HEAD", base_ref)])
+        .args(["diff", &format!("{}..HEAD", base_ref)])
         .current_dir(&path)
         .env("PATH", &augmented_path)
         .output()
@@ -290,21 +279,47 @@ pub async fn get_git_branch_diff(path: String) -> Result<GitDiffResult, String> 
     })
 }
 
+/// Where HEAD left `<branch>`: the newer of its merge bases with the local
+/// `<branch>` and with `origin/<branch>`. Task worktrees branch off origin
+/// (a stale local base would add upstream work) while agent-mode branches
+/// are often cut from a local base with unpushed commits (origin would add
+/// those) — the descendant merge base is right in both cases.
+pub(crate) async fn branch_point(path: &str, augmented_path: &str, branch: &str) -> Option<String> {
+    let mut bases = Vec::new();
+    for base_ref in [branch.to_string(), format!("origin/{branch}")] {
+        let out = Command::new("git")
+            .args(["merge-base", "HEAD", &base_ref])
+            .current_dir(path)
+            .env("PATH", augmented_path)
+            .output()
+            .await;
+        if let Ok(out) = out {
+            let sha = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if out.status.success() && !sha.is_empty() {
+                bases.push(sha);
+            }
+        }
+    }
+    let mut bases = bases.into_iter();
+    let first = bases.next()?;
+    let Some(second) = bases.next() else { return Some(first) };
+    let second_is_newer = Command::new("git")
+        .args(["merge-base", "--is-ancestor", &first, &second])
+        .current_dir(path)
+        .env("PATH", augmented_path)
+        .output()
+        .await
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    Some(if second_is_newer { second } else { first })
+}
+
 /// Range for a branch without an upstream: its own commits since it left the
-/// default branch. Prefers `origin/<b>` (task worktrees branch off it) and
-/// uses the merge base, so a stale or newer base does not add unrelated work.
+/// default branch.
 async fn unpushed_fallback_range(path: &str, augmented_path: &str) -> Option<String> {
     for b in ["main", "master", "develop"] {
-        for candidate in [format!("origin/{b}"), b.to_string()] {
-            let check = Command::new("git")
-                .args(["rev-parse", "--verify", "--quiet", &candidate])
-                .current_dir(path)
-                .env("PATH", augmented_path)
-                .output()
-                .await;
-            if matches!(check, Ok(ref out) if out.status.success()) {
-                return Some(format!("{candidate}...HEAD"));
-            }
+        if let Some(base) = branch_point(path, augmented_path, b).await {
+            return Some(format!("{base}..HEAD"));
         }
     }
     None
@@ -3752,6 +3767,39 @@ mod tests {
             files.iter().map(|f| (f.path.as_str(), f.status.as_str())).collect();
         got.sort();
         assert_eq!(got, vec![("my notes.md", "added"), ("src/new.rs", "renamed")]);
+    }
+
+    #[tokio::test]
+    async fn committed_changes_for_branch_off_local_main_ignore_its_unpushed_commits() {
+        // Agent-mode branches are often cut from a local main that is ahead
+        // of origin. Those unpushed main commits are not the branch's work.
+        let tmp = tempdir().unwrap();
+        let upstream = tmp.path().join("upstream");
+        std::fs::create_dir_all(&upstream).unwrap();
+        init_repo(&upstream).await;
+        commit_file(&upstream, "a.txt", "v1\n", "init").await;
+        let repo = tmp.path().join("repo");
+        assert!(run_git(tmp.path(), &["clone", "-q", upstream.to_str().unwrap(), repo.to_str().unwrap()])
+            .await
+            .status
+            .success());
+        init_repo(&repo).await;
+        commit_file(&repo, "local.txt", "local\n", "local: unpushed").await;
+        assert!(run_git(&repo, &["checkout", "-qb", "feature"]).await.status.success());
+        commit_file(&repo, "feature.txt", "f\n", "feature: add").await;
+        let path = repo.to_string_lossy().to_string();
+
+        let files = get_git_committed_changes(path.clone()).await.unwrap();
+        let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, vec!["feature.txt"]);
+
+        let diff = get_git_committed_diff(path.clone()).await.unwrap();
+        assert!(diff.diff.contains("feature.txt"));
+        assert!(!diff.diff.contains("local.txt"), "{}", diff.diff);
+
+        let branch = get_git_branch_diff(path).await.unwrap();
+        assert!(branch.diff.contains("feature.txt"));
+        assert!(!branch.diff.contains("local.txt"), "{}", branch.diff);
     }
 
     #[tokio::test]
