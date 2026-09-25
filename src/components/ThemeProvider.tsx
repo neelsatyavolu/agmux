@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useSettingsStore, type AppTheme, type UIFont, type MonoFont, type AnimationSpeed } from "../stores/settingsStore";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { setWindowTheme } from "../lib/commands";
@@ -243,20 +243,28 @@ export function buildFlatVars(lightMode: boolean): Record<string, string> {
 /** Resolve effective light/dark mode from setting + system preference. */
 export function useResolvedColorMode(): boolean {
   const colorMode = useSettingsStore((s) => s.settings.colorMode) ?? "dark";
-  const [systemPrefersDark, setSystemPrefersDark] = useState(true);
-
-  useEffect(() => {
-    if (colorMode !== "system") return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    setSystemPrefersDark(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, [colorMode]);
+  // Read synchronously: terminals build xterm from the first value, so a
+  // default-dark first frame made every mount start dark and then flip.
+  const systemPrefersDark = useSyncExternalStore(subscribeSystemDark, systemPrefersDarkNow);
 
   if (colorMode === "light") return true;
   if (colorMode === "dark") return false;
   return !systemPrefersDark; // system mode
+}
+
+const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
+
+function systemPrefersDarkNow(): boolean {
+  return typeof window.matchMedia === "function"
+    ? window.matchMedia(SYSTEM_DARK_QUERY).matches
+    : true;
+}
+
+function subscribeSystemDark(onChange: () => void): () => void {
+  if (typeof window.matchMedia !== "function") return () => {};
+  const mq = window.matchMedia(SYSTEM_DARK_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
 }
 
 const UI_FONT_MAP: Record<UIFont, string> = {
@@ -324,6 +332,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const borderBrightness = useSettingsStore((s) => s.settings.borderBrightness);
   const customThemeColor = useSettingsStore((s) => s.settings.customThemeColor);
   const surfaceStyle = useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat";
+  const colorMode = useSettingsStore((s) => s.settings.colorMode) ?? "dark";
   const isLightMode = useResolvedColorMode();
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -434,11 +443,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.colorScheme = isLightMode ? "light" : "dark";
   }, [theme, glassIntensity, borderBrightness, customThemeColor, isLightMode, accentColor, sidebarOpacity, surfaceStyle]);
 
-  // Sync macOS window theme with color mode so vibrancy material adapts
+  // Sync macOS window theme with color mode so vibrancy material adapts.
+  // Re-run on mode changes too: a window left pinned to Light/Dark after
+  // switching to System keeps reporting that appearance to the webview.
   useEffect(() => {
-    const colorMode = useSettingsStore.getState().settings.colorMode ?? "dark";
     setWindowTheme(colorMode, isLightMode).catch(() => {});
-  }, [isLightMode]);
+  }, [colorMode, isLightMode]);
 
   // Font family overrides
   useEffect(() => {

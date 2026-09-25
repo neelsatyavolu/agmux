@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, cleanup, screen, act } from "@testing-library/react";
-import { ThemeProvider } from "../ThemeProvider";
+import { ThemeProvider, useResolvedColorMode } from "../ThemeProvider";
 import { useSettingsStore } from "../../stores/settingsStore";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -253,5 +253,66 @@ describe("unified design surfaces", () => {
     useSettingsStore.getState().updateSettings({ uiFont: "archivo" });
     render(<ThemeProvider><div /></ThemeProvider>);
     expect(value("--font-sans").startsWith('"Archivo"')).toBe(true);
+  });
+});
+
+describe("system color mode", () => {
+  // A controllable prefers-color-scheme media query.
+  let systemDark = false;
+  const listeners = new Set<(e: MediaQueryListEvent) => void>();
+  const setSystemDark = (dark: boolean) => {
+    systemDark = dark;
+    for (const l of listeners) l({ matches: dark } as MediaQueryListEvent);
+  };
+
+  beforeEach(() => {
+    systemDark = false;
+    listeners.clear();
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      media: query,
+      get matches() { return systemDark; },
+      addEventListener: (_: string, l: (e: MediaQueryListEvent) => void) => listeners.add(l),
+      removeEventListener: (_: string, l: (e: MediaQueryListEvent) => void) => listeners.delete(l),
+    }));
+    useSettingsStore.getState().updateSettings({ theme: "midnight-glass", colorMode: "system" });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("resolves a light Mac as light on the very first render", () => {
+    // Terminals create xterm with the first value they see; a dark first
+    // frame made them start dark and flip, and Codex kept dark colors.
+    const seen: boolean[] = [];
+    function Probe() {
+      seen.push(useResolvedColorMode());
+      return null;
+    }
+    render(<Probe />);
+    expect(seen[0]).toBe(true);
+    expect(seen.every((v) => v)).toBe(true);
+  });
+
+  it("follows macOS appearance changes in every consumer", () => {
+    const seen: Record<string, boolean> = {};
+    function Probe({ id }: { id: string }) {
+      seen[id] = useResolvedColorMode();
+      return null;
+    }
+    render(<><Probe id="a" /><Probe id="b" /></>);
+    act(() => setSystemDark(true));
+    expect(seen).toEqual({ a: false, b: false });
+    act(() => setSystemDark(false));
+    expect(seen).toEqual({ a: true, b: true });
+  });
+
+  it("unpins the window when switching to System even if light/dark is unchanged", async () => {
+    const { setWindowTheme } = await import("../../lib/commands");
+    const mock = vi.mocked(setWindowTheme);
+    act(() => useSettingsStore.getState().updateSettings({ colorMode: "light" }));
+    render(<ThemeProvider><div /></ThemeProvider>);
+    mock.mockClear();
+    // Light Mac: resolved mode stays light, but the window must stop being
+    // pinned to Light or it never follows macOS again.
+    act(() => useSettingsStore.getState().updateSettings({ colorMode: "system" }));
+    expect(mock).toHaveBeenCalledWith("system", true);
   });
 });
