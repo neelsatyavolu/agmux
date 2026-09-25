@@ -51,9 +51,10 @@ describe("panels/palette/dialogs/task-mode sweep", () => {
     expect(s).toContain("fx-dialog");
   });
 
-  it("CommandPalette drops the hardcoded inset highlight and uses ui-eyebrow for group labels", () => {
+  it("CommandPalette keeps the Glass inset highlight (fx-dialog drops it in flat) and uses ui-eyebrow for group labels", () => {
     const s = src("components/CommandPalette.tsx");
-    expect(s).not.toContain("inset 0 0.5px 0");
+    expect(s).toContain("inset 0 0.5px 0 rgba(255,255,255,0.08)");
+    expect(s).toContain("fx-dialog");
     expect(s).toContain("ui-eyebrow");
   });
 

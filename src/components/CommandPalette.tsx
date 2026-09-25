@@ -478,7 +478,7 @@ export function CommandPalette({ open, onClose }: Props) {
           WebkitBackdropFilter: "blur(28px) saturate(140%)",
           border: "1px solid var(--glass-border-highlight)",
           borderRadius: 20,
-          boxShadow: "0 24px 48px -20px rgba(0,0,0,0.28)",
+          boxShadow: "0 24px 48px -20px rgba(0,0,0,0.28), inset 0 0.5px 0 rgba(255,255,255,0.08)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
