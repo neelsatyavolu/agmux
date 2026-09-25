@@ -849,6 +849,7 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, toolId, input, re
         icon={headerContent.icon}
         lead={headerContent.label}
         subject={headerContent.detail ?? undefined}
+        subjectMono={headerContent.detailMono}
         subjectClassName={subjectClassName}
         detail={extraDetail}
         additions={headerContent.diff?.added}

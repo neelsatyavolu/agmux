@@ -181,6 +181,43 @@ describe("ToolActivityGroup", () => {
     expect(screen.queryByText("CollabAgent.spawnAgent")).toBeNull();
   });
 
+  it("renders agent-kind subjects as prose, not mono, on both the group row and the expanded child row", () => {
+    render(
+      <ToolActivityGroup
+        tools={[
+          makeTool({
+            name: "CollabAgent.spawnAgent",
+            input: { agentNickname: "Harvey", receiverThreadIds: ["agent-1"] },
+            result: { content: "agent started", isError: false },
+          }),
+        ]}
+      />,
+    );
+
+    // Group header row: subject is the agent-summary sentence ("Harvey running").
+    expect(screen.getByText("Harvey running").className).not.toContain("font-mono");
+
+    // Expanded child row: subject is the agent-lifecycle sentence ("Harvey started").
+    fireEvent.click(screen.getByText("1 Agent"));
+    expect(screen.getByText("Harvey started").className).not.toContain("font-mono");
+  });
+
+  it("keeps non-agent subjects mono on the expanded child row (regression guard)", () => {
+    render(
+      <ToolActivityGroup
+        tools={[
+          makeTool({ name: "Bash", input: { command: "echo hi", description: "say hi" } }),
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByText("1 bash"));
+    // "say hi" appears on both the group header and the expanded child row
+    // for a single-tool homogeneous group — both stay mono for a bash kind.
+    for (const el of screen.getAllByText("say hi")) {
+      expect(el.className).toContain("font-mono");
+    }
+  });
+
   it("keeps in-progress Codex wait calls running instead of finished", () => {
     render(
       <ToolActivityGroup

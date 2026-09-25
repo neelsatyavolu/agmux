@@ -3965,6 +3965,7 @@ export function renderCodexToolItem(
             icon={<Bot size={13} />}
             lead="Agent"
             subject={summary}
+            subjectMono={false}
             subjectClassName="text-blue-400"
             status={pending ? "running" : item.subagentIsError ? "error" : "ok"}
             toggle={

@@ -5690,6 +5690,21 @@ describe("CodexSessionView — renderer coverage via history items", () => {
     expect(screen.queryByText(/agent_path/)).toBeNull();
   });
 
+  it("subagent notification subject is prose, not mono", async () => {
+    await makeWithHistory([
+      {
+        role: "user",
+        content:
+          "<subagent_notification>{\"agent_path\":\"019e89ef-00bf-7c71-afa1-971641146c50\",\"status\":{\"completed\":\"## Plan Review\\n\\n**Status:** Approved\"}}</subagent_notification>",
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+
+    const subject = subagentRow()!.querySelector(".text-blue-400");
+    expect(subject).toBeTruthy();
+    expect(subject!.className).not.toContain("font-mono");
+  });
+
   it("renders command item from history with $ prefix and exit code", async () => {
     const { container } = await makeWithHistory([
       {

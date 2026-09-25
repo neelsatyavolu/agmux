@@ -437,6 +437,7 @@ function ToolRow({ tool }: { tool: ClaudeChatItemToolUse }) {
         icon={toolRowIcon(tool)}
         lead={KIND_DISPLAY[kind]}
         subject={label}
+        subjectMono={kind !== "agent"}
         subjectClassName={
           hasError
             ? "text-red-400"
@@ -535,6 +536,7 @@ export function ToolActivityGroup({ tools }: Props) {
         icon={headerIcon}
         lead={kindText}
         subject={subjectText}
+        subjectMono={!(isHomogeneous && homogeneousKind === "agent")}
         detail={statusLabel}
         status={rowStatus}
         toggle={{

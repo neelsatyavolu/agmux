@@ -444,6 +444,7 @@ export const CoworkToolLine = memo(function CoworkToolLine({
           // target ("University of Minnesota…") reads as the primary clause.
           leadClassName="text-[var(--text-muted)]"
           subject={subject}
+          subjectMono={false}
           subjectClassName={
             result?.isError
               ? "text-red-400"

@@ -27,6 +27,8 @@ describe("CoworkToolLine", () => {
     expect(lead.className).toMatch(/text-muted|text-\[var\(--text-muted\)\]/);
     const subject = screen.getByText(/notes\.md/);
     expect(subject.className).toMatch(/text-secondary|text-\[var\(--text-secondary\)\]/);
+    // Cowork renders the subject as the primary clause (sans), not mono.
+    expect(subject.className).not.toContain("font-mono");
     expect(screen.queryByText("hide")).toBeNull();
     expect(screen.queryByText("output")).toBeNull();
 
