@@ -998,6 +998,8 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
         // aborted turn — drop it and let the new turn's eventual idle be
         // the one that flips state back. Mirrors ClaudeSdkSessionView's
         // pattern (consume one terminal event, then resume normal flow).
+        // Nothing can answer a permission once its run has stopped.
+        setApprovalQueue([]);
         if (steeringRef.current) {
           steeringRef.current = false;
           return;
@@ -1032,11 +1034,18 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
           ...prev,
           { id: `err-${Date.now()}`, kind: "error", message: evt.message },
         ]);
+        setApprovalQueue([]);
         setSending(false);
         setClaudeProcessing(threadId, false);
         return;
       }
       return;
+    }
+
+    // New assistant output means a turn is running, whoever started it
+    // (desktop, phone or rooms). The mapper sends these only for new content.
+    if (evt.type === "assistant_text" || evt.type === "thinking" || evt.type === "tool_use") {
+      turnFinishAnnouncedRef.current = false;
     }
 
     // Mapper events have a `type` field
@@ -1660,6 +1669,11 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
         // intact so we can surface the error.
         await approvals.resolve(approval, decision);
       } catch (err) {
+        // Already answered elsewhere (e.g. the phone) or its run ended.
+        if (/not ?found|404/i.test(String(err))) {
+          approvals.removeById(approval.permissionId);
+          return;
+        }
         setBlocks((prev) => [
           ...prev,
           { id: `err-${Date.now()}`, kind: "error" as const, message: String(err) },
@@ -1680,7 +1694,8 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
     setSending(false);
     setClaudeProcessing(threadId, false);
     useThreadStore.getState().updateThreadStatus(threadId, "Idle");
-  }, [threadId, setClaudeProcessing]);
+    setApprovalQueue([]);
+  }, [threadId, setClaudeProcessing, setApprovalQueue]);
 
   // ── Queue / Steer ────────────────────────────────────────────────────────
   // OpenCode's SDK has no native `turn/steer` primitive (only

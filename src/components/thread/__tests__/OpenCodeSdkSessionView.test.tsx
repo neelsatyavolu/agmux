@@ -1552,6 +1552,83 @@ describe("OpenCodeSdkSessionView — Maximum coverage", () => {
     expect(respond).toHaveBeenCalledWith("oc-mc-15b", "per_second", "accept");
   });
 
+  it("drops a permission the bridge no longer has and shows the next one", async () => {
+    // P1 was answered from the phone; the bridge rejects a second answer.
+    const handlers = await setupCapture();
+    seedThread("oc-mc-15e");
+    const { container, getByText } = render(
+      <OpenCodeSdkSessionView sessionId="oc-mc-15e" cwd="/tmp/repo" />
+    );
+    await flush();
+    for (const [permissionId, pattern] of [["per_phone", "npm test"], ["per_next", "npm run lint"]]) {
+      fireOpenCode(handlers, "oc-mc-15e", {
+        type: "permission_request", threadId: "oc-mc-15e", permissionId,
+        kind: "command_execution_approval", permission: "bash", pattern,
+        patterns: [pattern], always: [], metadata: {}, eventId: `e-${permissionId}`,
+        timestamp: "2026-01-01T00:00:00Z",
+      });
+    }
+    await flush();
+    const sdkMod = await import("../../../lib/opencodeSdkCommands");
+    vi.mocked(sdkMod.opencodeSdk.respondPermission).mockRejectedValueOnce(
+      "PermissionNotFoundError: permission per_phone not found (404)",
+    );
+    (getByText("Approve once") as HTMLButtonElement).click();
+    await flush();
+    expect(container.textContent).toContain("(npm run lint)");
+    expect(container.textContent).not.toContain("PermissionNotFoundError");
+  });
+
+  it("clears waiting permissions when the turn ends or is stopped", async () => {
+    const handlers = await setupCapture();
+    seedThread("oc-mc-15f");
+    const { container } = render(
+      <OpenCodeSdkSessionView sessionId="oc-mc-15f" cwd="/tmp/repo" />
+    );
+    await flush();
+    const ask = (permissionId: string, pattern: string) => fireOpenCode(handlers, "oc-mc-15f", {
+      type: "permission_request", threadId: "oc-mc-15f", permissionId,
+      kind: "command_execution_approval", permission: "bash", pattern,
+      patterns: [pattern], always: [], metadata: {}, eventId: `e-${permissionId}`,
+      timestamp: "2026-01-01T00:00:00Z",
+    });
+    ask("per_a", "npm test");
+    await flush();
+    expect(container.textContent).toContain("(npm test)");
+    fireOpenCode(handlers, "oc-mc-15f", { event: "session.idle", timestamp: "2026-01-01T00:00:01Z" });
+    await flush();
+    expect(container.textContent).not.toContain("(npm test)");
+    ask("per_b", "npm run build");
+    await flush();
+    fireOpenCode(handlers, "oc-mc-15f", { event: "error", message: "turn aborted" });
+    await flush();
+    expect(container.textContent).not.toContain("(npm run build)");
+  });
+
+  it("announces a turn started without the desktop composer (phone or rooms)", async () => {
+    const handlers = await setupCapture();
+    seedThread("oc-mc-15g");
+    render(<OpenCodeSdkSessionView sessionId="oc-mc-15g" cwd="/tmp/repo" />);
+    await flush();
+    const notifications = await import("../../../lib/notifications");
+    const notify = vi.mocked(notifications.sendNotification);
+    const finished = () => notify.mock.calls.filter((c) => String(c[1]).includes("Agent finished")).length;
+    notify.mockClear();
+    for (const turn of [1, 2]) {
+      fireOpenCode(handlers, "oc-mc-15g", {
+        type: "assistant_text", threadId: "oc-mc-15g", messageId: `msg_${turn}`,
+        partId: `prt_${turn}`, delta: "done", fullText: "done", eventId: `a${turn}`,
+        timestamp: "2026-01-01T00:00:00Z",
+      });
+      await flush();
+      fireOpenCode(handlers, "oc-mc-15g", { event: "session.idle", timestamp: "2026-01-01T00:00:01Z" });
+      await flush();
+      fireOpenCode(handlers, "oc-mc-15g", { event: "session.idle", timestamp: "2026-01-01T00:00:02Z" });
+      await flush();
+      expect(finished()).toBe(turn);
+    }
+  });
+
   it("notifies once per turn although the bridge reports idle twice", async () => {
     // OpenCode publishes session.idle when the run stops, and the bridge
     // emits its own session.idle after prompt() returns — two per turn.
