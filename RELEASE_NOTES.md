@@ -70,6 +70,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Claude terminal sessions missing from the sidebar** — If you use Claude Code plugins or startup hooks, many Claude sessions you started outside agmux never appeared in the sidebar. They now show up with their first message as the title.
 - **Droid listed agmux twice** — On Macs that used agmux before it was renamed, Droid ran agmux's status updates twice after every message and listed them twice. It now runs them once.
 - **Codex terminal titles** — Using the arrow keys while typing in a Codex terminal no longer puts stray characters like "[D" into the session's name.
+- **Claude terminal stays "working" after you decline** — After using /clear or /resume in a Claude terminal, declining a permission request left the session showing as working. It now goes idle.
 
 ## v4.2.0 — 2026-09-23
 

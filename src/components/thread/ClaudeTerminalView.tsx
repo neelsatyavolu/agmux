@@ -857,7 +857,8 @@ export function ClaudeTerminalView({
                 const respondedAt = approvalRespondedAtRef.current;
                 const s3 = useUiStore.getState();
                 const rids = s3.claudeSessionMap[threadId] ?? [];
-                const sessionToRead = rids[0] ?? threadId;
+                // Latest mapping: /clear and /resume append the new session.
+                const sessionToRead = rids[rids.length - 1] ?? threadId;
                 if (!projectPath) return;
                 readClaudeSessionHistory(sessionToRead, projectPath)
                   .then((result) => {
