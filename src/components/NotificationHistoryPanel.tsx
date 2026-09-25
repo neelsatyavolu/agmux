@@ -72,7 +72,7 @@ export function NotificationHistoryPanel() {
         aria-modal="true"
         aria-labelledby="notification-history-title"
         tabIndex={-1}
-        className="w-[360px] max-h-[480px] rounded-xl border border-white/[0.08] bg-zinc-900/95 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden focus:outline-none"
+        className="w-[360px] max-h-[480px] rounded-2xl border border-white/[0.08] bg-zinc-900/95 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden focus:outline-none fx-dialog"
         style={{ animation: "toastSlideIn 0.2s ease-out" }}
       >
         <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
@@ -82,7 +82,7 @@ export function NotificationHistoryPanel() {
               Notifications
             </span>
             {unreadCount > 0 && (
-              <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+              <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white fx-accent">
                 {unreadCount}
               </span>
             )}

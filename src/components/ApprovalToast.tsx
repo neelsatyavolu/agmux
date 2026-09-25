@@ -38,6 +38,14 @@ const RISK_LIGHT: Record<RiskKind, RiskStyle> = {
   network: { fg: "#6d28d9", bg: "rgba(167,139,250,0.18)", bd: "rgba(167,139,250,0.50)", icon: Globe,    label: "Network" },
 };
 
+// Flat-mode risk chip class: shell/write are gold, read is neutral, network is violet.
+const RISK_FLAT_CLASS: Record<RiskKind, string> = {
+  shell: "fx-soft-gold",
+  write: "fx-soft-gold",
+  read: "fx-chip-q",
+  network: "fx-soft-violet",
+};
+
 function classifyRisk(toolName: string): RiskKind {
   const t = toolName.toLowerCase();
   if (t === "bash" || t === "shell" || t === "exec") return "shell";
@@ -331,7 +339,8 @@ export function ApprovalToast() {
         const { canonicalId: sessionId, approval, realIds } = entry;
         const sessionName = names[sessionId] || "Agent";
         const extraCount = realIds.length - 1;
-        const risk = RISK[classifyRisk(approval.toolName)];
+        const riskKind = classifyRisk(approval.toolName);
+        const risk = RISK[riskKind];
         const ToolIcon = iconForTool(approval.toolName);
         const summaryText = formatToolSummary(approval.toolName, approval.summary);
         const provider =
@@ -367,7 +376,7 @@ export function ApprovalToast() {
           >
             <ShieldAlert
               size={13}
-              className="amber-glow"
+              className="amber-glow fx-gold"
               style={{
                 color: isLight ? "#b45309" : "rgb(251,191,36)",
                 borderRadius: 9999,
@@ -395,14 +404,13 @@ export function ApprovalToast() {
               style={{
                 fontSize: 11,
                 color: isLight ? "#52525b" : "#71717a",
-                fontFamily: "var(--font-mono)",
                 flexShrink: 0,
               }}
             >
               wants
             </span>
             <span
-              className="approval-pill"
+              className={`approval-pill ${RISK_FLAT_CLASS[riskKind]}`}
               title={summaryText}
               style={{
                 background: risk.bg,
@@ -415,9 +423,9 @@ export function ApprovalToast() {
             </span>
             {extraCount > 0 && (
               <span
+                className="tabular-nums"
                 style={{
                   fontSize: 10,
-                  fontFamily: "var(--font-mono)",
                   color: isLight ? "#52525b" : "#71717a",
                   padding: "2px 6px",
                   borderRadius: 9999,

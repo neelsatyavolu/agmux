@@ -45,7 +45,7 @@ describe("unified design stylesheet", () => {
 
   it("gives overlays that relied on backdrop blur an opaque flat background", () => {
     expect(decl(unified, 'html[data-surface="flat"] .agent-complete-toast', "background"))
-      .toBe("color-mix(in srgb, var(--accent) 6%, var(--ui-panel))");
+      .toBe("var(--ui-panel)");
     expect(decl(unified, 'html[data-surface="flat"] .rate-limit-banner', "background"))
       .toBe("color-mix(in srgb, var(--status-amber) 14%, var(--ui-panel))");
     expect(decl(unified, 'html[data-surface="flat"] .flat-opaque-dialog', "background")).toBe("var(--ui-panel)");

@@ -813,7 +813,7 @@ export function SettingsDialog() {
                 </span>
                 <span
                   className="block"
-                  style={{ fontSize: 10.5, color: "var(--text-muted, #71717a)", fontFamily: "var(--font-mono)" }}
+                  style={{ fontSize: 10.5, color: "var(--text-muted, #71717a)", fontVariantNumeric: "tabular-nums" }}
                 >
                   agmux{appVersion ? ` · ${appVersion}` : ""}
                 </span>
@@ -3498,7 +3498,7 @@ function SummarizeLogRow({ log }: { log: SummarizeLogEntry }) {
   return (
     <div className="flex items-start gap-2 border-b border-white/5 px-5 py-2.5 last:border-b-0">
       <div className="mt-0.5 shrink-0">
-        {log.status === "pending" && <Loader2 size={11} className="animate-spin text-amber-400" />}
+        {log.status === "pending" && <Loader2 size={11} className="animate-spin text-amber-400 fx-blue" />}
         {log.status === "done" && <CheckCircle2 size={11} className="text-[color:var(--accent)]" />}
         {log.status === "error" && <XCircle size={11} className="text-red-400" />}
       </div>

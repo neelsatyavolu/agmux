@@ -52,7 +52,7 @@ export function LocalModelSetupDialog() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center fx-scrim"
           style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(16px)" }}
           role="dialog"
           aria-modal="true"
@@ -63,10 +63,10 @@ export function LocalModelSetupDialog() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 16 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900/90 p-7 shadow-2xl"
+            className="w-full max-w-md rounded-[20px] border border-white/10 bg-zinc-900/90 p-7 shadow-2xl fx-dialog"
             style={{ backdropFilter: "blur(24px)" }}
           >
-            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/20 border border-blue-500/30">
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/20 border border-blue-500/30 fx-soft-blue">
               <HardDrive size={22} className="text-blue-400" />
             </div>
 
@@ -85,7 +85,7 @@ export function LocalModelSetupDialog() {
                 { icon: <WifiOff size={14} className="text-[color:var(--accent)]" />, label: "Works offline" },
                 { icon: <Gauge size={14} className="text-blue-400" />, label: "No rate limits" },
               ].map(({ icon, label }) => (
-                <div key={label} className="flex items-center gap-2.5 text-sm text-zinc-300">
+                <div key={label} className="flex items-center gap-2.5 text-sm text-zinc-300 fx-graphite">
                   {icon}
                   {label}
                 </div>
@@ -134,8 +134,8 @@ export function LocalModelSetupDialog() {
               </div>
             )}
 
-            {!downloading && !downloadError && <button type="button" onClick={handleRetry} className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white">Download model</button>}
-            <button type="button" onClick={dismiss} className="ml-3 rounded-lg px-4 py-2 text-sm text-zinc-300">{downloading ? "Continue in background" : "Maybe later"}</button>
+            {!downloading && !downloadError && <button type="button" onClick={handleRetry} className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white fx-accent">Download model</button>}
+            <button type="button" onClick={dismiss} className="ml-3 rounded-lg px-4 py-2 text-sm text-zinc-300 fx-quiet">{downloading ? "Continue in background" : "Maybe later"}</button>
 
             {downloadError && !downloading && (
               <>
@@ -146,7 +146,7 @@ export function LocalModelSetupDialog() {
                 <button
                   type="button"
                   onClick={handleRetry}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 transition-colors"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 transition-colors fx-accent"
                 >
                   <Download size={15} />
                   Retry Download

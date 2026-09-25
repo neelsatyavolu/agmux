@@ -137,7 +137,7 @@ export function LocalModelUpgradeDialog() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="relative w-full max-w-md rounded-2xl border border-[var(--glass-border)] bg-[var(--surface-popover)] p-6 shadow-2xl"
+            className="relative w-full max-w-md rounded-[20px] border border-[var(--glass-border)] bg-[var(--surface-popover)] p-6 shadow-2xl"
           >
             <button
               type="button"
@@ -232,7 +232,7 @@ export function LocalModelUpgradeDialog() {
             )}
 
             {error && !downloading && (
-              <p className="mb-3 text-xs text-red-400">{error}</p>
+              <p className="mb-3 text-xs text-red-400 fx-red">{error}</p>
             )}
 
             <div className="flex items-center justify-between gap-2">

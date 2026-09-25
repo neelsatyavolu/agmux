@@ -72,7 +72,7 @@ export function NotificationPromptDialog() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm fx-scrim"
             onClick={handleDismiss}
           />
           <motion.div
@@ -83,7 +83,7 @@ export function NotificationPromptDialog() {
             className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
           >
             <div
-              className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-zinc-700/60 bg-zinc-900 shadow-2xl"
+              className="relative w-full max-w-sm overflow-hidden rounded-[20px] border border-zinc-700/60 bg-zinc-900 shadow-2xl fx-dialog"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-6 pt-6 pb-4">
@@ -94,7 +94,7 @@ export function NotificationPromptDialog() {
                   <X size={16} />
                 </button>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 fx-soft-gold">
                     <Bell size={20} />
                   </div>
                   <div>
@@ -117,14 +117,14 @@ export function NotificationPromptDialog() {
               <div className="flex gap-2 px-6 py-4">
                 <button
                   onClick={handleDismiss}
-                  className="flex-1 rounded-xl border border-zinc-700 px-4 py-2.5 text-[13px] font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+                  className="flex-1 rounded-xl border border-zinc-700 px-4 py-2.5 text-[13px] font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-300 fx-quiet"
                 >
                   Not now
                 </button>
                 <button
                   onClick={handleEnable}
                   disabled={permissionState === "requesting" || permissionState === "granted"}
-                  className="flex-1 rounded-xl bg-amber-500 px-4 py-2.5 text-[13px] font-semibold text-black transition-colors hover:bg-amber-400 disabled:opacity-60"
+                  className="flex-1 rounded-xl bg-amber-500 px-4 py-2.5 text-[13px] font-semibold text-black transition-colors hover:bg-amber-400 disabled:opacity-60 fx-accent"
                 >
                   {permissionState === "granted"
                     ? "Enabled!"

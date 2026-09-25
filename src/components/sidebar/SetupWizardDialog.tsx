@@ -130,7 +130,7 @@ function formatBytes(bytes: number): string {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="mb-2 text-xs font-semibold uppercase tracking-wider"
+      className="mb-2 ui-eyebrow"
       style={{ color: "var(--text-muted)" }}
     >
       {children}
@@ -1172,7 +1172,7 @@ export function SetupWizardDialog() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.25, ease: "easeOut" }}
-            className="w-full max-w-xl rounded-2xl border shadow-2xl"
+            className="w-full max-w-xl rounded-[20px] border shadow-2xl"
             style={{
               borderColor: "var(--glass-border-highlight)",
               background: "var(--glass-sidebar)",

@@ -456,10 +456,7 @@ export function RemoteControlSection() {
                 {pairCode ? (
                   <>
                     <div className="w-full text-center sm:text-left">
-                      <div
-                        className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]"
-                        style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.14em" }}
-                      >
+                      <div className="ui-eyebrow mb-1.5 text-[var(--text-muted)]">
                         Pairing code
                       </div>
                       <div

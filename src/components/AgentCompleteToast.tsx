@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useToastStore, type AgentCompleteToast as ToastModel } from "../stores/toastStore";
 import { useResolvedColorMode } from "./ThemeProvider";
+import { useSettingsStore } from "../stores/settingsStore";
 import { useUiStore } from "../stores/uiStore";
 import { useThreadStore } from "../stores/threadStore";
 import { useTaskViewStore } from "../stores/taskViewStore";
@@ -68,6 +69,7 @@ function formatDuration(ms: number | null): string {
 
 function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windowFocused: boolean; isLight: boolean }) {
   const dismissToast = useToastStore((s) => s.dismissToast);
+  const flat = (useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat") === "flat";
   const [hovered, setHovered] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -191,7 +193,7 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
   return (
     <motion.div
       layout
-      className="agent-complete-toast"
+      className="agent-complete-toast fx-dialog"
       initial={{ opacity: 0, y: -8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 32, scale: 0.96, filter: "blur(2px)" }}
@@ -204,7 +206,7 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
         maxWidth: "calc(100vw - 28px)",
         background: isLight ? "rgba(255,255,255,0.92)" : "color-mix(in srgb, var(--accent) 6%, transparent)",
         border: isLight ? "1px solid rgba(217,119,6,0.40)" : "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
-        borderRadius: 10,
+        borderRadius: 16,
         padding: "14px 16px",
         display: "flex",
         alignItems: "center",
@@ -222,10 +224,11 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
       }}
     >
       <div
+        className="fx-soft-green"
         style={{
-          width: 28,
-          height: 28,
-          borderRadius: 9999,
+          width: 36,
+          height: 36,
+          borderRadius: 11,
           background: isLight ? "rgba(217,119,6,0.16)" : "color-mix(in srgb, var(--accent) 15%, transparent)",
           color: isLight ? "#d97706" : "var(--accent)",
           display: "flex",
@@ -253,7 +256,7 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
           style={{
             fontSize: 13,
             fontWeight: 500,
-            color: isLight ? "#0f172a" : "#fff",
+            color: flat ? "var(--text-primary)" : isLight ? "#0f172a" : "#fff",
             display: "flex",
             alignItems: "center",
             gap: 6,
@@ -262,8 +265,7 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
         >
           <span
             style={{
-              fontFamily: "var(--font-mono)",
-              color: isLight ? "#1e293b" : "#e4e4e7",
+              color: flat ? "var(--text-primary)" : isLight ? "#1e293b" : "#e4e4e7",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -276,18 +278,12 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
           </span>
           <span style={{ flexShrink: 0 }}>finished</span>
           <span
+            className="ui-chip sm fx-soft-green"
             style={{
               flexShrink: 0,
-              fontFamily: "var(--font-mono)",
-              fontSize: 10.5,
               color: isLight ? "#b45309" : "var(--accent)",
-              letterSpacing: "0.08em",
-              padding: "1px 6px",
-              borderRadius: 4,
               background: isLight ? "rgba(217,119,6,0.14)" : "color-mix(in srgb, var(--accent) 10%, transparent)",
               border: isLight ? "1px solid rgba(217,119,6,0.40)" : "1px solid color-mix(in srgb, var(--accent) 22%, transparent)",
-              textTransform: "uppercase",
-              lineHeight: 1.4,
             }}
           >
             Done
@@ -296,9 +292,8 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
         <div
           style={{
             fontSize: 12,
-            color: isLight ? "#475569" : "#a1a1aa",
+            color: flat ? "var(--text-secondary)" : isLight ? "#475569" : "#a1a1aa",
             marginTop: 2,
-            fontFamily: "var(--font-mono)",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -310,9 +305,9 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
               <span style={{ opacity: 0.5, padding: "0 4px" }}>·</span>
             </>
           ) : null}
-          <span style={{ color: isLight ? "#0f172a" : "#e4e4e7" }}>{finalLinesAdded}</span> lines added
+          <span className="fx-green tabular-nums" style={{ color: isLight ? "#0f172a" : "#e4e4e7" }}>{finalLinesAdded}</span> lines added
           <span style={{ opacity: 0.5, padding: "0 4px" }}>·</span>
-          <span style={{ color: isLight ? "#0f172a" : "#e4e4e7" }}>{finalLinesRemoved}</span> lines removed
+          <span className="fx-red tabular-nums" style={{ color: isLight ? "#0f172a" : "#e4e4e7" }}>{finalLinesRemoved}</span> lines removed
           <span style={{ opacity: 0.5, padding: "0 4px" }}>·</span>
           <span style={{ color: isLight ? "#0f172a" : "#e4e4e7" }}>{duration}</span>
         </div>

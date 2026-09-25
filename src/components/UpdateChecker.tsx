@@ -136,7 +136,7 @@ export function UpdateChecker() {
           >
             {status === "available" && (
               <>
-                <Download size={18} className="shrink-0 text-indigo-400" />
+                <Download size={18} className="shrink-0 text-indigo-400 fx-blue" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[15px] font-medium" style={{ color: "var(--text-primary)" }}>
                     Update available
@@ -149,7 +149,7 @@ export function UpdateChecker() {
                 {!autoUpdateEnabled && (
                   <button
                     onClick={() => void installUpdate()}
-                    className="shrink-0 rounded-xl bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+                    className="shrink-0 rounded-xl bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors fx-accent"
                   >
                     Update
                   </button>
@@ -159,15 +159,15 @@ export function UpdateChecker() {
 
             {status === "downloading" && (
               <>
-                <RefreshCw size={18} className="shrink-0 animate-spin text-indigo-400" />
+                <RefreshCw size={18} className="shrink-0 animate-spin text-indigo-400 fx-blue" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[15px] font-medium" style={{ color: "var(--text-primary)" }}>
                     Downloading update…
                   </div>
                   <div className="mt-1.5 flex items-center gap-2">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10 fx-panel-2">
                       <div
-                        className="h-full rounded-full bg-indigo-500 transition-all"
+                        className="h-full rounded-full bg-indigo-500 transition-all fx-fill-blue"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -191,7 +191,7 @@ export function UpdateChecker() {
                 {!autoUpdateEnabled && (
                   <button
                     onClick={() => void handleRelaunch()}
-                    className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[#14110a] hover:brightness-110 transition-colors"
+                    className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--accent-foreground)] hover:brightness-110 transition-colors"
                   >
                     Restart
                   </button>
@@ -201,7 +201,7 @@ export function UpdateChecker() {
 
             {status === "manual-required" && (
               <>
-                <AlertTriangle size={18} className="shrink-0 text-amber-400" />
+                <AlertTriangle size={18} className="shrink-0 text-amber-400 fx-gold" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[15px] font-medium" style={{ color: "var(--text-primary)" }}>
                     Manual download needed
@@ -214,7 +214,7 @@ export function UpdateChecker() {
                   onClick={() => {
                     void openManualDownload();
                   }}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-500 transition-colors"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-500 transition-colors fx-accent"
                 >
                   Download
                   <ExternalLink size={13} />
@@ -238,7 +238,7 @@ export function UpdateChecker() {
                     // Latch already cleared on error; re-check → available can retry install.
                     void checkForUpdate({ force: true });
                   }}
-                  className="shrink-0 rounded-xl bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+                  className="shrink-0 rounded-xl bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors fx-accent"
                 >
                   Retry
                 </button>

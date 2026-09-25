@@ -162,7 +162,7 @@ html[data-surface="flat"] .approval-footer {
 /* Overlays that relied on backdrop blur (now removed in flat mode) for
    legibility over transcript / terminal content get an opaque flat base. */
 html[data-surface="flat"] .agent-complete-toast {
-  background: color-mix(in srgb, var(--accent) 6%, var(--ui-panel)) !important;
+  background: var(--ui-panel) !important;
 }
 html[data-surface="flat"] .rate-limit-banner {
   background: color-mix(in srgb, var(--status-amber) 14%, var(--ui-panel)) !important;

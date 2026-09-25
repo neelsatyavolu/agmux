@@ -437,13 +437,11 @@ export function WhatsNewDialog() {
                   <AgmuxMark size={48} />
                 </div>
                 <div
+                  className="fx-graphite"
                   style={{
                     marginTop: 12,
-                    fontSize: 10,
-                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
                     color: "var(--accent)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.22em",
                   }}
                 >
                   {appVersion ? `agmux v${appVersion}` : "agmux"}
@@ -532,12 +530,9 @@ export function WhatsNewDialog() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div
+                            className="ui-eyebrow fx-graphite"
                             style={{
-                              fontSize: 9.5,
-                              fontFamily: "var(--font-mono)",
                               color: c.color,
-                              textTransform: "uppercase",
-                              letterSpacing: "0.2em",
                             }}
                           >
                             {c.label}
@@ -600,11 +595,11 @@ export function WhatsNewDialog() {
                 <span style={{ flex: 1 }} />
                 {appVersion && data?.date && (
                   <div
+                    className="tabular-nums"
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 8,
-                      fontFamily: "var(--font-mono)",
                       fontSize: 10.5,
                       color: "var(--text-muted)",
                     }}
