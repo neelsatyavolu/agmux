@@ -92,6 +92,8 @@ export interface DropdownRowProps {
   title: ReactNode;
   /** Secondary caption (muted). */
   meta?: ReactNode;
+  /** Set when `meta` is a path, branch or command — machine text stays mono. Display labels (default) stay sans. */
+  metaMono?: boolean;
   /** Right-side adornment (tag, kbd, check). */
   right?: ReactNode;
   className?: string;
@@ -105,6 +107,7 @@ export function DropdownRow({
   icon,
   title,
   meta,
+  metaMono = false,
   right,
   className = "",
 }: DropdownRowProps) {
@@ -121,7 +124,7 @@ export function DropdownRow({
         <span className="block text-[13.5px] font-medium tracking-[-0.015em] leading-tight truncate">{title}</span>
         {disabledReason && <span className="mt-0.5 block text-[10.5px] text-[var(--text-secondary)]">{disabledReason}</span>}
         {meta && (
-          <span className="mt-0.5 block text-[12px] text-zinc-500 truncate">{meta}</span>
+          <span className={`mt-0.5 block truncate text-zinc-500 ${metaMono ? "font-mono text-[10.5px]" : "text-[12px]"}`}>{meta}</span>
         )}
       </span>
       {right && <span className="flex shrink-0 items-center gap-1.5">{right}</span>}

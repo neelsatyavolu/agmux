@@ -170,6 +170,7 @@ export function FocusSection({ projects, windowHours, onListElement }: Props) {
                         icon={<FolderGit2 size={14} className="text-zinc-400" />}
                         title={p.name}
                         meta={p.repo_path.replace(/^\/Users\/[^/]+/, "~")}
+                        metaMono
                       />
                     ))
                   )}

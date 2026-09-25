@@ -52,6 +52,16 @@ describe("DropdownRow", () => {
     expect(screen.getByText("some-meta")).toBeTruthy();
   });
 
+  it("renders meta in sans by default", () => {
+    render(<DropdownRow title="Item" meta="display label" />);
+    expect(screen.getByText("display label").className).not.toContain("font-mono");
+  });
+
+  it("renders meta in mono when metaMono is set (paths/branches/commands)", () => {
+    render(<DropdownRow title="Item" meta="~/code/agmux" metaMono />);
+    expect(screen.getByText("~/code/agmux").className).toContain("font-mono");
+  });
+
   it("calls onClick when clicked", () => {
     const onClick = vi.fn();
     render(<DropdownRow title="Clickable" onClick={onClick} />);
