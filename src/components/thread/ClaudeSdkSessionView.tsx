@@ -1705,14 +1705,24 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
         case "tool.completed": {
           const result = { content: sdkEvent.content, isError: sdkEvent.isError };
           setMessages((prev) => mergeToolResult(prev, sdkEvent.toolUseId, result));
+          // Claude approval/question ids are tool_use ids. A finished tool was
+          // answered elsewhere (e.g. from the phone), so drop its prompt here.
+          setApprovalQueue((prev) =>
+            prev.some((a) => a.requestId === sdkEvent.toolUseId)
+              ? prev.filter((a) => a.requestId !== sdkEvent.toolUseId)
+              : prev,
+          );
+          setPendingInput((cur) => (cur?.requestId === sdkEvent.toolUseId ? null : cur));
           break;
         }
 
         case "approval.requested": {
-          // Evict stale approvals before adding new one
+          // Keep every earlier approval, however old: the bridge waits on each
+          // requestId until answered, so dropping one here would hang the
+          // (sub)agent that asked. Turn end / session end clear the queue.
           const now = Date.now();
           setApprovalQueue((prev) => [
-            ...prev.filter((a) => now - a.createdAt < APPROVAL_TTL_MS),
+            ...prev,
             {
               requestId: sdkEvent.requestId,
               toolName: sdkEvent.toolName,
@@ -2056,6 +2066,14 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
           // session exists. Flip running so the composer doesn't sit on
           // "Starting session…" until the parent ensure_server invoke returns.
           setStatus("running");
+          // Grok/Gemini emit session.init only when an agent process binds
+          // the session (start or restart); that process can't answer an
+          // earlier one's requests. Claude sends init every turn, and a
+          // background subagent may still be waiting, so keep Claude's queue.
+          if (providerOverride === "Grok" || providerOverride === "Gemini") {
+            setApprovalQueue([]);
+            setPendingInput(null);
+          }
           // Capture the SDK's authoritative slash command list for autocomplete
           if (Array.isArray(sdkEvent.slashCommands) && sdkEvent.slashCommands.length > 0) {
             sdkSlashCommandsCache.set(sessionId, sdkEvent.slashCommands);
@@ -2726,7 +2744,7 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
     } catch (err) {
       const msg = String(err);
       // Stale/unknown approval — silently evict from queue
-      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found")) {
+      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found") || msg.includes("No pending approval")) {
         setApprovalQueue((prev) => prev.filter((a) => a.requestId !== approval.requestId));
       } else {
         const message = `Failed to approve ${approval.toolName}: ${msg}`;
@@ -2745,7 +2763,7 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
       setErrorMessage(null);
     } catch (err) {
       const msg = String(err);
-      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found")) {
+      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found") || msg.includes("No pending approval")) {
         setApprovalQueue((prev) => prev.filter((a) => a.requestId !== approval.requestId));
       } else {
         const message = `Failed to reject ${approval.toolName}: ${msg}`;
@@ -2764,7 +2782,7 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
       setErrorMessage(null);
     } catch (err) {
       const msg = String(err);
-      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found")) {
+      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found") || msg.includes("No pending approval")) {
         setApprovalQueue((prev) => prev.filter((a) => a.requestId !== approval.requestId));
       } else {
         const message = `Failed to approve ${approval.toolName}: ${msg}`;

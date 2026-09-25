@@ -65,6 +65,14 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Task pull request descriptions** — The automatic title and description for a task's pull request now describe only the task's own changes, even when your local copy of the main branch is out of date.
 - **Reusing a deleted task's name** — Creating a task with the same name as one you deleted now explains that the branch name is taken, instead of claiming a folder already exists.
 - **Archiving a Gemini chat in a task** — Closing a Gemini chat agent's tab in a task now stops it, instead of leaving it working in the background.
+- **Chat approvals no longer vanish** — When two permission requests are waiting in a chat and the first has waited over a minute, it stays on screen instead of disappearing and leaving the agent stuck.
+- **"Always allow" works in Codex chat** — Commands you chose to always allow in a Codex chat now run on their own instead of failing.
+- **Codex reset time in the top bar** — With the status line in the top bar, hovering a Codex usage limit now shows when it resets.
+- **Answered from your phone, gone on your Mac** — When you answer a Claude chat's permission request or question on your phone, the Mac chat now clears it instead of keeping it on screen and showing an error if you click it.
+- **Background agents finish in Claude chat** — A background agent in a Claude chat now shows as finished when it's done, with its tool count as it works, instead of looking like it's still running forever.
+- **One "finished" alert per OpenCode reply** — An OpenCode chat no longer sends two "Agent finished" notifications for each reply.
+- **OpenCode chat asks about every action** — When OpenCode wants to run several commands at once, each permission request now waits its turn on screen instead of the earlier ones disappearing and leaving OpenCode stuck.
+- **Grok chat shows connected-tool results** — Tools from connected servers in a Grok chat now show their output, or the error when they fail, instead of an empty result. Folder listings and background command output show up too.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs, including when you pulled it back into the message box to edit it first.
 - **Codex access requests from your phone** — When a Codex chat asks for extra file or network access, the phone now shows what it wants, and tapping Allow actually grants it.
@@ -97,6 +105,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Hermes terminal context meter** — After a few turns, a Hermes terminal's context meter showed the total of every token the session had ever sent, often far past full. It no longer shows that misleading number.
 - **Cline terminals stop spinning after an error** — When a Cline reply failed (for example a provider or network error), the session kept showing as working. It now settles when the reply ends.
 - **Crash with non-English text in terminals** — agmux could quit suddenly when a Pi or OpenCode terminal sent it a prompt or file edit containing characters like accents, emoji, dashes or non-Latin text. That no longer happens.
+- **No leftover requests after a Grok or Gemini restart** — Changing effort or model in a Grok or Gemini chat now clears permission requests the old session can no longer answer, so new ones show right away.
 
 ## v4.2.0 — 2026-09-23
 

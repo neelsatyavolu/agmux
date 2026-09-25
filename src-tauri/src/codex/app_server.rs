@@ -350,6 +350,14 @@ fn extract_approval_command(value: &Value) -> Option<String> {
     None
 }
 
+/// JSON-RPC reply that approves an allowlisted `commandExecution/requestApproval`.
+fn allowlist_approval_response(id: u64) -> Value {
+    json!({
+        "id": id,
+        "result": { "decision": "accept" }
+    })
+}
+
 /// Extract a thread ID from a JSON-RPC message.
 fn extract_thread_id(value: &Value) -> Option<String> {
     value
@@ -900,10 +908,7 @@ impl CodexAppServer {
                                 "Codex auto-approving (matched allowlist): {}",
                                 cmd_str
                             );
-                            let body = json!({
-                                "id": id,
-                                "result": { "approved": true }
-                            });
+                            let body = allowlist_approval_response(id);
                             match serde_json::to_string(&body) {
                                 Ok(mut s) => {
                                     s.push('\n');
@@ -2118,6 +2123,16 @@ impl CodexServerManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn allowlist_auto_approval_uses_the_command_approval_decision_schema() {
+        // Codex 0.157 CommandExecutionRequestApprovalResponse requires
+        // `decision` ("accept" | "acceptForSession" | …); `approved` is unknown.
+        assert_eq!(
+            allowlist_approval_response(7),
+            json!({ "id": 7, "result": { "decision": "accept" } }),
+        );
+    }
 
     #[test]
     fn capture_instance_marker_is_private_immutable_and_never_linked() {

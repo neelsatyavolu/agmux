@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { render, cleanup, fireEvent } from "@testing-library/react";
+import { render, cleanup, fireEvent, act } from "@testing-library/react";
 
 const inspectorPropsSpy = vi.hoisted(() => vi.fn());
 vi.mock("../subagents/SubagentInspector", async (importOriginal) => {
@@ -1512,6 +1512,116 @@ describe("OpenCodeSdkSessionView — Maximum coverage", () => {
     (getByText("Approve once") as HTMLButtonElement).click();
     await flush();
     expect(respond).toHaveBeenCalledWith("oc-mc-15", "perm-1", "accept");
+  });
+
+  it("keeps concurrent permission requests queued so each one gets answered", async () => {
+    // OpenCode runs a step's tool calls in parallel, so two bash commands can
+    // each be waiting on a permission at the same time.
+    const handlers = await setupCapture();
+    seedThread("oc-mc-15b");
+    const { container, getByText } = render(
+      <OpenCodeSdkSessionView sessionId="oc-mc-15b" cwd="/tmp/repo" />
+    );
+    await flush();
+    for (const [permissionId, pattern] of [["per_first", "npm test"], ["per_second", "npm run lint"]]) {
+      fireOpenCode(handlers, "oc-mc-15b", {
+        type: "permission_request",
+        threadId: "oc-mc-15b",
+        permissionId,
+        kind: "command_execution_approval",
+        permission: "bash",
+        pattern,
+        patterns: [pattern],
+        always: [],
+        metadata: {},
+        eventId: `e-${permissionId}`,
+        timestamp: "2026-01-01T00:00:00Z",
+      });
+    }
+    await flush();
+    expect(container.textContent).toContain("(npm test)");
+    const sdkMod = await import("../../../lib/opencodeSdkCommands");
+    const respond = vi.mocked(sdkMod.opencodeSdk.respondPermission);
+    respond.mockClear();
+    (getByText("Approve once") as HTMLButtonElement).click();
+    await flush();
+    expect(respond).toHaveBeenCalledWith("oc-mc-15b", "per_first", "accept");
+    expect(container.textContent).toContain("(npm run lint)");
+    (getByText("Approve once") as HTMLButtonElement).click();
+    await flush();
+    expect(respond).toHaveBeenCalledWith("oc-mc-15b", "per_second", "accept");
+  });
+
+  it("notifies once per turn although the bridge reports idle twice", async () => {
+    // OpenCode publishes session.idle when the run stops, and the bridge
+    // emits its own session.idle after prompt() returns — two per turn.
+    const handlers = await setupCapture();
+    seedThread("oc-mc-15d");
+    const { container } = render(
+      <OpenCodeSdkSessionView sessionId="oc-mc-15d" cwd="/tmp/repo" />
+    );
+    await flush();
+    fireOpenCode(handlers, "oc-mc-15d", { event: "session.started", sessionId: "ses_example" });
+    await flush();
+    const notifications = await import("../../../lib/notifications");
+    const notify = vi.mocked(notifications.sendNotification);
+    const finished = () => notify.mock.calls.filter((c) => String(c[1]).includes("Agent finished")).length;
+    const sendTurn = async (text: string) => {
+      const ta = container.querySelector("textarea") as HTMLTextAreaElement;
+      fireEvent.change(ta, { target: { value: text } });
+      await flush();
+      fireEvent.keyDown(ta, { key: "Enter", shiftKey: false });
+      await flush();
+    };
+    notify.mockClear();
+    await sendTurn("first task");
+    fireOpenCode(handlers, "oc-mc-15d", { event: "session.idle", timestamp: "2026-01-01T00:00:00Z" });
+    await flush();
+    fireOpenCode(handlers, "oc-mc-15d", { event: "session.idle", timestamp: "2026-01-01T00:00:01Z" });
+    await flush();
+    expect(finished()).toBe(1);
+    await sendTurn("second task");
+    fireOpenCode(handlers, "oc-mc-15d", { event: "session.idle", timestamp: "2026-01-01T00:01:00Z" });
+    await flush();
+    fireOpenCode(handlers, "oc-mc-15d", { event: "session.idle", timestamp: "2026-01-01T00:01:01Z" });
+    await flush();
+    expect(finished()).toBe(2);
+  });
+
+  it("answering the first permission from the toast keeps the next one queued", async () => {
+    const handlers = await setupCapture();
+    seedThread("oc-mc-15c");
+    const { container } = render(
+      <OpenCodeSdkSessionView sessionId="oc-mc-15c" cwd="/tmp/repo" />
+    );
+    await flush();
+    for (const [permissionId, pattern] of [["per_one", "npm test"], ["per_two", "npm run lint"]]) {
+      fireOpenCode(handlers, "oc-mc-15c", {
+        type: "permission_request",
+        threadId: "oc-mc-15c",
+        permissionId,
+        kind: "command_execution_approval",
+        permission: "bash",
+        pattern,
+        patterns: [pattern],
+        always: [],
+        metadata: {},
+        eventId: `e-${permissionId}`,
+        timestamp: "2026-01-01T00:00:00Z",
+      });
+    }
+    await flush();
+    expect(useUiStore.getState().pendingApprovalsBySession["oc-mc-15c"]?.requestId).toBe("per_one");
+    // The global toast answers the head and clears the published slot.
+    await act(async () => {
+      useUiStore.setState((s) => {
+        const next = { ...s.pendingApprovalsBySession };
+        delete next["oc-mc-15c"];
+        return { pendingApprovalsBySession: next };
+      });
+    });
+    await flush();
+    expect(container.textContent).toContain("(npm run lint)");
   });
 
   it("Approve always click invokes respondPermission with 'acceptForSession'", async () => {
