@@ -1078,7 +1078,7 @@ impl CodexAppServer {
                             })
                             .unwrap_or_default();
                         if !tid.is_empty() {
-                            let detail = extract_approval_command(&value)
+                            let mut detail = extract_approval_command(&value)
                                 .unwrap_or_else(|| {
                                     params
                                         .get("command")
@@ -1086,6 +1086,14 @@ impl CodexAppServer {
                                         .unwrap_or("")
                                         .to_string()
                                 });
+                            if method_str == "item/permissions/requestApproval" {
+                                // The phone answers with the granted subset, so show what it grants.
+                                let permissions = params.get("permissions").filter(|p| p.is_object()).cloned().unwrap_or_else(|| json!({}));
+                                let reason = params.get("reason").and_then(|v| v.as_str()).unwrap_or("");
+                                detail = format!("{reason}\n{}", serde_json::to_string_pretty(&permissions).unwrap_or_default())
+                                    .trim().to_string();
+                                crate::remote::dispatch::remember_codex_permissions_request(id, permissions);
+                            }
                             let tool = method_str.rsplit('/').next().unwrap_or("approval");
                             crate::remote::notify_approval(
                                 &app_handle_clone,

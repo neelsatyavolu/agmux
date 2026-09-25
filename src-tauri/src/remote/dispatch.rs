@@ -233,6 +233,38 @@ fn terminal_decision_approves(decision: &str) -> Option<bool> {
     }
 }
 
+/// Permissions requested by pending Codex `item/permissions/requestApproval`
+/// calls, keyed by the global public request id.
+static CODEX_PERMISSION_REQUESTS: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<u64, serde_json::Value>>,
+> = std::sync::LazyLock::new(Default::default);
+
+pub fn remember_codex_permissions_request(request_id: u64, permissions: serde_json::Value) {
+    let mut map = CODEX_PERMISSION_REQUESTS.lock().unwrap_or_else(|e| e.into_inner());
+    // Requests answered on the Mac never come back through here; stay bounded.
+    if map.len() >= 256 {
+        map.clear();
+    }
+    map.insert(request_id, permissions);
+}
+
+/// Codex app-server approval answer (matches desktop buildCodexApprovalResponse).
+/// A permissions request grants the requested subset (or none), not a decision.
+fn codex_approval_result(request_id: u64, decision: &str) -> serde_json::Value {
+    let accepted = !matches!(decision, "deny" | "reject" | "decline");
+    let requested = CODEX_PERMISSION_REQUESTS.lock().unwrap_or_else(|e| e.into_inner())
+        .get(&request_id).cloned();
+    match requested {
+        Some(permissions) => serde_json::json!({
+            "scope": "turn",
+            "permissions": if accepted { permissions } else { serde_json::json!({}) },
+        }),
+        None => serde_json::json!({
+            "decision": if accepted { "accept" } else { "decline" }
+        }),
+    }
+}
+
 pub async fn respond_approval(
     app: &AppHandle,
     thread_id: Option<&str>,
@@ -319,15 +351,12 @@ pub async fn respond_approval(
             let work_dir = thread.work_dir.clone();
             let server = state.codex_servers.lock().await.get_for_request(&work_dir, rid)
                 .ok_or_else(|| DispatchError::Message("Codex approval is no longer pending".into()))?;
-            let accepted = !matches!(decision, "deny" | "reject" | "decline");
-            // Default decision shape matches desktop buildCodexApprovalResponse.
-            let result = serde_json::json!({
-                "decision": if accepted { "accept" } else { "decline" }
-            });
+            let result = codex_approval_result(rid, decision);
             server
                 .respond_to_request(rid, result)
                 .await
                 .map_err(|e| DispatchError::Message(e.to_string()))?;
+            CODEX_PERMISSION_REQUESTS.lock().unwrap_or_else(|e| e.into_inner()).remove(&rid);
             Ok(())
         }
         ("OpenCode", "chat") => {
@@ -850,6 +879,28 @@ mod tests {
     use super::is_valid_remote_model_id;
     use super::terminal_stop_key;
     use super::terminal_decision_approves;
+    use super::{codex_approval_result, remember_codex_permissions_request};
+
+    #[test]
+    fn codex_permissions_approval_answers_with_the_granted_subset() {
+        // `item/permissions/requestApproval` requires `permissions`, not `decision`.
+        let permissions = serde_json::json!({
+            "fileSystem": { "read": null, "write": ["/tmp/example/src"] },
+            "network": { "enabled": true },
+        });
+        remember_codex_permissions_request(9_000_001, permissions.clone());
+        assert_eq!(
+            codex_approval_result(9_000_001, "allow"),
+            serde_json::json!({ "scope": "turn", "permissions": permissions }),
+        );
+        remember_codex_permissions_request(9_000_002, permissions);
+        assert_eq!(
+            codex_approval_result(9_000_002, "deny"),
+            serde_json::json!({ "scope": "turn", "permissions": {} }),
+        );
+        assert_eq!(codex_approval_result(9_000_003, "allow"), serde_json::json!({ "decision": "accept" }));
+        assert_eq!(codex_approval_result(9_000_003, "deny"), serde_json::json!({ "decision": "decline" }));
+    }
 
     #[test]
     fn terminal_approval_needs_a_known_decision() {

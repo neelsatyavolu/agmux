@@ -604,11 +604,12 @@ async function handleRequest({ id, method, params }) {
         const ctx = requireSession(id, params?.threadId);
         if (!ctx) return;
         const { questionId, answers } = params;
-        await client.question.respond({
-          sessionID: ctx.openCodeSessionId,
-          questionID: questionId,
-          answers,
-        });
+        // SDK v2: reply with one answer list per question; no answers = dismiss.
+        if (Array.isArray(answers) && answers.length) {
+          await client.question.reply({ requestID: questionId, answers });
+        } else {
+          await client.question.reject({ requestID: questionId });
+        }
         ctx.pendingQuestions.delete(questionId);
         respond(id, { ok: true });
         return;
