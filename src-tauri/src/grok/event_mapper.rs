@@ -79,7 +79,7 @@ pub fn translate_session_update(value: &Value, _thread_id: &str) -> Option<Value
             let content = update
                 .get("content")
                 .and_then(extract_tool_output_content)
-                .or_else(|| update.get("rawOutput").and_then(extract_mcp_raw_output))
+                .or_else(|| update.get("rawOutput").and_then(extract_raw_output_text))
                 .unwrap_or_default();
             let is_error = status == "failed";
             Some(json!({
@@ -318,14 +318,21 @@ fn extract_tool_output_content(value: &Value) -> Option<String> {
     }
 }
 
-/// Grok's MCP (`use_tool`) updates carry no `content` blocks; the result text
-/// is `rawOutput.output.OkayOutput` (or `.Error` when the call failed).
-fn extract_mcp_raw_output(raw: &Value) -> Option<String> {
-    let output = raw.get("output")?;
-    ["OkayOutput", "Error"]
-        .iter()
-        .find_map(|key| output.get(*key).and_then(|v| v.as_str()))
-        .map(str::to_string)
+/// Some Grok tools finish with no `content` blocks; their text is only in
+/// `rawOutput`: MCP `use_tool` → `output.OkayOutput` / `output.Error`,
+/// `list_dir` → `Content.content`, background output → `Result.output`,
+/// kill → `Result.message`.
+fn extract_raw_output_text(raw: &Value) -> Option<String> {
+    [
+        ["output", "OkayOutput"],
+        ["output", "Error"],
+        ["Content", "content"],
+        ["Result", "output"],
+        ["Result", "message"],
+    ]
+    .iter()
+    .find_map(|[outer, inner]| raw.get(*outer)?.get(*inner)?.as_str())
+    .map(str::to_string)
 }
 
 #[cfg(test)]
@@ -458,6 +465,41 @@ mod tests {
         let ev = translate_session_update(&failed, "T").unwrap();
         assert_eq!(ev["content"], "server unavailable");
         assert_eq!(ev["isError"], true);
+    }
+
+    #[test]
+    fn native_tool_updates_without_content_use_raw_output_text() {
+        let done = |id: &str, raw: Value| {
+            json!({
+                "method": "session/update",
+                "params": {
+                    "sessionId": "S",
+                    "update": {
+                        "sessionUpdate": "tool_call_update",
+                        "toolCallId": id,
+                        "status": "completed",
+                        "rawOutput": raw
+                    }
+                }
+            })
+        };
+        let list = done("t1", json!({
+            "type": "ListDir",
+            "Content": {"absolute_root_path": "/tmp/example", "content": "src/\nREADME.md"}
+        }));
+        assert_eq!(translate_session_update(&list, "T").unwrap()["content"], "src/\nREADME.md");
+
+        let output = done("t2", json!({
+            "type": "TaskOutput",
+            "Result": {"task_id": "task-1", "status": "completed", "exit_code": 0, "output": "all tests passed"}
+        }));
+        assert_eq!(translate_session_update(&output, "T").unwrap()["content"], "all tests passed");
+
+        let kill = done("t3", json!({
+            "type": "KillTask",
+            "Result": {"task_id": "task-1", "outcome": "killed", "message": "Task task-1 stopped"}
+        }));
+        assert_eq!(translate_session_update(&kill, "T").unwrap()["content"], "Task task-1 stopped");
     }
 
     #[test]

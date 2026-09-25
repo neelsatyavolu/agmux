@@ -55,7 +55,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Token counts in Claude chat** — The token line under each Claude chat reply now shows that reply's real numbers, instead of wrong or negative counts from the second reply on.
 - **Background agents finish in Claude chat** — A background agent in a Claude chat now shows as finished when it's done, with its tool count as it works, instead of looking like it's still running forever.
 - **OpenCode chat asks about every action** — When OpenCode wants to run several commands at once, each permission request now waits its turn on screen instead of the earlier ones disappearing and leaving OpenCode stuck.
-- **Grok chat shows connected-tool results** — Tools from connected servers in a Grok chat now show their output, or the error when they fail, instead of an empty result.
+- **Grok chat shows connected-tool results** — Tools from connected servers in a Grok chat now show their output, or the error when they fail, instead of an empty result. Folder listings and background command output show up too.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
 - **Stopping from your phone** — Tapping Stop on a terminal session from your phone no longer risks closing Claude or Codex.
 - **Phone remote history for Claude Desktop Cowork** — Cowork sessions from Claude Desktop now show their full history on your phone.
