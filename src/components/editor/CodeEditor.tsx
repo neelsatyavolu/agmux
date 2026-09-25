@@ -33,7 +33,9 @@ export function CodeEditor({ filePath }: Props) {
   // Flag to suppress markDirty when we push external content changes into the editor
   const externalUpdateRef = useRef(false);
 
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // Keyed by path: the error view has no editor container, so an error left
+  // over from another file would stop the next file from ever loading.
+  const [loadFailure, setLoadError] = useState<{ path: string; message: string } | null>(null);
 
   filePathRef.current = filePath;
 
@@ -151,7 +153,7 @@ export function CodeEditor({ filePath }: Props) {
         .catch((err) => {
           console.error("Failed to read file:", err);
           if (!cancelled) {
-            setLoadError(String(err));
+            setLoadError({ path: filePath, message: String(err) });
           }
         });
     }
@@ -242,6 +244,7 @@ export function CodeEditor({ filePath }: Props) {
     );
   }
 
+  const loadError = loadFailure?.path === filePath ? loadFailure.message : null;
   if (loadError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-sm">

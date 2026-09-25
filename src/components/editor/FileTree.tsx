@@ -452,7 +452,10 @@ export function FileTree({
     setActionError(null);
     try {
       await deletePath(deleteState.filePath);
-      closeTab(deleteState.filePath);
+      const inside = `${deleteState.filePath}/`;
+      for (const tab of useEditorStore.getState().openTabs) {
+        if (tab.path === deleteState.filePath || tab.path.startsWith(inside)) closeTab(tab.path);
+      }
       handleCloseDelete();
       await loadRoot();
     } catch (err) {

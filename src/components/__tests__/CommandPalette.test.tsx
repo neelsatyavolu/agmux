@@ -2,6 +2,9 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { CommandPalette } from "../CommandPalette";
+import { useThreadStore } from "../../stores/threadStore";
+import { useProjectStore } from "../../stores/projectStore";
+import type { Project, Thread } from "../../lib/types";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockResolvedValue(undefined),
@@ -179,5 +182,27 @@ describe("CommandPalette — Final coverage gaps", () => {
     expect(screen.getByText("navigate")).toBeTruthy();
     expect(screen.getByText("open")).toBeTruthy();
     expect(screen.getByText("help")).toBeTruthy();
+  });
+
+  it("shows recent sessions' age from the database's UTC last_active", () => {
+    // SQLite datetime('now') is UTC without a zone suffix.
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString().slice(0, 19).replace("T", " ");
+    const previousTz = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    const projects = useProjectStore.getState().projects;
+    const threads = useThreadStore.getState().threads;
+    try {
+      useProjectStore.setState({ projects: [{ id: "p1", name: "demo", repo_path: "/w" } as Project] });
+      useThreadStore.setState({ threads: { p1: [{
+        id: "t1", project_id: "p1", name: "Fix login", provider: "Codex",
+        is_archived: false, last_active: fiveMinutesAgo,
+      } as unknown as Thread] } });
+      render(<CommandPalette open={true} onClose={() => {}} />);
+      expect(screen.getByText("demo · 5m")).toBeTruthy();
+    } finally {
+      process.env.TZ = previousTz;
+      useProjectStore.setState({ projects });
+      useThreadStore.setState({ threads });
+    }
   });
 });

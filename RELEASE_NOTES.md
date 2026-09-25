@@ -50,6 +50,14 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Phone remote polish** — The phone shows when it's loading or your Mac is offline, shows errors instead of failing silently, keeps the current model visible on small screens, no longer zooms in while you type on iPhone, and signs out right away if you revoke it on your Mac. Pairing no longer hangs, and pairing links from the iPhone app now work.
 
 ### Fixed
+- **Searching for file names** — Searching for something with a dot in it, like `main.rs` or `package.json`, now finds matching conversations instead of missing them.
+- **Renaming or deleting folders in the IDE** — Files you had open inside a folder now follow it when you rename the folder (so saving works), and close when you delete the folder.
+- **Codex reset time in Usage** — The Codex usage bars now show when your limit actually resets instead of saying "resets now".
+- **IDE editor stuck on "Failed to load file"** — After opening a file that can't be shown (like an image), opening another file now shows it instead of the same error.
+- **Search with accented letters, Japanese text or emoji** — Messages containing characters like ś, せ or 🐛 are no longer garbled in search results, the words around them can be found again, and searching for words like "śledzenie" or "せんせい" now finds your conversations.
+- **Search finds recent work summaries** — The summary of what an agent did in its latest turn can now be found in search, instead of staying missing until you started another turn.
+- **Session times in the command palette** — Recent and other sessions in the command palette now show how long ago they were used, instead of "now" (or a time off by several hours, depending on your time zone).
+- **Search results match what you typed** — Search no longer sometimes shows results for an earlier, shorter version of your search.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
 - **Stopping from your phone** — Tapping Stop on a terminal session from your phone no longer risks closing Claude or Codex.
 - **Phone remote history for Claude Desktop Cowork** — Cowork sessions from Claude Desktop now show their full history on your phone.

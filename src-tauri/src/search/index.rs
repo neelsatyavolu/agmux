@@ -99,14 +99,18 @@ pub fn spawn_background_reindex(pool: SqlitePool) {
 
 async fn reindex_db_sources(pool: &SqlitePool) -> anyhow::Result<()> {
     // Fingerprint: counts + max timestamps so we skip when nothing changed.
+    // Turn summaries land after the turn row exists (and the LLM summary
+    // replaces the extractive one later) without touching any timestamp above.
     let fp: String = sqlx::query_scalar(
-        "SELECT printf('%d:%d:%d:%d:%s:%s',
+        "SELECT printf('%d:%d:%d:%d:%s:%s:%d:%d',
             (SELECT COUNT(*) FROM threads WHERE is_archived = 0),
             (SELECT COUNT(*) FROM thread_turns),
             (SELECT COUNT(*) FROM prompt_logs),
             (SELECT COUNT(*) FROM thread_journal_entries WHERE is_archived = 0),
             COALESCE((SELECT MAX(last_active) FROM threads), ''),
-            COALESCE((SELECT MAX(started_at) FROM thread_turns), '')
+            COALESCE((SELECT MAX(started_at) FROM thread_turns), ''),
+            (SELECT COUNT(summary) FROM thread_turns),
+            (SELECT COALESCE(SUM(length(summary)), 0) FROM thread_turns)
         )",
     )
     .fetch_one(pool)
@@ -460,3 +464,46 @@ pub async fn reindex_all(pool: &SqlitePool) -> anyhow::Result<()> {
 }
 
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn turn_summary_written_after_indexing_becomes_searchable() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let proj = crate::db::queries::create_project(&pool, "demo", "/w").await.unwrap();
+        let thread_id = uuid::Uuid::new_v4().to_string();
+        crate::db::queries::create_thread(
+            &pool, &thread_id, &proj.id, "generic session", "ClaudeCode", "/w", "/s",
+            None, None, false, "DirectRepo", None, None, None,
+        )
+        .await
+        .unwrap();
+        let turn_id = uuid::Uuid::new_v4().to_string();
+        crate::db::queries::insert_thread_turn_with_prompt_summary(
+            &pool, &turn_id, &thread_id, 1, "please tidy up the settings page", None,
+            "running", "prompt", "p1", "{}",
+        )
+        .await
+        .unwrap();
+        // A search while the turn runs indexes it without a summary.
+        reindex_db_sources(&pool).await.unwrap();
+        crate::db::queries::update_thread_turn_status(&pool, &turn_id, "done").await.unwrap();
+        crate::db::queries::update_thread_turn_summary(
+            &pool, &turn_id, "Rebuilt the zeppelin configuration panel", "extractive",
+        )
+        .await
+        .unwrap();
+        reindex_db_sources(&pool).await.unwrap();
+
+        let hits = crate::search::search_threads_fts(&pool, "zeppelin", 10).await.unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].thread_id, thread_id);
+    }
+}

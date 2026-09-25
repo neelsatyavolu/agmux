@@ -62,14 +62,17 @@ export function SearchDialog({ open, onClose }: Props) {
       return;
     }
     setSearching(true);
+    // A slower search for an older query must not replace newer results.
+    let stale = false;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       searchThreads(query, 30)
-        .then(setBackendResults)
-        .catch(() => setBackendResults([]))
-        .finally(() => setSearching(false));
+        .then((rows) => { if (!stale) setBackendResults(rows); })
+        .catch(() => { if (!stale) setBackendResults([]); })
+        .finally(() => { if (!stale) setSearching(false); });
     }, 200);
     return () => {
+      stale = true;
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [query, open]);

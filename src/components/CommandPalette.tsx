@@ -146,7 +146,8 @@ function Kbd({ children, muted = false }: { children: React.ReactNode; muted?: b
 }
 
 function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
+  // last_active is SQLite UTC without a zone suffix; plain Date() reads it as local time.
+  const date = new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(dateStr) ? dateStr : `${dateStr.replace(" ", "T")}Z`);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
