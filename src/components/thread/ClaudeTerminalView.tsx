@@ -306,7 +306,8 @@ export function ClaudeTerminalView({
           next = next.slice(0, -1);
           continue;
         }
-        if (ch === "\u0015") {
+        // Ctrl+U and Ctrl+C both clear Claude's input box.
+        if (ch === "\u0015" || ch === "\u0003") {
           next = "";
           continue;
         }
