@@ -87,7 +87,7 @@ export function EditorTabs({ inTitlebar = false }: { inTitlebar?: boolean } = {}
       ref={scrollRef}
       data-tauri-drag-region={inTitlebar || undefined}
       className={`flex shrink-0 items-center gap-1 overflow-x-auto scrollbar-none${
-        inTitlebar ? "" : " editor-tabs-bar"
+        inTitlebar ? "" : " editor-tabs-bar pane-tab-bar"
       }`}
       style={{
         height: inTitlebar ? undefined : 32,
@@ -118,26 +118,11 @@ export function EditorTabs({ inTitlebar = false }: { inTitlebar?: boolean } = {}
                   closeTab(tab.path);
                 }
               }}
-              className="group relative flex shrink-0 items-center gap-1.5 transition-colors"
-              style={{
-                padding: "4px 8px",
-                borderRadius: 4,
-                fontSize: 11,
-                background: isActive
-                  ? "color-mix(in srgb, var(--accent) 10%, transparent)"
-                  : "transparent",
-                border: `1px solid ${
-                  isActive ? "color-mix(in srgb, var(--accent) 25%, transparent)" : "transparent"
-                }`,
-                color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive)
-                  e.currentTarget.style.background = "var(--glass-hover, rgba(255,255,255,0.04))";
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.background = "transparent";
-              }}
+              className={`group relative flex shrink-0 items-center gap-1.5 rounded-[8px] border px-2 py-1 text-[11px] transition-colors ${
+                isActive
+                  ? "pane-tab-active bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] border-[color-mix(in_srgb,var(--accent)_25%,transparent)] text-[var(--text-primary)]"
+                  : "border-transparent text-[var(--text-secondary)] fx-graphite hover:bg-white/[0.04] fx-hover"
+              }`}
             >
               <AnimatePresence>
                 {isAiEdited && (

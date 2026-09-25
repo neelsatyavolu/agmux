@@ -26,6 +26,7 @@ vi.mock("../../../lib/commands", () => ({
 
 import { FileTree } from "../FileTree";
 import { listDirectory } from "../../../lib/commands";
+import { useEditorStore } from "../../../stores/editorStore";
 
 afterEach(() => {
   cleanup();
@@ -398,5 +399,38 @@ describe("FileTree — Maximum coverage", () => {
     });
     expect(onAskClaude).not.toHaveBeenCalled();
     expect(container.firstChild).toBeTruthy();
+  });
+
+  it("Task 13: the open file's row carries file-tree-row-active (neutral selected state)", async () => {
+    (listDirectory as any).mockReset();
+    (listDirectory as any).mockResolvedValue([
+      { name: "open.ts", path: "/r/open.ts", is_dir: false },
+      { name: "other.ts", path: "/r/other.ts", is_dir: false },
+    ]);
+    useEditorStore.setState({ activeTabPath: "/r/open.ts" });
+    try {
+      render(<FileTree rootPath="/r" threadId={null} />);
+      await waitFor(() => expect(screen.queryByText("open.ts")).toBeTruthy());
+      const openRow = screen.getByText("open.ts").closest("button")!;
+      const otherRow = screen.getByText("other.ts").closest("button")!;
+      expect(openRow.className).toContain("file-tree-row-active");
+      expect(otherRow.className).not.toContain("file-tree-row-active");
+    } finally {
+      useEditorStore.setState({ activeTabPath: null });
+    }
+  });
+
+  it("Task 13: git status renders as a mono letter (GitStatusIndicator), not a bare dot", async () => {
+    (listDirectory as any).mockReset();
+    (listDirectory as any).mockResolvedValue([
+      { name: "modified.ts", path: "/r/modified.ts", is_dir: false },
+    ]);
+    // gitStatus is keyed by path relative to rootPath (see toRelativePath).
+    render(<FileTree rootPath="/r" threadId={null} gitStatus={{ "modified.ts": "M" }} />);
+    await waitFor(() => expect(screen.queryByText("modified.ts")).toBeTruthy());
+    const row = screen.getByText("modified.ts").closest("button")!;
+    expect(row.textContent).toContain("M");
+    const letter = Array.from(row.querySelectorAll("span")).find((el) => el.textContent === "M");
+    expect(letter?.className).toContain("font-mono");
   });
 });

@@ -7,6 +7,7 @@ import { useEditorStore } from "../../stores/editorStore";
 import { useFileWatcher } from "../../hooks/useFileWatcher";
 import { syncPollingToAppForeground } from "../../lib/appVisibility";
 import { FileTreeContextMenu } from "./FileTreeContextMenu";
+import { GitStatusIndicator } from "./GitStatusIndicator";
 import type { FileEntry } from "../../lib/types";
 
 /* ── Colored extension tile (e.g. "TSX", "RS", "MD") ──────────── */
@@ -63,27 +64,6 @@ function ExtTile({ name, size = 12 }: { name: string; size?: number }) {
     >
       {label}
     </span>
-  );
-}
-
-/* ── Git status dot ───────────────────────────────────────────── */
-function StatusDot({ code }: { code: string | undefined }) {
-  if (!code) return null;
-  const up = code.trim().toUpperCase();
-  let color = "var(--status-blue)"; // modified
-  if (up.includes("A") || up === "??") color = "var(--status-green)"; // added/untracked
-  else if (up.includes("D")) color = "var(--status-red)"; // deleted
-  else if (up.includes("R")) color = "var(--status-purple)"; // renamed
-  return (
-    <span
-      style={{
-        width: 6,
-        height: 6,
-        borderRadius: 9999,
-        background: color,
-        flexShrink: 0,
-      }}
-    />
   );
 }
 
@@ -220,22 +200,12 @@ function FileTreeNode({
       <button
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        className="file-tree-row group flex w-full items-center gap-2 py-[3px] pr-2 text-left transition-colors"
-        style={{
-          paddingLeft: pad,
-          background: isActive ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "transparent",
-          borderLeft: `2px solid ${isActive ? "var(--accent)" : "transparent"}`,
-          color: isActive ? "var(--text-primary, #fff)" : "var(--text-secondary, #e4e4e7)",
-          fontFamily: "var(--font-mono)",
-          fontSize: 11.5,
-          letterSpacing: 0,
-        }}
-        onMouseEnter={(e) => {
-          if (!isActive) e.currentTarget.style.background = "var(--glass-hover)";
-        }}
-        onMouseLeave={(e) => {
-          if (!isActive) e.currentTarget.style.background = "transparent";
-        }}
+        className={`file-tree-row group flex w-full items-center gap-2 border-l-2 py-[3px] pr-2 text-left transition-colors ${
+          isActive
+            ? "file-tree-row-active bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] border-l-[var(--accent)] text-[var(--text-primary)]"
+            : "border-l-transparent text-[var(--text-secondary)] hover:bg-white/[0.04] fx-hover"
+        }`}
+        style={{ paddingLeft: pad, fontSize: 12.5, letterSpacing: 0 }}
       >
         {entry.is_dir ? (
           <span
@@ -283,7 +253,7 @@ function FileTreeNode({
           </>
         )}
         {entry.is_dir && <span style={{ flex: 1 }} />}
-        {gitStatus && statusCode && <StatusDot code={statusCode} />}
+        {gitStatus && statusCode && <GitStatusIndicator statusCode={statusCode} isDirectory={entry.is_dir} />}
       </button>
 
       {expanded &&
@@ -514,13 +484,10 @@ export function FileTree({
             flexShrink: 0,
           }}
         >
-          <FolderTree size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
+          <FolderTree size={13} className="shrink-0 text-[color:var(--accent)] fx-graphite" />
           <div
-            className="ui-eyebrow fx-graphite"
-            style={{
-              color: "var(--accent)",
-              flexShrink: 0,
-            }}
+            className="ui-eyebrow fx-graphite text-[color:var(--accent)]"
+            style={{ flexShrink: 0 }}
           >
             Files
           </div>
@@ -541,14 +508,11 @@ export function FileTree({
           </span>
           {changedCount > 0 && (
             <span
+              className="ui-chip sm fx-chip-q"
               style={{
-                padding: "1px 7px",
-                borderRadius: 9999,
-                fontSize: 10,
                 background: "color-mix(in srgb, var(--accent) 10%, transparent)",
                 border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
                 color: "var(--accent)",
-                fontFamily: "var(--font-mono)",
                 flexShrink: 0,
               }}
             >

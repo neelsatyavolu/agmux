@@ -174,7 +174,7 @@ function EditorPanelContent() {
     >
       {/* Left-edge resize handle */}
       <ResizeHandle direction="horizontal" onResize={handlePanelResize} />
-      <div className="flex h-full flex-1 flex-col overflow-hidden border-l" style={{ borderColor: "var(--glass-border)" }}>
+      <div className="editor-panel-shell flex h-full flex-1 flex-col overflow-hidden border-l border-[color:var(--glass-border)]">
         {rootPath ? (
           <div className="flex flex-1 overflow-hidden">
             {/* Code editor (left side) */}
@@ -193,10 +193,9 @@ function EditorPanelContent() {
             {/* File tree (right side) */}
             {fileTreeVisible && (
               <div
-                className={`flex shrink-0 flex-col overflow-hidden sidebar-bg ${activeTabPath ? "border-l" : ""}`}
+                className={`editor-panel-shell flex shrink-0 flex-col overflow-hidden sidebar-bg ${activeTabPath ? "border-l border-[color:var(--glass-border)]" : ""}`}
                 style={{
                   width: activeTabPath ? fileTreeWidth : "100%",
-                  borderColor: activeTabPath ? "var(--glass-border)" : undefined,
                 }}
               >
                 <FileTree rootPath={rootPath} threadId={selectedThreadId} />

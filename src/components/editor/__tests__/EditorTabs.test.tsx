@@ -115,6 +115,28 @@ describe("EditorTabs", () => {
     expect(getAllByText("AI").length).toBeGreaterThan(0);
   });
 
+  it("active tab uses the neutral pane-tab-active class, inactive tabs don't (Task 13: no gold selection)", () => {
+    useEditorStore.setState({
+      openTabs: [
+        { path: "/a/foo.ts", name: "foo.ts" } as any,
+        { path: "/a/bar.ts", name: "bar.ts" } as any,
+      ],
+      activeTabPath: "/a/foo.ts",
+    });
+    const { getByTitle } = render(<EditorTabs />);
+    expect(getByTitle("/a/foo.ts").className).toContain("pane-tab-active");
+    expect(getByTitle("/a/bar.ts").className).not.toContain("pane-tab-active");
+  });
+
+  it("bar carries pane-tab-bar for the flat sidebar fill", () => {
+    useEditorStore.setState({
+      openTabs: [{ path: "/a/foo.ts", name: "foo.ts" } as any],
+      activeTabPath: "/a/foo.ts",
+    });
+    const { container } = render(<EditorTabs />);
+    expect(container.querySelector(".editor-tabs-bar")?.className).toContain("pane-tab-bar");
+  });
+
   it("shows the markdown preview/raw toggle for .md files", () => {
     useEditorStore.setState({
       openTabs: [{ path: "/a/README.md", name: "README.md" } as any],

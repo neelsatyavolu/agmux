@@ -181,7 +181,7 @@ export function FileTreeContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[204px] overflow-hidden"
+      className="file-tree-context-menu fixed z-50 min-w-[204px] overflow-hidden"
       style={{
         left: x,
         top: y,
