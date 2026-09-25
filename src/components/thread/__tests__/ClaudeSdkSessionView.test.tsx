@@ -5979,6 +5979,35 @@ describe("ClaudeSdkSessionView — Final coverage gaps", () => {
     expect(container.firstChild).toBeTruthy();
   });
 
+  it("shows each Claude turn's own token usage (result usage is per turn)", async () => {
+    // The Agent SDK documents result.usage as per-turn in streaming-input
+    // sessions, so the second turn's numbers must not be diffed against the
+    // first turn's.
+    const handlers = await setupCapture();
+    const { container } = render(<ClaudeSdkSessionView sessionId="eg47" cwd="/tmp/repo" isNew />);
+    await flush();
+    const turn = (inputTokens: number, outputTokens: number, cacheReadTokens: number, numTurns: number) => ({
+      type: "turn.completed",
+      sessionId: "11111111-1111-4111-8111-111111111111",
+      model: null,
+      userMessageUuid: null,
+      usage: {
+        inputTokens,
+        outputTokens,
+        cacheCreationTokens: 0,
+        cacheReadTokens,
+        totalCostUsd: 0.01 * numTurns,
+        numTurns,
+      },
+    });
+    await act(async () => { fire(handlers, "eg47", turn(12, 900, 30_000, 1)); });
+    await act(async () => { fire(handlers, "eg47", turn(8, 400, 42_000, 2)); });
+    await flush();
+    const text = container.textContent ?? "";
+    expect(text).toContain("12 in · 900 out · 30,000 cache read · Turn 1");
+    expect(text).toContain("8 in · 400 out · 42,000 cache read · Turn 2");
+  });
+
   it("keeps an approval that has waited over a minute when a second one arrives", async () => {
     // Parallel subagents can each block on a permission prompt. The bridge
     // waits for every requestId indefinitely, so dropping the older one from

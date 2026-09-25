@@ -1836,9 +1836,12 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
             }
           }
 
-          // SDK result.usage contains *accumulated* totals across all API calls,
-          // not the current context window state. Compute per-turn deltas.
-          const prev = prevTurnAccumulatedRef.current;
+          // Claude Agent SDK result.usage is already per turn in streaming-input
+          // sessions. Other transports' totals are treated as accumulated and
+          // diffed into per-turn deltas.
+          const prev = externallyManaged
+            ? prevTurnAccumulatedRef.current
+            : { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
           const turnInput = sdkEvent.usage.inputTokens - prev.inputTokens;
           const turnOutput = sdkEvent.usage.outputTokens - prev.outputTokens;
           const turnCacheCreation = sdkEvent.usage.cacheCreationTokens - prev.cacheCreationTokens;
