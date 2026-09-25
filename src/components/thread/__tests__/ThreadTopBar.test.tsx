@@ -1075,6 +1075,23 @@ describe("ThreadTopBar — Claude quota bars (Row 2)", () => {
     expect(text).toContain("wk");
   });
 
+  it("shows the Codex reset time when it arrives as unix seconds", () => {
+    // fetch_codex_usage forwards Codex's numeric resetsAt as a string.
+    const resetMs = Date.now() + 2 * 3_600_000;
+    seedProviderQuota("Codex", {
+      session: { utilization: 50, resetsAt: String(Math.floor(resetMs / 1000)), windowMinutes: 300 },
+      weekly: null,
+    });
+    const { container } = render(
+      <ThreadTopBar
+        {...baseProps}
+        provider="Codex"
+      />
+    );
+    const chip = container.querySelector('[title^="5h"]');
+    expect(chip?.getAttribute("title")).toContain("Resets at");
+  });
+
   it("does NOT show quota bars for MLX (no rate-limit endpoint)", () => {
     // Even if quota is seeded, MLX adapter is Noop and the topbar reads
     // from the per-provider slice — MLX's slice stays null.

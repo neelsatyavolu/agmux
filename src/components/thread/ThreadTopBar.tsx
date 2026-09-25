@@ -179,7 +179,11 @@ function formatTime(d: Date): string {
  *  >7 days out → "May 17 5:30pm". Returns null when input is missing/invalid. */
 function formatResetAt(iso: string | null): string | null {
   if (!iso) return null;
-  const d = new Date(iso);
+  // Codex/Grok report unix seconds (or ms) as a numeric string, not ISO.
+  const numeric = Number(iso);
+  const d = Number.isFinite(numeric) && numeric > 1_000_000_000
+    ? new Date(numeric < 10_000_000_000 ? numeric * 1000 : numeric)
+    : new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   const now = new Date();
   const sameDay =
