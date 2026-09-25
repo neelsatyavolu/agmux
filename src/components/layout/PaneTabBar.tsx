@@ -884,10 +884,8 @@ export function PaneTabBar({ paneId }: Props) {
                       className="flex w-full items-center truncate"
                       style={{
                         gap: 5,
-                        fontSize: 10,
-                        fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+                        fontSize: 11,
                         color: "#71717a",
-                        letterSpacing: "0.02em",
                         lineHeight: "12px",
                       }}
                     >
@@ -917,12 +915,9 @@ export function PaneTabBar({ paneId }: Props) {
                     ApprovalBanner. Hidden when the active tab is idle. */}
                 {isActive && statusLabel && statusColors && (
                   <span
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full"
+                    className="ui-chip sm pane-tab-status shrink-0"
+                    data-tone={glow}
                     style={{
-                      padding: "1px 7px",
-                      fontSize: 9.5,
-                      fontWeight: 500,
-                      fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
                       background: statusColors.bg,
                       border: `1px solid ${statusColors.border}`,
                       color: statusColors.text,

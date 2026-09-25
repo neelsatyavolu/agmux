@@ -67,6 +67,7 @@ function ChildToolRow({ tool }: { tool: AgentChildTool }) {
       icon={getChildIcon(tool.name)}
       lead={tool.name}
       subject={label === tool.name ? undefined : label}
+      subjectMono={false}
       status={hasError ? "error" : tool.pending ? "running" : tool.result ? "ok" : "idle"}
       detail={hasError ? resultKind === "denied" ? "denied" : resultKind === "limit" ? "limit" : "err" : undefined}
     />

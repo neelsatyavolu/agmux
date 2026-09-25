@@ -155,7 +155,7 @@ export function ArchivedThreadsPanel() {
           {allArchived.map((thread) => (
             <div key={thread.id} className="group relative">
               <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-zinc-400 hover:bg-zinc-800/50">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${statusColors[thread.status]}`} />
+                <span className={`arch-status-dot h-2 w-2 shrink-0 rounded-full ${statusColors[thread.status]}`} data-status={thread.status} />
                 <span className="flex-1 truncate text-zinc-500 group-hover:text-zinc-400 transition-colors">
                   {thread.name}
                 </span>

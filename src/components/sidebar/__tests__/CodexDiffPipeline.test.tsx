@@ -77,9 +77,9 @@ function row(id: string) {
 function expectBadge(id: string, added: number, removed: number, title = "4 files changed") {
   const queries = within(row(id));
   const badge = queries.getByTitle(title);
-  expect(badge.textContent).toBe(`+${added} / -${removed}`);
+  expect(badge.textContent).toBe(`+${added} −${removed}`);
   expect(queries.getAllByText(`+${added}`)).toHaveLength(1);
-  expect(queries.getAllByText(`-${removed}`)).toHaveLength(1);
+  expect(queries.getAllByText(`−${removed}`)).toHaveLength(1);
   // Check DOM visibility through the actual parent chain (including motion).
   for (let element: HTMLElement | null = badge; element; element = element.parentElement) {
     const style = getComputedStyle(element);

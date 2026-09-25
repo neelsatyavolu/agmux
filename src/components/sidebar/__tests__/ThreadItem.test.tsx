@@ -90,14 +90,14 @@ describe("ThreadItem", () => {
       />,
     );
     expect(screen.getByText("+12")).toBeTruthy();
-    expect(screen.getByText("-3")).toBeTruthy();
+    expect(screen.getByText("−3")).toBeTruthy();
   });
 
   it("uses aggregate native totals for a Codex owner without adding own-only DB counts again", () => {
     useUiStore.getState().setCodexDiffStats("child-parent-native", { linesAdded: 100, linesRemoved: 9, filesChanged: 5 });
     render(<ThreadItem thread={makeThread({ provider: "Codex", sdk_session_id: "child-parent-native", lines_added: 7, lines_removed: 2 })} isSelected={false} />);
     expect(screen.getByText("+100")).toBeTruthy();
-    expect(screen.getByText("-9")).toBeTruthy();
+    expect(screen.getByText("−9")).toBeTruthy();
     expect(screen.queryByText("+107")).toBeNull();
   });
 

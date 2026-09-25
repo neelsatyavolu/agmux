@@ -211,11 +211,12 @@ function StatusDot({ state, title }: { state: StatusDotState; title?: string }) 
     );
   }
   const cls = state === "needs_attention" ? "bg-amber-400" : "bg-green-400";
+  const tone = state === "needs_attention" ? "need" : "done";
   const label = title ?? state.replace("_", " ");
   return (
     <span className="relative flex h-1.5 w-1.5 shrink-0 items-center justify-center" title={label} aria-label={label}>
-      <span className={`absolute h-2.5 w-2.5 animate-ping rounded-full opacity-60 ${cls}`} />
-      <span className={`h-1.5 w-1.5 rounded-full ${cls}`} />
+      <span className={`sb-status-ping absolute h-2.5 w-2.5 animate-ping rounded-full opacity-60 ${cls}`} />
+      <span className={`sb-status-core h-1.5 w-1.5 rounded-full ${cls}`} data-tone={tone} />
     </span>
   );
 }
@@ -339,7 +340,7 @@ function ProviderIcon({
       alt=""
       width={size}
       height={size}
-      className="shrink-0 rounded-sm"
+      className="shrink-0 rounded-[4px]"
       data-provider-icon={provider}
     />
   );

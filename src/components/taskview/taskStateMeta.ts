@@ -10,43 +10,18 @@ export interface StateMeta {
   label: string;
 }
 
+const tone = (v: string, bg: number, bd: number) => ({
+  fg: `var(${v})`,
+  bg: `color-mix(in srgb, var(${v}) ${bg}%, transparent)`,
+  bd: `color-mix(in srgb, var(${v}) ${bd}%, transparent)`,
+});
 export const STATE_META: Record<EffectiveState, StateMeta> = {
-  queued: {
-    fg: "#a1a1aa",
-    bg: "rgba(161,161,170,0.10)",
-    bd: "rgba(161,161,170,0.22)",
-    label: "Queued",
-  },
-  running: {
-    fg: "rgb(251,191,36)",
-    bg: "rgba(245,158,11,0.10)",
-    bd: "rgba(245,158,11,0.28)",
-    label: "Running",
-  },
-  attention: {
-    fg: "rgb(251,191,36)",
-    bg: "rgba(245,158,11,0.12)",
-    bd: "rgba(245,158,11,0.38)",
-    label: "Needs attention",
-  },
-  review: {
-    fg: "#60a5fa",
-    bg: "rgba(96,165,250,0.10)",
-    bd: "rgba(96,165,250,0.24)",
-    label: "In review",
-  },
-  merged: {
-    fg: "var(--accent)",
-    bg: "color-mix(in srgb, var(--accent) 10%, transparent)",
-    bd: "color-mix(in srgb, var(--accent) 24%, transparent)",
-    label: "Merged",
-  },
-  failed: {
-    fg: "#f87171",
-    bg: "rgba(239,68,68,0.10)",
-    bd: "rgba(239,68,68,0.22)",
-    label: "Failed",
-  },
+  queued:    { ...tone("--task-queued", 10, 22),    label: "Queued" },
+  running:   { ...tone("--task-running", 10, 28),   label: "Running" },
+  attention: { ...tone("--task-attention", 12, 38), label: "Needs attention" },
+  review:    { ...tone("--task-review", 10, 24),    label: "In review" },
+  merged:    { ...tone("--task-merged", 10, 24),    label: "Merged" },
+  failed:    { ...tone("--task-failed", 10, 22),    label: "Failed" },
 };
 
 export function deriveEffectiveState(

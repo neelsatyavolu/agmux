@@ -36,10 +36,10 @@ export function ShellDiffBadge({ id, sessionId, linesAdded = 0, linesRemoved = 0
     ? "Includes verified shell changes"
     : filesChanged == null ? undefined : `${filesChanged} file${filesChanged === 1 ? "" : "s"} changed`;
   return (
-    <span className="shrink-0 font-mono text-[10px] leading-none tabular-nums" title={title || undefined}>
+    <span className="ui-diff shrink-0 leading-none" title={title || undefined}>
       <span className={additionClassName}>+{added}</span>
-      <span className="text-zinc-600"> / </span>
-      <span className="text-[color:var(--status-red)]">-{removed}</span>
+      <span className="text-zinc-600"> </span>
+      <span className="text-[color:var(--status-red)]">−{removed}</span>
       {incomplete && <span className="text-zinc-500"> · partial</span>}
     </span>
   );

@@ -529,7 +529,7 @@ describe("ProjectGroup", () => {
     };
     render(<ProjectGroup {...baseProps} grokSessions={[session]} />);
     expect(screen.getByText("+5")).toBeTruthy();
-    expect(screen.getByText("-2")).toBeTruthy();
+    expect(screen.getByText("−2")).toBeTruthy();
   });
 
   it("hides grok diff stats badge when no lines changed", () => {
@@ -1741,7 +1741,7 @@ describe("ProjectGroup — Deep coverage", () => {
     });
     render(<ProjectGroup {...baseProps} />);
     expect(Array.from(document.querySelectorAll("span")).some((s) => /\+12/.test(s.textContent ?? ""))).toBe(true);
-    expect(Array.from(document.querySelectorAll("span")).some((s) => /-3/.test(s.textContent ?? ""))).toBe(true);
+    expect(Array.from(document.querySelectorAll("span")).some((s) => /−3/.test(s.textContent ?? ""))).toBe(true);
   });
 
   it.each(["pty", "gemini-sdk"] as const)("renders Gemini %s diff stats", (interaction_mode) => {
@@ -1760,7 +1760,7 @@ describe("ProjectGroup — Deep coverage", () => {
     });
     render(<ProjectGroup {...baseProps} />);
     expect(screen.getByText("+23")).toBeTruthy();
-    expect(screen.getByText("-7")).toBeTruthy();
+    expect(screen.getByText("−7")).toBeTruthy();
   });
 
   it("renders diff stat indicators for Pi terminal threads", () => {
@@ -1781,7 +1781,7 @@ describe("ProjectGroup — Deep coverage", () => {
     });
     render(<ProjectGroup {...baseProps} />);
     expect(Array.from(document.querySelectorAll("span")).some((s) => /\+41/.test(s.textContent ?? ""))).toBe(true);
-    expect(Array.from(document.querySelectorAll("span")).some((s) => /-6/.test(s.textContent ?? ""))).toBe(true);
+    expect(Array.from(document.querySelectorAll("span")).some((s) => /−6/.test(s.textContent ?? ""))).toBe(true);
   });
 
   it("renders diff stat indicators for discovered Pi sessions", () => {
@@ -1804,7 +1804,7 @@ describe("ProjectGroup — Deep coverage", () => {
     );
     expect(screen.getByText("Prettify model names")).toBeTruthy();
     expect(Array.from(document.querySelectorAll("span")).some((s) => /\+9/.test(s.textContent ?? ""))).toBe(true);
-    expect(Array.from(document.querySelectorAll("span")).some((s) => /-2/.test(s.textContent ?? ""))).toBe(true);
+    expect(Array.from(document.querySelectorAll("span")).some((s) => /−2/.test(s.textContent ?? ""))).toBe(true);
   });
 
   it("Claude session row prefers live claudeSessionDiffStatsById over stale snapshot zeros", () => {
@@ -1829,7 +1829,7 @@ describe("ProjectGroup — Deep coverage", () => {
     } as Partial<ReturnType<typeof useUiStore.getState>>);
     render(<ProjectGroup {...baseProps} claudeSessions={[session]} />);
     expect(Array.from(document.querySelectorAll("span")).some((s) => /\+17/.test(s.textContent ?? ""))).toBe(true);
-    expect(Array.from(document.querySelectorAll("span")).some((s) => /-4/.test(s.textContent ?? ""))).toBe(true);
+    expect(Array.from(document.querySelectorAll("span")).some((s) => /−4/.test(s.textContent ?? ""))).toBe(true);
   });
 
   it("status dot appears for ClaudeCode threads", () => {

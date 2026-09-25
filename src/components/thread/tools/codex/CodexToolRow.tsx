@@ -33,6 +33,8 @@ export interface CodexToolRowProps {
   trailing?: ReactNode;
   /** Violet-tinted icon + text, used for reasoning rows. */
   tone?: "default" | "thinking";
+  /** Whether the subject is machine text (path/command/pattern). Defaults true; set false for prose subjects. */
+  subjectMono?: boolean;
 }
 
 /**
@@ -55,6 +57,7 @@ export const CodexToolRow = memo(function CodexToolRow({
   toggle,
   trailing,
   tone = "default",
+  subjectMono = true,
 }: CodexToolRowProps) {
   const iconColor =
     tone === "thinking"
@@ -89,8 +92,8 @@ export const CodexToolRow = memo(function CodexToolRow({
       data-testid="codex-tool-row"
       data-lead={lead}
       data-status={status}
-      className={`group/row flex min-h-[24px] items-center gap-[9px] rounded py-px font-mono text-[12.5px] leading-[1.6] text-[var(--text-muted)] ${
-        interactive ? "cursor-pointer hover:bg-white/[0.03]" : ""
+      className={`group/row flex min-h-[24px] items-center gap-[9px] rounded py-px text-[13.5px] leading-[1.6] text-[var(--text-muted)] ${
+        interactive ? "cursor-pointer hover:bg-white/[0.03] fx-hover" : ""
       }`}
     >
       <span className={`flex h-[14px] w-[14px] shrink-0 items-center justify-center ${iconColor}`}>
@@ -100,12 +103,15 @@ export const CodexToolRow = memo(function CodexToolRow({
       <span className={`font-sans font-semibold ${leadColor}`}>{lead}</span>
 
       {subject && (
-        <span className={`min-w-0 truncate ${subjectClassName ?? "text-[var(--text-secondary)]"}`} title={subject}>
+        <span
+          className={`min-w-0 truncate ${subjectMono ? "font-mono text-[12.5px]" : ""} ${subjectClassName ?? "text-[var(--text-secondary)]"}`}
+          title={subject}
+        >
           {subject}
         </span>
       )}
 
-      {detail && <span className="shrink-0 text-[var(--text-muted)] opacity-70">{detail}</span>}
+      {detail && <span className="shrink-0 tabular-nums text-[var(--text-muted)] opacity-70">{detail}</span>}
 
       {typeof additions === "number" && additions > 0 && (
         <span className="shrink-0 text-[color:var(--status-green)]">+{additions}</span>

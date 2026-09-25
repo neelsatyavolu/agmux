@@ -255,8 +255,8 @@ function DiffBar({ add, del, width = 28 }: { add: number; del: number; width?: n
       style={{ width, height: 3, background: "rgba(255,255,255,0.06)" }}
     >
       <span className="flex h-full w-full">
-        <span style={{ width: `${addPct}%`, background: "#34d399" }} />
-        <span style={{ width: `${delPct}%`, background: "#f87171" }} />
+        <span className="fx-fill-green" style={{ width: `${addPct}%`, background: "#34d399" }} />
+        <span className="fx-fill-red" style={{ width: `${delPct}%`, background: "#f87171" }} />
       </span>
     </span>
   );
@@ -264,12 +264,9 @@ function DiffBar({ add, del, width = 28 }: { add: number; del: number; width?: n
 
 function DiffStats({ additions, deletions }: { additions: number; deletions: number }) {
   return (
-    <span
-      className="flex shrink-0 items-center gap-1.5 tabular-nums"
-      style={{ fontFamily: "var(--font-mono)", fontSize: 10.5 }}
-    >
+    <span className="ui-diff flex shrink-0 items-center gap-1.5 tabular-nums">
       {additions > 0 && <span style={{ color: "var(--status-green)" }}>+{additions}</span>}
-      {deletions > 0 && <span style={{ color: "var(--status-red)" }}>-{deletions}</span>}
+      {deletions > 0 && <span style={{ color: "var(--status-red)" }}>−{deletions}</span>}
       {(additions > 0 || deletions > 0) && <DiffBar add={additions} del={deletions} width={24} />}
     </span>
   );
@@ -277,16 +274,7 @@ function DiffStats({ additions, deletions }: { additions: number; deletions: num
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span
-      className="uppercase"
-      style={{
-        fontFamily: "var(--font-mono)",
-        fontSize: 9.5,
-        color: "var(--status-green)",
-        letterSpacing: "0.22em",
-        fontWeight: 500,
-      }}
-    >
+    <span className="ui-eyebrow fx-graphite" style={{ color: "var(--status-green)" }}>
       {children}
     </span>
   );

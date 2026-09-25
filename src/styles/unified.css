@@ -973,3 +973,39 @@ html[data-surface="flat"] .mem-section-label { color: var(--text-tertiary); }
 html[data-surface="flat"] .mem-more { color: var(--text-tertiary); }
 html[data-surface="flat"] .mem-more:hover { color: var(--text-primary); }
 html[data-surface="flat"] .mem-binding-confirm { background: var(--ui-gold-soft); border-color: transparent; }
+
+/* ── Status dots (mockup .st.need/.st.done: static 3px halo, no ping) ── */
+html[data-surface="flat"] .sb-status-ping { display: none; }
+html[data-surface="flat"] .sb-status-core[data-tone="need"] { background: var(--ui-dot-need); box-shadow: 0 0 0 3px var(--ui-gold-soft); }
+html[data-surface="flat"] .sb-status-core[data-tone="done"] { background: var(--ui-dot-done); box-shadow: 0 0 0 3px var(--ui-green-soft); }
+
+/* ── Archived thread dots ── */
+html[data-surface="flat"] .arch-status-dot[data-status="Running"] { background: var(--status-blue); }
+html[data-surface="flat"] .arch-status-dot[data-status="Done"] { background: var(--ui-dot-done); }
+html[data-surface="flat"] .arch-status-dot[data-status="Error"] { background: var(--status-red); }
+html[data-surface="flat"] .arch-status-dot[data-status="Idle"] { background: var(--text-muted); }
+
+/* ── Task states: Running blue, Needs attention gold, In review violet, Merged green ── */
+:root {
+  --task-queued: #a1a1aa;
+  --task-running: rgb(251, 191, 36);
+  --task-attention: rgb(251, 191, 36);
+  --task-review: #60a5fa;
+  --task-merged: var(--accent);
+  --task-failed: #f87171;
+}
+html[data-surface="flat"] {
+  --task-queued: var(--text-tertiary);
+  --task-running: var(--status-blue);
+  --task-attention: var(--status-amber);
+  --task-review: var(--status-purple);
+  --task-merged: var(--status-green);
+  --task-failed: var(--status-red);
+}
+html[data-surface="flat"] .task-state-pill { border-color: transparent !important; }
+
+/* ── Pane-tab status pill ── */
+html[data-surface="flat"] .pane-tab-status { border-color: transparent !important; }
+html[data-surface="flat"] .pane-tab-status[data-tone="processing"] { background: var(--ui-blue-soft) !important; color: var(--status-blue) !important; }
+html[data-surface="flat"] .pane-tab-status[data-tone="attention"] { background: var(--ui-gold-soft) !important; color: var(--status-amber) !important; }
+html[data-surface="flat"] .pane-tab-status[data-tone="done"] { background: var(--ui-green-soft) !important; color: var(--status-green) !important; }

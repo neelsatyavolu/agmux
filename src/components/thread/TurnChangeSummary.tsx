@@ -42,9 +42,9 @@ export function TurnChangeSummary({ changes, userMessageId, sessionId }: Props) 
   };
 
   return (
-    <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+    <div className="rounded-[14px] bg-white/[0.03] fx-card px-3 py-2">
       <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-[11px] font-medium text-zinc-400">
+        <span className="text-[13.5px] font-semibold text-zinc-400 fx-ink">
           Changes this turn
         </span>
         <span className="text-[10px] text-zinc-600">
@@ -109,10 +109,10 @@ export function TurnChangeSummary({ changes, userMessageId, sessionId }: Props) 
             </span>
             <span className="ml-auto shrink-0 flex items-center gap-1.5">
               {change.additions > 0 && (
-                <span className="text-[10px] font-medium text-[color:var(--accent)]">+{change.additions}</span>
+                <span className="text-[10px] font-medium text-[color:var(--accent)] fx-green">+{change.additions}</span>
               )}
               {change.deletions > 0 && (
-                <span className="text-[10px] font-medium text-rose-400">-{change.deletions}</span>
+                <span className="text-[10px] font-medium text-rose-400 fx-red">−{change.deletions}</span>
               )}
             </span>
           </div>
@@ -124,7 +124,7 @@ export function TurnChangeSummary({ changes, userMessageId, sessionId }: Props) 
               {change.shortPath}
             </span>
             {change.additions > 0 && (
-              <span className="ml-auto text-[10px] font-medium text-[color:var(--accent)]">+{change.additions}</span>
+              <span className="ml-auto text-[10px] font-medium text-[color:var(--accent)] fx-green">+{change.additions}</span>
             )}
           </div>
         ))}

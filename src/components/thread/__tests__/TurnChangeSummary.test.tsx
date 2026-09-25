@@ -42,7 +42,7 @@ describe("TurnChangeSummary", () => {
     render(<TurnChangeSummary changes={[editChange]} />);
     expect(screen.getByText("src/foo.ts")).toBeTruthy();
     expect(screen.getByText("+7")).toBeTruthy();
-    expect(screen.getByText("-3")).toBeTruthy();
+    expect(screen.getByText("−3")).toBeTruthy();
   });
 
   it("renders created file with only additions", () => {

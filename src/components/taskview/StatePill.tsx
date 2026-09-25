@@ -10,18 +10,11 @@ export function StatePill({ state, small = false }: StatePillProps) {
   const m = STATE_META[state];
   return (
     <span
+      className={`ui-chip ${small ? "sm" : ""} task-state-pill`}
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        padding: small ? "1.5px 6px" : "2px 8px",
-        borderRadius: 9999,
         background: m.bg,
         border: `1px solid ${m.bd}`,
         color: m.fg,
-        fontSize: small ? 9.5 : 10.5,
-        fontWeight: 500,
-        letterSpacing: 0,
       }}
     >
       <span
@@ -46,16 +39,10 @@ export function DiffStat({
   deletions: number;
 }) {
   return (
-    <span
-      style={{
-        fontFamily: "var(--font-mono)",
-        fontSize: 10.5,
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span style={{ color: "#34d399" }}>+{additions}</span>
-      <span style={{ color: "var(--text-muted)" }}> · </span>
-      <span style={{ color: "#f87171" }}>−{deletions}</span>
+    <span className="ui-diff">
+      <span className="fx-green" style={{ color: "#34d399" }}>+{additions}</span>
+      <span style={{ color: "var(--text-muted)" }}> </span>
+      <span className="fx-red" style={{ color: "#f87171" }}>−{deletions}</span>
     </span>
   );
 }
