@@ -249,7 +249,7 @@ export function TeamSelfView({
             {data.modelMix?.length ? (
               <>
                 <hr className="my-1 border-0 border-t border-white/[0.06]" />
-                <div className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[var(--text-muted)]">Top models</div>
+                <div className="ui-eyebrow text-[var(--text-muted)]">Top models</div>
                 <MixBars slices={data.modelMix.slice(0, 5)} mono />
               </>
             ) : null}
@@ -261,7 +261,7 @@ export function TeamSelfView({
         <Panel
           title="What your agents did"
           right={
-            <span className="font-mono text-[11.5px] text-[var(--text-muted)]">
+            <span className="tabular-nums text-[11.5px] text-[var(--text-muted)]">
               {data.totals.toolCalls.toLocaleString()} tool calls
             </span>
           }

@@ -39,7 +39,7 @@ export function StatCard({
   const showDelta = delta !== null && delta !== undefined;
   return (
     <div className="flex flex-col gap-1.5 rounded-[10px] border border-[var(--glass-border)] bg-[var(--surface-popover)] px-3 py-2.5">
-      <div className="flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+      <div className="ui-eyebrow flex items-center gap-1.5 text-[var(--text-muted)]">
         <Icon size={12} />
         {label}
       </div>
@@ -69,11 +69,11 @@ export function StatCard({
 /* ── status ───────────────────────────────────────────────────────────── */
 
 const TONE_CLASS = {
-  ok: "text-[var(--status-green)] bg-[#34d399]/10 border-[#34d399]/[0.22]",
-  warn: "text-[var(--status-amber)] bg-[#fbbf24]/10 border-[#fbbf24]/[0.22]",
-  err: "text-[var(--status-red)] bg-[#f87171]/10 border-[#f87171]/[0.24]",
+  ok: "text-[var(--status-green)] bg-[#34d399]/10 border-[#34d399]/[0.22] fx-soft-green",
+  warn: "text-[var(--status-amber)] bg-[#fbbf24]/10 border-[#fbbf24]/[0.22] fx-soft-gold",
+  err: "text-[var(--status-red)] bg-[#f87171]/10 border-[#f87171]/[0.24] fx-soft-red",
   none: "text-[var(--text-tertiary)] bg-white/[0.03] border-white/[0.06]",
-  acc: "text-[var(--status-blue)] bg-[#60a5fa]/[0.12] border-[#60a5fa]/[0.28]",
+  acc: "text-[var(--status-blue)] bg-[#60a5fa]/[0.12] border-[#60a5fa]/[0.28] fx-soft-blue",
 } as const;
 
 export type PillTone = keyof typeof TONE_CLASS;
@@ -82,7 +82,7 @@ export type PillTone = keyof typeof TONE_CLASS;
 export function Pill({ tone = "none", children }: { tone?: PillTone; children: React.ReactNode }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[3px] font-mono text-[10.5px] font-medium tracking-[0.04em] ${TONE_CLASS[tone]}`}
+      className={`ui-chip sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[10.5px] font-medium ${TONE_CLASS[tone]}`}
     >
       <span
         className="h-1.5 w-1.5 shrink-0 rounded-full"
@@ -107,7 +107,7 @@ export function RoleBadge({ role }: { role: TeamRole }) {
         : "text-[var(--text-muted)] border-white/[0.06] bg-white/[0.02]";
   return (
     <span
-      className={`rounded-[5px] border px-[7px] py-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] ${cls}`}
+      className={`ui-chip sm fx-chip-q rounded-[5px] border px-[7px] py-0.5 ${cls}`}
     >
       {role}
     </span>
@@ -150,7 +150,7 @@ export function Avatar({
   }
   return (
     <div
-      className="grid shrink-0 place-items-center rounded-full font-mono font-semibold text-[#0a0a0b]"
+      className="grid shrink-0 place-items-center rounded-full font-semibold text-[#0a0a0b]"
       style={{ width: size, height: size, background: color, fontSize: Math.round(size * 0.4) }}
       aria-hidden
     >
@@ -175,7 +175,7 @@ export function Panel({
   padded?: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--glass-border)] bg-[var(--surface-popover)]">
+    <div className="fx-card overflow-hidden rounded-[14px] border border-[var(--glass-border)] bg-[var(--surface-popover)]">
       {title ? (
         <div className="flex items-center gap-2 border-b border-[var(--glass-border)] px-3 py-2">
           <h3 className="m-0 text-[13px] font-semibold text-[var(--text-primary)]" style={{ letterSpacing: "-0.02em" }}>
@@ -205,7 +205,7 @@ export function RangeSeg({
 }) {
   return (
     <div
-      className="inline-flex gap-px rounded-[9px] border border-white/[0.06] bg-black/35 p-[3px]"
+      className="ui-seg inline-flex gap-px rounded-[9px] border border-white/[0.06] bg-black/35 p-[3px]"
       role="group"
       aria-label="Date range"
     >
@@ -214,7 +214,8 @@ export function RangeSeg({
           key={r}
           onClick={() => onChange(r)}
           aria-pressed={r === value}
-          className={`rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
+          data-active={r === value ? "true" : undefined}
+          className={`ui-seg-item rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
             r === value
               ? "bg-white/[0.09] text-[var(--text-primary)] shadow-[inset_0_0.5px_0_rgba(255,255,255,0.14),0_1px_3px_rgba(0,0,0,0.25)]"
               : "text-white/[0.48] hover:text-white/75"
@@ -241,7 +242,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center gap-2.5 px-5 py-10 text-center">
-      <div className="grid h-10 w-10 place-items-center rounded-[11px] border border-white/[0.06] bg-white/[0.03] text-[var(--text-muted)]">
+      <div className="fx-panel-2 fx-ring grid h-10 w-10 place-items-center rounded-[11px] border border-white/[0.06] bg-white/[0.03] text-[var(--text-muted)]">
         <Icon size={18} />
       </div>
       <h3 className="m-0 text-[15px] font-semibold text-[var(--text-primary)]">{title}</h3>
@@ -264,9 +265,9 @@ export function Banner({
 }) {
   const cls =
     tone === "err"
-      ? "border-[#f87171]/[0.24] bg-[#f87171]/[0.08] text-[var(--status-red)]"
+      ? "border-[#f87171]/[0.24] bg-[#f87171]/[0.08] text-[var(--status-red)] fx-soft-red"
       : tone === "warn"
-        ? "border-[#fbbf24]/[0.22] bg-[#fbbf24]/[0.07] text-[var(--status-amber)]"
+        ? "border-[#fbbf24]/[0.22] bg-[#fbbf24]/[0.07] text-[var(--status-amber)] fx-soft-gold"
         : "border-white/[0.06] bg-white/[0.02] text-[var(--text-tertiary)]";
   return (
     <div className={`flex items-center gap-2.5 rounded-[10px] border px-3.5 py-2.5 text-[12.5px] ${cls}`}>

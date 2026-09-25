@@ -249,13 +249,13 @@ export function TeamDashboard({
           height with no fixed rows to leave dead space. The heatmap below needs
           its full width and stays in a real grid. */}
       <div className="columns-3 gap-2.5 [&>*]:mb-2.5 [&>*]:inline-block [&>*]:w-full [&>*]:break-inside-avoid">
-        <Panel title="Provider & model mix" right={<span className="font-mono text-[11.5px] text-[var(--text-muted)]">tokens · time</span>}>
+        <Panel title="Provider & model mix" right={<span className="text-[11.5px] text-[var(--text-muted)]">tokens · time</span>}>
           <div className="flex flex-col gap-2.5">
             <MixBars slices={data.providerMix} />
             {data.modelMix.length ? (
               <>
                 <hr className="my-1 border-0 border-t border-white/[0.06]" />
-                <div className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[var(--text-muted)]">Top models</div>
+                <div className="ui-eyebrow text-[var(--text-muted)]">Top models</div>
                 <MixBars slices={data.modelMix.slice(0, 6)} mono />
               </>
             ) : null}
@@ -264,7 +264,7 @@ export function TeamDashboard({
         <Panel
           title="What the agents did"
           right={
-            <span className="font-mono text-[11.5px] text-[var(--text-muted)]">
+            <span className="tabular-nums text-[11.5px] text-[var(--text-muted)]">
               {t.toolCalls.toLocaleString()} tool calls
             </span>
           }
@@ -274,7 +274,7 @@ export function TeamDashboard({
         <Panel title="Output & reliability" sub="code written, calls failed">
           <OutputPanel totals={t} />
         </Panel>
-        <Panel title="Token composition" right={<span className="font-mono text-[11.5px] text-[var(--text-muted)]">{fmtTokens(t.tokens).value}{fmtTokens(t.tokens).unit} total</span>}>
+        <Panel title="Token composition" right={<span className="tabular-nums text-[11.5px] text-[var(--text-muted)]">{fmtTokens(t.tokens).value}{fmtTokens(t.tokens).unit} total</span>}>
           <TokenBreakdown totals={t} />
         </Panel>
         <Panel title="Work rates" sub="derived from this range">
@@ -285,7 +285,7 @@ export function TeamDashboard({
         </Panel>
         <Panel
           title="Peak simultaneous sessions"
-          right={<span className="font-mono text-[11.5px] text-[var(--text-muted)]">max {Math.max(0, ...concurrency)}</span>}
+          right={<span className="tabular-nums text-[11.5px] text-[var(--text-muted)]">max {Math.max(0, ...concurrency)}</span>}
         >
           <PeakSessions
             values={concurrency}
@@ -347,7 +347,7 @@ function TokenBreakdown({ totals: t }: { totals: TeamOverview["totals"] }) {
                 <i className="block h-2 w-2 rounded-sm" style={{ background: p.color }} />
                 {p.key}
               </span>
-              <span className="font-mono text-[11.5px] text-[var(--text-secondary)]">
+              <span className="tabular-nums text-[11.5px] text-[var(--text-secondary)]">
                 {tok.value}
                 {tok.unit}
               </span>
@@ -358,7 +358,7 @@ function TokenBreakdown({ totals: t }: { totals: TeamOverview["totals"] }) {
       </div>
       <div className="flex items-center justify-between border-t border-white/[0.06] pt-2 text-[12px] text-[var(--text-muted)]">
         <span>Cache hit rate</span>
-        <b className="font-mono font-medium text-[var(--text-secondary)]">{fmtPct(t.cacheHitRate)}</b>
+        <b className="tabular-nums font-medium text-[var(--text-secondary)]">{fmtPct(t.cacheHitRate)}</b>
       </div>
     </div>
   );
@@ -430,7 +430,7 @@ export function ToolMix({ totals: t }: { totals: TeamOverview["totals"] }) {
               <i className="block h-2 w-2 rounded-sm" style={{ background: p.color }} />
               {p.label}
             </span>
-            <span className="font-mono text-[11.5px] text-[var(--text-secondary)]">{p.n.toLocaleString()}</span>
+            <span className="tabular-nums text-[11.5px] text-[var(--text-secondary)]">{p.n.toLocaleString()}</span>
             <span className="min-w-9 text-right text-[11.5px] text-[var(--text-muted)]">{fmtPct(p.n / total)}</span>
           </div>
         ))}
@@ -474,7 +474,7 @@ export function OutputPanel({ totals: t }: { totals: TeamOverview["totals"] }) {
         {rows.map((r) => (
           <div key={r.k} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
             <div className="mb-1 text-[10.5px] leading-snug text-[var(--text-muted)]">{r.k}</div>
-            <div className="font-mono text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">{r.v}</div>
+            <div className="tabular-nums text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">{r.v}</div>
           </div>
         ))}
       </div>
@@ -509,7 +509,7 @@ export function BudgetPanel({ budget }: { budget: NonNullable<TeamOverview["budg
       <div className="flex items-end justify-between gap-3">
         <div>
           <div className="text-[11px] text-[var(--text-muted)]">{partial ? "Partial estimate" : "Estimated cost"}</div>
-          <div className="font-mono text-[22px] font-semibold tracking-tight text-[var(--text-primary)]">
+          <div className="tabular-nums text-[22px] font-semibold tracking-tight text-[var(--text-primary)]">
             {spend.value}
             <span className="text-[14px] font-normal text-[var(--text-tertiary)]">{spend.unit}</span>
           </div>
@@ -518,7 +518,7 @@ export function BudgetPanel({ budget }: { budget: NonNullable<TeamOverview["budg
             {monthly.unit} this month
           </div>
         </div>
-        <div className="font-mono text-[18px] font-semibold" style={{ color }}>
+        <div className="tabular-nums text-[18px] font-semibold" style={{ color }}>
           {pct}%
         </div>
       </div>
@@ -539,7 +539,7 @@ export function BudgetPanel({ budget }: { budget: NonNullable<TeamOverview["budg
         <span>
           Day {budget.daysElapsed} of {budget.daysInMonth}
         </span>
-        <span className="font-mono">
+        <span className="tabular-nums">
           Projected {partial ? "(partial estimate) " : ""}{projected.value}
           {projected.unit}
         </span>
@@ -585,7 +585,7 @@ function EfficiencyGrid({ totals: t }: { totals: TeamOverview["totals"] }) {
       {rows.map((r) => (
         <div key={r.k} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
           <div className="mb-1 text-[10.5px] leading-snug text-[var(--text-muted)]">{r.k}</div>
-          <div className="font-mono text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">{r.v}</div>
+          <div className="tabular-nums text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">{r.v}</div>
         </div>
       ))}
     </div>
@@ -603,7 +603,7 @@ function ProjectsTable({ rows }: { rows: { projectKey: string; activeHours: numb
           {["Project", "Active", "Tokens", "Session activity"].map((h, i) => (
             <th
               key={h}
-              className={`border-b border-white/[0.06] px-3 py-[7px] font-mono text-[9.5px] font-normal uppercase tracking-[0.14em] text-[var(--text-muted)] ${
+              className={`ui-eyebrow border-b border-white/[0.06] px-3 py-[7px] text-[var(--text-muted)] ${
                 i === 0 ? "text-left" : "text-right"
               }`}
             >
@@ -713,7 +713,7 @@ function MemberTable({
           {["Member", "Active", "Tokens", "Session activity", "Peak", "Last seen"].map((h, i) => (
             <th
               key={h}
-              className={`border-b border-white/[0.06] px-3 py-[7px] font-mono text-[9.5px] font-normal uppercase tracking-[0.14em] text-[var(--text-muted)] ${
+              className={`ui-eyebrow border-b border-white/[0.06] px-3 py-[7px] text-[var(--text-muted)] ${
                 i === 0 ? "text-left" : "text-right"
               }`}
             >
@@ -744,7 +744,7 @@ function MemberTable({
                 // Honest state: one sentence, not a row of zeros.
                 <td
                   colSpan={4}
-                  className="border-b border-white/[0.035] px-3 text-left font-mono text-[11px] text-[var(--text-muted)]"
+                  className="border-b border-white/[0.035] px-3 text-left text-[11px] text-[var(--text-muted)]"
                 >
                   waiting for first sync
                 </td>
