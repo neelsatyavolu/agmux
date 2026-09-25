@@ -17,6 +17,14 @@ describe("brand icons", () => {
     }
   });
 
+  it("keeps equal padding on every side of the app icon glyph", () => {
+    for (const f of ["agmux-app-icon.svg", "agmux-square-icon.svg"]) {
+      const svg = readFileSync(new URL(`src-tauri/icons/source/${f}`, root), "utf8");
+      // 620px glyph box centered at 512, scaled 0.875 about the center.
+      expect(svg).toContain('<g transform="translate(64 64) scale(0.875)">');
+    }
+  });
+
   it.each([
     ["public/xanom-icon.png", 256], ["src/assets/xanom-icon.png", 256], ["src/assets/xanom-app-icon.png", 256],
     ["remote-relay/public/icons/agmux.png", 64], ["remote-relay/public/icons/agmux-192.png", 192],

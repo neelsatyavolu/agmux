@@ -12,11 +12,14 @@
   <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#tile)"/>
   <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#sheen)"/>
   <rect x="101" y="101" width="822" height="822" rx="184" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2"/>
-  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M231 316 H405" stroke="#eef0f3" stroke-opacity="0.5" stroke-width="58"/>
-    <path d="M231 708 H405" stroke="#eef0f3" stroke-opacity="0.5" stroke-width="58"/>
-    <path d="M405 231 L606 351 L606 673 L405 793 Z" stroke="#eef0f3" stroke-width="58"/>
-    <path d="M234 512 H738" stroke="#f2a516" stroke-width="64"/>
+  <!-- Glyph at 87.5% around the tile center: ~141px padding on every side. -->
+  <g transform="translate(64 64) scale(0.875)">
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M231 316 H405" stroke="#eef0f3" stroke-opacity="0.5" stroke-width="58"/>
+      <path d="M231 708 H405" stroke="#eef0f3" stroke-opacity="0.5" stroke-width="58"/>
+      <path d="M405 231 L606 351 L606 673 L405 793 Z" stroke="#eef0f3" stroke-width="58"/>
+      <path d="M234 512 H738" stroke="#f2a516" stroke-width="64"/>
+    </g>
+    <circle cx="756" cy="512" r="66" fill="#f2a516"/>
   </g>
-  <circle cx="756" cy="512" r="66" fill="#f2a516"/>
 </svg>
