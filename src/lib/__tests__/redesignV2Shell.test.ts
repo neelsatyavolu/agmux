@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import postcss from "postcss";
 const src = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url), "utf8");
 const MONO_EYEBROW = /font-mono[^"'`]*uppercase|uppercase[^"'`]*font-mono|letterSpacing:\s*"0\.(1[4-9]|2)\d*em"/;
+
+const unified = postcss.parse(src("styles/unified.css"));
+const FLAT = 'html[data-surface="flat"]';
+function decl(selector: string, property: string) {
+  let value = "";
+  let important = false;
+  unified.walkRules(rule => {
+    if (rule.selectors.includes(selector)) rule.walkDecls(property, d => { value = d.value; important = d.important ?? false; });
+  });
+  return important ? `${value} !important` : value;
+}
 
 describe("shell/home sweep", () => {
   it.each(["components/layout/HomeScreen.tsx", "components/usage/AccountUsageRows.tsx"])("%s has no mono eyebrows", f => {
@@ -48,5 +60,19 @@ describe("shell/home sweep", () => {
     const statusSpan = around(s, "{status && <span", 20, 100);
     expect(statusSpan).not.toMatch(/font-mono/);
     expect(statusSpan).toContain("ui-meta");
+  });
+
+  describe("quit dialog buttons get flat hover feedback and a solid danger fill", () => {
+    it("fx-quiet has a flat hover state", () => {
+      expect(decl(`${FLAT} .fx-quiet:hover`, "background")).toBe("var(--ui-hover) !important");
+      expect(decl(`${FLAT} .fx-quiet:hover`, "color")).toBe("var(--text-primary) !important");
+    });
+    it("fx-danger is a solid red fill with white text (mockup #alerts)", () => {
+      expect(decl(`${FLAT} .fx-danger`, "background")).toBe("var(--status-red) !important");
+      expect(decl(`${FLAT} .fx-danger`, "color")).toBe("#fff !important");
+    });
+    it("fx-danger has a flat hover state", () => {
+      expect(decl(`${FLAT} .fx-danger:hover`, "filter")).not.toBe("");
+    });
   });
 });

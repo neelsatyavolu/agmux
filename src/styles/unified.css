@@ -402,6 +402,10 @@ html[data-surface="flat"] .fx-quiet {
   border-color: transparent !important;
   box-shadow: inset 0 0 0 1px var(--ui-rule-2) !important;
 }
+html[data-surface="flat"] .fx-quiet:hover {
+  background: var(--ui-hover) !important;
+  color: var(--text-primary) !important;
+}
 html[data-surface="flat"] .fx-ghost {
   background: transparent !important;
   color: var(--text-tertiary) !important;
@@ -409,10 +413,13 @@ html[data-surface="flat"] .fx-ghost {
   box-shadow: none !important;
 }
 html[data-surface="flat"] .fx-danger {
-  background: transparent !important;
-  color: var(--status-red) !important;
+  background: var(--status-red) !important;
+  color: #fff !important;
   border-color: transparent !important;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--status-red) 30%, transparent) !important;
+  box-shadow: none !important;
+}
+html[data-surface="flat"] .fx-danger:hover {
+  filter: brightness(1.08) !important;
 }
 html[data-surface="flat"] .fx-chip-q {
   background: transparent !important;
