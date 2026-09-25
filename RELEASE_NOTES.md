@@ -51,6 +51,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 - **Chat approvals no longer vanish** — When two permission requests are waiting in a chat and the first has waited over a minute, it stays on screen instead of disappearing and leaving the agent stuck.
+- **OpenCode chat asks about every action** — When OpenCode wants to run several commands at once, each permission request now waits its turn on screen instead of the earlier ones disappearing and leaving OpenCode stuck.
 - **Grok chat shows connected-tool results** — Tools from connected servers in a Grok chat now show their output, or the error when they fail, instead of an empty result.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
 - **Stopping from your phone** — Tapping Stop on a terminal session from your phone no longer risks closing Claude or Codex.

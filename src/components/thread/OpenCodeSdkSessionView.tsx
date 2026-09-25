@@ -573,10 +573,9 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
   const steeringRef = useRef(false);
   const [started, setStarted] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
-  // Approval queue: OpenCode surfaces one permission at a time, but the same
-  // hook backs all three providers. `pending` reflects the head of the queue
-  // (length 0 or 1 for OpenCode); resolving broadcasts so sibling panes drop
-  // the same id.
+  // Approval queue: parallel tool calls can leave several permissions pending
+  // at once. `pending` reflects the head of the queue; resolving broadcasts
+  // so sibling panes drop the same id.
   const approvals = useApprovalQueue<PermissionRequestEvent>({
     sessionId: threadId,
     idOf: (a) => a.permissionId,
@@ -588,14 +587,8 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
     },
   });
   const pendingApproval = approvals.pending;
-  const setPendingApprovalLocal = useCallback(
-    (next: PermissionRequestEvent | null | ((cur: PermissionRequestEvent | null) => PermissionRequestEvent | null)) => {
-      const value = typeof next === "function" ? next(approvals.pending) : next;
-      if (value === null) approvals.clear();
-      else approvals.setQueue([value]);
-    },
-    [approvals],
-  );
+  const setApprovalQueue = approvals.setQueue;
+  const removeApprovalById = approvals.removeById;
   // Streamed token usage — running cumulative + context window snapshot.
   const tokenUsage = useStreamedTokenUsage();
   const contextUsage = tokenUsage.context;
@@ -1131,7 +1124,12 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
       }
 
       case "permission_request": {
-        setPendingApprovalLocal(evt);
+        // A step's tool calls run in parallel, so several permissions can be
+        // pending at once. Queue them; replacing would leave earlier ones
+        // unanswered and their tools blocked.
+        setApprovalQueue((prev) =>
+          prev.some((a) => a.permissionId === evt.permissionId) ? prev : [...prev, evt],
+        );
         // Fire OS notification (suppressed if window is focused)
         const permNoti = providerizeNotification(
           threadId,
@@ -1311,9 +1309,9 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
       pendingApproval &&
       prev.requestId === pendingApproval.permissionId
     ) {
-      setPendingApprovalLocal(null);
+      removeApprovalById(pendingApproval.permissionId);
     }
-  }, [externalPendingApproval, pendingApproval]);
+  }, [externalPendingApproval, pendingApproval, removeApprovalById]);
 
   // Start / resume the session once, then consume any pending first message
   // set by DraftChatView. Tying both to the same async flow eliminates a race
