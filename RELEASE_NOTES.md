@@ -51,6 +51,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 - **Committing files with spaces in their names** — Files whose names contain spaces or accented letters no longer appear twice (once in quotes) in the commit and Create PR lists, and committing them no longer fails. Renamed files show their correct new name.
+- **Faster task creation** — Creating a task no longer copies Claude Code's own worktree folders into the new task, which could take a long time and use a lot of disk space.
 - **Deleting a task whose folder is gone** — Delete Task now works when the task's folder was already removed outside agmux, instead of failing with a "No such file or directory" error.
 - **Branch changes in a new task** — The Git panel's branch and committed views, and the committed list in Commit, now show only the task's own work, not other people's changes from the main branch, when your local main branch is out of date.
 - **Task pull request descriptions** — The automatic title and description for a task's pull request now describe only the task's own changes, even when your local copy of the main branch is out of date.

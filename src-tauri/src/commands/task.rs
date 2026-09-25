@@ -335,7 +335,10 @@ fn copy_agent_configs(main_repo: &Path, worktree: &Path) {
             continue;
         }
         let result = if src.is_dir() {
-            copy_dir_recursive(&src, &dst)
+            // Claude Code keeps full checkouts of its own worktrees (with
+            // build output) in .claude/worktrees — never clone those.
+            let skip: &[&str] = if *entry == ".claude" { &["worktrees"] } else { &[] };
+            copy_dir_skipping(&src, &dst, skip)
         } else {
             std::fs::copy(&src, &dst).map(|_| ())
         };
@@ -351,9 +354,17 @@ fn copy_agent_configs(main_repo: &Path, worktree: &Path) {
 /// Recursive directory copy — std::fs has no equivalent and we want to avoid
 /// pulling in a crate just for this. Matches shell `cp -R src dst`.
 fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    copy_dir_skipping(src, dst, &[])
+}
+
+/// `copy_dir_recursive`, leaving out the named top-level entries of `src`.
+fn copy_dir_skipping(src: &Path, dst: &Path, skip: &[&str]) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
+        if skip.iter().any(|name| entry.file_name() == *name) {
+            continue;
+        }
         let ty = entry.file_type()?;
         let from = entry.path();
         let to = dst.join(entry.file_name());
@@ -2680,6 +2691,26 @@ prunable gitdir file points to non-existent location
         assert!(worktree.join("CLAUDE.md").exists());
         assert!(worktree.join("AGENTS.md").exists());
         assert!(!worktree.join("README.md").exists());
+    }
+
+    #[test]
+    fn copy_agent_configs_skips_claude_code_worktrees() {
+        // Claude Code keeps its own worktrees (full checkouts, build output)
+        // under .claude/worktrees; a new task must not clone them.
+        let tmp = tempdir().unwrap();
+        let main_repo = tmp.path().join("main");
+        let worktree = tmp.path().join("worktree");
+        let other = main_repo.join(".claude").join("worktrees").join("agent-1");
+        std::fs::create_dir_all(&other).unwrap();
+        std::fs::create_dir_all(&worktree).unwrap();
+        std::fs::write(other.join(".git"), "gitdir: /example/.git/worktrees/agent-1\n").unwrap();
+        std::fs::write(other.join("big.bin"), "x").unwrap();
+        std::fs::write(main_repo.join(".claude").join("settings.local.json"), "{}").unwrap();
+
+        copy_agent_configs(&main_repo, &worktree);
+
+        assert!(worktree.join(".claude").join("settings.local.json").exists());
+        assert!(!worktree.join(".claude").join("worktrees").exists());
     }
 
     #[test]
