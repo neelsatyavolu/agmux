@@ -1249,3 +1249,55 @@ html[data-surface="flat"] .file-tree-context-menu {
   border-color: transparent !important;
   box-shadow: inset 0 0 0 1px var(--ui-rule-2), var(--ui-shadow-pop) !important;
 }
+
+/* Shell panel (mockup .tpanel/.ttabs/.ttab): canvas chrome, hairlines and the
+   slate console. TerminalInstance sets --terminal-surface to the same slate
+   the xterm canvas paints, so chrome, padding and canvas read as one surface.
+   Selectors tie the light and no-vibrancy rules in index.css and win on order. */
+html[data-surface="flat"] .terminal-panel-bg,
+html[data-surface="flat"].no-vibrancy .terminal-panel-bg {
+  --term-chrome: var(--ui-canvas);
+  --term-hairline: var(--ui-rule);
+  background: var(--terminal-surface, var(--ui-term));
+  border-top: 1px solid var(--ui-rule);
+  box-shadow: none;
+}
+html[data-surface="flat"] .terminal-panel-surface {
+  background: var(--terminal-surface, var(--ui-term));
+}
+html[data-surface="flat"] .terminal-panel-drag-grip {
+  background: var(--ui-rule-2);
+}
+html[data-surface="flat"] .terminal-panel-drag:hover .terminal-panel-drag-grip {
+  background: var(--text-muted);
+}
+html[data-surface="flat"] .terminal-panel-tab {
+  color: var(--text-tertiary);
+  border-radius: 7px;
+}
+html[data-surface="flat"] .terminal-panel-tab:hover {
+  color: var(--text-primary);
+  background: var(--ui-hover);
+}
+html[data-surface="flat"] .terminal-panel-tab[data-active="true"] {
+  color: var(--text-primary);
+  background: var(--ui-panel);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule);
+}
+html[data-surface="flat"] .terminal-panel-gb {
+  color: var(--text-tertiary);
+  background: transparent;
+  border-color: transparent;
+}
+html[data-surface="flat"] .terminal-panel-gb:hover:not(:disabled) {
+  background: var(--ui-hover);
+  border-color: transparent;
+  color: var(--text-primary);
+}
+html[data-surface="flat"] .terminal-panel-cwd {
+  color: var(--text-muted);
+}
+html[data-surface="flat"] .terminal-tab-dot {
+  background: var(--status-amber);
+}

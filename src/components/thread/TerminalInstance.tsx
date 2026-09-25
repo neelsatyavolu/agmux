@@ -24,6 +24,8 @@ import {
   panelLightTheme,
   PANEL_TERMINAL_BG_DARK,
   PANEL_TERMINAL_BG_LIGHT,
+  UNIFIED_TERMINAL_BG_DARK,
+  UNIFIED_TERMINAL_BG_LIGHT,
   type XtermBundle,
 } from "../../lib/xterm-loader";
 import { makeFileLinks, getCachedHomeDir } from "../../lib/terminalLinks";
@@ -91,6 +93,8 @@ const TerminalInstance = forwardRef<TerminalInstanceHandle, Props>(
     const monoFont = useSettingsStore((s) => s.settings.monoFont);
     const terminalFontSize = useSettingsStore((s) => s.settings.terminalFontSize);
     const isLight = useResolvedColorMode();
+    // Flat: the shell panel shares the agent terminals' slate surface.
+    const flatSurface = (useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat") === "flat";
     const containerRef = useRef<HTMLDivElement>(null);
     const bundleRef = useRef<XtermBundle | null>(null);
     const readyRef = useRef(ready);
@@ -178,13 +182,12 @@ const TerminalInstance = forwardRef<TerminalInstanceHandle, Props>(
       const init = async () => {
         const initIsLight =
           document.documentElement.getAttribute("data-mode") === "light";
-        const terminalSurface = initIsLight
-          ? PANEL_TERMINAL_BG_LIGHT
-          : PANEL_TERMINAL_BG_DARK;
+        const { monoFont: initFont, terminalFontSize: initSize, surfaceStyle } =
+          useSettingsStore.getState().settings;
+        const initFlat = (surfaceStyle ?? "flat") === "flat";
+        const terminalSurface = panelSurface(initIsLight, initFlat);
         container.style.setProperty("--terminal-surface", terminalSurface);
 
-        const { monoFont: initFont, terminalFontSize: initSize } =
-          useSettingsStore.getState().settings;
         const fontFamily = MONO_FONT_MAP[initFont ?? "geist-mono"];
         const fontSize = initSize ?? 14;
         await prepareTerminalFont(fontFamily, fontSize);
@@ -194,12 +197,13 @@ const TerminalInstance = forwardRef<TerminalInstanceHandle, Props>(
           fontFamily,
           fontSize,
           isLight: initIsLight,
+          flat: initFlat,
           scrollback: 10_000,
         });
-        // createXterm defaults to pure black; retarget to the glass panel surface.
+        // createXterm defaults to pure black; retarget to the panel surface.
         bundle.term.options.theme = initIsLight
-          ? panelLightTheme(terminalSurface)
-          : panelDarkTheme(terminalSurface);
+          ? panelLightTheme(terminalSurface, initFlat)
+          : panelDarkTheme(terminalSurface, initFlat);
 
         bundle.term.open(container);
         await new Promise<void>((resolve) =>
@@ -436,18 +440,16 @@ const TerminalInstance = forwardRef<TerminalInstanceHandle, Props>(
       const bundle = bundleRef.current;
       const container = containerRef.current;
       // Match `.terminal-panel-surface` so chrome glass + console body share hue.
-      const terminalSurface = isLight
-        ? PANEL_TERMINAL_BG_LIGHT
-        : PANEL_TERMINAL_BG_DARK;
+      const terminalSurface = panelSurface(isLight, flatSurface);
       if (container) {
         container.style.setProperty("--terminal-surface", terminalSurface);
       }
       if (!bundle) return;
       bundle.term.options.theme = isLight
-        ? panelLightTheme(terminalSurface)
-        : panelDarkTheme(terminalSurface);
+        ? panelLightTheme(terminalSurface, flatSurface)
+        : panelDarkTheme(terminalSurface, flatSurface);
       reattachCanvas(bundle);
-    }, [isLight]);
+    }, [isLight, flatSurface]);
 
     return (
       <div
@@ -460,5 +462,12 @@ const TerminalInstance = forwardRef<TerminalInstanceHandle, Props>(
     );
   },
 );
+
+/** Panel console background: the slate terminal surface under Flat, the
+ *  original warm panel colors under Glass. */
+function panelSurface(isLight: boolean, flat: boolean): string {
+  if (flat) return isLight ? UNIFIED_TERMINAL_BG_LIGHT : UNIFIED_TERMINAL_BG_DARK;
+  return isLight ? PANEL_TERMINAL_BG_LIGHT : PANEL_TERMINAL_BG_DARK;
+}
 
 export default TerminalInstance;

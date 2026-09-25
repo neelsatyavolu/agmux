@@ -104,6 +104,8 @@ export interface CreateXtermOptions {
   /** Override the ANSI black slot in dark mode. Use when a provider paints
    *  panel bg with \e[40m and the default lifted-black makes it look gray. */
   ansiBlackDark?: string;
+  /** Flat surface style: slate background and the unified palette. */
+  flat?: boolean;
 }
 
 /** Grok Build panel background (sampled from the TUI: rgb(20,20,20)).
@@ -139,8 +141,81 @@ const TERMINAL_APP_PRO_ANSI = {
   brightWhite: "#E5E5E5",
 } as const;
 
-export function darkTheme(bg: string, ansiBlack?: string): ITheme {
+/**
+ * Unified (Flat) terminal surface, matching the app's `--ui-term` token.
+ * Flat themes use these instead of the caller's pure black / white, so the
+ * canvas matches the `.fx-term` host painted by unified.css.
+ */
+export const UNIFIED_TERMINAL_BG_DARK = "#0b0d10";
+export const UNIFIED_TERMINAL_BG_LIGHT = "#fbfbfc";
+
+/**
+ * Flat dark palette: slate text, gold cursor and selection, and the app's
+ * status hues for ANSI color. Every text slot is at least 4.5:1 on the
+ * surface; ANSI black stays near-black because TUIs paint panels with it.
+ */
+function unifiedDarkTheme(ansiBlack?: string): ITheme {
+  const bg = UNIFIED_TERMINAL_BG_DARK;
+  return {
+    background: bg,
+    foreground: "#c9d1d9",
+    cursor: "#f2a516",
+    cursorAccent: bg,
+    selectionBackground: "rgba(242, 165, 22, 0.24)",
+    selectionForeground: "#eef0f3",
+    black: ansiBlack ?? "#3a414d",
+    red: "#f2685d",
+    green: "#3ecf7e",
+    yellow: "#f2a516",
+    blue: "#6b8ff8",
+    magenta: "#b18cf5",
+    cyan: "#4cc4d6",
+    white: "#cfd4dc",
+    brightBlack: "#98a1af",
+    brightRed: "#ff8f85",
+    brightGreen: "#74e0a3",
+    brightYellow: "#f8c65a",
+    brightBlue: "#98b0fb",
+    brightMagenta: "#cbb2fa",
+    brightCyan: "#8adbe6",
+    brightWhite: "#eef0f3",
+  };
+}
+
+/** Flat light palette on the off-white surface; ANSI black/white keep their
+ *  background meaning, and colored text is dark enough to read (4.5:1+). */
+function unifiedLightTheme(): ITheme {
+  const bg = UNIFIED_TERMINAL_BG_LIGHT;
+  return {
+    background: bg,
+    foreground: "#2b313b",
+    cursor: "#b8740a",
+    cursorAccent: bg,
+    selectionBackground: "rgba(242, 165, 22, 0.22)",
+    selectionForeground: "#171b22",
+    black: "#171b22",
+    red: "#b91c1c",
+    green: "#166534",
+    yellow: "#92400e",
+    blue: "#1d4ed8",
+    magenta: "#7c3aed",
+    cyan: "#0e7490",
+    white: "#e6e9ee",
+    brightBlack: "#586170",
+    brightRed: "#b91c1c",
+    brightGreen: "#166534",
+    brightYellow: "#92400e",
+    brightBlue: "#1d4ed8",
+    brightMagenta: "#7c3aed",
+    brightCyan: "#0e7490",
+    brightWhite: "#fbfbfc",
+  };
+}
+
+export function darkTheme(bg: string, ansiBlack?: string, flat = false): ITheme {
   const flush = ansiBlack === FLUSH_TERMINAL_BG_DARK;
+  // Grok's full-screen chrome keeps its own background and palette.
+  if (flat && !flush) return unifiedDarkTheme(ansiBlack);
   return {
     background: bg,
     foreground: flush ? TERMINAL_APP_PRO_ANSI.foreground : "#e4e4e7",
@@ -185,7 +260,8 @@ export const PANEL_TERMINAL_BG_LIGHT = "#f6f5f3";
 
 /** Theme for the bottom shell panel only. Neutral zinc + brand-gold cursor/
  *  selection so it matches the app chrome without changing agent PTY themes. */
-export function panelDarkTheme(bg: string = PANEL_TERMINAL_BG_DARK): ITheme {
+export function panelDarkTheme(bg: string = PANEL_TERMINAL_BG_DARK, flat = false): ITheme {
+  if (flat) return unifiedDarkTheme();
   return {
     ...darkTheme(bg, "#3f3f46"),
     foreground: "#e4e4e7",
@@ -203,7 +279,8 @@ export function panelDarkTheme(bg: string = PANEL_TERMINAL_BG_DARK): ITheme {
   };
 }
 
-export function panelLightTheme(bg: string = PANEL_TERMINAL_BG_LIGHT): ITheme {
+export function panelLightTheme(bg: string = PANEL_TERMINAL_BG_LIGHT, flat = false): ITheme {
+  if (flat) return unifiedLightTheme();
   return {
     ...lightTheme(bg),
     selectionBackground: "rgba(242, 165, 22, 0.22)",
@@ -212,7 +289,8 @@ export function panelLightTheme(bg: string = PANEL_TERMINAL_BG_LIGHT): ITheme {
   };
 }
 
-export function lightTheme(bg: string): ITheme {
+export function lightTheme(bg: string, flat = false): ITheme {
+  if (flat) return unifiedLightTheme();
   return {
     background: bg,
     foreground: "#1a1a1a",
@@ -281,10 +359,11 @@ export function createXterm(options: CreateXtermOptions): XtermBundle {
     macOptionClickForcesSelection: true,
     rightClickSelectsWord: true,
     theme: options.isLight
-      ? lightTheme(bg)
+      ? lightTheme(bg, options.flat)
       : darkTheme(
           bg,
           options.ansiBlackDark ?? (isFlushChrome ? FLUSH_TERMINAL_BG_DARK : undefined),
+          options.flat,
         ),
   });
 

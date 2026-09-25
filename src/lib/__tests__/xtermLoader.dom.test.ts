@@ -134,6 +134,24 @@ describe("terminal text contrast", () => {
   });
 });
 
+describe("unified (Flat) surface", () => {
+  it.each([
+    [false, "#0b0d10"],
+    [true, "#fbfbfc"],
+  ])("creates Flat terminals on the slate surface (light=%s)", (isLight, bg) => {
+    const bundle = createXterm({ fontFamily: "monospace", fontSize: 12, isLight, flat: true });
+    expect(bundle.term.options.theme?.background).toBe(bg);
+    expect(bundle.term.options.minimumContrastRatio).toBe(4.5);
+    bundle.dispose();
+  });
+
+  it("keeps Grok full-screen terminals on their own background", () => {
+    const bundle = createXterm({ fontFamily: "monospace", fontSize: 12, isLight: false, flat: true, scrollback: 0 });
+    expect(bundle.term.options.theme?.background).toBe("#141414");
+    bundle.dispose();
+  });
+});
+
 describe("color scheme updates (DEC mode 2031)", () => {
   const write = (bundle: ReturnType<typeof makeTerm>, data: string) =>
     new Promise<void>((resolve) => bundle.term.write(data, resolve));

@@ -80,6 +80,11 @@ export function StandaloneTerminalView({
   const isLight = useResolvedColorMode();
   const isLightRef = useRef(isLight);
   isLightRef.current = isLight;
+  // Flat surface style paints terminals on the slate surface (see xterm-loader).
+  const flatSurface = (useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat") === "flat";
+  const flatSurfaceRef = useRef(flatSurface);
+  flatSurfaceRef.current = flatSurface;
+
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const bundleRef = useRef<XtermBundle | null>(null);
@@ -427,6 +432,7 @@ export function StandaloneTerminalView({
         fontFamily,
         fontSize,
         isLight: isLightRef.current,
+        flat: flatSurfaceRef.current,
         scrollback: 10_000,
       });
 
@@ -661,9 +667,9 @@ export function StandaloneTerminalView({
     const bundle = bundleRef.current;
     if (!bundle) return;
     const bg = isLight ? "#ffffff" : "#000000";
-    bundle.term.options.theme = isLight ? lightTheme(bg) : darkTheme(bg);
+    bundle.term.options.theme = isLight ? lightTheme(bg, flatSurface) : darkTheme(bg, undefined, flatSurface);
     reattachCanvas(bundle);
-  }, [isLight]);
+  }, [isLight, flatSurface]);
 
   return (
     <div

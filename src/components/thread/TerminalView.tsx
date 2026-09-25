@@ -160,6 +160,10 @@ export function TerminalView({
   const monoFont = useSettingsStore((s) => s.settings.monoFont);
   const terminalFontSize = useSettingsStore((s) => s.settings.terminalFontSize);
   const isLight = useResolvedColorMode();
+  // Flat surface style paints terminals on the slate surface (see xterm-loader).
+  const flatSurface = (useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat") === "flat";
+  const flatSurfaceRef = useRef(flatSurface);
+  flatSurfaceRef.current = flatSurface;
 
   // Refs mirroring the font settings. The init effect below reads from these
   // instead of from the state variables directly so that font changes don't
@@ -1170,6 +1174,7 @@ export function TerminalView({
         fontFamily,
         fontSize,
         isLight: isLightRef.current,
+        flat: flatSurfaceRef.current,
         // scrollback: 0 for flush TUI — FitAddon won't reserve a scrollbar
         // gutter, and createXterm matches theme/ANSI black to Grok panel bg.
         scrollback: flushPaddingRef.current ? 0 : 10_000,
@@ -1539,17 +1544,17 @@ export function TerminalView({
     if (!bundle) return;
     const bg = isLight ? "#ffffff" : flushPadding ? FLUSH_TERMINAL_BG_DARK : "#000000";
     bundle.term.options.theme = isLight
-      ? lightTheme(bg)
-      : darkTheme(bg, ansiBlackDark ?? (flushPadding ? FLUSH_TERMINAL_BG_DARK : undefined));
+      ? lightTheme(bg, flatSurface)
+      : darkTheme(bg, ansiBlackDark ?? (flushPadding ? FLUSH_TERMINAL_BG_DARK : undefined), flatSurface);
     reattachCanvas(bundle);
-  }, [isLight, ansiBlackDark, flushPadding]);
+  }, [isLight, ansiBlackDark, flushPadding, flatSurface]);
 
   return (
     <div
       ref={wrapperRef}
       className={`relative h-full w-full min-w-0 overflow-hidden ${
         isLight ? "bg-white" : flushPadding ? "" : "bg-black"
-      }`}
+      }${flushPadding ? "" : " fx-term"}`}
       style={
         !isLight && flushPadding
           ? { backgroundColor: FLUSH_TERMINAL_BG_DARK }
@@ -1570,7 +1575,7 @@ export function TerminalView({
         />
       </div>
       {loading && status === "Running" && (
-        <div className={`absolute inset-0 z-10 flex flex-col items-center justify-center gap-6 ${isLight ? "bg-white" : "bg-black"}`}>
+        <div className={`absolute inset-0 z-10 flex flex-col items-center justify-center gap-6 fx-term ${isLight ? "bg-white" : "bg-black"}`}>
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm text-zinc-400">$</span>
             <span className="font-mono text-sm text-zinc-400">{progressLabel}</span>

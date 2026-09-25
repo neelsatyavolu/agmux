@@ -591,3 +591,50 @@ describe("Task 14 usability audit: H1/H5/M2/M4/M5/M7", () => {
     );
   });
 });
+
+describe("terminals: slate surface and shell panel chrome (Flat)", () => {
+  const F = 'html[data-surface="flat"]';
+
+  it("paints terminal hosts with the slate terminal token", () => {
+    expect(decl(unified, `${F} .fx-term`, "background")).toBe("var(--ui-term)");
+    expect(decl(unified, ":root", "--ui-term")).toBe("#0b0d10");
+    expect(decl(unified, 'html[data-mode="light"]', "--ui-term")).toBe("#fbfbfc");
+  });
+
+  it("shares one surface between the shell panel canvas and its chrome", () => {
+    expect(decl(unified, `${F} .terminal-panel-surface`, "background")).toBe("var(--terminal-surface, var(--ui-term))");
+    expect(decl(unified, `${F} .terminal-panel-bg`, "--term-chrome")).toBe("var(--ui-canvas)");
+    expect(decl(unified, `${F} .terminal-panel-bg`, "border-top")).toBe("1px solid var(--ui-rule)");
+    expect(decl(unified, `${F} .terminal-panel-bg`, "box-shadow")).toBe("none");
+  });
+
+  it("uses graphite tabs with a neutral active tab, never gold", () => {
+    expect(decl(unified, `${F} .terminal-panel-tab`, "color")).toBe("var(--text-tertiary)");
+    expect(decl(unified, `${F} .terminal-panel-tab[data-active="true"]`, "background")).toBe("var(--ui-panel)");
+    expect(decl(unified, `${F} .terminal-panel-tab[data-active="true"]`, "box-shadow")).toBe("inset 0 0 0 1px var(--ui-rule)");
+    expect(decl(unified, `${F} .terminal-panel-gb:hover:not(:disabled)`, "background")).toBe("var(--ui-hover)");
+  });
+
+  const cases: Array<[string, string, string[]]> = [
+    ['html[data-mode="light"] .terminal-panel-bg', `${F} .terminal-panel-bg`, ["--term-chrome", "--term-hairline", "background", "border-top", "box-shadow"]],
+    ['html[data-mode="light"].no-vibrancy .terminal-panel-bg', `${F}.no-vibrancy .terminal-panel-bg`, ["background", "box-shadow"]],
+    ['html[data-mode="light"] .terminal-panel-surface', `${F} .terminal-panel-surface`, ["background"]],
+    ['html[data-mode="light"] .terminal-panel-drag-grip', `${F} .terminal-panel-drag-grip`, ["background"]],
+    ['html[data-mode="light"] .terminal-panel-drag:hover .terminal-panel-drag-grip', `${F} .terminal-panel-drag:hover .terminal-panel-drag-grip`, ["background"]],
+    ['html[data-mode="light"] .terminal-panel-tab', `${F} .terminal-panel-tab`, ["color"]],
+    ['html[data-mode="light"] .terminal-panel-tab:hover', `${F} .terminal-panel-tab:hover`, ["color", "background"]],
+    ['html[data-mode="light"] .terminal-panel-tab[data-active="true"]', `${F} .terminal-panel-tab[data-active="true"]`, ["color", "background", "border-color", "box-shadow"]],
+    ['html[data-mode="light"] .terminal-panel-gb', `${F} .terminal-panel-gb`, ["color", "background", "border-color"]],
+    ['html[data-mode="light"] .terminal-panel-gb:hover:not(:disabled)', `${F} .terminal-panel-gb:hover:not(:disabled)`, ["background", "border-color", "color"]],
+    ['html[data-mode="light"] .terminal-panel-cwd', `${F} .terminal-panel-cwd`, ["color"]],
+    ['html[data-mode="light"] .terminal-tab-dot', `${F} .terminal-tab-dot`, ["background"]],
+  ];
+
+  it.each(cases)("%s -> %s covers the light-mode properties", (lightSel, flatSel, props) => {
+    expect(declsFor(index, lightSel).length, `expected ${lightSel} in index.css`).toBeGreaterThan(0);
+    const flatDecls = declsFor(unified, flatSel);
+    for (const p of props) {
+      expect(flatDecls.find(d => d.prop === p), `${flatSel} is missing "${p}"`).toBeTruthy();
+    }
+  });
+});

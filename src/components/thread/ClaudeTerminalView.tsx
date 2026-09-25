@@ -102,6 +102,11 @@ export function ClaudeTerminalView({
   const isLight = useResolvedColorMode();
   const isLightRef = useRef(isLight);
   isLightRef.current = isLight;
+  // Flat surface style paints terminals on the slate surface (see xterm-loader).
+  const flatSurface = (useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat") === "flat";
+  const flatSurfaceRef = useRef(flatSurface);
+  flatSurfaceRef.current = flatSurface;
+
 
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -688,6 +693,7 @@ export function ClaudeTerminalView({
         fontFamily,
         fontSize,
         isLight: isLightRef.current,
+        flat: flatSurfaceRef.current,
         scrollback: terminalScrollbackRef.current,
       });
 
@@ -1202,17 +1208,17 @@ export function ClaudeTerminalView({
     const bundle = bundleRef.current;
     if (!bundle) return;
     const bg = isLight ? "#ffffff" : "#000000";
-    bundle.term.options.theme = isLight ? lightTheme(bg) : darkTheme(bg);
+    bundle.term.options.theme = isLight ? lightTheme(bg, flatSurface) : darkTheme(bg, undefined, flatSurface);
     reattachCanvas(bundle);
     if (bundle.colorSchemeUpdates()) {
       sendPtyInput(threadId, colorSchemeReport(isLight)).catch(() => {});
     }
-  }, [isLight]);
+  }, [isLight, flatSurface]);
 
   return (
     <div
       ref={wrapperRef}
-      className={`relative flex h-full w-full flex-col overflow-hidden ${isLight ? "bg-white" : "bg-black"}`}
+      className={`relative flex h-full w-full flex-col overflow-hidden fx-term ${isLight ? "bg-white" : "bg-black"}`}
     >
       <div
         className={`min-h-0 flex-1 overflow-hidden pl-3 pt-1${
@@ -1227,7 +1233,7 @@ export function ClaudeTerminalView({
       </div>
 
       {loaderVisible && status === "Running" && (
-        <div className={`absolute inset-0 z-10 flex flex-col items-center justify-center gap-6 ${isLight ? "bg-white" : "bg-black"}`}>
+        <div className={`absolute inset-0 z-10 flex flex-col items-center justify-center gap-6 fx-term ${isLight ? "bg-white" : "bg-black"}`}>
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm text-zinc-400">$</span>
             <span className="font-mono text-sm text-zinc-400">{progressLabel}</span>
