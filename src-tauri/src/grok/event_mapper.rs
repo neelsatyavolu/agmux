@@ -79,6 +79,7 @@ pub fn translate_session_update(value: &Value, _thread_id: &str) -> Option<Value
             let content = update
                 .get("content")
                 .and_then(extract_tool_output_content)
+                .or_else(|| update.get("rawOutput").and_then(extract_mcp_raw_output))
                 .unwrap_or_default();
             let is_error = status == "failed";
             Some(json!({
@@ -317,6 +318,16 @@ fn extract_tool_output_content(value: &Value) -> Option<String> {
     }
 }
 
+/// Grok's MCP (`use_tool`) updates carry no `content` blocks; the result text
+/// is `rawOutput.output.OkayOutput` (or `.Error` when the call failed).
+fn extract_mcp_raw_output(raw: &Value) -> Option<String> {
+    let output = raw.get("output")?;
+    ["OkayOutput", "Error"]
+        .iter()
+        .find_map(|key| output.get(*key).and_then(|v| v.as_str()))
+        .map(str::to_string)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -398,6 +409,55 @@ mod tests {
         assert_eq!(ev["type"], "tool.completed");
         assert_eq!(ev["isError"], false);
         assert_eq!(ev["content"], "file contents");
+    }
+
+    #[test]
+    fn mcp_tool_update_without_content_uses_raw_output() {
+        // Grok finishes `use_tool` (MCP) calls with no `content` blocks; the
+        // result text only lives in `rawOutput.output`.
+        let done = json!({
+            "method": "session/update",
+            "params": {
+                "sessionId": "S",
+                "update": {
+                    "sessionUpdate": "tool_call_update",
+                    "toolCallId": "mcp-1",
+                    "status": "completed",
+                    "rawOutput": {
+                        "type": "MCP",
+                        "server_name": "example",
+                        "tool_name": "lookup",
+                        "output": {"OkayOutput": "3 matches found"}
+                    }
+                }
+            }
+        });
+        let ev = translate_session_update(&done, "T").unwrap();
+        assert_eq!(ev["type"], "tool.completed");
+        assert_eq!(ev["content"], "3 matches found");
+        assert_eq!(ev["isError"], false);
+
+        let failed = json!({
+            "method": "session/update",
+            "params": {
+                "sessionId": "S",
+                "update": {
+                    "sessionUpdate": "tool_call_update",
+                    "toolCallId": "mcp-2",
+                    "status": "failed",
+                    "rawOutput": {
+                        "type": "MCP",
+                        "server_name": "example",
+                        "tool_name": "lookup",
+                        "is_error": true,
+                        "output": {"Error": "server unavailable"}
+                    }
+                }
+            }
+        });
+        let ev = translate_session_update(&failed, "T").unwrap();
+        assert_eq!(ev["content"], "server unavailable");
+        assert_eq!(ev["isError"], true);
     }
 
     #[test]
