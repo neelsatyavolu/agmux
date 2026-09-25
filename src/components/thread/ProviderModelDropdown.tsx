@@ -1047,7 +1047,7 @@ export function ProviderModelDropdown({
                                     selected ? (
                                       <Check size={14} className="text-[color:var(--accent)]" />
                                     ) : s.state === "waiting" ? (
-                                      <DropdownTag variant="violet">Wait</DropdownTag>
+                                      <DropdownTag variant="amber">Wait</DropdownTag>
                                     ) : s.state === "running" ? (
                                       <DropdownTag variant="accent">Live</DropdownTag>
                                     ) : null

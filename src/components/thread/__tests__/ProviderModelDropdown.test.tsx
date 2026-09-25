@@ -178,6 +178,33 @@ describe("ProviderModelDropdown", () => {
     fireEvent.click(screen.getByText("Live agent"));
     expect(onSelectSession).toHaveBeenCalledWith("sess-1");
   });
+
+  it("L3: a waiting session's 'Wait' tag is amber (needs-you), not violet (thinking) — matches Home's gold approve chip for the same state", () => {
+    render(
+      <ProviderModelDropdown
+        provider="ClaudeCode"
+        model={null}
+        onSelect={vi.fn()}
+        collapsibleSections
+        runningSessions={[
+          {
+            id: "sess-1",
+            title: "Live agent",
+            projectName: "demo",
+            provider: "Codex",
+            state: "waiting",
+          },
+        ]}
+        selectedSessionId={null}
+        onSelectSession={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button"));
+    fireEvent.mouseEnter(screen.getByText("Running sessions").closest("div")!);
+    const tag = screen.getByText("Wait");
+    expect(tag.className).toContain("fx-soft-gold");
+    expect(tag.className).not.toContain("violet");
+  });
 });
 
 describe("ProviderModelDropdown — Final coverage gaps", () => {
