@@ -16,8 +16,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 
 export function GitStatusIndicator({ statusCode, isDirectory }: Props) {
   if (!statusCode) return null;
+  // Porcelain codes can carry a leading/trailing space (e.g. " M" = staged
+  // clean, worktree modified) — trim before matching so the exact-code and
+  // first-character lookups below see the real letter instead of " ".
+  const trimmed = statusCode.trim();
+  if (!trimmed) return null;
   const config =
-    STATUS_CONFIG[statusCode] ?? STATUS_CONFIG[statusCode[0]] ?? null;
+    STATUS_CONFIG[trimmed] ?? STATUS_CONFIG[trimmed[0]] ?? null;
   if (!config) return null;
   if (isDirectory) {
     return <span className={`ml-auto text-[8px] ${config.color}`}>●</span>;

@@ -369,12 +369,18 @@ describe("Task 13: subagent cards, editor/file tree, settings sidebar", () => {
     [`${F} .file-tree-filter-input`, "border-color", "var(--ui-rule-2)"],
     [`${F} .file-tree-row-active`, "background", "var(--ui-press)"],
     [`${F} .file-tree-row-active`, "border-left-color", "transparent"],
-    [`${F} .file-tree-context-menu`, "border-color", "var(--ui-rule-2)"],
+    [`${F} .file-tree-context-menu`, "border-color", "transparent"],
+    [`${F} .file-tree-context-menu`, "box-shadow", "inset 0 0 0 1px var(--ui-rule-2), var(--ui-shadow-pop)"],
     [`${F} .settings-shell`, "background", "var(--ui-canvas)"],
     [`${F} .settings-sidebar`, "background", "var(--ui-sidebar)"],
     [`${F} .settings-sidebar`, "border-right-color", "var(--ui-rule)"],
     [`${F} .settings-brand-divider`, "border-bottom-color", "var(--ui-rule)"],
     [`${F} .settings-nav-item[data-active="true"] .settings-nav-icon`, "color", "var(--text-primary)"],
+    [`${F} .settings-nav-item[data-active="true"] .settings-nav-icon svg`, "color", "var(--text-primary)"],
+    [`${F} .settings-nav-item[data-active="true"] svg`, "color", "var(--text-primary)"],
+    [`${F} .chat-activity-card-header`, "background", "transparent"],
+    [`${F} .chat-activity-card-header`, "border-bottom-color", "transparent"],
+    [`${F} .subagent-activity-row:hover`, "border-color", "var(--ui-rule-2)"],
   ])("%s %s -> %s", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
 
   it("chat-activity-card ties (later, equal specificity) the light-mode glass rule so Light + Flat resolves to the panel token", () => {
@@ -423,5 +429,49 @@ describe("Task 13: subagent cards, editor/file tree, settings sidebar", () => {
       expect(d, `${flatSel} is missing declaration for "${p}"`).toBeTruthy();
       expect(d!.important, `${flatSel} "${p}" must be !important to beat the light-mode !important rule`).toBe(true);
     }
+  });
+
+  it("fix round 1 #5: file-tree-context-menu overrides both the inline border AND the inline box-shadow (both need !important to beat an inline style={{}})", () => {
+    for (const prop of ["border-color", "box-shadow"]) {
+      const d = declsFor(unified, `${F} .file-tree-context-menu`).find((x) => x.prop === prop);
+      expect(d, `${F} .file-tree-context-menu missing "${prop}"`).toBeTruthy();
+      expect(d!.important, `${F} .file-tree-context-menu "${prop}" must be !important to beat the inline style`).toBe(true);
+    }
+  });
+
+  it("fix round 1 #1: selector coverage — index.css's unscoped .settings-nav-item[data-active] svg/span accent rule still exists with exactly these two arms, and BOTH have a higher-specificity flat !important counterpart (a rule painting only the wrapping span never overrides the svg's own directly-targeted color)", () => {
+    let goldRuleFound = false;
+    let goldRuleColorImportant = false;
+    index.walkRules((rule) => {
+      if (
+        rule.selectors.includes('.settings-nav-item[data-active="true"] svg') &&
+        rule.selectors.includes('.settings-nav-item[data-active="true"] span')
+      ) {
+        goldRuleFound = true;
+        rule.walkDecls("color", (d) => { goldRuleColorImportant = goldRuleColorImportant || !!d.important; });
+      }
+    });
+    expect(
+      goldRuleFound,
+      "index.css's .settings-nav-item[data-active] svg/span gold rule moved or was removed — re-check whether the flat override below is still needed",
+    ).toBe(true);
+    expect(goldRuleColorImportant, "index.css arm should stay non-!important").toBe(false);
+
+    // Every arm of the index.css selector list needs a flat counterpart at
+    // (at least) one extra attribute selector of specificity, i.e. prefixed
+    // with the html[data-surface="flat"] attribute selector this branch
+    // always adds — that alone beats the unscoped rule regardless of order,
+    // and every one below is also !important for defense in depth.
+    for (const arm of ['.settings-nav-item[data-active="true"] svg']) {
+      const flatSel = `${F} ${arm}`;
+      expect(hasSelector(unified, flatSel), `expected a flat counterpart for index.css arm "${arm}"`).toBe(true);
+      expect(decl(unified, flatSel, "color")).toBe("var(--text-primary)");
+      const d = declsFor(unified, flatSel).find((x) => x.prop === "color");
+      expect(d?.important, `${flatSel} "color" must be !important`).toBe(true);
+    }
+    // The "span" arm only ever matches .settings-nav-icon in this codebase
+    // (item.label is plain text, not wrapped in a span) — that flat
+    // counterpart already exists and is asserted in the it.each table above.
+    expect(hasSelector(unified, `${F} .settings-nav-item[data-active="true"] .settings-nav-icon`)).toBe(true);
   });
 });

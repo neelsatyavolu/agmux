@@ -53,7 +53,7 @@ export function SubagentActivityCards({ children }: { children: ReactNode }) {
       type="button" key={entry.toolUseId} data-testid="subagent-activity-row" data-status={status}
       aria-label={`Open ${displayName} conversation, ${subagentStatusLabel(status)}`}
       onClick={() => inspector.open(entry)}
-      className={`group my-0.5 flex w-full min-w-0 items-start gap-2.5 rounded-[10px] border px-2.5 py-2.5 text-left transition-colors hover:border-white/10 hover:bg-white/[0.04] fx-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 ${status === "waiting" ? "border-violet-400/15 bg-violet-400/[0.04]" : "border-transparent"}`}
+      className={`subagent-activity-row group my-0.5 flex w-full min-w-0 items-start gap-2.5 rounded-[10px] border px-2.5 py-2.5 text-left transition-colors hover:border-white/10 hover:bg-white/[0.04] fx-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 ${status === "waiting" ? "border-violet-400/15 bg-violet-400/[0.04]" : "border-transparent"}`}
     >
       <span className="subagent-avatar-tile mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-[var(--text-tertiary)]"><Bot size={13} /></span>
       <span className="min-w-0 flex-1">
@@ -70,7 +70,7 @@ export function SubagentActivityCards({ children }: { children: ReactNode }) {
       <button type="button" className="subagent-overview-close ml-auto text-[11px] text-[var(--text-tertiary)]" onClick={() => inspector.setOverviewExpanded(false)}>Collapse activity</button>
       {tasks}
       <aside className="chat-activity-card flex min-h-0 shrink-0 flex-col overflow-hidden rounded-[14px]" aria-label="Subagents">
-        <header className="flex items-center gap-2 border-b border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
+        <header className="chat-activity-card-header flex items-center gap-2 border-b border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
           <Bot size={14} className="text-violet-400 fx-graphite" /><span className="text-[12.5px] font-medium text-[var(--text-primary)]">Subagents</span>
           <span className="ui-chip sm fx-chip-q border border-white/[0.06] bg-white/[0.04] tabular-nums text-[var(--text-tertiary)]">{active.length} active</span>
           <button type="button" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand subagents" : "Collapse subagents"} aria-expanded={!collapsed} className="ml-auto rounded p-1 text-[var(--text-muted)] hover:bg-white/5 fx-hover">{collapsed ? <PanelRightOpen size={13} /> : <PanelRightClose size={13} />}</button>

@@ -966,8 +966,21 @@ html[data-surface="flat"] .settings-sidebar {
 html[data-surface="flat"] .settings-brand-divider { border-bottom-color: var(--ui-rule) !important; }
 /* Active nav icon: neutral ink, never gold (controller ruling A1 — nav items
    are neutral, not a choice group). Inline style={{}} on the icon needs
-   !important to beat the JS-computed accent color. */
+   !important to beat the JS-computed accent color.
+   Fix round 1 #1: index.css:1336-1339 also has an UNSCOPED
+   `.settings-nav-item[data-active="true"] svg { color: var(--accent) }` rule
+   that targets the <svg> directly. A rule painting the wrapping span's
+   `color` never wins there — the svg's own directly-targeted declaration
+   always beats inherited color from an ancestor, regardless of the
+   ancestor's specificity/!important. Cover the svg itself, both through the
+   .settings-nav-icon wrapper and matching the index.css rule's bare `svg`
+   arm 1:1 so any other icon markup under an active item is covered too. The
+   index.css rule's other arm (`... span`) already only matches
+   .settings-nav-icon itself (item.label is plain text, not a span), so the
+   line above already beats it (higher specificity + !important). */
 html[data-surface="flat"] .settings-nav-item[data-active="true"] .settings-nav-icon { color: var(--text-primary) !important; }
+html[data-surface="flat"] .settings-nav-item[data-active="true"] .settings-nav-icon svg,
+html[data-surface="flat"] .settings-nav-item[data-active="true"] svg { color: var(--text-primary) !important; }
 html[data-surface="flat"] .settings-brand-icon { background: var(--ui-panel-2) !important; border-color: transparent !important; }
 html[data-surface="flat"] .settings-toggle-off { background: var(--ui-panel-2) !important; border-color: var(--ui-rule-2) !important; }
 html[data-surface="flat"] .settings-toggle-knob-off { background: var(--text-tertiary) !important; }
@@ -1086,6 +1099,22 @@ html[data-surface="flat"] .subagent-avatar-tile {
   border-color: transparent;
   color: var(--text-secondary);
 }
+/* Fix round 1 #2: the subagent card header and the Tasks card header both
+   still carried the old glass tint/hairline (bg-white/[0.02], border-b
+   border-white/[0.05]). The mockup's .card-h has no background and no
+   border at all — keep the 1px border width (no layout change) but make it
+   invisible; the card's own inset ring already reads as the card edge. */
+html[data-surface="flat"] .chat-activity-card-header {
+  background: transparent;
+  border-bottom-color: transparent;
+}
+/* Fix round 1 #4: hover:border-white/10 has no generic flat remap (Tailwind
+   compiles it to a `:hover`-suffixed selector the generic border-white/10
+   remap above doesn't match), so the subagent row's hover ring stayed the
+   literal Glass white-alpha value. */
+html[data-surface="flat"] .subagent-activity-row:hover {
+  border-color: var(--ui-rule-2);
+}
 /* Collapsed edge rail: its own literal Glass classes stay (sideways shadow,
    mounted flush to the right edge), so it isn't routed through
    .chat-activity-card. Flat only needs the panel fill (border-color already
@@ -1131,5 +1160,13 @@ html[data-surface="flat"] .file-tree-row-active {
   color: var(--text-primary);
 }
 /* Context menu ring (mockup .menu: panel, rule-2 ring). Background already
-   resolves via the pre-existing --surface-popover -> --ui-panel indirection. */
-html[data-surface="flat"] .file-tree-context-menu { border-color: var(--ui-rule-2) !important; }
+   resolves via the pre-existing --surface-popover -> --ui-panel indirection.
+   Fix round 1 #5: the inline style also drew a second, redundant ring via
+   box-shadow (0 0 0 1px var(--glass-border), alongside the 1px solid border)
+   — a double ring. Make the real border transparent (keep its 1px width)
+   and draw the single ring via box-shadow instead, next to the pop shadow,
+   matching the .fx-dialog convention used everywhere else in this branch. */
+html[data-surface="flat"] .file-tree-context-menu {
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2), var(--ui-shadow-pop) !important;
+}

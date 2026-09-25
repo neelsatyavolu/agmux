@@ -285,7 +285,7 @@ export function ChatTasksPanel({
           className={`chat-activity-card flex min-h-0 flex-col overflow-hidden rounded-[14px] ${embedded ? "max-h-[280px]" : "pointer-events-auto absolute top-3 right-3 w-[min(288px,calc(100%-1.5rem))] max-h-[min(480px,calc(100%-1.5rem))]"}`}
           aria-label={title}
         >
-          <div className="flex items-center gap-2 border-b border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
+          <div className="chat-activity-card-header flex items-center gap-2 border-b border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
             <ListChecks size={14} className="shrink-0 text-violet-400 fx-graphite" />
             <span className="text-[12.5px] font-medium tracking-[-0.01em] text-zinc-200">
               {title}

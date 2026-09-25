@@ -43,6 +43,29 @@ describe("GitStatusIndicator", () => {
     expect(container.textContent).toBe("M");
   });
 
+  it("fix round 1: trims a leading space before matching (' M' = index clean, worktree modified)", () => {
+    const { container } = render(<GitStatusIndicator statusCode=" M" />);
+    expect(container.textContent).toBe("M");
+    expect(container.querySelector("span")?.className).toContain("text-amber-400");
+  });
+
+  it("fix round 1: trims a trailing space before matching ('M ' = staged modified)", () => {
+    const { container } = render(<GitStatusIndicator statusCode="M " />);
+    expect(container.textContent).toBe("M");
+  });
+
+  it("fix round 1: exact combo code 'AM' still renders M/gold (unchanged)", () => {
+    const { container } = render(<GitStatusIndicator statusCode="AM" />);
+    expect(container.textContent).toBe("M");
+    expect(container.querySelector("span")?.className).toContain("text-amber-400");
+  });
+
+  it("fix round 1: untracked '??' still renders U/graphite (unchanged)", () => {
+    const { container } = render(<GitStatusIndicator statusCode="??" />);
+    expect(container.textContent).toBe("U");
+    expect(container.querySelector("span")?.className).toContain("text-zinc-500");
+  });
+
   it("renders a dot for directories", () => {
     const { container } = render(
       <GitStatusIndicator statusCode="M" isDirectory />,
