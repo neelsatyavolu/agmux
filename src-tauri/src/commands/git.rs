@@ -395,7 +395,7 @@ pub async fn get_git_committed_changes(
     };
 
     let numstat_output = Command::new("git")
-        .args(["diff", &range, "--numstat"])
+        .args(["diff", &range, "--numstat", "-z"])
         .current_dir(&path)
         .env("PATH", &augmented_path)
         .output()
@@ -408,7 +408,7 @@ pub async fn get_git_committed_changes(
     }
 
     let name_status_output = Command::new("git")
-        .args(["diff", &range, "--name-status"])
+        .args(["diff", &range, "--name-status", "-z"])
         .current_dir(&path)
         .env("PATH", &augmented_path)
         .output()
@@ -420,26 +420,22 @@ pub async fn get_git_committed_changes(
         return Err(format!("git diff --name-status failed: {}", stderr.trim()));
     }
 
-    // Build a path → status map from --name-status output.
+    // Build a path → status map from `-z` --name-status output:
+    // "<code>\0<path>\0", renames/copies "R100\0<old>\0<new>\0" — keep the
+    // NEW path only. `-z` keeps paths unquoted.
     let ns_str = String::from_utf8_lossy(&name_status_output.stdout);
     let mut status_map = std::collections::HashMap::<String, String>::new();
-    for line in ns_str.lines() {
-        let parts: Vec<&str> = line.split('\t').collect();
-        if parts.is_empty() {
+    let mut ns_fields = ns_str.split('\0');
+    while let Some(code) = ns_fields.next() {
+        if code.is_empty() {
             continue;
         }
-        let code = parts[0];
-        // Renames/copies: "R100\t<old>\t<new>" — keep the NEW path only.
-        let path_str = if code.starts_with('R') || code.starts_with('C') {
-            if parts.len() >= 3 {
-                parts[2].to_string()
-            } else {
-                continue;
-            }
-        } else if parts.len() >= 2 {
-            parts[1].to_string()
-        } else {
-            continue;
+        if code.starts_with('R') || code.starts_with('C') {
+            ns_fields.next();
+        }
+        let path_str = match ns_fields.next() {
+            Some(p) => p.to_string(),
+            None => continue,
         };
         let status = match code.chars().next() {
             Some('A') => "added",
@@ -454,19 +450,23 @@ pub async fn get_git_committed_changes(
 
     let numstat_str = String::from_utf8_lossy(&numstat_output.stdout);
     let mut files: Vec<crate::commands::task::ChangedFile> = Vec::new();
-    for line in numstat_str.lines() {
-        let parts: Vec<&str> = line.splitn(3, '\t').collect();
+    let mut numstat_records = numstat_str.split('\0');
+    while let Some(record) = numstat_records.next() {
+        let parts: Vec<&str> = record.splitn(3, '\t').collect();
         if parts.len() != 3 {
             continue;
         }
         let added: i64 = parts[0].parse().unwrap_or(0);
         let removed: i64 = parts[1].parse().unwrap_or(0);
-        let raw_path = parts[2];
-        // numstat renames use "<old> => <new>" inline
-        let path_str = if let Some(idx) = raw_path.find(" => ") {
-            raw_path[idx + 4..].trim().to_string()
+        // `-z` renames leave the path field empty, then "<old>\0<new>\0".
+        let path_str = if parts[2].is_empty() {
+            numstat_records.next();
+            match numstat_records.next() {
+                Some(new_path) => new_path.to_string(),
+                None => continue,
+            }
         } else {
-            raw_path.to_string()
+            parts[2].to_string()
         };
         let status = status_map
             .get(&path_str)
@@ -3729,6 +3729,25 @@ mod tests {
             .await
             .unwrap();
         assert!(files.iter().any(|f| f.path == "added.txt" && f.status == "added"));
+    }
+
+    #[tokio::test]
+    async fn committed_changes_report_real_paths_for_renames_and_spaces() {
+        let tmp = tempdir().unwrap();
+        init_repo(tmp.path()).await;
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        commit_file(tmp.path(), "src/old.rs", "fn a() {}\n", "init").await;
+        assert!(run_git(tmp.path(), &["checkout", "-qb", "feature"]).await.status.success());
+        assert!(run_git(tmp.path(), &["mv", "src/old.rs", "src/new.rs"]).await.status.success());
+        commit_file(tmp.path(), "my notes.md", "n\n", "rename + notes").await;
+
+        let files = get_git_committed_changes(tmp.path().to_string_lossy().to_string())
+            .await
+            .unwrap();
+        let mut got: Vec<(&str, &str)> =
+            files.iter().map(|f| (f.path.as_str(), f.status.as_str())).collect();
+        got.sort();
+        assert_eq!(got, vec![("my notes.md", "added"), ("src/new.rs", "renamed")]);
     }
 
     #[tokio::test]
