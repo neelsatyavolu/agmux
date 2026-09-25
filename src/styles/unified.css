@@ -141,7 +141,7 @@ html[data-surface="flat"] .codex-composer-focus {
 html[data-surface="flat"] .approval-card {
   background: var(--ui-panel);
   border-color: color-mix(in srgb, var(--accent) 38%, transparent);
-  border-radius: 16px;
+  border-radius: 18px;
   box-shadow: var(--ui-shadow-pop);
 }
 html[data-surface="flat"] .approval-icon {
@@ -796,3 +796,141 @@ html[data-surface="flat"] .home-screen-root .sess:hover { background: var(--ui-h
 html[data-surface="flat"] .home-screen-root .sess { border-top-color: var(--ui-rule); }
 html[data-surface="flat"] .home-screen-root .pill.run { color: var(--status-blue); background: var(--ui-blue-soft); border-color: transparent; }
 html[data-surface="flat"] .home-screen-root .pill.wait { color: var(--status-amber); background: var(--ui-gold-soft); border-color: transparent; }
+
+/* ── Conversation: panels, code, bubbles (mockup .dp/.codeblk/.ub/.tools) ── */
+.codex-panel, .codex-panel-term { border-radius: 10px; }
+html[data-surface="flat"] .codex-panel { background: var(--ui-code); border-color: var(--ui-rule); }
+html[data-surface="flat"] .codex-panel-term { background: var(--ui-term); border-color: var(--ui-rule); }
+html[data-surface="flat"] .codex-panel-head { background: var(--ui-panel-2); border-bottom-color: var(--ui-rule); }
+html[data-surface="flat"] .codex-bubble-user {
+  background: var(--ui-bubble);
+  border-color: transparent;
+  box-shadow: none;
+}
+.md-code { border-radius: 12px; }
+html[data-surface="flat"] .md-code,
+html[data-surface="flat"] .md-code-shell { background: var(--ui-code); border-color: var(--ui-rule); box-shadow: none; }
+html[data-surface="flat"] .md-code-head { background: transparent; border-bottom-color: var(--ui-rule); }
+html[data-surface="flat"] .md-table-wrap { background: var(--ui-panel); border-color: var(--ui-rule); box-shadow: none; }
+html[data-surface="flat"] .md-table-head { background: var(--ui-panel-2); }
+html[data-surface="flat"] .md-table-th { border-bottom-color: var(--ui-rule); }
+html[data-surface="flat"] .md-table-td { border-top-color: var(--ui-rule); }
+html[data-surface="flat"] .md-table-row:hover .md-table-td { background: var(--ui-hover); }
+html[data-surface="flat"] .composer-popover-wash { display: none; }
+
+/* Tool status chips (mockup .chip.sm): working blue, done green.
+   Box-model (padding/min-height) is flat-only for Glass parity; type is shared. */
+.status-pill { font-size: 10.5px; font-weight: 650; }
+html[data-surface="flat"] .status-pill { padding: 0 7px; min-height: 19px; }
+html[data-surface="flat"] .status-pill-running { background: var(--ui-blue-soft); border-color: transparent; color: var(--status-blue); }
+html[data-surface="flat"] .status-pill-done { background: var(--ui-green-soft); border-color: transparent; color: var(--status-green); }
+html[data-surface="flat"] .status-pill-error { background: var(--ui-red-soft); border-color: transparent; color: var(--status-red); }
+html[data-surface="flat"] .status-pill-stopped,
+html[data-surface="flat"] .status-pill-pending { background: transparent; border-color: transparent; box-shadow: inset 0 0 0 1px var(--ui-rule-2); color: var(--text-tertiary); }
+/* Mockup tool rows carry no per-type color bar; keep the 2px so nothing shifts. */
+html[data-surface="flat"] [class*="tool-accent-"] { border-left-color: transparent; }
+
+/* ── Segmented choices (mockup .seg / .seg b.on): neutral selection ──
+   :not([data-active="true"]) on hover matches the light-mode hover rule's
+   specificity (index.css:5228) so this flat rule actually wins the cascade. */
+.glass-seg { font-weight: 550; }
+html[data-surface="flat"] .glass-seg { color: var(--text-tertiary); }
+html[data-surface="flat"] .glass-seg:hover:not([data-active="true"]) { background: var(--ui-hover); color: var(--text-primary); }
+html[data-surface="flat"] .glass-seg[data-active="true"] {
+  background: var(--ui-panel-2);
+  border-color: var(--ui-rule-2);
+  color: var(--text-primary);
+}
+
+/* ── Settings (mockup #settings .card.flat/.lrow/.inp/.tog-sw/.bar) ──
+   Several light-mode overrides in index.css use !important; matching
+   declarations below carry !important too so flat beats them in light+flat. */
+html[data-surface="flat"] .settings-card {
+  background: var(--ui-panel) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--ui-rule) !important;
+}
+html[data-surface="flat"] .settings-card-header { border-bottom-color: var(--ui-rule) !important; }
+html[data-surface="flat"] .settings-card-rows > :not(:first-child) { border-top-color: var(--ui-rule) !important; }
+html[data-surface="flat"] .settings-row:hover { background: var(--ui-hover); }
+html[data-surface="flat"] .settings-search {
+  background: var(--ui-canvas) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2) !important;
+}
+html[data-surface="flat"] .settings-kbd {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+  color: var(--text-tertiary) !important;
+}
+html[data-surface="flat"] .settings-nav-item[data-active="true"] {
+  background: var(--ui-panel);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule);
+}
+html[data-surface="flat"] .settings-brand-icon { background: var(--ui-panel-2) !important; border-color: transparent !important; }
+html[data-surface="flat"] .settings-toggle-off { background: var(--ui-panel-2) !important; border-color: var(--ui-rule-2) !important; }
+html[data-surface="flat"] .settings-toggle-knob-off { background: var(--text-tertiary) !important; }
+html[data-surface="flat"] .settings-toggle-knob-on { background: #ffffff; }
+html[data-surface="flat"] .settings-toggle-track { box-shadow: none !important; }
+html[data-surface="flat"] .settings-slider-track { background: var(--ui-panel-2) !important; }
+/* Glass keeps its accent-colored settings eyebrow. */
+html[data-surface="glass"] .settings-card-eyebrow { color: var(--accent); }
+
+/* ── Memory (mockup #memory: neutral .chip.q, Important = gold, Binding neutral+lock) ── */
+.mem-filter, .mem-kind { text-transform: none; letter-spacing: normal; font-weight: 650; }
+.mem-filter { font-size: 11.5px; }
+.mem-kind { font-size: 10.5px; }
+.mem-section-label { font-size: 11px; letter-spacing: 0.08em; font-weight: 700; }
+.mem-health { font-size: 11.5px; }
+.mem-entry { border-radius: 14px; }
+html[data-surface="flat"] .mem-mark { box-shadow: none; }
+html[data-surface="flat"] .mem-health { background: transparent; border-bottom-color: var(--ui-rule); color: var(--text-tertiary); }
+html[data-surface="flat"] .mem-health-counts [data-warning="true"],
+html[data-surface="flat"] .mem-health-counts [data-warning="true"] strong,
+html[data-surface="flat"] .mem-health-finding { color: var(--status-amber); }
+html[data-surface="flat"] .mem-filter {
+  color: var(--text-tertiary);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
+html[data-surface="flat"] .mem-filter:hover { background: var(--ui-hover); color: var(--text-primary); }
+html[data-surface="flat"] .mem-filter[data-active="true"] {
+  background: var(--ui-panel-2);
+  color: var(--text-primary);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
+html[data-surface="flat"] .mem-count { background: none; border-color: transparent; padding: 0; color: var(--text-muted); }
+html[data-surface="flat"] .mem-entry {
+  background: var(--ui-panel);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule);
+}
+html[data-surface="flat"] .mem-entry-important { box-shadow: inset 0 0 0 1px var(--ui-rule); }
+html[data-surface="flat"] .mem-kind,
+html[data-surface="flat"] .mem-kind-binding,
+html[data-surface="flat"] .mem-kind-review,
+html[data-surface="flat"] .mem-kind-pin,
+html[data-surface="flat"] .mem-kind-decision,
+html[data-surface="flat"] .mem-kind-fact,
+html[data-surface="flat"] .mem-kind-issue,
+html[data-surface="flat"] .mem-kind-note,
+html[data-surface="flat"] .mem-kind-session {
+  color: var(--text-tertiary);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
+html[data-surface="flat"] .mem-kind-important {
+  color: var(--status-amber);
+  background: var(--ui-gold-soft);
+  border-color: transparent;
+  box-shadow: none;
+}
+html[data-surface="flat"] .mem-section-label { color: var(--text-tertiary); }
+html[data-surface="flat"] .mem-more { color: var(--text-tertiary); }
+html[data-surface="flat"] .mem-more:hover { color: var(--text-primary); }
+html[data-surface="flat"] .mem-binding-confirm { background: var(--ui-gold-soft); border-color: transparent; }

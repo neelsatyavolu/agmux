@@ -194,3 +194,106 @@ describe("fix round 1: Light + Flat cascade + Glass parity", () => {
     expect(decl(unified, `${F} .app-kbd`, "line-height")).toBe("1.3");
   });
 });
+
+describe("conversation/settings/memory flat families", () => {
+  const F = 'html[data-surface="flat"]';
+  it.each([
+    [`${F} .codex-panel`, "background", "var(--ui-code)"],
+    [`${F} .codex-panel-head`, "background", "var(--ui-panel-2)"],
+    [`${F} .codex-bubble-user`, "background", "var(--ui-bubble)"],
+    [`${F} .md-code`, "background", "var(--ui-code)"],
+    [`${F} .composer-popover-wash`, "display", "none"],
+    [`${F} .status-pill-running`, "color", "var(--status-blue)"],
+    [`${F} .status-pill-done`, "color", "var(--status-green)"],
+    [`${F} .settings-card`, "background", "var(--ui-panel)"],
+    [`${F} .glass-seg[data-active="true"]`, "background", "var(--ui-panel-2)"],
+    [`${F} .mem-entry`, "background", "var(--ui-panel)"],
+    [`${F} .mem-kind-important`, "color", "var(--status-amber)"],
+    [`${F} .mem-kind-binding`, "color", "var(--text-tertiary)"],
+  ])("%s %s", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
+  it("drops uppercase on memory chips in both modes", () => {
+    expect(decl(unified, ".mem-filter", "text-transform")).toBe("none");
+    expect(decl(unified, ".mem-kind", "text-transform")).toBe("none");
+  });
+  it("uses the 18px inline approval radius", () => {
+    expect(decl(unified, `${F} .approval-card`, "border-radius")).toBe("18px");
+  });
+
+  it("status pill box model (padding/min-height) is flat-only so Glass keeps its size", () => {
+    expect(decl(unified, ".status-pill", "padding")).toBe("");
+    expect(decl(unified, ".status-pill", "min-height")).toBe("");
+    expect(decl(unified, `${F} .status-pill`, "padding")).toBe("0 7px");
+    expect(decl(unified, `${F} .status-pill`, "min-height")).toBe("19px");
+  });
+});
+
+function declsFor(root: postcss.Root, selector: string) {
+  const found: { prop: string; important: boolean }[] = [];
+  root.walkRules(rule => {
+    if (rule.selectors.includes(selector)) {
+      rule.walkDecls(d => { found.push({ prop: d.prop, important: !!d.important }); });
+    }
+  });
+  return found;
+}
+
+describe("Task 4 cascade check: flat counterparts cover light-mode properties (+ !important parity)", () => {
+  const F = 'html[data-surface="flat"]';
+  const cases: Array<[string, string, string[], string[]?]> = [
+    ['html[data-mode="light"] .codex-bubble-user', `${F} .codex-bubble-user`, ["background", "border-color", "box-shadow"]],
+    ['html[data-mode="light"] .codex-panel', `${F} .codex-panel`, ["background", "border-color"]],
+    ['html[data-mode="light"] .codex-panel-term', `${F} .codex-panel-term`, ["background", "border-color"]],
+    ['html[data-mode="light"] .codex-panel-head', `${F} .codex-panel-head`, ["background", "border-bottom-color"]],
+    ['html[data-mode="light"] .md-code', `${F} .md-code`, ["background", "border-color", "box-shadow"]],
+    ['html[data-mode="light"] .md-code-shell', `${F} .md-code-shell`, ["border-color", "box-shadow"]],
+    ['html[data-mode="light"] .md-code-head', `${F} .md-code-head`, ["background", "border-bottom-color"]],
+    ['html[data-mode="light"] .md-table-wrap', `${F} .md-table-wrap`, ["background", "border-color", "box-shadow"]],
+    ['html[data-mode="light"] .md-table-head', `${F} .md-table-head`, ["background"]],
+    ['html[data-mode="light"] .md-table-th', `${F} .md-table-th`, ["border-bottom-color"]],
+    ['html[data-mode="light"] .md-table-td', `${F} .md-table-td`, ["border-top-color"]],
+    ['html[data-mode="light"] .md-table-row:hover .md-table-td', `${F} .md-table-row:hover .md-table-td`, ["background"]],
+    ['html[data-mode="light"] .status-pill-running', `${F} .status-pill-running`, ["background", "border-color", "color"]],
+    ['html[data-mode="light"] .status-pill-done', `${F} .status-pill-done`, ["background", "border-color", "color"]],
+    ['html[data-mode="light"] .status-pill-error', `${F} .status-pill-error`, ["background", "border-color", "color"]],
+    ['html[data-mode="light"] .status-pill-stopped', `${F} .status-pill-stopped`, ["background", "border-color", "color"]],
+    ['html[data-mode="light"] .status-pill-pending', `${F} .status-pill-pending`, ["background", "border-color", "color"]],
+    ['html[data-mode="light"] .glass-seg:hover:not([data-active="true"])', `${F} .glass-seg:hover:not([data-active="true"])`, ["background", "color"]],
+    ['html[data-mode="light"] .settings-card', `${F} .settings-card`, ["background", "border-color", "box-shadow"], ["background", "border-color", "box-shadow"]],
+    ['html[data-mode="light"] .settings-card-header', `${F} .settings-card-header`, ["border-bottom-color"], ["border-bottom-color"]],
+    ['html[data-mode="light"] .settings-card-rows > :not(:first-child)', `${F} .settings-card-rows > :not(:first-child)`, ["border-top-color"], ["border-top-color"]],
+    ['html[data-mode="light"] .settings-row:hover', `${F} .settings-row:hover`, ["background"]],
+    ['html[data-mode="light"] .settings-search', `${F} .settings-search`, ["background", "border-color", "box-shadow"], ["background", "border-color", "box-shadow"]],
+    ['html[data-mode="light"] .settings-kbd', `${F} .settings-kbd`, ["background", "border-color", "color"], ["background", "border-color", "color"]],
+    ['html[data-mode="light"] .settings-nav-item[data-active="true"]', `${F} .settings-nav-item[data-active="true"]`, ["background", "border-color", "box-shadow"]],
+    ['html[data-mode="light"] .settings-brand-icon', `${F} .settings-brand-icon`, ["background", "border-color"], ["background", "border-color"]],
+    ['html[data-mode="light"] .settings-toggle-off', `${F} .settings-toggle-off`, ["background", "border-color"], ["background", "border-color"]],
+    ['html[data-mode="light"] .settings-slider-track', `${F} .settings-slider-track`, ["background"], ["background"]],
+    ['html[data-mode="light"] .mem-health', `${F} .mem-health`, ["background", "border-bottom-color"]],
+    ['html[data-mode="light"] .mem-filter[data-active="true"]', `${F} .mem-filter[data-active="true"]`, ["background", "color", "border-color"]],
+    ['html[data-mode="light"] .mem-entry', `${F} .mem-entry`, ["background", "border-color"]],
+    ['html[data-mode="light"] .mem-kind-binding', `${F} .mem-kind-binding`, ["color"]],
+    ['html[data-mode="light"] .mem-kind-session', `${F} .mem-kind-session`, ["color"]],
+    ['html[data-mode="light"] .mem-kind-review', `${F} .mem-kind-review`, ["color"]],
+    ['html[data-mode="light"] .mem-kind-pin', `${F} .mem-kind-pin`, ["color"]],
+    ['html[data-mode="light"] .mem-kind-fact', `${F} .mem-kind-fact`, ["color"]],
+    ['html[data-mode="light"] .mem-kind-decision', `${F} .mem-kind-decision`, ["color"]],
+    ['html[data-mode="light"] .mem-kind-issue', `${F} .mem-kind-issue`, ["color"]],
+    ['html[data-mode="light"] .mem-kind-note', `${F} .mem-kind-note`, ["color"]],
+    ['html[data-mode="light"] .mem-kind-important', `${F} .mem-kind-important`, ["color"]],
+    ['html[data-mode="light"] .mem-more', `${F} .mem-more`, ["color"]],
+    ['html[data-mode="light"] .mem-more:hover', `${F} .mem-more:hover`, ["color"]],
+  ];
+
+  it.each(cases)("%s -> %s declares the same properties (+ !important where light forces it)", (lightSel, flatSel, props, important) => {
+    const lightDecls = declsFor(index, lightSel);
+    expect(lightDecls.length, `expected ${lightSel} to exist in index.css`).toBeGreaterThan(0);
+    const flatDecls = declsFor(unified, flatSel);
+    for (const p of props) {
+      const d = flatDecls.find(x => x.prop === p);
+      expect(d, `${flatSel} is missing declaration for "${p}"`).toBeTruthy();
+      if (important?.includes(p)) {
+        expect(d!.important, `${flatSel} "${p}" must be !important to beat the light-mode !important rule`).toBe(true);
+      }
+    }
+  });
+});
