@@ -286,6 +286,26 @@ pub async fn get_git_branch_diff(path: String) -> Result<GitDiffResult, String> 
     })
 }
 
+/// Range for a branch without an upstream: its own commits since it left the
+/// default branch. Prefers `origin/<b>` (task worktrees branch off it) and
+/// uses the merge base, so a stale or newer base does not add unrelated work.
+async fn unpushed_fallback_range(path: &str, augmented_path: &str) -> Option<String> {
+    for b in ["main", "master", "develop"] {
+        for candidate in [format!("origin/{b}"), b.to_string()] {
+            let check = Command::new("git")
+                .args(["rev-parse", "--verify", "--quiet", &candidate])
+                .current_dir(path)
+                .env("PATH", augmented_path)
+                .output()
+                .await;
+            if matches!(check, Ok(ref out) if out.status.success()) {
+                return Some(format!("{candidate}...HEAD"));
+            }
+        }
+    }
+    None
+}
+
 /// Returns diff of committed-but-not-pushed commits (HEAD vs upstream).
 ///
 /// - When an upstream is configured: `git diff @{u}..HEAD`
@@ -311,39 +331,21 @@ pub async fn get_git_committed_diff(path: String) -> Result<GitDiffResult, Strin
         _ => None,
     };
 
-    let base_ref: Option<String> = if let Some(upstream) = upstream_ref {
-        Some(upstream)
-    } else {
+    let range = match upstream_ref {
+        Some(upstream) => format!("{upstream}..HEAD"),
         // Fall back to default branch so we still show something when the
         // branch has never been pushed yet.
-        let mut candidate: Option<String> = None;
-        for b in &["main", "master", "develop"] {
-            let check = Command::new("git")
-                .args(["rev-parse", "--verify", b])
-                .current_dir(&path)
-                .env("PATH", &augmented_path)
-                .output()
-                .await;
-            if let Ok(out) = check {
-                if out.status.success() {
-                    candidate = Some(b.to_string());
-                    break;
-                }
-            }
-        }
-        candidate
+        None => match unpushed_fallback_range(&path, &augmented_path).await {
+            Some(r) => r,
+            None => return Ok(GitDiffResult { diff: String::new(), has_changes: false }),
+        },
     };
 
-    let base = match base_ref {
-        Some(r) => r,
-        None => return Ok(GitDiffResult { diff: String::new(), has_changes: false }),
-    };
-
-    // Compare base..HEAD (two dots) — changes introduced by commits on HEAD
-    // that are not yet on the base. If HEAD is the same commit as base, the
-    // output is empty, which the UI interprets as "nothing committed to push".
+    // Changes introduced by commits on HEAD that are not yet on the base. If
+    // HEAD is the same commit as base, the output is empty, which the UI
+    // interprets as "nothing committed to push".
     let diff_output = Command::new("git")
-        .args(["diff", &format!("{}..HEAD", base)])
+        .args(["diff", &range])
         .current_dir(&path)
         .env("PATH", &augmented_path)
         .output()
@@ -384,33 +386,13 @@ pub async fn get_git_committed_changes(
         _ => None,
     };
 
-    let base_ref: Option<String> = if let Some(upstream) = upstream_ref {
-        Some(upstream)
-    } else {
-        let mut candidate: Option<String> = None;
-        for b in &["main", "master", "develop"] {
-            let check = Command::new("git")
-                .args(["rev-parse", "--verify", b])
-                .current_dir(&path)
-                .env("PATH", &augmented_path)
-                .output()
-                .await;
-            if let Ok(out) = check {
-                if out.status.success() {
-                    candidate = Some(b.to_string());
-                    break;
-                }
-            }
-        }
-        candidate
+    let range = match upstream_ref {
+        Some(upstream) => format!("{upstream}..HEAD"),
+        None => match unpushed_fallback_range(&path, &augmented_path).await {
+            Some(r) => r,
+            None => return Ok(Vec::new()),
+        },
     };
-
-    let base = match base_ref {
-        Some(r) => r,
-        None => return Ok(Vec::new()),
-    };
-
-    let range = format!("{}..HEAD", base);
 
     let numstat_output = Command::new("git")
         .args(["diff", &range, "--numstat"])
@@ -3747,6 +3729,41 @@ mod tests {
             .await
             .unwrap();
         assert!(files.iter().any(|f| f.path == "added.txt" && f.status == "added"));
+    }
+
+    #[tokio::test]
+    async fn committed_changes_for_unpushed_task_branch_ignore_stale_local_main() {
+        // Task worktrees branch off origin/main with no upstream. A local main
+        // that is behind origin must not make upstream work look like the
+        // branch's own commits.
+        let tmp = tempdir().unwrap();
+        let upstream = tmp.path().join("upstream");
+        std::fs::create_dir_all(&upstream).unwrap();
+        init_repo(&upstream).await;
+        commit_file(&upstream, "a.txt", "v1\n", "init").await;
+        let repo = tmp.path().join("repo");
+        assert!(run_git(tmp.path(), &["clone", "-q", upstream.to_str().unwrap(), repo.to_str().unwrap()])
+            .await
+            .status
+            .success());
+        init_repo(&repo).await;
+        commit_file(&upstream, "other.txt", "other\n", "upstream: other work").await;
+        assert!(run_git(&repo, &["fetch", "-q", "origin", "main"]).await.status.success());
+        let wt = tmp.path().join("wt");
+        assert!(run_git(&repo, &["worktree", "add", "-q", "-b", "task", wt.to_str().unwrap(), "origin/main^{commit}"])
+            .await
+            .status
+            .success());
+        commit_file(&wt, "task.txt", "task\n", "task: add").await;
+        let wt_path = wt.to_string_lossy().to_string();
+
+        let files = get_git_committed_changes(wt_path.clone()).await.unwrap();
+        let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, vec!["task.txt"]);
+
+        let diff = get_git_committed_diff(wt_path).await.unwrap();
+        assert!(diff.diff.contains("task.txt"));
+        assert!(!diff.diff.contains("other.txt"), "{}", diff.diff);
     }
 
     // ── cc_limit_section ──────────────────────────────────────────────────────
