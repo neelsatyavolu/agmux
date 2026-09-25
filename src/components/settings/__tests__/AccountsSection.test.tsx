@@ -513,6 +513,18 @@ describe("AccountsSection", () => {
     await screen.findByText("Codex now uses “My Codex”.");
     expect(providerAccounts.use).toHaveBeenCalledExactlyOnceWith("one", null);
   });
+  it("shows why a switch failed on the account's own row", async () => {
+    state.accounts = [account];
+    vi.mocked(providerAccounts.use).mockRejectedValueOnce(new Error("Close agmux Codex sessions using either account first."));
+    render(<AccountsSection />);
+    await screen.findByText("My Codex");
+    await ready();
+    menu(); fireEvent.click(item("Use this account")!);
+    const row = within(screen.getByRole("article", { name: "My Codex" }));
+    fireEvent.click(row.getByRole("button", { name: "Use this account" }));
+    expect((await row.findByRole("alert")).textContent).toBe("Close agmux Codex sessions using either account first.");
+    expect(screen.queryByText("Codex now uses “My Codex”.")).toBeNull();
+  });
   it("never offers to switch Claude, a signed-out account, or one a teammate is using", async () => {
     state.teams = [{ id: "t", name: "Studio", role: "employee", canManage: true }];
     state.accounts = [

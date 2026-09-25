@@ -18,6 +18,7 @@ export function AccountsSection() {
   const [data, setData] = useState<ProviderAccountsState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<{ id: string; text: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [provider, setProvider] = useState<AccountProvider>("codex");
   const [label, setLabel] = useState("");
@@ -97,14 +98,19 @@ export function AccountsSection() {
     return () => { stopped = true; clearTimeout(timer); };
   }, [login, pollAttempt, canceling, reload]);
 
-  async function run(action: () => Promise<void>, message?: string) {
+  /** A row action's error shows on that row, where the person clicked, not at the top of the page. */
+  async function run(action: () => Promise<void>, message?: string, rowId?: string) {
     if (mutation.current) return;
     mutation.current = true;
-    setBusy(true); setError(null); setNotice(null);
+    setBusy(true); setError(null); setRowError(null); setNotice(null);
     try {
       await action();
       if (mounted.current) { if (message) setNotice(message); await reload(); }
-    } catch (e) { if (mounted.current) setError(formatError(e)); }
+    } catch (e) {
+      if (!mounted.current) return;
+      if (rowId) setRowError({ id: rowId, text: formatError(e) });
+      else setError(formatError(e));
+    }
     finally { mutation.current = false; if (mounted.current) setBusy(false); }
   }
 
@@ -178,18 +184,21 @@ export function AccountsSection() {
   }
 
   function row(account: ProviderAccount) {
-    return <AccountRow key={`${account.teamId ?? ""}:${account.id}`} account={account}
+    const key = `${account.teamId ?? ""}:${account.id}`;
+    const act = (action: () => Promise<void>, message?: string) => void run(action, message, key);
+    return <AccountRow key={key} account={account}
       canEdit={canEdit(account)} canUse={canUse(account)} moveTeams={canMove(account) ? manageTeams : []} locked={locked}
       panel={panel?.id === account.id ? panel.kind : null}
-      setPanel={kind => setPanel(kind ? { id: account.id, kind } : null)}
+      setPanel={kind => { setRowError(null); setPanel(kind ? { id: account.id, kind } : null); }}
+      actionError={rowError?.id === key ? rowError.text : null}
       actions={{
-        checkUsage: () => void run(() => providerAccounts.refresh(account.id, account.teamId)),
-        setEnabled: enabled => void run(() => providerAccounts.update(account.id, { enabled, teamId: account.teamId })),
+        checkUsage: () => act(() => providerAccounts.refresh(account.id, account.teamId)),
+        setEnabled: enabled => act(() => providerAccounts.update(account.id, { enabled, teamId: account.teamId })),
         reconnect: () => void startSignIn({ provider: account.provider, label: account.label, teamId: account.teamId }),
-        remove: () => void run(async () => { await providerAccounts.remove(account.id, account.teamId); setPanel(null); }, "Account removed."),
-        move: team => void run(async () => { await providerAccounts.moveToTeam(account.id, team.id); setPanel(null); }, `Moved to ${team.name}.`),
-        use: () => void run(async () => { await providerAccounts.use(account.id, account.teamId); setPanel(null); }, `${providerNames[account.provider]} now uses “${account.label}”.`),
-        rename: label => void run(async () => { await providerAccounts.update(account.id, { label, teamId: account.teamId }); setPanel(null); }, "Account renamed."),
+        remove: () => act(async () => { await providerAccounts.remove(account.id, account.teamId); setPanel(null); }, "Account removed."),
+        move: team => act(async () => { await providerAccounts.moveToTeam(account.id, team.id); setPanel(null); }, `Moved to ${team.name}.`),
+        use: () => act(async () => { await providerAccounts.use(account.id, account.teamId); setPanel(null); }, `${providerNames[account.provider]} now uses “${account.label}”.`),
+        rename: label => act(async () => { await providerAccounts.update(account.id, { label, teamId: account.teamId }); setPanel(null); }, "Account renamed."),
       }} />;
   }
 

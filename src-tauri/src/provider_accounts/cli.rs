@@ -11,6 +11,11 @@ static CLI_LEASES: OnceLock<Mutex<HashMap<String, CliLease>>> = OnceLock::new();
 static SWITCH_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 fn cli_leases() -> &'static Mutex<HashMap<String, CliLease>> { CLI_LEASES.get_or_init(|| Mutex::new(HashMap::new())) }
 const KEEP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(120);
+/// At or below this much left on the CLI's login, the other accounts are checked so
+/// the Accounts page and automatic switching know which one to move to next.
+const LOW_REMAINING: f64 = 5.0;
+/// A reading older than this says too little about the login right now.
+const LOW_READING_MAX_AGE: i64 = 10 * 60;
 
 fn provider_name(provider: &str) -> &'static str { if provider == "codex" { "Codex" } else { "Grok" } }
 
@@ -106,7 +111,7 @@ pub async fn provider_accounts_use(id: String, team_id: Option<String>) -> Resul
     }.await;
     match (result, lease) {
         (Ok(hash), Some(lease)) => {
-            report_cli_display(&provider, &lease).await;
+            report_cli_display(&provider, &lease, None).await;
             cli_leases().lock().await.insert(provider.clone(), CliLease { lease, identity_hash: hash });
             Ok(())
         }
@@ -164,10 +169,70 @@ async fn forget_personal(id: &str) -> Result<(), String> {
     Ok(())
 }
 
-async fn report_cli_display(provider: &str, lease: &team::TeamAssignment) {
+async fn report_cli_display(provider: &str, lease: &team::TeamAssignment, usage: Option<&crate::commands::usage::UsageData>) {
     let Ok(home) = storage::native_home(provider) else { return; };
     let plan = if provider == "grok" { profile::grok_tier(&home) } else { read_native(provider).and_then(|c| profile::plan(provider, &c)) };
-    team::report_display(lease, None, plan.as_deref()).await;
+    team::report_display(lease, usage, plan.as_deref()).await;
+}
+
+/// What a reading tells the pool: the percent left and until when the account is blocked.
+fn pool_reading(usage: &quota::AccountUsage) -> (Option<f64>, Option<i64>) {
+    let (remaining, reset) = quota::summarize(usage, now());
+    (remaining, if usage.allowance_usable { Some(0) } else { team_block_until(remaining, reset) })
+}
+
+/// Renews a CLI lease with a fresh reading of the CLI's login and its latest tokens, so the
+/// team row shows what the CLI is spending. Keeps holding it unless the pool refused the renewal.
+/// Returns whether the usage was measured.
+async fn renew_held(provider: &str, held: CliLease, current: serde_json::Value) -> Result<bool, String> {
+    let usage = match native::login_id(provider, &current) { Some(id) => native::refresh_usage(&id).await.ok(), None => None };
+    // The usage check may have refreshed the CLI's tokens; push the newest copy of this login.
+    let latest = read_native(provider)
+        .filter(|c| profile::team_identity_hash(provider, c).as_deref() == Some(held.identity_hash.as_str()))
+        .unwrap_or(current);
+    let (remaining, blocked_until) = usage.as_ref().map(pool_reading).unwrap_or((None, None));
+    match team::renew(&held.lease, latest, remaining, blocked_until).await {
+        Ok(expires_at) => {
+            let mut lease = held.lease; lease.expires_at = expires_at;
+            report_cli_display(provider, &lease, usage.as_ref().map(|u| &u.usage)).await;
+            cli_leases().lock().await.insert(provider.into(), CliLease { lease, identity_hash: held.identity_hash });
+            Ok(usage.is_some())
+        }
+        Err(error) => {
+            if team::retryable_error(&error) { cli_leases().lock().await.insert(provider.into(), held); }
+            Err(error) // Otherwise revoked or removed: stop holding it.
+        }
+    }
+}
+
+/// "Check usage" on the team account this Mac's CLI holds measures the CLI's own login;
+/// a usage-check lease would be refused because the account is in use. None when not held.
+pub(super) async fn refresh_held(team_id: &str, id: &str) -> Option<Result<(), String>> {
+    let _switch = SWITCH_LOCK.get_or_init(|| Mutex::new(())).lock().await;
+    let (provider, held) = {
+        let mut leases = cli_leases().lock().await;
+        let provider = leases.iter().find(|(_, h)| h.lease.team_id == team_id && h.lease.account_id == id).map(|(p, _)| p.clone())?;
+        let held = leases.remove(&provider)?;
+        (provider, held)
+    };
+    let current = read_native(&provider).filter(|c| profile::team_identity_hash(&provider, c).as_deref() == Some(held.identity_hash.as_str()));
+    let Some(current) = current else {
+        // The CLI moved to another login outside agmux; the keeper releases it on its next pass.
+        cli_leases().lock().await.insert(provider, held);
+        return Some(Err("Your CLI is no longer signed into this account. Refresh accounts.".into()));
+    };
+    Some(match renew_held(&provider, held, current).await {
+        Ok(true) => Ok(()),
+        Ok(false) => Err("Could not check this account's usage. Try again later.".into()),
+        Err(error) => Err(error),
+    })
+}
+
+/// Whether the login the CLI is signed into was recently measured with little left.
+fn running_low(provider: &str) -> bool {
+    let Some(current) = read_native(provider).and_then(|c| native::login_id(provider, &c)) else { return false; };
+    matches!(native::cached_reading(provider), Some((id, Some(remaining), Some(checked)))
+        if id == current && remaining <= LOW_REMAINING && now() - checked <= LOW_READING_MAX_AGE)
 }
 
 /// While the CLI is signed into a team account, keep it leased to this member and push the
@@ -183,15 +248,7 @@ pub async fn keep_cli_leases() {
         let held = cli_leases().lock().await.remove(provider);
         if let Some(held) = held {
             if let (Some(current), true) = (&current, hash.as_deref() == Some(held.identity_hash.as_str())) {
-                match team::renew(&held.lease, current.clone(), None, None).await {
-                    Ok(expires_at) => {
-                        let mut lease = held.lease; lease.expires_at = expires_at;
-                        report_cli_display(provider, &lease).await;
-                        cli_leases().lock().await.insert(provider.into(), CliLease { lease, identity_hash: held.identity_hash });
-                    }
-                    Err(error) if team::retryable_error(&error) => { cli_leases().lock().await.insert(provider.into(), held); }
-                    Err(_) => {} // Revoked or removed: stop holding it.
-                }
+                let _ = renew_held(provider, held, current.clone()).await;
             } else {
                 // The CLI moved to another login outside agmux; its last push already went up.
                 let _ = team::release(&held.lease).await;
@@ -211,7 +268,7 @@ pub async fn keep_cli_leases() {
         match pushed {
             Ok(expires_at) => {
                 let mut lease = lease; lease.expires_at = expires_at;
-                report_cli_display(provider, &lease).await;
+                report_cli_display(provider, &lease, None).await;
                 cli_leases().lock().await.insert(provider.into(), CliLease { lease, identity_hash: hash });
             }
             Err(_) => { let _ = team::release(&lease).await; }
@@ -224,6 +281,9 @@ pub fn spawn_keeper() {
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         loop {
             keep_cli_leases().await;
+            for provider in ["codex", "grok"] {
+                if running_low(provider) { super::check_alternatives(provider).await; }
+            }
             tokio::time::sleep(KEEP_INTERVAL).await;
         }
     });

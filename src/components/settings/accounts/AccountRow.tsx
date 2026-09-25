@@ -35,9 +35,9 @@ export interface RowActions {
   rename: (label: string) => void;
 }
 
-export function AccountRow({ account, canEdit, canUse, moveTeams, locked, panel, setPanel, actions }: {
+export function AccountRow({ account, canEdit, canUse, moveTeams, locked, panel, setPanel, actionError = null, actions }: {
   account: ProviderAccount; canEdit: boolean; canUse: boolean; moveTeams: AccountTeam[]; locked: boolean;
-  panel: RowPanel; setPanel: (panel: RowPanel) => void; actions: RowActions;
+  panel: RowPanel; setPanel: (panel: RowPanel) => void; actionError?: string | null; actions: RowActions;
 }) {
   const tier = planText(account);
   const status = statusText(account);
@@ -82,6 +82,7 @@ export function AccountRow({ account, canEdit, canUse, moveTeams, locked, panel,
       {panel === "rename" && canEdit && <RenamePanel account={account} locked={locked} onSave={actions.rename} onCancel={() => setPanel(null)} />}
       {panel === "remove" && <Confirm locked={locked} title={`Remove “${account.label}”?`} confirm="Confirm remove" cancel="Keep account" onConfirm={actions.remove} onCancel={() => setPanel(null)} />}
       {panel === "move" && moveTeams.length > 0 && <MovePanel account={account} teams={moveTeams} locked={locked} onCancel={() => setPanel(null)} onConfirm={actions.move} />}
+      {actionError && <p role="alert" className="mt-2 break-words rounded-lg border border-[var(--glass-border)] p-2 text-xs">{actionError}</p>}
     </article>
   );
 }

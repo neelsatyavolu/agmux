@@ -190,7 +190,16 @@ pub(super) async fn extend_accounts(accounts: &mut Vec<Account>) {
     cached.retain(|id, _| present.contains(id));
 }
 
-pub(super) async fn refresh(id: &str) -> Result<(), String> {
+/// The current login's last reading on this Mac: (row ID, remaining percent, checked at).
+pub(super) fn cached_reading(provider: &str) -> Option<(String, Option<f64>, Option<i64>)> {
+    cache().lock().unwrap_or_else(|e| e.into_inner()).values().find(|row| row.provider == provider)
+        .map(|row| (row.id.clone(), row.remaining_percent, row.last_checked_at))
+}
+
+pub(super) async fn refresh(id: &str) -> Result<(), String> { refresh_usage(id).await.map(|_| ()) }
+
+/// Measures the current login, caches the reading and returns it.
+pub(super) async fn refresh_usage(id: &str) -> Result<quota::AccountUsage, String> {
     let provider = id.split(':').nth(1).ok_or("Invalid native login")?;
     storage::valid_provider(provider)?;
     let login = discover(provider).await.filter(|v| v.account.id == id)
@@ -200,21 +209,22 @@ pub(super) async fn refresh(id: &str) -> Result<(), String> {
         .ok_or("Current login changed during the usage check. Refresh accounts.")?.account;
     if let Some(cached) = cache().lock().unwrap_or_else(|e| e.into_inner()).get(id) { apply_cached(&mut row, cached); }
     row.last_checked_at = Some(super::now());
-    let error = match result {
-        Ok(usage) => { super::update_personal_usage(&mut row, &usage, super::now()); None },
+    let result = match result {
+        Ok(usage) => { super::update_personal_usage(&mut row, &usage, super::now()); Ok(usage) },
         // A rate-limited check says nothing new; keep the last reading.
-        Err(error) if quota::is_rate_limited(&error) => { row.error = Some(error.clone()); Some(error) },
+        Err(error) if quota::is_rate_limited(&error) => { row.error = Some(error.clone()); Err(error) },
         Err(_) => {
             row.usage = None;
             if row.status != "exhausted" { row.remaining_percent = None; row.status = "unknown".into(); }
-            row.error = Some("Could not refresh this login’s usage.".into());
-            row.error.clone()
+            let error = "Could not refresh this login’s usage.".to_string();
+            row.error = Some(error.clone());
+            Err(error)
         }
     };
     let mut cached = cache().lock().unwrap_or_else(|e| e.into_inner());
     cached.retain(|_, value| value.provider != provider);
     cached.insert(id.into(), row);
-    match error { Some(error) => Err(error), None => Ok(()) }
+    result
 }
 
 #[cfg(test)]

@@ -659,6 +659,7 @@ async fn refresh_team_account(team_id: &str, id: &str) -> Result<(), String> {
     let held = bindings().lock().await.values()
         .any(|b| b.assignment.account_id == id && b.team.as_ref().is_some_and(|lease| lease.team_id == team_id));
     if held { return refresh_account(id).await; }
+    if let Some(result) = cli::refresh_held(team_id, id).await { return result; }
     let lease = team::check_lease(team_id, id).await?;
     let scratch = uuid::Uuid::new_v4().to_string();
     let result = async {
@@ -686,10 +687,59 @@ async fn refresh_team_account(team_id: &str, id: &str) -> Result<(), String> {
     result.and(released)
 }
 
+/// How long a reading of another account stays fresh enough while the login in use runs low.
+const ALTERNATIVE_TTL: i64 = 5 * 60;
+static ALTERNATIVE_ATTEMPTS: OnceLock<Mutex<HashMap<String, i64>>> = OnceLock::new();
+
+/// Accounts worth re-checking as places to move to: this provider's other enabled logins
+/// that nobody holds and that have no reading, or none tried, within `ALTERNATIVE_TTL`.
+fn alternatives_due(accounts: &[Account], provider: &str, attempts: &HashMap<String, i64>, at: i64) -> Vec<(String, Option<String>)> {
+    let fresh = |t: Option<i64>| t.is_some_and(|t| at - t < ALTERNATIVE_TTL);
+    accounts.iter().filter(|a| a.provider == provider && a.enabled && !a.current_login && a.in_use.is_none()
+        && !matches!(a.status.as_str(), "needs_login" | "in_use") && !fresh(a.last_checked_at) && !fresh(attempts.get(&a.id).copied()))
+        .map(|a| (a.id.clone(), a.team_id.clone())).collect()
+}
+
+/// The login in use is nearly out: refresh the others so the Accounts page (and automatic
+/// switching) shows which one to move to. Team accounts are measured through short check leases.
+pub(crate) async fn check_alternatives(provider: &str) {
+    let Ok(view) = provider_accounts_list().await else { return; };
+    let due = {
+        let mut attempts = ALTERNATIVE_ATTEMPTS.get_or_init(|| Mutex::new(HashMap::new())).lock().await;
+        let at = now();
+        attempts.retain(|_, t| at - *t < ALTERNATIVE_TTL);
+        let due = alternatives_due(&view.accounts, provider, &attempts, at);
+        for (id, _) in &due { attempts.insert(id.clone(), at); }
+        due
+    };
+    // A failure keeps that account's last reading; the others are still checked.
+    for (id, team_id) in due { let _ = provider_accounts_refresh(id, team_id).await; }
+}
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn low_usage_rechecks_only_stale_idle_accounts_of_the_same_provider() {
+        let at = 10_000;
+        let row = |id: &str, provider: &str, team: Option<&str>| {
+            let mut row = new_account(id.into(), provider.into(), id.into(), team.map(Into::into));
+            row.last_checked_at = Some(at - ALTERNATIVE_TTL - 1);
+            row
+        };
+        let mut current = row("current", "grok", Some("t")); current.current_login = true;
+        let mut fresh = row("fresh", "grok", None); fresh.last_checked_at = Some(at - 60);
+        let mut paused = row("paused", "grok", Some("t")); paused.enabled = false;
+        let mut held = row("held", "grok", Some("t")); held.status = "in_use".into();
+        let mut signed_out = row("signed_out", "grok", None); signed_out.status = "needs_login".into();
+        let mut never = row("never", "grok", Some("t")); never.last_checked_at = None;
+        let accounts = vec![current, fresh, paused, held, signed_out, never, row("stale", "grok", None),
+            row("tried", "grok", None), row("codex", "codex", None)];
+        let attempts = HashMap::from([("tried".to_string(), at - 30)]);
+        assert_eq!(alternatives_due(&accounts, "grok", &attempts, at),
+            vec![("never".to_string(), Some("t".to_string())), ("stale".to_string(), None)]);
+    }
     #[test]
     fn claude_model_limits_are_scoped_and_expired_or_unknown_data_is_not_exhaustion() {
         let mut row = new_account("profile".into(), "claude".into(), "Personal".into(), None);
