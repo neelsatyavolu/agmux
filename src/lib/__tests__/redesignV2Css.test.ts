@@ -394,6 +394,18 @@ describe("Task 13: subagent cards, editor/file tree, settings sidebar", () => {
     expect(declsFor(unified, `${F} .settings-shell`).find((d) => d.prop === "background")).toBeTruthy();
   });
 
+  it("Task 13 follow-up: the Settings main content area (right of the sidebar) has no background of its own in any mode, so it always shows .settings-shell through — confirms the shell's flat canvas fix (above) covers the content side too, not just the sidebar", () => {
+    const contentDecls = declsFor(index, ".settings-content");
+    const bg = contentDecls.find((d) => d.prop === "background");
+    expect(bg, ".settings-content should declare a plain (unscoped) background").toBeTruthy();
+    expect(declsFor(unified, `${F} .settings-content`).length, "no flat override should be needed — .settings-content stays transparent in every mode").toBe(0);
+    // .settings-topbar (close-bar) is the other piece of the content column;
+    // it must also stay transparent so the canvas shows through under it.
+    const topbarDecls = declsFor(index, ".settings-topbar");
+    expect(topbarDecls.find((d) => d.prop === "background")).toBeTruthy();
+    expect(declsFor(unified, `${F} .settings-topbar`).length).toBe(0);
+  });
+
   it.each([
     ['html[data-mode="light"] .file-tree-panel', `${F} .file-tree-panel`, ["background"]],
     ['html[data-mode="light"] .file-tree-header', `${F} .file-tree-header`, ["background", "border-bottom-color"]],

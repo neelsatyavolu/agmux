@@ -109,6 +109,11 @@ const LEFTOVER_SWEEP_FILES = [
   "components/settings/TeamsSyncSection.tsx",
   "components/settings/YourDataSection.tsx",
   "components/settings/OpenCodeAuthPanel.tsx",
+  // Task 13 follow-up: swept the mono count badges/labels in these two
+  // files (done/total counts, rail stat, status label) to sans — neither
+  // has any font-mono left, so this guards against a future regression.
+  "components/thread/ChatTasksPanel.tsx",
+  "components/layout/EditorPanel.tsx",
 ];
 
 const ALL_SWEPT_FILES = [...TASK_5_11_FILES, ...LEFTOVER_SWEEP_FILES];

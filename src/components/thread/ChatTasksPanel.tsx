@@ -228,7 +228,7 @@ export function ChatTasksPanel({
     >
       {embedded && collapsed ? (
         <button type="button" onClick={expand} aria-label="Expand tasks" aria-expanded={false} className="chat-activity-card flex w-full items-center gap-2 rounded-[14px] px-3 py-3 text-[12.5px] text-[var(--text-secondary)]">
-          <ListChecks size={14} className="text-violet-400 fx-graphite" />{title}<span className="font-mono text-[10px] text-[var(--text-muted)]">{done} / {total}</span>
+          <ListChecks size={14} className="text-violet-400 fx-graphite" />{title}<span className="ui-meta text-[10px] text-[var(--text-muted)]">{done} / {total}</span>
         </button>
       ) : collapsed ? (
         <button
@@ -259,7 +259,7 @@ export function ChatTasksPanel({
               {title}
             </span>
             <span
-              className="font-mono text-[10px] tracking-[0.04em] text-zinc-500"
+              className="tabular-nums text-[10px] tracking-[0.04em] text-zinc-500"
               style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
             >
               <span className="font-semibold text-zinc-200">{done}</span>
@@ -273,7 +273,7 @@ export function ChatTasksPanel({
               <RailDot key={todo.id} status={todo.status} />
             ))}
             {railOverflow > 0 && (
-              <span className="font-mono text-[9px] text-zinc-600">+{railOverflow}</span>
+              <span className="ui-meta text-[9px] text-zinc-600">+{railOverflow}</span>
             )}
             {inProgress.length > 0 && (
               <Loader2 size={11} className="mt-0.5 animate-spin text-amber-300" />
@@ -290,7 +290,7 @@ export function ChatTasksPanel({
             <span className="text-[12.5px] font-medium tracking-[-0.01em] text-zinc-200">
               {title}
             </span>
-            <span className="ui-chip sm fx-chip-q inline-flex items-center border border-white/[0.06] bg-white/[0.04] font-mono text-zinc-500">
+            <span className="ui-chip sm fx-chip-q inline-flex items-center border border-white/[0.06] bg-white/[0.04] tabular-nums text-zinc-500">
               <span className="font-medium text-zinc-300">{done}</span>
               <span className="mx-0.5 text-zinc-600">/</span>
               {total}
@@ -345,7 +345,7 @@ export function ChatTasksPanel({
                       {todo.content}
                     </div>
                     <div
-                      className={`mt-0.5 font-mono text-[10px] tracking-[0.02em] ${
+                      className={`mt-0.5 text-[10px] tracking-[0.02em] ${
                         isActive ? embedded ? "text-[var(--text-secondary)]" : "text-amber-400/65" : "text-zinc-600"
                       }`}
                     >
