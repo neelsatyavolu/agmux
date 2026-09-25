@@ -76,7 +76,17 @@ holder), and allocation ranks by other members active on the same login first, t
 gains one `SHARED`/`SHARED_SHORT` line in both copies, so the release uploads the reproduced production asset
 set with only `disclosure.js` changed.
 
-**Sessions started (current production, 2026-09-25):** version `34ceef93-bf9c-44c2-ae8f-87b09e6b4e0b`, deployed
+**Master + Restrictions (current production, 2026-09-25):** version `22cd77b6-b38d-4c06-b732-4a02d68185c4`,
+a plain `wrangler deploy` of master `c7f79203` (includes the overnight Teams fixes). Production now deploys from
+master again. Before deploy: D1 bookmark `00004343-000007b2-000050f1-d39a7e1f0b1c3dbe55eafe416787ff74`; the only
+live policy row (a leftover `["Codex"]` provider allowlist from Restrictions testing) was cleared to NULL
+(unrestricted) at the owner's request, then `012_restrictions.sql` was applied (after-bookmark
+`00004343-000007d2-000050f1-acd1ab1cb7e23939f3a6ae2e25640df1`). The Restrictions page and `enforcementVersion: 2` are
+live, so desktops that enforce restrictions now apply any rules owners/managers set. Roll back the Worker with
+`wrangler versions deploy 34ceef93-bf9c-44c2-ae8f-87b09e6b4e0b@100%` and leave the 012 schema in place (it only adds
+columns and a table).
+
+**Sessions started (previous production, 2026-09-25):** version `34ceef93-bf9c-44c2-ae8f-87b09e6b4e0b`, deployed
 08:32 UTC. The live `0bf613dc` bundle with only the `sessions_started` edits from `2d807267` applied by exact,
 match-once string patches (aggregate totals/daily/projects, dashboard select + deltas, metrics upsert, CSV export incl.
 `tokens_total` without reasoning), uploaded with `--no-bundle`. Web = the 27 live files with the 8 web files from
@@ -96,11 +106,10 @@ production Settings still shows the legacy "Agent policy" card. All 18 bindings 
 identical to `89f699da`, and the preview API answered the same as live. Roll back with
 `wrangler versions deploy 89f699da-6449-4f21-a761-cf1fbb073836@100%`.
 
-**Deployment compatibility boundary:** production intentionally retains the legacy
-policy implementation (`src/routes/policy.ts` from `acd290ea`) and its existing web
-assets. Migration 012 / the newer Restrictions behavior are **not deployed**.
-Do not blindly deploy the full current checkout: its policy queries require that
-undeployed schema and its web assets change policy behavior. The Accounts rollout
+**Deployment compatibility boundary (historical, resolved 2026-09-25 by `22cd77b6`):** until then production
+retained the legacy policy implementation (`src/routes/policy.ts` from `acd290ea`) and migration 012 was not
+applied, so master could not be deployed directly and releases were hand-patched bundles. Migrations 001–016 are now
+all applied and `npm run deploy` from master is the normal path again. The Accounts rollout
 used an isolated release directory with current Accounts code plus the exact legacy
 policy and production assets, changing only the credential-sharing disclosure.
 A rebuilt baseline matched downloaded production code after generated source-name
