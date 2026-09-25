@@ -435,7 +435,7 @@ function AppearanceStep({
                 </div>
                 {t.value === "midnight-glass" && (
                   <span
-                    className="shrink-0 font-mono text-[9px] uppercase tracking-wider"
+                    className="shrink-0 ui-eyebrow"
                     style={{ color: "var(--text-muted)" }}
                   >
                     Default

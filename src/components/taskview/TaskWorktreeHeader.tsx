@@ -645,7 +645,7 @@ export function TaskWorktreeHeader({ taskId }: TaskWorktreeHeaderProps) {
                     {f.path}
                   </span>
                   <span style={{ color: "var(--status-green)", fontSize: 10.5 }}>+{f.added}</span>
-                  <span style={{ color: "var(--status-red)", fontSize: 10.5 }}>-{f.removed}</span>
+                  <span style={{ color: "var(--status-red)", fontSize: 10.5 }}>−{f.removed}</span>
                 </div>
               ))}
             </div>

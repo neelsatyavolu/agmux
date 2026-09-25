@@ -516,12 +516,9 @@ export function FileTree({
         >
           <FolderTree size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
           <div
+            className="ui-eyebrow"
             style={{
-              fontSize: 9.5,
-              fontFamily: "var(--font-mono)",
               color: "var(--accent)",
-              textTransform: "uppercase",
-              letterSpacing: "0.22em",
               flexShrink: 0,
             }}
           >
@@ -617,7 +614,7 @@ export function FileTree({
               gap: 5,
               fontSize: 10,
               color: "var(--text-tertiary)",
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-sans)",
               cursor: "pointer",
               userSelect: "none",
             }}
@@ -772,13 +769,8 @@ function RenameDialog({
         >
           <Pencil size={13} style={{ color: "var(--status-blue)", flexShrink: 0 }} />
           <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              textTransform: "uppercase",
-              letterSpacing: "0.22em",
-              color: "var(--status-blue)",
-            }}
+            className="ui-eyebrow"
+            style={{ color: "var(--status-blue)" }}
           >
             Rename {isDirectory ? "Folder" : "File"}
           </div>
@@ -814,7 +806,7 @@ function RenameDialog({
             <div
               style={{
                 marginTop: 8,
-                fontFamily: "var(--font-mono)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 10.5,
                 color: "var(--status-red)",
                 wordBreak: "break-word",
@@ -879,13 +871,8 @@ function DeleteDialog({
       >
         <Trash2 size={13} style={{ color: "var(--status-red)", flexShrink: 0 }} />
         <div
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            textTransform: "uppercase",
-            letterSpacing: "0.22em",
-            color: "var(--status-red)",
-          }}
+          className="ui-eyebrow"
+          style={{ color: "var(--status-red)" }}
         >
           Delete {isDirectory ? "Folder" : "File"}
         </div>
@@ -917,7 +904,7 @@ function DeleteDialog({
         <div
           style={{
             marginTop: 8,
-            fontFamily: "var(--font-mono)",
+            fontFamily: "var(--font-sans)",
             fontSize: 10.5,
             color: "var(--text-tertiary)",
           }}
@@ -928,7 +915,7 @@ function DeleteDialog({
           <div
             style={{
               marginTop: 8,
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-sans)",
               fontSize: 10.5,
               color: "var(--status-red)",
               wordBreak: "break-word",
@@ -1047,7 +1034,7 @@ function DialogButton({
       disabled={disabled}
       style={{
         padding: "5px 12px",
-        fontFamily: "var(--font-mono)",
+        fontFamily: "var(--font-sans)",
         fontSize: 11,
         letterSpacing: 0,
         borderRadius: 6,

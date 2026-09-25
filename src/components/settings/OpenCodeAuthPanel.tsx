@@ -207,11 +207,11 @@ export function OpenCodeAuthPanel({ directory, bridgeReady, onRefresh }: Props) 
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-zinc-100">{p.name}</span>
               {p.isConnected ? (
-                <span className="flex items-center gap-1 rounded-full border border-[color:var(--accent-border)] bg-[var(--accent-dim)] px-1.5 py-[1px] font-mono text-[9px] uppercase tracking-[0.1em] text-[color:var(--accent)]">
+                <span className="ui-chip sm border border-[color:var(--accent-border)] bg-[var(--accent-dim)] text-[color:var(--accent)]">
                   <Check size={10} /> Connected
                 </span>
               ) : (
-                <span className="rounded-full border border-zinc-700/50 bg-zinc-800/50 px-1.5 py-[1px] font-mono text-[9px] uppercase tracking-[0.1em] text-zinc-500">
+                <span className="ui-chip sm border border-zinc-700/50 bg-zinc-800/50 text-zinc-500">
                   Disconnected
                 </span>
               )}

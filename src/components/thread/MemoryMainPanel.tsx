@@ -1083,17 +1083,17 @@ export function MemoryMainPanel() {
                                       Session
                                     </span>
                                     {session.provider && (
-                                      <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                                      <span className="ui-meta text-[10px] text-[var(--text-muted)]">
                                         {session.provider}
                                       </span>
                                     )}
                                     {session.status && (
-                                      <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                                      <span className="ui-meta text-[10px] text-[var(--text-muted)]">
                                         {session.status}
                                       </span>
                                     )}
                                     {session.source && (
-                                      <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                                      <span className="ui-meta text-[10px] text-[var(--text-muted)]">
                                         {session.source === "agent"
                                           ? "Recorded by agent"
                                           : session.source === "auto"
@@ -1101,7 +1101,7 @@ export function MemoryMainPanel() {
                                             : "Extracted from logs"}
                                       </span>
                                     )}
-                                    <span className="ml-auto font-mono text-[10px] tabular-nums text-[var(--text-muted)]">
+                                    <span className="ml-auto ui-meta text-[10px] text-[var(--text-muted)]">
                                       {formatRelative(session.updatedAt || session.createdAt)}
                                     </span>
                                   </div>
@@ -1213,11 +1213,11 @@ export function MemoryMainPanel() {
                                       <Icon size={11} strokeWidth={2} />
                                       {meta.label}
                                     </span>
-                                    <span className="font-mono text-[10px] tabular-nums text-[var(--text-muted)]">
+                                    <span className="ui-meta text-[10px] text-[var(--text-muted)]">
                                       {formatRelative(entry.updatedAt || entry.createdAt)}
                                     </span>
                                     <span
-                                      className="font-mono text-[10px] text-[var(--text-muted)]"
+                                      className="ui-meta text-[10px] text-[var(--text-muted)]"
                                       title={`Source: ${entry.source || "unknown"} · Created ${entry.createdAt || "—"} · Updated ${entry.updatedAt || "—"}`}
                                     >
                                       {sourceLabel(entry)}
@@ -1226,13 +1226,13 @@ export function MemoryMainPanel() {
                                         : ""}
                                     </span>
                                     {entry.status && entry.status !== "current" && (
-                                      <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                                      <span className="ui-meta text-[10px] text-[var(--text-muted)]">
                                         {entry.status}
                                       </span>
                                     )}
                                     {entry.supersedes && entry.supersedes.length > 0 && (
                                       <span
-                                        className="font-mono text-[10px] text-[var(--text-muted)]"
+                                        className="ui-meta text-[10px] text-[var(--text-muted)]"
                                         title={entry.supersedes.join(", ")}
                                       >
                                         replaces {entry.supersedes.length}

@@ -505,9 +505,9 @@ function ProviderCard({
   } else if (stale) {
     statusNode = <Pill tone="muted" label="stale" title={pace.error ?? undefined} />;
   } else if (!hasData && pace.errorAt === 0) {
-    statusNode = <span className="ml-auto font-mono text-[10px] text-zinc-600">loading…</span>;
+    statusNode = <span className="ml-auto ui-meta text-[10px] text-zinc-600">loading…</span>;
   } else if (!hasData) {
-    statusNode = <span className="ml-auto font-mono text-[10px] text-zinc-600">unavailable</span>;
+    statusNode = <span className="ml-auto ui-meta text-[10px] text-zinc-600">unavailable</span>;
   }
 
   // Grok: dynamic "Credits"/"Weekly"/"Monthly". Codex/Claude: duration-aware
@@ -615,7 +615,7 @@ function CardHeader({
       </span>
       {statusNode}
       {status && !statusNode && (
-        <span className="ml-auto font-mono text-[10px] text-[var(--text-muted)]">{status}</span>
+        <span className="ml-auto ui-meta text-[10px] text-[var(--text-muted)]">{status}</span>
       )}
     </div>
   );
@@ -654,16 +654,13 @@ function UsageBar({
   return (
     <div className={`${className ?? ""} mt-2.5`} style={dimmed ? { opacity: 0.6 } : undefined}>
       <div className="mb-1.5 flex items-baseline gap-2">
-        <span
-          className="font-mono text-[9.5px] uppercase text-[var(--text-muted)]"
-          style={{ letterSpacing: "0.18em" }}
-        >
+        <span className="ui-meta text-[10px] text-[var(--text-muted)]">
           {label}
         </span>
-        <span className="font-mono text-[11px] tabular-nums text-[var(--text-secondary)]">
+        <span className="ui-meta text-[11px] text-[var(--text-secondary)]">
           {hasData ? `${pct.toFixed(0)}%` : "—"}
         </span>
-        <span className="ml-auto flex items-center gap-2 font-mono text-[10px]">
+        <span className="ml-auto flex items-center gap-2 ui-meta text-[10px]">
           {hasData ? (
             <>
               <span style={{ color }}>{paceLabelWithDelta(w!)}</span>
@@ -707,14 +704,14 @@ function MiniBar({
       style={dimmed ? { opacity: 0.6 } : undefined}
       title={hasData ? `${label} ${pct.toFixed(0)}% — ${w!.paceLabel}` : undefined}
     >
-      <span className="font-mono text-[9px] uppercase text-[var(--text-muted)]">{label}</span>
+      <span className="ui-meta text-[9px] text-[var(--text-muted)]">{label}</span>
       <div className="glass-progress h-1 flex-1">
         <div
           className="absolute inset-y-0 left-0 rounded-full"
           style={{ width: `${pct}%`, background: color }}
         />
       </div>
-      <span className="font-mono text-[9.5px] tabular-nums text-[var(--text-tertiary)]">
+      <span className="ui-meta text-[9.5px] text-[var(--text-tertiary)]">
         {hasData ? `${pct.toFixed(0)}%` : "—"}
       </span>
     </div>
@@ -764,7 +761,7 @@ function ProviderDetail({ meta }: { meta: ProviderMeta }) {
         <div className="app-card-head px-5 py-3.5">
           <DetailHeader meta={meta} />
         </div>
-        <p className="px-5 py-4 font-mono text-[10.5px] text-[var(--text-muted)]">
+        <p className="px-5 py-4 ui-meta text-[10.5px] text-[var(--text-muted)]">
           {stats.error ? "Usage data unavailable" : "Loading usage data…"}
         </p>
       </section>
@@ -816,7 +813,7 @@ function DetailHeader({ meta }: { meta: ProviderMeta }) {
       <span className="text-[13.5px] font-medium tracking-[-0.015em] text-[var(--text-primary)]">
         {meta.name}
       </span>
-      <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+      <span className="ml-auto ui-eyebrow text-[var(--text-muted)]">
         {DETAIL_DAYS}d window
       </span>
     </div>
@@ -826,13 +823,10 @@ function DetailHeader({ meta }: { meta: ProviderMeta }) {
 function DetailStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <div
-        className="font-mono text-[9px] uppercase text-[var(--text-muted)]"
-        style={{ letterSpacing: "0.14em" }}
-      >
+      <div className="ui-eyebrow text-[var(--text-muted)]">
         {label}
       </div>
-      <div className="mt-1 truncate font-mono text-[15px] tabular-nums tracking-[-0.02em] text-[var(--text-primary)]">
+      <div className="mt-1 truncate ui-meta text-[15px] tracking-[-0.02em] text-[var(--text-primary)]">
         {value}
       </div>
     </div>
@@ -847,7 +841,7 @@ function DailyPlot({
   accent: { primary: string; secondary: string };
 }) {
   if (data.length === 0) {
-    return <p className="font-mono text-[10.5px] text-[var(--text-muted)]">No usage recorded in this window.</p>;
+    return <p className="ui-meta text-[10.5px] text-[var(--text-muted)]">No usage recorded in this window.</p>;
   }
   const maxTokens = Math.max(...data.map((d) => d.inputTokens + d.outputTokens), 1);
   return (
@@ -859,7 +853,7 @@ function DailyPlot({
         const outputPct = overallPct - inputPct;
         return (
           <div key={day.date} className="flex items-center gap-3">
-            <span className="w-10 text-right font-mono text-[9.5px] text-[var(--text-muted)]">
+            <span className="w-10 text-right ui-meta text-[11px] text-[var(--text-muted)]">
               {shortDay(day.date)}
             </span>
             <div className="glass-progress h-1.5 flex-1">
@@ -876,16 +870,13 @@ function DailyPlot({
                 }}
               />
             </div>
-            <span className="w-16 text-right font-mono text-[9.5px] tabular-nums text-[var(--text-tertiary)]">
+            <span className="w-16 text-right ui-meta text-[9.5px] text-[var(--text-tertiary)]">
               {total > 0 ? formatTokens(total) : "—"}
             </span>
           </div>
         );
       })}
-      <div
-        className="flex items-center gap-4 pt-1 font-mono text-[9px] uppercase text-[var(--text-muted)]"
-        style={{ letterSpacing: "0.16em" }}
-      >
+      <div className="flex items-center gap-4 pt-1 ui-eyebrow text-[var(--text-muted)]">
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-1.5 w-1.5 rounded-sm" style={{ background: accent.primary }} />
           Input
@@ -907,14 +898,14 @@ function ModelBreakdown({
   accent: string;
 }) {
   if (models.length === 0) {
-    return <p className="font-mono text-[10.5px] text-[var(--text-muted)]">No model data yet.</p>;
+    return <p className="ui-meta text-[10.5px] text-[var(--text-muted)]">No model data yet.</p>;
   }
   return (
     <div className="space-y-2">
       {models.slice(0, 8).map((m) => (
         <div key={m.model} className="flex items-center gap-3">
           <span
-            className="w-36 shrink-0 truncate font-mono text-[11px] text-[var(--text-secondary)]"
+            className="w-36 shrink-0 truncate ui-meta text-[11px] text-[var(--text-secondary)]"
             title={m.model}
           >
             {shortenModel(m.model)}
@@ -928,13 +919,13 @@ function ModelBreakdown({
               }}
             />
           </div>
-          <span className="w-16 text-right font-mono text-[9.5px] tabular-nums text-[var(--text-tertiary)]">
+          <span className="w-16 text-right ui-meta text-[9.5px] text-[var(--text-tertiary)]">
             {formatTokens(m.totalTokens)}
           </span>
-          <span className="w-10 text-right font-mono text-[9.5px] tabular-nums text-[var(--text-muted)]">
+          <span className="w-10 text-right ui-meta text-[9.5px] text-[var(--text-muted)]">
             {formatActiveMs(m.activeMs ?? 0)}
           </span>
-          <span className="w-10 text-right font-mono text-[9.5px] text-[var(--text-muted)]">
+          <span className="w-10 text-right ui-meta text-[9.5px] text-[var(--text-muted)]">
             {Math.round(m.percentage)}%
           </span>
         </div>

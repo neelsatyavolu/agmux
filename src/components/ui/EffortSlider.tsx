@@ -116,7 +116,7 @@ export function EffortSlider({
           <span className="text-[13.5px] font-medium tracking-[-0.015em] text-[var(--text-primary)]">
             {selected?.label}
           </span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+          <span className="ui-meta text-[10px] text-[var(--text-tertiary)]">
             {currentIndex + 1}/{count}
           </span>
         </div>
@@ -171,7 +171,7 @@ export function EffortSlider({
       </div>
 
       {!compact && (
-        <div className="mt-1.5 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+        <div className="mt-1.5 flex items-center justify-between ui-eyebrow text-[var(--text-tertiary)]">
           <span>{minLabel}</span>
           <span>{maxLabel}</span>
         </div>

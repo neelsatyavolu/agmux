@@ -1336,10 +1336,10 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
             New task
           </span>
           <div className="flex-1" />
-          <span className="font-mono text-[9.5px] text-zinc-500 rounded border border-white/[0.10] bg-white/[0.04] px-1.5 py-[1px]">
+          <span className="ui-kbd">
             ⌘
           </span>
-          <span className="font-mono text-[9.5px] text-zinc-500 rounded border border-white/[0.10] bg-white/[0.04] px-1.5 py-[1px]">
+          <span className="ui-kbd">
             N
           </span>
           <button
@@ -1535,10 +1535,10 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
           <div className="flex-1" />
 
           <span className="flex items-center gap-1 text-[11px] text-zinc-600">
-            <span className="font-mono text-[9.5px] rounded border border-white/[0.10] bg-white/[0.04] px-1.5 py-[1px]">
+            <span className="ui-kbd">
               ⌘
             </span>
-            <span className="font-mono text-[9.5px] rounded border border-white/[0.10] bg-white/[0.04] px-1.5 py-[1px]">
+            <span className="ui-kbd">
               ↵
             </span>
             <span>to create</span>

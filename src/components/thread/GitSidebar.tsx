@@ -813,9 +813,9 @@ function PushConfirmDialog({
               <span className={`truncate font-mono ${isSuspicious(f.path) ? "text-amber-300" : "text-zinc-300"}`}>
                 {f.path}
               </span>
-              <div className="flex items-center gap-2 ml-2 shrink-0 font-mono text-[11px]">
+              <div className="flex items-center gap-2 ml-2 shrink-0 ui-meta text-[11px]">
                 {f.additions > 0 && <span className="text-emerald-400/80 fx-green">+{f.additions}</span>}
-                {f.deletions > 0 && <span className="text-red-400/80 fx-red">-{f.deletions}</span>}
+                {f.deletions > 0 && <span className="text-red-400/80 fx-red">−{f.deletions}</span>}
               </div>
             </div>
           ))}
@@ -981,7 +981,7 @@ function WarpFileCard({
         >
           {file.additions > 0 && <span className="text-emerald-400/90 fx-green">+{file.additions}</span>}
           {file.additions > 0 && file.deletions > 0 && <span className="text-zinc-600">·</span>}
-          {file.deletions > 0 && <span className="text-red-400/90 fx-red">-{file.deletions}</span>}
+          {file.deletions > 0 && <span className="text-red-400/90 fx-red">−{file.deletions}</span>}
           {file.additions === 0 && file.deletions === 0 && <span className="text-zinc-500">0</span>}
         </span>
 
@@ -1678,9 +1678,9 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
         <ViewModeDropdown value={viewMode} onChange={setViewMode} fileCount={allFiles.length} />
         <div className="flex-1" />
         {(totalAdditions > 0 || totalDeletions > 0) && (
-          <span className="flex shrink-0 items-center gap-1.5 font-mono text-[10px] tabular-nums">
+          <span className="flex shrink-0 items-center gap-1.5 ui-meta text-[10px]">
             {totalAdditions > 0 && <span style={{ color: "var(--status-green)" }}>+{totalAdditions}</span>}
-            {totalDeletions > 0 && <span style={{ color: "var(--status-red)" }}>-{totalDeletions}</span>}
+            {totalDeletions > 0 && <span style={{ color: "var(--status-red)" }}>−{totalDeletions}</span>}
             <DiffBar add={totalAdditions} del={totalDeletions} width={36} />
           </span>
         )}
@@ -1739,7 +1739,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
             <div className="flex items-center gap-1.5 pl-[18px]">
               {ahead > 0 && (
                 <span
-                  className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-dim)] border border-[color:var(--accent-border)] px-1.5 py-0.5 font-mono text-[10px] text-[color:var(--accent)]"
+                  className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-dim)] border border-[color:var(--accent-border)] px-1.5 py-0.5 ui-meta text-[10px] text-[color:var(--accent)]"
                   title={`${ahead} local commit${ahead === 1 ? "" : "s"} to push`}
                 >
                   <ArrowUp size={9} />
@@ -1748,7 +1748,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
               )}
               {behind > 0 && (
                 <span
-                  className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 border border-sky-500/30 px-1.5 py-0.5 font-mono text-[10px] text-sky-300 ui-chip sm fx-soft-blue"
+                  className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 border border-sky-500/30 px-1.5 py-0.5 ui-meta text-[10px] text-sky-300 ui-chip sm fx-soft-blue"
                   title={`${behind} upstream commit${behind === 1 ? "" : "s"} to pull`}
                 >
                   <ArrowDown size={9} />
@@ -1999,9 +1999,8 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
                   }}
                 >
                   <span
-                    className="shrink-0 text-right"
+                    className="shrink-0 text-right ui-meta"
                     style={{
-                      fontFamily: "var(--font-mono)",
                       fontSize: 9.5,
                       color: "var(--text-muted)",
                       minWidth: 14,

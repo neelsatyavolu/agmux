@@ -197,7 +197,7 @@ export function ShareToTeamDialog({
           </p>
         ) : (
           <>
-            <label className="mt-3 block text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <label className="mt-3 block text-[12px] text-[var(--text-muted)]">
               Team
             </label>
             <select
@@ -230,7 +230,7 @@ export function ShareToTeamDialog({
               </div>
             )}
 
-            <label className="mt-3 block text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <label className="mt-3 block text-[12px] text-[var(--text-muted)]">
               Title
             </label>
             <input
@@ -240,7 +240,7 @@ export function ShareToTeamDialog({
               maxLength={200}
               onChange={(e) => setTitle(e.target.value)}
             />
-            <label className="mt-3 block text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            <label className="mt-3 block text-[12px] text-[var(--text-muted)]">
               {mode === "digest" ? "Summary" : "Content"}
             </label>
             <textarea

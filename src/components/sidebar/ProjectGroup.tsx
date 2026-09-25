@@ -2469,7 +2469,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
             {hotVisible.length > 0 && (
               <>
                 <span
-                  className="shrink-0 px-1 font-mono text-[9.5px] uppercase tracking-[0.08em] text-[color:var(--accent)]/60"
+                  className="shrink-0 px-1 ui-eyebrow text-[color:var(--accent)]/60"
                   title="Pinned · needs attention · working · done/unread"
                 >
                   Active
@@ -2482,7 +2482,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
                 {hotVisible.length > 0 && (
                   <span className="mx-1 h-[18px] w-px shrink-0 bg-white/[0.06]" />
                 )}
-                <span className="shrink-0 px-1 font-mono text-[9.5px] uppercase tracking-[0.08em] text-zinc-600">
+                <span className="shrink-0 px-1 ui-eyebrow text-zinc-600">
                   Recent
                 </span>
                 {restVisible.map(renderChip)}
@@ -2496,7 +2496,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
               >
                 <ChevronDown size={12} />
                 Show more
-                <span className="font-mono text-[10.5px] opacity-70">
+                <span className="ui-meta text-[10.5px] opacity-70">
                   ({Math.min(remaining, projectPageSize)} of {remaining})
                 </span>
               </button>
@@ -2541,8 +2541,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
                   </div>
                   <div className="min-w-0">
                     <div
-                      className="text-[9.5px] uppercase text-zinc-600"
-                      style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.2em" }}
+                      className="ui-eyebrow text-zinc-600"
                     >
                       New in
                     </div>
@@ -2570,8 +2569,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
                   <>
                 <div className="border-t border-white/5 pt-1.5 pb-2">
                   <div
-                    className="px-3 pt-1 pb-1 text-[9.5px] uppercase text-zinc-600"
-                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.2em" }}
+                    className="px-3 pt-1 pb-1 ui-eyebrow text-zinc-600"
                   >
                     Terminal
                   </div>
@@ -3259,8 +3257,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
                   </div>
                   <div className="min-w-0 flex-1">
                     <div
-                      className="text-[10px] uppercase text-zinc-500"
-                      style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.2em" }}
+                      className="ui-eyebrow text-zinc-500"
                     >
                       New in
                     </div>
@@ -3292,8 +3289,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
                 {/* Terminal section: row + agent chip strip */}
                 <div className="border-t border-white/5 pt-1.5 pb-2">
                   <div
-                    className="px-3 pt-1 pb-1 text-[9.5px] uppercase text-zinc-600"
-                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.2em" }}
+                    className="px-3 pt-1 pb-1 ui-eyebrow text-zinc-600"
                   >
                     Terminal
                   </div>

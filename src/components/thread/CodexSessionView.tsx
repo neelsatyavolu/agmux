@@ -3331,11 +3331,10 @@ function CodexFooter({ context }: { context?: CodexFooterContext }) {
     contextUsage &&
     (contextUsage.lastInputTokens || contextUsage.lastOutputTokens) ? (
       <span
+        className="ui-meta"
         style={{
           color: "var(--text-dim, #52525b)",
-          fontFamily: "var(--font-mono)",
           fontSize: 11,
-          fontVariantNumeric: "tabular-nums",
         }}
       >
         {(contextUsage.lastInputTokens ?? 0).toLocaleString()} in ·{" "}

@@ -271,10 +271,9 @@ export function TaskSidebar() {
           <Plus size={13} />
           New Task
           <span
+            className="ui-kbd"
             style={{
               marginLeft: "auto",
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
               opacity: 0.7,
             }}
           >

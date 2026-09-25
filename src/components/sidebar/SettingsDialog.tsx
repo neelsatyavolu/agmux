@@ -2081,13 +2081,8 @@ function AppearancePage({
                     </div>
                     {t.value === "midnight-glass" && (
                       <span
-                        style={{
-                          fontSize: 9,
-                          fontFamily: "var(--font-mono)",
-                          color: "var(--text-muted)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.15em",
-                        }}
+                        className="ui-eyebrow"
+                        style={{ color: "var(--text-muted)" }}
                       >
                         Default
                       </span>
