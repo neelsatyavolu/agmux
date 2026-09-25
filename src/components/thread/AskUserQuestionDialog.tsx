@@ -149,9 +149,10 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
                           key={opt.label}
                           type="button"
                           onClick={() => toggleOption(i, opt.label, multi)}
-                          className={`flex w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors ${
+                          data-active={selected ? "true" : undefined}
+                          className={`ui-choice-item flex w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors ${
                             selected
-                              ? "border-blue-500/60 bg-blue-500/15 fx-press"
+                              ? "border-blue-500/60 bg-blue-500/15"
                               : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.08]"
                           }`}
                         >
@@ -188,9 +189,10 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
                     <button
                       type="button"
                       onClick={() => toggleOther(i, multi)}
-                      className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors ${
+                      data-active={s.otherOn ? "true" : undefined}
+                      className={`ui-choice-item flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors ${
                         s.otherOn
-                          ? "border-blue-500/60 bg-blue-500/15 fx-press"
+                          ? "border-blue-500/60 bg-blue-500/15"
                           : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.08]"
                       }`}
                     >

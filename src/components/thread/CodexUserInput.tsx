@@ -37,7 +37,8 @@ export function CodexUserInput({ questions, onSubmit }: {
           <legend className="w-full text-sm leading-relaxed"><MarkdownContent content={q.question} /></legend>
           {q.options?.map((option) => (
             <button key={option.label} type="button" aria-pressed={values[q.id] === option.label}
-              className={`flex w-full items-start gap-3 rounded-lg bg-[var(--surface-1)] text-left transition-colors hover:bg-[var(--surface-hover)] border border-[var(--glass-border)] px-3 py-2.5 text-sm aria-pressed:border-[var(--glass-border-strong)] aria-pressed:bg-[var(--surface-active)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--text-muted)]${values[q.id] === option.label ? " fx-press" : ""}`}
+              data-active={values[q.id] === option.label ? "true" : undefined}
+              className="ui-choice-item flex w-full items-start gap-3 rounded-lg bg-[var(--surface-1)] text-left transition-colors hover:bg-[var(--surface-hover)] border border-[var(--glass-border)] px-3 py-2.5 text-sm aria-pressed:border-[var(--glass-border-strong)] aria-pressed:bg-[var(--surface-active)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--text-muted)]"
               onClick={() => setValues((prev) => ({ ...prev, [q.id]: option.label }))}>
               <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[var(--glass-border-strong)]" aria-hidden>{values[q.id] === option.label && <Check size={11} />}</span>
               <span>{option.label}{option.description && <span className="mt-0.5 block text-xs leading-relaxed text-[var(--text-muted)]">{option.description}</span>}</span>

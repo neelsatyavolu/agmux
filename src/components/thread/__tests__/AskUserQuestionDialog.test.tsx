@@ -135,6 +135,22 @@ describe("AskUserQuestionDialog", () => {
     expect(onSubmit).toHaveBeenCalledWith({ "Q1?": "A", "Q2?": "D" });
   });
 
+  it("marks only the selected option with the gold data-active choice state (A1)", () => {
+    render(
+      <AskUserQuestionDialog questions={singleQuestion} onSubmit={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const keepBtn = screen.getByText("Keep existing").closest("button")!;
+    const regenBtn = screen.getByText("Regenerate").closest("button")!;
+    const otherBtn = screen.getByText("Other…").closest("button")!;
+    expect(keepBtn.className).toContain("ui-choice-item");
+    expect(keepBtn.getAttribute("data-active")).toBeNull();
+    expect(regenBtn.getAttribute("data-active")).toBeNull();
+    fireEvent.click(keepBtn);
+    expect(keepBtn.getAttribute("data-active")).toBe("true");
+    expect(regenBtn.getAttribute("data-active")).toBeNull();
+    expect(otherBtn.getAttribute("data-active")).toBeNull();
+  });
+
   it("calls onCancel from the Cancel button", () => {
     const onCancel = vi.fn();
     render(
