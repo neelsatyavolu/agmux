@@ -48,6 +48,16 @@ describe("stacked Tasks and Subagents cards", () => {
     expect(await screen.findByRole("complementary", { name: "Subagents" })).toBeTruthy();
     expect(screen.getByRole("complementary", { name: "Tasks" })).toBeTruthy();
   });
+  it("Task 13: card chrome uses the flat panel/chip/icon-tile classes and a blue spinner for running (not a static amber dot)", async () => {
+    render(<Harness />);
+    const card = await screen.findByRole("complementary", { name: "Subagents" });
+    expect(card.className).toContain("chat-activity-card");
+    expect(within(card).getByText("2 active").className).toContain("fx-chip-q");
+    const runningRow = within(card).getByRole("button", { name: /Open Implementation conversation/ });
+    expect(runningRow.querySelector(".subagent-avatar-tile")).toBeTruthy();
+    expect(runningRow.querySelector(".animate-spin")).toBeTruthy();
+  });
+
   it("refreshes status without loading full conversations and pauses hidden parents", async () => {
     vi.useFakeTimers();
     const mounted = render(<Harness />);

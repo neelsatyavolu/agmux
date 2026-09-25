@@ -228,13 +228,13 @@ export function ChatTasksPanel({
     >
       {embedded && collapsed ? (
         <button type="button" onClick={expand} aria-label="Expand tasks" aria-expanded={false} className="chat-activity-card flex w-full items-center gap-2 rounded-[14px] px-3 py-3 text-[12.5px] text-[var(--text-secondary)]">
-          <ListChecks size={14} className="text-violet-400" />{title}<span className="font-mono text-[10px] text-[var(--text-muted)]">{done} / {total}</span>
+          <ListChecks size={14} className="text-violet-400 fx-graphite" />{title}<span className="font-mono text-[10px] text-[var(--text-muted)]">{done} / {total}</span>
         </button>
       ) : collapsed ? (
         <button
           type="button"
           onClick={expand}
-          className="pointer-events-auto absolute top-1/2 right-0 flex w-9 -translate-y-1/2 flex-col items-stretch overflow-hidden rounded-l-[12px] border border-r-0 border-white/[0.08] bg-[rgba(14,14,16,0.92)] shadow-[-8px_0_28px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-colors hover:border-violet-400/35 hover:bg-[rgba(22,20,28,0.96)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/55"
+          className="chat-tasks-rail-btn pointer-events-auto absolute top-1/2 right-0 flex w-9 -translate-y-1/2 flex-col items-stretch overflow-hidden rounded-l-[12px] border border-r-0 border-white/[0.08] bg-[rgba(14,14,16,0.92)] shadow-[-8px_0_28px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-colors hover:border-violet-400/35 hover:bg-[rgba(22,20,28,0.96)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/55"
           title={`Show ${title}`}
           aria-label={`Show ${title}`}
           aria-expanded={false}
@@ -282,15 +282,15 @@ export function ChatTasksPanel({
         </button>
       ) : (
         <aside
-          className={embedded ? "chat-activity-card flex max-h-[280px] min-h-0 flex-col overflow-hidden rounded-[14px]" : "pointer-events-auto absolute top-3 right-3 flex w-[min(288px,calc(100%-1.5rem))] max-h-[min(480px,calc(100%-1.5rem))] flex-col overflow-hidden rounded-[14px] border border-white/[0.08] bg-[rgba(14,14,16,0.92)] shadow-[0_18px_50px_rgba(0,0,0,0.55),0_2px_8px_rgba(0,0,0,0.3)] backdrop-blur-xl"}
+          className={`chat-activity-card flex min-h-0 flex-col overflow-hidden rounded-[14px] ${embedded ? "max-h-[280px]" : "pointer-events-auto absolute top-3 right-3 w-[min(288px,calc(100%-1.5rem))] max-h-[min(480px,calc(100%-1.5rem))]"}`}
           aria-label={title}
         >
           <div className="flex items-center gap-2 border-b border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
-            <ListChecks size={14} className="shrink-0 text-violet-400" />
+            <ListChecks size={14} className="shrink-0 text-violet-400 fx-graphite" />
             <span className="text-[12.5px] font-medium tracking-[-0.01em] text-zinc-200">
               {title}
             </span>
-            <span className="inline-flex items-center rounded-full border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 font-mono text-[10.5px] text-zinc-500">
+            <span className="ui-chip sm fx-chip-q inline-flex items-center border border-white/[0.06] bg-white/[0.04] font-mono text-zinc-500">
               <span className="font-medium text-zinc-300">{done}</span>
               <span className="mx-0.5 text-zinc-600">/</span>
               {total}
@@ -299,7 +299,7 @@ export function ChatTasksPanel({
             <button
               type="button"
               onClick={collapse}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-300"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-300 fx-hover"
               title="Collapse"
               aria-label="Collapse tasks"
             >
