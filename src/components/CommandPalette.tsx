@@ -95,19 +95,23 @@ function AgentIcon({ agent, size = 22 }: { agent: Provider; size?: number }) {
 }
 
 function TypeTag({ type }: { type: ItemType }) {
-  const config: Record<ItemType, { label: string; color: string }> = {
-    chat: { label: "chat", color: "var(--status-blue)" },
-    term: { label: "term", color: "var(--text-tertiary)" },
-    action: { label: "action", color: "var(--accent)" },
-    project: { label: "project", color: "var(--status-purple)" },
-    branch: { label: "branch", color: "var(--status-amber)" },
+  const config: Record<ItemType, { label: string; color: string; fx: string }> = {
+    // M6: fx-chip-q's flat !important rules were flattening every type to
+    // the same neutral tertiary chip, and the inline 9.5px shrank it below
+    // the standard 10.5px .ui-chip.sm — the tag was the only way to tell
+    // chat/project/branch results apart. Route chat + project through their
+    // own soft-color fx-* helper; term/action/branch keep the neutral chip.
+    chat: { label: "chat", color: "var(--status-blue)", fx: "fx-soft-blue" },
+    term: { label: "term", color: "var(--text-tertiary)", fx: "fx-chip-q" },
+    action: { label: "action", color: "var(--accent)", fx: "fx-chip-q" },
+    project: { label: "project", color: "var(--status-purple)", fx: "fx-soft-violet" },
+    branch: { label: "branch", color: "var(--status-amber)", fx: "fx-chip-q" },
   };
   const t = config[type];
   return (
     <span
-      className="ui-chip sm fx-chip-q shrink-0"
+      className={`ui-chip sm ${t.fx} shrink-0`}
       style={{
-        fontSize: 9.5,
         padding: "2px 6px",
         background: `color-mix(in srgb, ${t.color} 8%, transparent)`,
         color: t.color,
@@ -527,7 +531,6 @@ export function CommandPalette({ open, onClose }: Props) {
                   <div
                     className="ui-eyebrow"
                     style={{
-                      color: "var(--text-muted)",
                       padding: "10px 14px 4px",
                     }}
                   >
@@ -592,8 +595,8 @@ export function CommandPalette({ open, onClose }: Props) {
                           fontFamily: item.type === "project" || item.type === "branch"
                             ? "var(--font-mono, ui-monospace, monospace)"
                             : undefined,
-                          fontSize: 10.5,
-                          color: "var(--text-muted)",
+                          fontSize: 12,
+                          color: "var(--text-tertiary)",
                           marginTop: 1,
                           whiteSpace: "nowrap",
                           overflow: "hidden",

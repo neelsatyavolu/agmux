@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { CommandPalette } from "../CommandPalette";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -61,6 +61,18 @@ describe("CommandPalette", () => {
     const input = screen.getByPlaceholderText(/start a session/i) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "zzzzzzzznevergonnamatch" } });
     expect(screen.getByText(/no matching commands/i)).toBeTruthy();
+  });
+
+  it("M6: an 'action' result's type tag keeps the standard 10.5px .ui-chip.sm size — no inline 9.5px override", () => {
+    render(<CommandPalette open={true} onClose={() => {}} />);
+    const row = screen.getByText(/switch to cowork mode/i).closest("[data-index]")!;
+    const tag = within(row as HTMLElement).getByText("action");
+    expect(tag.className).toContain("ui-chip");
+    expect(tag.className).toContain("sm");
+    expect(tag.className).toContain("fx-chip-q");
+    // The inline fontSize: 9.5 override was dropped — no explicit inline
+    // font-size left to fight the 10.5px .ui-chip.sm class.
+    expect((tag as HTMLElement).style.fontSize).toBe("");
   });
 });
 
