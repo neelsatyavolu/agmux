@@ -852,9 +852,10 @@ fn strip_ansi_for_search(input: &str) -> String {
             }
             continue;
         }
-        // C1 CSI (0x9b) — rare but treat like ESC[
-        if b == 0x9b {
-            i += 1;
+        // C1 CSI (U+009B, UTF-8 C2 9B) — rare but treat like ESC[. A bare
+        // 0x9b byte is a continuation byte of ś, せ, 🐛, … and must be kept.
+        if b == 0xc2 && bytes.get(i + 1) == Some(&0x9b) {
+            i += 2;
             while i < bytes.len() {
                 let c = bytes[i];
                 i += 1;
@@ -3384,6 +3385,15 @@ mod tests {
         assert_eq!(clean, "hello world");
         assert!(!clean.contains('['));
         assert!(!clean.contains("2026"));
+    }
+
+    #[test]
+    fn strip_ansi_for_search_keeps_multibyte_text_with_0x9b_bytes() {
+        // ś, せ, ě and 🐛 all contain a 0x9b UTF-8 continuation byte, which is
+        // not a C1 CSI inside a &str (that is U+009B, encoded C2 9B).
+        let raw = "napraw śledzenie, せんせい, běh, 🐛 fix";
+        assert_eq!(strip_ansi_for_search(raw), raw);
+        assert_eq!(strip_ansi_for_search("a\u{9b}31mred"), "ared");
     }
 
     #[test]

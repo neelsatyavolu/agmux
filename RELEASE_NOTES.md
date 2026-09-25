@@ -54,6 +54,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Renaming or deleting folders in the IDE** — Files you had open inside a folder now follow it when you rename the folder (so saving works), and close when you delete the folder.
 - **Codex reset time in Usage** — The Codex usage bars now show when your limit actually resets instead of saying "resets now".
 - **IDE editor stuck on "Failed to load file"** — After opening a file that can't be shown (like an image), opening another file now shows it instead of the same error.
+- **Search with accented letters, Japanese text or emoji** — Messages containing characters like ś, せ or 🐛 are no longer garbled in search results, and the words around them can be found again.
 - **Search results match what you typed** — Search no longer sometimes shows results for an earlier, shorter version of your search.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
 - **Stopping from your phone** — Tapping Stop on a terminal session from your phone no longer risks closing Claude or Codex.
