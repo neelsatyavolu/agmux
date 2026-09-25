@@ -204,6 +204,26 @@ fn read_from_db(db_path: &Path, session_id: &str) -> Option<OpenCodePtyUsageSnap
         }
     }
 
+    // A streaming assistant message has all-zero tokens until its step
+    // finishes; keep the last measured fill instead of the session's
+    // lifetime totals below.
+    if snap.context_tokens_used == 0 {
+        let measured_sql = format!(
+            "SELECT data FROM message WHERE session_id = '{session_id}' \
+             AND json_extract(data, '$.role') = 'assistant' \
+             AND (IFNULL(json_extract(data, '$.tokens.total'), 0) \
+                  + IFNULL(json_extract(data, '$.tokens.input'), 0) \
+                  + IFNULL(json_extract(data, '$.tokens.cache.read'), 0) \
+                  + IFNULL(json_extract(data, '$.tokens.cache.write'), 0)) > 0 \
+             ORDER BY time_created DESC LIMIT 1;"
+        );
+        if let Some(msg) = run_sqlite3(&uri, &measured_sql) {
+            if let Some(used) = context_tokens_from_message_data(msg.trim()) {
+                snap.context_tokens_used = used;
+            }
+        }
+    }
+
     if snap.context_tokens_used == 0 {
         if let Some(row) = run_sqlite3(&uri, &sess_tokens_sql) {
             let parts: Vec<&str> = row.trim().split('|').collect();
@@ -302,6 +322,32 @@ mod tests {
     fn context_from_message_sums_when_no_total() {
         let data = r#"{"tokens":{"input":100,"cache":{"read":50,"write":25}}}"#;
         assert_eq!(context_tokens_from_message_data(data), Some(175));
+    }
+
+    #[test]
+    fn in_flight_assistant_message_keeps_last_measured_context() {
+        // OpenCode inserts the next assistant message with all-zero tokens
+        // while it streams; session totals are lifetime sums, not context.
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("opencode.db");
+        let setup = r#"
+            CREATE TABLE session (id TEXT, model TEXT, tokens_input INTEGER,
+                tokens_cache_read INTEGER, tokens_cache_write INTEGER);
+            CREATE TABLE message (session_id TEXT, time_created INTEGER, data TEXT);
+            INSERT INTO session VALUES ('ses_1', '{"id":"m1","providerID":"p"}', 90000, 400000, 10000);
+            INSERT INTO message VALUES ('ses_1', 1, '{"role":"assistant","tokens":{"total":41000,"input":1000,"output":500,"cache":{"read":39000,"write":500}},"time":{"created":1,"completed":2}}');
+            INSERT INTO message VALUES ('ses_1', 3, '{"role":"user"}');
+            INSERT INTO message VALUES ('ses_1', 4, '{"role":"assistant","tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":4}}');
+        "#;
+        let status = std::process::Command::new("sqlite3")
+            .arg(&db)
+            .arg(setup)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let snap = read_from_db(&db, "ses_1").unwrap();
+        assert_eq!(snap.context_tokens_used, 41000);
+        assert_eq!(snap.model.as_deref(), Some("p/m1"));
     }
 
     #[test]
