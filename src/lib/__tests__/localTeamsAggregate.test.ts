@@ -202,4 +202,16 @@ describe("buildLocalSelfView", () => {
     expect(view.heatmap).toHaveLength(7);
     expect(view.heatmap[0]).toHaveLength(24);
   });
+
+  it("totals only the days the daily chart draws", () => {
+    const now = new Date("2026-08-06T12:00:00Z");
+    const view = buildLocalSelfView(
+      [bucket({ hourUtc: "2026-07-30T10" }), bucket({ hourUtc: "2026-07-31T10" })],
+      "7d",
+      now,
+    );
+    expect(view.daily[0].date).toBe("2026-07-31");
+    expect(view.totals.daysWithData).toBe(1);
+    expect(view.totals.sessions).toBe(1);
+  });
 });

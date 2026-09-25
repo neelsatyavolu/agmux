@@ -89,7 +89,8 @@ export function filterBucketsByRange(
   range: TeamRange,
   now = new Date(),
 ): HourlyBucket[] {
-  const since = hourFloorDaysAgo(RANGE_DAYS[range], now);
+  // Today is the last of the range's days, matching `dailySeries`.
+  const since = hourFloorDaysAgo(RANGE_DAYS[range] - 1, now);
   return buckets.filter((b) => b.hourUtc >= since && b.hourUtc <= `${dateKey(now)}T23`);
 }
 
@@ -329,7 +330,7 @@ export function buildLocalSelfView(
   }
 
   // Previous window for after-hours delta on flags (same length, immediately prior).
-  const since = hourFloorDaysAgo(days, now);
+  const since = hourFloorDaysAgo(days - 1, now);
   const prevUntil = since;
   const prevStartMs = Date.parse(`${prevUntil.slice(0, 10)}T00:00:00Z`) - days * 86_400_000;
   const prevSince = `${dateKey(new Date(prevStartMs))}T00`;

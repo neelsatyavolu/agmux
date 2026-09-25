@@ -181,6 +181,27 @@ describe("dayRange", () => {
   });
 });
 
+describe("windowFromRange", () => {
+  it("covers exactly the days the daily chart draws, not one extra", () => {
+    const now = new Date("2026-07-29T15:00:00Z");
+    const win = windowFromRange("7d", now);
+    const chartDays = dailySeries([], win.days, win.endDate).map((d) => d.date);
+    expect(win.sinceHour).toBe(`${chartDays[0]}T00`);
+    // An 8-day-old bucket must not reach the totals while the chart omits it.
+    const t = totals(
+      ["2026-07-22T10", "2026-07-23T10"]
+        .filter((h) => h >= win.sinceHour)
+        .map((hour_utc) => b({ hour_utc, active_ms: 1 })),
+    );
+    expect(t.daysWithData).toBe(1);
+  });
+
+  it("makes the previous window the same number of days, ending where this one starts", () => {
+    const win = windowFromRange("7d", new Date("2026-07-29T15:00:00Z"));
+    expect(previousWindow(win)).toEqual({ sinceHour: "2026-07-16T00", untilHour: "2026-07-23T00" });
+  });
+});
+
 describe("heatmap", () => {
   it("places active minutes at local day-of-week and hour", () => {
     const g = heatmap([b({ local_dow: 2, local_hour: 14, active_ms: 30 * 60_000 })]);
