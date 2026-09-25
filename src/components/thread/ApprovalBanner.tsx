@@ -44,9 +44,12 @@ interface Props {
 function AllowPatternsMenu({
   patterns,
   onPick,
+  size = "md",
 }: {
   patterns: string[];
   onPick: (pattern: string) => void;
+  /** "md" = inline banner's 30px middle-button row; "lg" = dialog's 40px row. */
+  size?: "md" | "lg";
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -67,7 +70,9 @@ function AllowPatternsMenu({
         type="button"
         onClick={() => setOpen((o) => !o)}
         title="Auto-approve future commands matching a pattern"
-        className="inline-flex items-center gap-1 rounded-[7px] border border-blue-400/30 bg-blue-400/[0.08] px-3 py-[5px] text-xs font-medium text-blue-400 transition-colors duration-200 hover:bg-blue-400/[0.14] hover:border-blue-400/45"
+        className={`inline-flex items-center gap-1 rounded-[7px] border border-blue-400/30 bg-blue-400/[0.08] px-3 text-xs font-medium text-blue-400 transition-colors duration-200 hover:bg-blue-400/[0.14] hover:border-blue-400/45 fx-quiet ${
+          size === "lg" ? "min-h-[40px]" : "min-h-[30px]"
+        }`}
       >
         Always allow
         <ChevronDown size={11} className={`transition-transform ${open ? "rotate-180" : ""}`} />
@@ -437,23 +442,23 @@ export function ApprovalBanner({
             </span>
           )}
           <div className="flex shrink-0 items-center gap-1.5">
-            <GlassButton variant="primary" size="lg" onClick={onReject}>
-              Deny <span className="ui-kbd opacity-70">⌘⌫</span>
+            <GlassButton variant="primary" size="md" onClick={onReject}>
+              Deny <span className="ui-kbd">⌘⌫</span>
             </GlassButton>
             {hasPatternMenu ? (
-              <AllowPatternsMenu patterns={allowPatterns!} onPick={onAllowPattern!} />
+              <AllowPatternsMenu patterns={allowPatterns!} onPick={onAllowPattern!} size="md" />
             ) : (
               onAllowForSession && (
                 <button
                   onClick={onAllowForSession}
                   title="Auto-approve this tool for all sessions in this project"
-                  className="inline-flex items-center gap-1.5 rounded-[7px] border border-blue-400/30 bg-blue-400/[0.08] px-3 py-[5px] text-xs font-medium text-blue-400 transition-colors duration-200 hover:bg-blue-400/[0.14] hover:border-blue-400/45 fx-quiet"
+                  className="inline-flex items-center gap-1.5 rounded-[7px] border border-blue-400/30 bg-blue-400/[0.08] px-3 text-xs font-medium text-blue-400 transition-colors duration-200 hover:bg-blue-400/[0.14] hover:border-blue-400/45 fx-quiet min-h-[30px]"
                 >
                   Allow for Project
                 </button>
               )
             )}
-            <GlassButton variant="accent" size="lg" className="approval-accept" onClick={onApprove}>
+            <GlassButton variant="accent" size="md" className="approval-accept" onClick={onApprove}>
               Accept <span className="ui-kbd opacity-70">⌘⏎</span>
             </GlassButton>
           </div>
@@ -497,16 +502,16 @@ export function ApprovalBanner({
             {!timedOut && (
               <div className="flex shrink-0 items-center gap-1.5">
                 <GlassButton variant="primary" size="lg" onClick={onReject}>
-                  Deny <span className="ui-kbd opacity-70">⌘⌫</span>
+                  Deny <span className="ui-kbd">⌘⌫</span>
                 </GlassButton>
                 {hasPatternMenu ? (
-                  <AllowPatternsMenu patterns={allowPatterns!} onPick={onAllowPattern!} />
+                  <AllowPatternsMenu patterns={allowPatterns!} onPick={onAllowPattern!} size="lg" />
                 ) : (
                   onAllowForSession && (
                     <button
                       onClick={onAllowForSession}
                       title="Auto-approve this tool for all sessions in this project"
-                      className="inline-flex items-center gap-1.5 rounded-[7px] border border-blue-400/30 bg-blue-400/[0.08] px-3 py-[5px] text-xs font-medium text-blue-400 hover:bg-blue-400/[0.14] transition-colors fx-quiet"
+                      className="inline-flex items-center gap-1.5 rounded-[7px] border border-blue-400/30 bg-blue-400/[0.08] px-3 text-xs font-medium text-blue-400 hover:bg-blue-400/[0.14] transition-colors fx-quiet min-h-[40px]"
                     >
                       Allow for Project
                     </button>

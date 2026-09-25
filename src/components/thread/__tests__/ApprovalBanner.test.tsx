@@ -199,6 +199,101 @@ describe("ApprovalBanner — approval type (dialog variant)", () => {
   });
 });
 
+describe("ApprovalBanner — Task 14 M1/L6: banner vs dialog button sizing, Always allow neutral, Deny kbd contrast", () => {
+  it("inline banner uses md (30px) Deny/Accept, not lg (40px)", () => {
+    render(
+      <ApprovalBanner type="approval" toolName="Bash" onApprove={noop} onReject={noop} onAnswer={noop} />
+    );
+    expect(screen.getByRole("button", { name: /deny/i }).getAttribute("data-size")).toBe("md");
+    expect(screen.getByRole("button", { name: /accept/i }).getAttribute("data-size")).toBe("md");
+  });
+
+  it("dialog keeps lg (40px) Deny/Accept", () => {
+    render(
+      <ApprovalBanner type="approval" variant="dialog" toolName="Bash" onApprove={noop} onReject={noop} onAnswer={noop} />
+    );
+    expect(screen.getByRole("button", { name: /deny/i }).getAttribute("data-size")).toBe("lg");
+    expect(screen.getByRole("button", { name: /accept/i }).getAttribute("data-size")).toBe("lg");
+  });
+
+  it("banner's Allow for Project is a 30px neutral (fx-quiet) button", () => {
+    render(
+      <ApprovalBanner
+        type="approval"
+        toolName="Bash"
+        onApprove={noop}
+        onReject={noop}
+        onAnswer={noop}
+        onAllowForSession={noop}
+      />
+    );
+    const btn = screen.getByRole("button", { name: /allow for project/i });
+    expect(btn.className).toContain("fx-quiet");
+    expect(btn.className).toContain("min-h-[30px]");
+  });
+
+  it("dialog's Allow for Project is a 40px neutral (fx-quiet) button", () => {
+    render(
+      <ApprovalBanner
+        type="approval"
+        variant="dialog"
+        toolName="Bash"
+        onApprove={noop}
+        onReject={noop}
+        onAnswer={noop}
+        onAllowForSession={noop}
+      />
+    );
+    const btn = screen.getByRole("button", { name: /allow for project/i });
+    expect(btn.className).toContain("fx-quiet");
+    expect(btn.className).toContain("min-h-[40px]");
+  });
+
+  it("banner's Always allow menu is a 30px neutral (fx-quiet) button", () => {
+    render(
+      <ApprovalBanner
+        type="approval"
+        toolName="Bash"
+        allowPatterns={["git push *", "git *"]}
+        onAllowPattern={noop}
+        onApprove={noop}
+        onReject={noop}
+        onAnswer={noop}
+      />
+    );
+    const btn = screen.getByRole("button", { name: /always allow/i });
+    expect(btn.className).toContain("fx-quiet");
+    expect(btn.className).toContain("min-h-[30px]");
+  });
+
+  it("dialog's Always allow menu is a 40px neutral (fx-quiet) button", () => {
+    render(
+      <ApprovalBanner
+        type="approval"
+        variant="dialog"
+        toolName="Bash"
+        allowPatterns={["git push *", "git *"]}
+        onAllowPattern={noop}
+        onApprove={noop}
+        onReject={noop}
+        onAnswer={noop}
+      />
+    );
+    const btn = screen.getByRole("button", { name: /always allow/i });
+    expect(btn.className).toContain("fx-quiet");
+    expect(btn.className).toContain("min-h-[40px]");
+  });
+
+  it("L6: Deny's shortcut hint no longer dims to ~3.8:1 (opacity-70 dropped)", () => {
+    render(
+      <ApprovalBanner type="approval" toolName="Bash" onApprove={noop} onReject={noop} onAnswer={noop} />
+    );
+    const denyBtn = screen.getByRole("button", { name: /deny/i });
+    const kbd = denyBtn.querySelector(".ui-kbd");
+    expect(kbd?.className).not.toContain("opacity-70");
+  });
+});
+
 describe("ApprovalBanner — question type", () => {
   it("renders input and Send button", () => {
     render(
