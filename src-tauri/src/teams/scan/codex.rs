@@ -102,6 +102,7 @@ where I: IntoIterator<Item = S>, S: AsRef<str> {
     let mut tools_by_turn: HashMap<String, ToolTally> = HashMap::new();
     let mut eligible_tool_turns = HashSet::new();
     let mut first_native_at = None;
+    let mut seen_patches: HashSet<String> = HashSet::new();
 
     for line in lines {
         let line = line.as_ref().trim();
@@ -172,7 +173,11 @@ where I: IntoIterator<Item = S>, S: AsRef<str> {
         // boundary. Compaction can retain OWN response records before that boundary.
         if native && v.pointer("/payload/thread_id").and_then(Value::as_str) != Some(parsed_id.as_str()) { continue; }
         let copied = !native && history_boundary.is_copied(&v);
-        let signal = tool_signal(&v);
+        // The same edit can be recorded again (a patch result and its item).
+        let signal = match patch_id(&v) {
+            Some(id) if !seen_patches.insert(id.to_string()) => ToolTally::default(),
+            _ => tool_signal(&v),
+        };
         if !turn_id.is_empty() {
             if !copied { eligible_tool_turns.insert(turn_id.clone()); }
             tools_by_turn.entry(turn_id.clone()).or_default().add(&signal);
@@ -333,15 +338,27 @@ fn tool_signal(v: &serde_json::Value) -> ToolTally {
                 .unwrap_or("local_shell_call");
             t.count(classify(name));
         }
-        Some("patch_apply_end") => {
+        kind @ (Some("patch_apply_end") | Some("item_completed")) => {
+            // Current Codex records edits only as completed FileChange items,
+            // carrying the same `changes` map as the older patch_apply_end.
+            let (ok, changes) = if kind == Some("patch_apply_end") {
+                (payload.get("success").and_then(Value::as_bool) != Some(false), payload.get("changes"))
+            } else {
+                let item = &payload["item"];
+                if item["type"] != "FileChange" { return t; }
+                match item["status"].as_str() {
+                    Some("completed") => (true, item.get("changes")),
+                    Some("failed" | "declined") => (false, None),
+                    _ => return t,
+                }
+            };
             t.measured += 1;
-            let ok = payload.get("success").and_then(Value::as_bool) != Some(false);
             if !ok {
                 t.errors += 1;
                 // A patch that failed changed nothing; don't credit its lines.
                 return t;
             }
-            let changes = payload.get("changes").and_then(Value::as_object);
+            let changes = changes.and_then(Value::as_object);
             for (_path, change) in changes.into_iter().flatten() {
                 t.files_changed += 1;
                 match change.get("type").and_then(Value::as_str) {
@@ -351,6 +368,13 @@ fn tool_signal(v: &serde_json::Value) -> ToolTally {
                             change.get("content").and_then(Value::as_str).unwrap_or(""),
                         );
                     }
+                    // A deleted file: every line it held is removed.
+                    Some("delete") => match change.get("content").and_then(Value::as_str) {
+                        Some(content) if !content.is_empty() => t.lines_removed += line_count(content),
+                        _ => t.lines_removed += unified_diff_lines(
+                            change.get("unified_diff").and_then(Value::as_str).unwrap_or(""),
+                        ).1,
+                    },
                     // An edit: the diff carries both sides.
                     _ => {
                         let (add, del) = unified_diff_lines(
@@ -365,6 +389,17 @@ fn tool_signal(v: &serde_json::Value) -> ToolTally {
         _ => {}
     }
     t
+}
+
+/// Call ID of an edit record: `patch_apply_end.call_id` or the FileChange item ID.
+fn patch_id(v: &Value) -> Option<&str> {
+    let payload = v.get("payload")?;
+    let id = match payload.get("type").and_then(Value::as_str)? {
+        "patch_apply_end" => payload.get("call_id"),
+        "item_completed" if payload["item"]["type"] == "FileChange" => payload["item"].get("id"),
+        _ => None,
+    };
+    id.and_then(Value::as_str).filter(|id| !id.is_empty())
 }
 
 /// Rollout filenames embed the session UUID: `rollout-<ts>-<uuid>.jsonl`.
@@ -456,6 +491,24 @@ mod tests {
         assert_eq!(e.tools.lines_removed, 1);
         assert_eq!(e.tools.measured, 1);
         assert_eq!(e.tools.errors, 0);
+    }
+
+    #[test]
+    fn file_change_items_supply_the_line_counts_like_patch_apply_end() {
+        // Current Codex records edits only as `item_completed` FileChange items.
+        let item = |id: &str, status: &str| serde_json::json!({"timestamp":"2026-07-29T14:00:00Z",
+            "type":"event_msg","payload":{"type":"item_completed","thread_id":"s","turn_id":"t",
+            "item":{"type":"FileChange","id":id,"status":status,"changes":{
+                "/w/a.rs":{"type":"update","unified_diff":"@@ -1 +1,2 @@\n-old\n+new\n+extra\n","move_path":null},
+                "/w/b.md":{"type":"add","content":"x\ny\nz"},
+                "/w/c.txt":{"type":"delete","content":"gone\ntoo"}}}}}).to_string();
+        let lines = [item("call-1", "completed"), item("call-1", "completed"), item("call-2", "declined"),
+            usage("2026-07-29T14:00:01Z", 10)].join("\n");
+        let e = &parse_session(&lines, "s")[0];
+        assert_eq!(e.tools.files_changed, 3, "a repeated item is one edit");
+        assert_eq!((e.tools.lines_added, e.tools.lines_removed), (5, 3));
+        assert_eq!((e.tools.measured, e.tools.errors), (2, 1));
+        assert_eq!(e.tool_calls, 0, "the edit's tool call is counted from its call record");
     }
 
     #[test]
