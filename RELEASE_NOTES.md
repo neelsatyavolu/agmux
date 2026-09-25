@@ -71,6 +71,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Droid listed agmux twice** — On Macs that used agmux before it was renamed, Droid ran agmux's status updates twice after every message and listed them twice. It now runs them once.
 - **Terminal session names** — Using the arrow keys while typing in a Codex terminal no longer puts stray characters like "[D" into the session's name, and text you clear with Ctrl+C in a Claude terminal no longer ends up in it.
 - **Claude terminal stays "working" after you decline** — After using /clear or /resume in a Claude terminal, declining a permission request left the session showing as working. It now goes idle.
+- **Claude terminals on Home** — Claude terminals you started in agmux now show their name on Home (including names you gave them), and opening one from Home returns to that terminal instead of starting a second copy of the session.
 
 ## v4.2.0 — 2026-09-23
 
