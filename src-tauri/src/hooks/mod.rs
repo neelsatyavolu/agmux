@@ -687,6 +687,12 @@ async fn persist_hook_session_origin(
     Ok(())
 }
 
+/// First 400 bytes of a raw hook line for the trace log, cut on a UTF-8
+/// boundary (a mid-character slice panics, and release builds abort).
+fn hook_line_log_preview(line: &str) -> &str {
+    crate::text::byte_prefix(line, 400)
+}
+
 async fn handle_connection(
     stream: tokio::net::UnixStream,
     app: AppHandle,
@@ -706,7 +712,7 @@ async fn handle_connection(
         tracing::info!(
             "[hook-socket] received {} bytes: {}",
             line.len(),
-            if line.len() > 400 { &line[..400] } else { &line[..] }
+            hook_line_log_preview(&line)
         );
         match serde_json::from_str::<HookEvent>(&line) {
             Ok(mut event) => {
@@ -1336,6 +1342,25 @@ mod tests {
     };
     use serde_json::json;
     use std::collections::HashMap;
+
+    #[test]
+    fn hook_log_preview_keeps_utf8_boundaries() {
+        // The Pi extension (JSON.stringify) sends prompts as raw UTF-8, so the
+        // 400-byte log cut can land inside a multi-byte character.
+        for pad in 0..3 {
+            let prompt = format!("{}{}", "a".repeat(pad), "Fix the header — use “smart” quotes ✓ ".repeat(20));
+            let line = json!({
+                "event": "prompt-submit",
+                "session_id": "00000000-0000-4000-8000-000000000001",
+                "provider": "pi",
+                "payload": {"prompt": prompt, "session_id": "00000000-0000-4000-8000-000000000002"},
+            })
+            .to_string();
+            let preview = super::hook_line_log_preview(&line);
+            assert!(line.starts_with(preview));
+            assert!(preview.len() <= 400 && preview.len() > 390);
+        }
+    }
 
     #[test]
     fn hermes_creation_and_child_packets_bypass_parent_lifecycle() {
