@@ -157,7 +157,7 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
                           }`}
                         >
                           <span
-                            className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border ${
+                            className={`ui-choice-dot mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border ${
                               multi ? "rounded" : "rounded-full"
                             } ${
                               selected
@@ -197,7 +197,7 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
                       }`}
                     >
                       <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center border ${
+                        className={`ui-choice-dot flex h-4 w-4 shrink-0 items-center justify-center border ${
                           multi ? "rounded" : "rounded-full"
                         } ${
                           s.otherOn ? "border-blue-400 bg-blue-500 text-white" : "border-white/25"

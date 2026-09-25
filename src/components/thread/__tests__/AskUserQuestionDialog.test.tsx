@@ -58,6 +58,18 @@ describe("AskUserQuestionDialog", () => {
     expect(onSubmit).toHaveBeenCalledWith({ "Which approach?": "Regenerate" });
   });
 
+  it("M2: the selected option's radio/checkbox indicator is a .ui-choice-dot so the flat stylesheet can repaint it gold to match the item's own gold selection ring (unified.css: .ui-choice-item[data-active] .ui-choice-dot)", () => {
+    render(
+      <AskUserQuestionDialog questions={singleQuestion} onSubmit={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const optionButton = screen.getByText("Regenerate").closest("button")!;
+    expect(optionButton.className).toContain("ui-choice-item");
+    expect(optionButton.querySelector(".ui-choice-dot")).toBeTruthy();
+    fireEvent.click(optionButton);
+    expect(optionButton.getAttribute("data-active")).toBe("true");
+    expect(optionButton.querySelector(".ui-choice-dot")).toBeTruthy();
+  });
+
   it("single-select replaces the previous choice", () => {
     const onSubmit = vi.fn();
     render(
