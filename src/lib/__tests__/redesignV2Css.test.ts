@@ -309,3 +309,39 @@ describe("Task 4 cascade check: flat counterparts cover light-mode properties (+
     }
   });
 });
+
+describe("final whole-branch review fixes", () => {
+  const F = 'html[data-surface="flat"]';
+
+  it.each([
+    [`${F} .fx-accent:disabled`, "opacity", ".4"],
+    [`${F} .fx-accent:disabled`, "cursor", "not-allowed"],
+    [`${F} .fx-accent[aria-disabled="true"]`, "opacity", ".4"],
+    [`${F} .fx-quiet:disabled`, "opacity", ".4"],
+    [`${F} .fx-danger:disabled`, "opacity", ".4"],
+  ])("disabled fx-* buttons dim (%s %s)", (sel, prop, value) => {
+    expect(decl(unified, sel, prop)).toBe(value);
+  });
+
+  it.each([
+    [`${F} .ui-btn[data-variant="accent"] .ui-kbd`, "color", "inherit"],
+    [`${F} .fx-accent .ui-kbd`, "color", "inherit"],
+  ])("kbd hint inside a gold accent button inherits readable text (%s)", (sel, prop, value) => {
+    expect(decl(unified, sel, prop)).toBe(value);
+  });
+
+  it("fx-chip-q has a flat hover state scoped to interactive elements", () => {
+    expect(decl(unified, `${F} button.fx-chip-q:hover`, "background")).toBe("var(--ui-hover)");
+    expect(decl(unified, `${F} button.fx-chip-q:hover`, "color")).toBe("var(--text-primary)");
+  });
+
+  it("fx-spin-blue colors a border-drawn spinner's leading edge (working = blue)", () => {
+    expect(decl(unified, `${F} .fx-spin-blue`, "border-top-color")).toBe("var(--status-blue)");
+  });
+
+  it("dark flat fx-danger darkens the red fill so white text clears 4.5:1", () => {
+    expect(decl(unified, `${F}:not([data-mode="light"]) .fx-danger`, "background")).toBe(
+      "color-mix(in srgb, var(--status-red) 72%, black)",
+    );
+  });
+});
