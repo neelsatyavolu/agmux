@@ -74,6 +74,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Terminals stay in light or dark mode** — With Color mode set to System on a light Mac, terminal sessions briefly turned dark each time they were opened or switched to, and a Codex terminal that started during that moment could keep dark colors. Terminals now open in the right mode. Switching Color mode to System also follows your Mac's appearance again.
 - **Downloading a local model no longer interrupts other chats** — Installing a new local model used to cut off any chat that was answering at the time, and could leave other chats unable to continue. Chats now finish what they're doing and carry on as normal.
 - **New task keyboard shortcut** — Pressing ⌘Enter in New Task no longer creates the task when the branch name is flagged as already in use or invalid, matching the disabled Create button.
+- **Commit & Create PR with deleted files** — Committing a task's changes before opening a pull request no longer fails with "did not match any files" when an agent had deleted a file.
 
 ## v4.2.0 — 2026-09-23
 

@@ -1426,21 +1426,55 @@ pub async fn worktree_commit_and_push(
     // git add -- <path>... (safer than -A — only the explicitly chosen paths
     // get staged, so untracked secrets can't sneak in unless the caller
     // explicitly picks them).
-    let mut add_args: Vec<String> =
-        vec!["add".into(), "--".into()];
-    add_args.extend(files_to_stage.iter().cloned());
-
-    let add_output = Command::new("git")
-        .args(add_args.drain(..))
+    //
+    // A deletion already staged (e.g. `git rm`) is no longer on disk or in
+    // the index, so `git add` rejects it as an unmatched pathspec; the
+    // commit below includes it anyway.
+    let mut staged_del_args: Vec<String> = vec![
+        "diff".into(),
+        "--cached".into(),
+        "--name-only".into(),
+        "--diff-filter=D".into(),
+        "-z".into(),
+        "--".into(),
+    ];
+    staged_del_args.extend(files_to_stage.iter().cloned());
+    let staged_del_output = Command::new("git")
+        .args(staged_del_args)
         .current_dir(&worktree_path)
         .env("PATH", &augmented_path)
         .output()
         .await
-        .map_err(|e| format!("Failed to run git add: {e}"))?;
+        .map_err(|e| format!("Failed to run git diff --cached: {e}"))?;
+    let staged_del_raw = String::from_utf8_lossy(&staged_del_output.stdout).to_string();
+    let staged_deletions: std::collections::HashSet<&str> =
+        staged_del_raw.split('\0').filter(|p| !p.is_empty()).collect();
+    let to_add: Vec<String> = files_to_stage
+        .iter()
+        .filter(|p| {
+            !staged_deletions.contains(p.as_str())
+                || Path::new(&worktree_path).join(p).symlink_metadata().is_ok()
+        })
+        .cloned()
+        .collect();
 
-    if !add_output.status.success() {
-        let stderr = String::from_utf8_lossy(&add_output.stderr);
-        return Err(format!("git add failed: {}", stderr.trim()));
+    if !to_add.is_empty() {
+        let mut add_args: Vec<String> =
+            vec!["add".into(), "--".into()];
+        add_args.extend(to_add);
+
+        let add_output = Command::new("git")
+            .args(add_args.drain(..))
+            .current_dir(&worktree_path)
+            .env("PATH", &augmented_path)
+            .output()
+            .await
+            .map_err(|e| format!("Failed to run git add: {e}"))?;
+
+        if !add_output.status.success() {
+            let stderr = String::from_utf8_lossy(&add_output.stderr);
+            return Err(format!("git add failed: {}", stderr.trim()));
+        }
     }
 
     // git commit -m <message>
@@ -2553,6 +2587,40 @@ prunable gitdir file points to non-existent location
         )
         .await;
         assert!(r.is_err());
+    }
+
+    #[tokio::test]
+    async fn worktree_commit_and_push_includes_files_removed_with_git_rm() {
+        // Agents often delete with `git rm`, which leaves a staged deletion
+        // that `git add -- <path>` rejects as an unmatched pathspec.
+        let tmp = tempdir().unwrap();
+        let origin = tmp.path().join("origin.git");
+        assert!(run_git(tmp.path(), &["init", "-q", "--bare", origin.to_str().unwrap()]).await.status.success());
+        let repo = tmp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_repo(&repo).await;
+        commit_file(&repo, "gone.txt", "old\n", "init").await;
+        commit_file(&repo, "kept.txt", "v1\n", "add kept").await;
+        assert!(run_git(&repo, &["remote", "add", "origin", origin.to_str().unwrap()]).await.status.success());
+        assert!(run_git(&repo, &["push", "-q", "origin", "main"]).await.status.success());
+        assert!(run_git(&repo, &["rm", "-q", "gone.txt"]).await.status.success());
+        std::fs::write(repo.join("kept.txt"), "v1\nv2\n").unwrap();
+
+        let changed = get_worktree_changes(repo.to_string_lossy().to_string()).await.unwrap();
+        let paths: Vec<String> = changed.into_iter().map(|f| f.path).collect();
+        worktree_commit_and_push(
+            repo.to_string_lossy().to_string(),
+            "checkpoint".to_string(),
+            "main".to_string(),
+            paths,
+        )
+        .await
+        .unwrap();
+
+        let status = run_git(&repo, &["status", "--porcelain"]).await;
+        assert!(String::from_utf8_lossy(&status.stdout).trim().is_empty());
+        let tree = run_git(&repo, &["ls-tree", "--name-only", "origin/main"]).await;
+        assert_eq!(String::from_utf8_lossy(&tree.stdout).trim(), "kept.txt");
     }
 
     #[tokio::test]
