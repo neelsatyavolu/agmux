@@ -17,8 +17,6 @@ function resetCountdown(reset: number, now: number): string {
   return hrs % 24 === 0 ? `in ${Math.floor(hrs / 24)}d` : `in ${Math.floor(hrs / 24)}d ${hrs % 24}h`;
 }
 
-const EYEBROW = { fontSize: "var(--text-eyebrow)", letterSpacing: "var(--panel-eyebrow-tracking)" };
-
 interface Limit { key: string; label: string; remaining: number | null; reset: number | null }
 function limits(account: ProviderAccount): Limit[] {
   const windows = account.provider === "claude"
@@ -55,8 +53,8 @@ export function AccountUsageRows({ accounts, teams, stale = false }: {
       return <article key={`${account.teamId || "personal"}:${account.id}`} aria-label={`${account.label} · ${scope}`} className="space-y-2.5 py-3 first:pt-0 last:pb-0">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <div className="min-w-0">
-            <span className="break-words text-[12px] text-[var(--text-secondary)]">{account.label}</span><span className="ml-2 font-mono text-[10px] text-[var(--text-muted)]">{scope}</span>
-            {account.email && account.email.trim().toLowerCase() !== account.label.trim().toLowerCase() && <p className="mt-0.5 break-words font-mono text-[10.5px] text-[var(--text-muted)]">{account.email}</p>}
+            <span className="break-words text-[12px] text-[var(--text-secondary)]">{account.label}</span><span className="ml-2 text-[10px] text-[var(--text-muted)]">{scope}</span>
+            {account.email && account.email.trim().toLowerCase() !== account.label.trim().toLowerCase() && <p className="mt-0.5 break-words text-[10.5px] text-[var(--text-muted)]">{account.email}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {account.currentLogin && <span className="app-chip px-2 py-[2px] text-[9.5px]" data-tone="accent">Current login</span>}
@@ -70,16 +68,16 @@ export function AccountUsageRows({ accounts, teams, stale = false }: {
           const reset = limit.reset === null || expired ? null : limit.reset;
           return <div key={limit.key} className={lastKnown ? "opacity-60" : undefined}>
             <div className="mb-1 flex items-baseline gap-2">
-              <span className="font-mono uppercase text-[var(--text-muted)]" style={EYEBROW}>{limit.label}</span>
-              <span className="font-mono text-[10.5px] tabular-nums text-[var(--text-secondary)]">{remaining === null ? expired ? "Awaiting refresh" : "Usage unavailable" : `${Math.round(remaining)}% left`}</span>
-              {reset !== null && <span className="ml-auto font-mono text-[10px] text-[var(--text-muted)]" title={new Date(reset).toLocaleString()}>resets {resetCountdown(reset, now)}</span>}
+              <span className="text-[12.5px] font-semibold text-[var(--text-secondary)] fx-ink">{limit.label}</span>
+              <span className="ui-meta text-[10.5px] tabular-nums text-[var(--text-secondary)]">{remaining === null ? expired ? "Awaiting refresh" : "Usage unavailable" : `${Math.round(remaining)}% left`}</span>
+              {reset !== null && <span className="ml-auto ui-meta text-[10px] text-[var(--text-muted)]" title={new Date(reset).toLocaleString()}>resets {resetCountdown(reset, now)}</span>}
             </div>
             {remaining !== null && <div role="progressbar" aria-label={`${account.label} ${scope} ${limit.label} remaining`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={remaining} className="glass-progress h-[6px] w-full">
               <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 ease-out" style={{width:`${remaining}%`, background:"var(--status-blue)"}} />
             </div>}
           </div>;
         })}
-        {lastKnown && hasReading && <p className="font-mono text-[10px] text-[var(--text-muted)]" title={account.lastCheckedAt ? new Date(account.lastCheckedAt * 1000).toLocaleString() : undefined}>Last known usage</p>}
+        {lastKnown && hasReading && <p className="ui-meta text-[10px] text-[var(--text-muted)]" title={account.lastCheckedAt ? new Date(account.lastCheckedAt * 1000).toLocaleString() : undefined}>Last known usage</p>}
       </article>;
     })}
   </div>;

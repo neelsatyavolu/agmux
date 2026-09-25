@@ -566,10 +566,10 @@ function App() {
 
       {/* Quit confirmation dialog */}
       {showQuitDialog && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm fx-scrim">
           <div
             ref={quitDialogRef}
-            className="w-[300px] rounded-xl border border-zinc-700/50 bg-zinc-950/95 p-5 shadow-2xl"
+            className="w-[300px] rounded-[20px] border border-zinc-700/50 bg-zinc-950/95 p-5 shadow-2xl fx-dialog"
           >
             {isQuitting ? (
               <div className="flex flex-col items-center gap-3 py-2">
@@ -578,7 +578,7 @@ function App() {
               </div>
             ) : (
               <>
-                <h2 className="text-[14px] font-semibold text-zinc-100">
+                <h2 className="ui-title-d text-zinc-100">
                   Quit agmux?
                 </h2>
                 {runningSessionCount > 0 && (
@@ -593,13 +593,13 @@ function App() {
                 <div className="mt-4 flex justify-end gap-2">
                   <button
                     onClick={() => setShowQuitDialog(false)}
-                    className="rounded-lg px-3 py-1.5 text-[12px] font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors"
+                    className="fx-quiet rounded-[9px] min-h-[30px] px-3 py-1.5 text-[12px] font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleQuit}
-                    className="rounded-lg bg-red-600/90 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-red-500 transition-colors"
+                    className="fx-danger rounded-[9px] min-h-[30px] px-3 py-1.5 bg-red-600/90 text-[12px] font-medium text-white hover:bg-red-500 transition-colors"
                   >
                     Quit
                   </button>

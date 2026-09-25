@@ -745,16 +745,16 @@ export function HomeScreen() {
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
               <span
-                className="font-mono text-[11px] uppercase"
-                style={{ letterSpacing: "0.2em", color: "var(--accent)" }}
+                className="ui-meta text-[12px] fx-graphite"
+                style={{ color: "var(--accent)" }}
               >
                 {clock}
               </span>
-              <h1 className="ui-display text-[28px] font-semibold leading-tight text-zinc-100">
+              <h1 className="ui-title-xl text-zinc-100">
                 Welcome back, {greetingName}.{" "}
                 <span className="font-medium text-zinc-400">
                   Let's get{" "}
-                  <span className="font-semibold" style={{ color: "var(--accent)" }}>
+                  <span className="font-semibold fx-ink-2" style={{ color: "var(--accent)" }}>
                     {verb}
                   </span>{" "}
                   today.
@@ -1117,11 +1117,11 @@ function RunningRowItem({ row, onClick }: { row: SessionRow; onClick: () => void
           alt=""
           width={20}
           height={20}
-          className="block shrink-0 rounded-sm"
+          className="block shrink-0 rounded-[5px]"
         />
       ) : (
         <span
-          className="av"
+          className="av rounded-[5px]"
           style={{ width: 20, height: 20, background: provider.bg }}
         >
           {provider.letter}
@@ -1430,18 +1430,14 @@ function UsageBar({
     <div className={className} style={dimmed ? { opacity: 0.6 } : undefined}>
       <div className="mb-1 flex items-baseline gap-2">
         <span
-          className="font-mono uppercase text-[var(--text-muted)]"
-          style={{
-            fontSize: "var(--text-eyebrow)",
-            letterSpacing: "var(--panel-eyebrow-tracking)",
-          }}
+          className="text-[12.5px] font-semibold text-[var(--text-secondary)] fx-ink"
         >
           {label}
         </span>
-        <span className="font-mono text-[10.5px] text-zinc-300">
+        <span className="ui-meta text-[12px] text-zinc-300">
           {hasData ? `${pct.toFixed(0)}%` : "—"}
         </span>
-        <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px]">
+        <span className="ml-auto flex items-center gap-1.5 ui-meta text-[12px]">
           {hasData ? (
             <>
               <span style={{ color }}>{paceLabelWithDelta(w!)}</span>
@@ -1544,25 +1540,21 @@ function Stat({
   accent?: boolean;
 }) {
   return (
-    <div className="app-card px-4 py-3.5">
+    <div className="app-card home-stat px-4 py-3.5">
       <div
-        className="font-mono uppercase text-[var(--text-muted)]"
-        style={{
-          fontSize: "var(--text-eyebrow)",
-          letterSpacing: "var(--panel-eyebrow-tracking)",
-        }}
+        className="text-[12px] text-[var(--text-muted)] fx-graphite"
       >
         {label}
       </div>
       <div
-        className="mt-1 text-[22px] font-semibold text-[var(--text-primary)]"
+        className="mt-1 text-[22px] font-bold tabular-nums text-[var(--text-primary)]"
         style={{ letterSpacing: "-0.02em" }}
       >
         {value}
         <span className="ml-1 text-[12px] font-medium text-[var(--text-muted)]">{unit}</span>
       </div>
       {accent && (
-        <div className="mt-0.5 font-mono text-[10.5px]" style={{ color: "var(--status-blue)" }}>
+        <div className="mt-0.5 ui-meta text-[12px]" style={{ color: "var(--status-blue)" }}>
           tap a row to attend
         </div>
       )}

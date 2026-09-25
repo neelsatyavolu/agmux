@@ -987,7 +987,7 @@ export function PaneTabBar({ paneId }: Props) {
             <Plus size={14} />
           </button>
           {splitMenuOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg py-1 shadow-xl backdrop-blur-xl" style={{ border: "1px solid var(--glass-border-highlight)", background: "var(--glass-bg-heavy)" }}>
+            <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg py-1 shadow-xl backdrop-blur-xl fx-dialog" style={{ border: "1px solid var(--glass-border-highlight)", background: "var(--glass-bg-heavy)" }}>
               <button
                 onClick={() => handleSplit("horizontal")}
                 className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-zinc-300 hover:bg-white/[0.07]"
@@ -1024,7 +1024,7 @@ export function PaneTabBar({ paneId }: Props) {
       {contextMenu && (
         <div
           ref={contextMenuRef}
-          className="absolute top-full z-[9999] mt-0.5 min-w-[180px] rounded-lg py-1 shadow-2xl backdrop-blur-xl"
+          className="absolute top-full z-[9999] mt-0.5 min-w-[180px] rounded-lg py-1 shadow-2xl backdrop-blur-xl fx-dialog"
           style={{ border: "1px solid var(--glass-border-highlight)", background: "var(--glass-bg-heavy)", left: contextMenu.left }}
         >
           {canSplit && (
