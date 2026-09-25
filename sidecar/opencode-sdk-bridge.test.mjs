@@ -61,6 +61,59 @@ test('OpenCode bridge sends permission rules through the real SDK on creation an
   assert.deepEqual(writes[2].body, writes[0].body, 'normal mode must restore the original rules');
 });
 
+test('OpenCode bridge answers and dismisses questions through the real SDK', async (t) => {
+  const requests = [];
+  const server = createServer(async (req, res) => {
+    if (req.url.startsWith('/event')) {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.write(': connected\n\n');
+      return;
+    }
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    requests.push({ method: req.method, path: req.url.split('?')[0], body: body ? JSON.parse(body) : null });
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(req.url.startsWith('/session') ? { id: 'native-session' } : true));
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const proc = spawn(process.execPath, [new URL('./opencode-sdk-bridge.mjs', import.meta.url).pathname], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const exited = once(proc, 'exit');
+  const timeout = setTimeout(() => proc.kill(), 5000);
+  t.after(async () => {
+    clearTimeout(timeout);
+    if (proc.exitCode === null && proc.signalCode === null) proc.kill();
+    await exited;
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  });
+  let errors = '';
+  proc.stderr.on('data', chunk => errors += chunk);
+  const lines = createInterface({ input: proc.stdout })[Symbol.asyncIterator]();
+  async function request(id, method, params) {
+    proc.stdin.write(JSON.stringify({ id, method, params }) + '\n');
+    for (;;) {
+      const line = await lines.next();
+      assert.equal(line.done, false, errors);
+      const reply = JSON.parse(line.value);
+      if (reply.id !== id) continue;
+      assert.equal(reply.error, undefined, JSON.stringify(reply.error));
+      return reply.result;
+    }
+  }
+  await request(1, 'initialize', { serverUrl: `http://127.0.0.1:${server.address().port}` });
+  await request(2, 'startSession', { threadId: 'thread', directory: '/fixture', permissionMode: 'normal' });
+  await request(3, 'respondQuestion', { threadId: 'thread', questionId: 'que_1', answers: [['Yes'], ['a', 'b']] });
+  await request(4, 'respondQuestion', { threadId: 'thread', questionId: 'que_2', answers: [] });
+  const questions = requests.filter(r => r.path.startsWith('/question'));
+  assert.deepEqual(questions, [
+    { method: 'POST', path: '/question/que_1/reply', body: { answers: [['Yes'], ['a', 'b']] } },
+    { method: 'POST', path: '/question/que_2/reject', body: null },
+  ]);
+});
+
 test('OpenCode bridge reports a missing executable without exiting and accepts another request', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'agmux-opencode-startup-'));
   const proc = spawn(process.execPath, [new URL('./opencode-sdk-bridge.mjs', import.meta.url).pathname], {
