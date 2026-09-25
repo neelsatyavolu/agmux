@@ -76,6 +76,14 @@ holder), and allocation ranks by other members active on the same login first, t
 gains one `SHARED`/`SHARED_SHORT` line in both copies, so the release uploads the reproduced production asset
 set with only `disclosure.js` changed.
 
+**Web restyle (current production, 2026-09-25):** version `0bf613dc-4878-4e6a-b49d-0988126f8150`. The server
+bundle is the live `89f699da` bundle, unchanged (both modules byte for byte, uploaded with `--no-bundle`). The web
+assets are the 25 live files with the agmux.dev restyle from `4d869a52` applied: new `teams.css`/`app.css`, a
+`fonts/` directory, and 12 patched files. `views/restrictions.js` and the Settings Restrictions card stay out, and
+production Settings still shows the legacy "Agent policy" card. All 18 bindings and the runtime settings were verified
+identical to `89f699da`, and the preview API answered the same as live. Roll back with
+`wrangler versions deploy 89f699da-6449-4f21-a761-cf1fbb073836@100%`.
+
 **Deployment compatibility boundary:** production intentionally retains the legacy
 policy implementation (`src/routes/policy.ts` from `acd290ea`) and its existing web
 assets. Migration 012 / the newer Restrictions behavior are **not deployed**.
