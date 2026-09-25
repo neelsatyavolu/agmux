@@ -198,6 +198,21 @@ describe("TeamDashboard", () => {
     expect(screen.queryByText("Search")).toBeNull();
   });
 
+  it("splits reasoning out of output so the composition sums to the total", async () => {
+    teamsOverview.mockResolvedValue(
+      overview({
+        totals: { ...ZERO, tokens: 500, tokensIn: 400, tokensOut: 100, tokensReasoning: 60, daysWithData: 5 },
+      }),
+    );
+    render(<TeamDashboard team={team} />);
+
+    await waitFor(() => expect(screen.getByText("Token composition")).toBeTruthy());
+    const row = (key: string) => screen.getByText(key, { selector: "span" }).parentElement!.textContent;
+    expect(row("Input")).toBe("Input40080%");
+    expect(row("Output")).toBe("Output408%");
+    expect(row("Reasoning")).toBe("Reasoning6012%");
+  });
+
   it("doesn't claim zero activity when only the breakdown is missing", async () => {
     // Buckets uploaded before the per-kind columns existed: tool_calls > 0 with
     // every kind at 0. Saying "No tool activity" directly under a header that

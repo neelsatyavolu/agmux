@@ -260,12 +260,15 @@ export function mixRows(slices, { mono = false, colorFn = providerColor } = {}) 
  * All fields already land in totals from metric_hourly.
  */
 export function tokenBreakdown(t) {
+  // Reasoning is a reported subset of output, so it is split out of Output
+  // rather than added again — the bar must sum to the token total.
+  const reasoning = Math.min(t.tokensReasoning, t.tokensOut);
   const parts = [
     { key: "Input", n: t.tokensIn, color: "var(--accent)" },
-    { key: "Output", n: t.tokensOut, color: "var(--green)" },
+    { key: "Output", n: t.tokensOut - reasoning, color: "var(--green)" },
     { key: "Cache read", n: t.tokensCacheRead, color: "var(--violet)" },
     { key: "Cache write", n: t.tokensCacheWrite, color: "var(--cyan)" },
-    { key: "Reasoning", n: t.tokensReasoning, color: "var(--amber)" },
+    { key: "Reasoning", n: reasoning, color: "var(--amber)" },
   ].filter((p) => p.n > 0);
   const total = parts.reduce((a, p) => a + p.n, 0);
   if (!total) {
