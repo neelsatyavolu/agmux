@@ -51,6 +51,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 - **Committing files with spaces in their names** — Files whose names contain spaces or accented letters no longer appear twice (once in quotes) in the commit and Create PR lists, and committing them no longer fails. Renamed files show their correct new name.
+- **Task pull request descriptions** — The automatic title and description for a task's pull request now describe only the task's own changes, even when your local copy of the main branch is out of date.
 - **Reusing a deleted task's name** — Creating a task with the same name as one you deleted now explains that the branch name is taken, instead of claiming a folder already exists.
 - **Archiving a Gemini chat in a task** — Closing a Gemini chat agent's tab in a task now stops it, instead of leaving it working in the background.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.

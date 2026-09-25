@@ -874,7 +874,19 @@ async fn read_range_context(
     base_branch: &str,
 ) -> Result<(String, String, String), String> {
     let augmented_path = build_augmented_path();
-    let range = format!("{base_branch}...HEAD");
+    // Tasks branch off origin/<base> (see create_task), so compare against it
+    // when present — a stale local <base> would drag upstream commits in.
+    let origin_ref = format!("origin/{base_branch}");
+    let origin_exists = Command::new("git")
+        .args(["rev-parse", "--verify", "--quiet", &origin_ref])
+        .current_dir(worktree_path)
+        .env("PATH", &augmented_path)
+        .output()
+        .await
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    let base_ref = if origin_exists { origin_ref.as_str() } else { base_branch };
+    let range = format!("{base_ref}...HEAD");
 
     let run_git = |args: &[&str]| {
         let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
@@ -2661,6 +2673,38 @@ prunable gitdir file points to non-existent location
         assert!(commit_log.contains("feat: add f"));
         assert!(diff_stat.contains("f.txt"));
         assert!(diff_patch.contains("f.txt"));
+    }
+
+    #[tokio::test]
+    async fn read_range_context_compares_against_origin_when_local_base_is_stale() {
+        // create_task branches off origin/<base>; a stale local <base> must not
+        // pull other people's upstream commits into the PR description.
+        let tmp = tempdir().unwrap();
+        let upstream = tmp.path().join("upstream");
+        std::fs::create_dir_all(&upstream).unwrap();
+        init_repo(&upstream).await;
+        commit_file(&upstream, "a.txt", "v1\n", "init").await;
+        let repo = tmp.path().join("repo");
+        assert!(run_git(tmp.path(), &["clone", "-q", upstream.to_str().unwrap(), repo.to_str().unwrap()])
+            .await
+            .status
+            .success());
+        init_repo(&repo).await;
+        commit_file(&upstream, "b.txt", "other\n", "upstream: other work").await;
+        assert!(run_git(&repo, &["fetch", "-q", "origin", "main"]).await.status.success());
+        let wt = tmp.path().join("wt");
+        assert!(run_git(&repo, &["worktree", "add", "-q", "-b", "task", wt.to_str().unwrap(), "origin/main^{commit}"])
+            .await
+            .status
+            .success());
+        commit_file(&wt, "t.txt", "task\n", "task: add t").await;
+
+        let (commit_log, diff_stat, _) = read_range_context(wt.to_str().unwrap(), "main")
+            .await
+            .unwrap();
+        assert!(commit_log.contains("task: add t"), "{commit_log}");
+        assert!(!commit_log.contains("upstream: other work"), "{commit_log}");
+        assert!(!diff_stat.contains("b.txt"), "{diff_stat}");
     }
 
     #[tokio::test]
