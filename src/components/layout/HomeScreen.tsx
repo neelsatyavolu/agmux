@@ -912,7 +912,7 @@ export function HomeScreen() {
               {/* Tip */}
               <Card>
                 <div className="flex items-start gap-3 px-4 py-3.5">
-                  <div className="app-icon-well grid h-7 w-7 shrink-0 place-items-center rounded-md" data-accent="true">
+                  <div className="app-icon-well grid h-7 w-7 shrink-0 place-items-center rounded-md">
                     <Sparkles size={14} strokeWidth={1.5} />
                   </div>
                   <div className="text-[12.5px] leading-relaxed text-[var(--text-secondary)]">
@@ -1068,7 +1068,7 @@ function ProjectRow({
         <div className="nm flex items-center gap-2">
           <span className="truncate">{project.name}</span>
           {active && (
-            <span className="app-chip px-2 py-[2px] text-[9px] uppercase tracking-[0.1em]" data-tone="accent">
+            <span className="app-chip px-2 py-[2px] text-[9px]" data-tone="accent">
               recent
             </span>
           )}

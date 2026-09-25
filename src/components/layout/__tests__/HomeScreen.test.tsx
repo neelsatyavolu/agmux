@@ -111,6 +111,33 @@ describe("HomeScreen", () => {
     expect(screen.getByText("Demo Project")).toBeTruthy();
   });
 
+  it("L5: the most-recent project's 'recent' chip is no longer all-caps (dropped the uppercase class — it was the only all-caps chip on Home)", () => {
+    useProjectStore.setState({
+      projects: [
+        {
+          id: "p1",
+          name: "Demo Project",
+          repo_path: "/tmp/demo",
+          conventions: null,
+          createdAt: new Date().toISOString(),
+        } as never,
+      ],
+    });
+    render(<HomeScreen />);
+    const chip = screen.getByText("recent");
+    expect(chip.className).not.toContain("uppercase");
+  });
+
+  it("L5: the tip card's icon no longer carries data-accent (was competing with the New Project tile's gold)", () => {
+    render(<HomeScreen />);
+    // The icon well is the text block's previous sibling in the tip card's
+    // flex row: <icon-well /><text>Did you know? …</text>.
+    const textBlock = screen.getByText("Did you know?").closest("div")!;
+    const iconWell = textBlock.previousElementSibling;
+    expect(iconWell?.className).toContain("app-icon-well");
+    expect(iconWell?.getAttribute("data-accent")).toBeNull();
+  });
+
   it("does not render NewProject/CloneRepo dialogs by default", () => {
     render(<HomeScreen />);
     expect(screen.queryByTestId("new-project-dialog")).toBeNull();
