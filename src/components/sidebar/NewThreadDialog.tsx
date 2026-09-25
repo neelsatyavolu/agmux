@@ -248,8 +248,8 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
                       </div>
                       <div>
                         <label className="mb-1 block text-xs text-zinc-500">Branch name</label>
-                        <div className="rounded-md border border-white/[0.04] bg-white/[0.02] px-2.5 py-1.5 text-xs text-zinc-500 fx-input">
-                          agmux/&lt;auto&gt;
+                        <div className="rounded-md border border-white/[0.04] bg-white/[0.02] px-2.5 py-1.5 text-xs text-zinc-500 fx-panel-2 fx-ring">
+                          <span className="font-mono">agmux/&lt;auto&gt;</span>
                           <span className="ml-1 text-[10px] text-zinc-600">— assigned on create</span>
                         </div>
                       </div>

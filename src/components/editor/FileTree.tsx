@@ -516,7 +516,7 @@ export function FileTree({
         >
           <FolderTree size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
           <div
-            className="ui-eyebrow"
+            className="ui-eyebrow fx-graphite"
             style={{
               color: "var(--accent)",
               flexShrink: 0,

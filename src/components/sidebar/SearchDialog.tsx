@@ -271,7 +271,7 @@ export function SearchDialog({ open, onClose }: Props) {
               className="flex-1 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none"
             />
             {searching && (
-              <div className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border border-white/20 border-t-white/60 fx-blue" />
+              <div className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border border-white/20 border-t-white/60 fx-spin-blue" />
             )}
             <button
               onClick={onClose}

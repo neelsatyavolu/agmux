@@ -753,7 +753,7 @@ export function MemoryMainPanel() {
             <div className="min-w-0">
               <h1
                 className="ui-title-xl truncate font-semibold tracking-tight text-[var(--text-primary)]"
-                style={{ fontSize: "var(--text-ui)" }}
+                style={{ fontSize: "var(--text-ui)", lineHeight: 1.2 }}
               >
                 Memory
               </h1>

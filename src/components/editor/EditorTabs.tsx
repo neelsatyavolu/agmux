@@ -213,7 +213,6 @@ export function EditorTabs({ inTitlebar = false }: { inTitlebar?: boolean } = {}
           onClick={() => toggleRawMode(activeTabPath)}
           title={isRaw ? "Switch to preview" : "Switch to raw editor"}
           className="ui-seg-item"
-          data-active="true"
           style={{
             display: "inline-flex",
             alignItems: "center",

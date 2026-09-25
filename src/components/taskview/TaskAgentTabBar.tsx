@@ -34,7 +34,7 @@ function AddAgentRow({ icon, title, hint, onClick, disabled }: AddAgentRowProps)
         <div className="truncate text-[12.5px] text-zinc-200">{title}</div>
         {hint && (
           <div
-            className="ui-eyebrow truncate text-zinc-500"
+            className="truncate text-zinc-500 text-[12px]"
           >
             {hint}
           </div>
