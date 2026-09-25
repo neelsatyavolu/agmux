@@ -260,21 +260,33 @@ describe("redesign v2 — mono/eyebrow source scan (Task 12)", () => {
      * confirmed to be a single-character avatar/status glyph, a font-stack
      * declaration, a hex-color/API-key input, a raw code/output block, or a
      * shared primitive whose mono-ness is controlled by a caller prop — none
-     * of which textually contain one of the markers above within a 10-line
-     * window, but all of which are legitimate per rule 5.
+     * of which textually contain one of the markers above within its
+     * paragraph, but all of which are legitimate per rule 5.
      *
-     * Keyed by file, each entry is a substring matched against the OFFENDING
-     * LINE ITSELF (not the window) via `String.includes`. Content, not line
-     * numbers, so an unrelated edit elsewhere in the file can't silently
-     * disable an exception (or silently exempt a new, unrelated line).
-     * Anything on a font-mono line that isn't covered by the marker check
-     * above AND doesn't match one of these substrings fails the test.
+     * Keyed by file, each entry is a substring that must appear EXACTLY ONCE
+     * in the whole file (enforced by the self-check below) and is matched
+     * against the offending line's blank-line-bounded PARAGRAPH — not just
+     * the offending line itself, since some sites (e.g. McpToolBlock's three
+     * near-identical `<pre>` blocks) are only distinguishable by a sibling
+     * line a couple of rows away (the "Arguments"/"Result"/"Error" label).
+     *
+     * Fix round 2: earlier entries for GitSidebar.tsx, ProjectGroup.tsx and
+     * FileTree.tsx used the bare `fontFamily: "var(--font-mono)",` string,
+     * which matches every line formatted that way (5/2/6 lines respectively)
+     * — the same over-broad-matching problem the marker list had. Every
+     * entry below is now a fragment specific to ONE reviewed element (a
+     * distinctive prop value, computed style, or label text unique to that
+     * site), verified by the self-check test immediately after this map.
      */
     const REVIEWED_EXCEPTIONS: Record<string, string[]> = {
       "components/ApprovalToast.tsx": ["font-family: var(--font-mono);"], // .approval-pill: renders the tool command being approved
-      "components/sidebar/ProjectGroup.tsx": ['fontFamily: "var(--font-mono)",'], // agent-key tag under an avatar; avatar monogram initial
+      "components/sidebar/ProjectGroup.tsx": [
+        "truncate text-[9.5px] lowercase", // agent-key tag under an avatar (`{a.label}`)
+        "linear-gradient(135deg, #f59e0b, #ef4444)", // avatar monogram initial in the "New in {project}" menu
+      ],
       "components/sidebar/SettingsDialog.tsx": [
-        "text-xs font-mono outline-none", // custom-theme / accent hex-color inputs (#hex)
+        "w-24 rounded-md", // custom-theme hex-color input (#hex)
+        "w-20 rounded-md", // accent hex-color input (#hex)
         "text-zinc-300 font-mono", // About panel: app/Tauri/platform version strings
       ],
       "components/sidebar/SetupWizardDialog.tsx": [
@@ -288,29 +300,72 @@ describe("redesign v2 — mono/eyebrow source scan (Task 12)", () => {
         "font-mono text-[11.5px] text-zinc-400", // single-project name (companion display when there's no <select>)
       ],
       "components/teams/TeamDashboard.tsx": ["font-mono text-[11.5px] text-[var(--text-secondary)]"], // projectKey cell — "basename or hash only" per the panel's own subtitle
-      "components/thread/CommitDialog.tsx": ['fontFamily: "var(--font-mono, monospace)",'], // commit-message body textarea (git-editor convention); raw error/stack output box
+      "components/thread/CommitDialog.tsx": [
+        'resize: "vertical"', // commit-message body textarea (git-editor convention)
+        "{errorMessage}", // raw error/stack output box
+      ],
       "components/thread/FileMentionPopup.tsx": ["font-mono text-xs truncate"], // file/dir name in the @-mention list
       "components/thread/GitSidebar.tsx": [
-        'fontFamily: "var(--font-mono)",', // single-letter git status glyph (M/A/D); DiffHunk code content
+        "Math.round(size * 0.64)", // StatusMark: single-letter git status glyph (M/A/D)
+        "lineHeight: 1.55", // DiffHunk: actual diff-hunk code content
+        'backdropFilter: "blur(6px)"', // DiffHunk's sticky hunk-header row
         'style={{ fontFamily: "var(--font-mono)" }}>', // directory-name span in the "Jump to" grouped list (a path segment)
+        "text-secondary, #e4e4e7", // "strip" layout chip: file name (file identity)
+        "text-tertiary, #a1a1aa", // "Jump to" list row: file name (file identity)
       ],
-      "components/thread/McpToolBlock.tsx": ['<pre className="overflow-x-auto rounded-[7px]'], // raw tool input/output blocks
+      "components/thread/McpToolBlock.tsx": [
+        ">Arguments</div>", // raw tool-call arguments <pre> block
+        ">Result</div>", // raw tool-call result <pre> block
+        ">Error</div>", // raw tool-call error <pre> block
+      ],
       "components/thread/OpenCodeSdkSessionView.tsx": ["space-y-0.5 font-mono"], // <ul> of file paths from a patch
       "components/thread/ThreadTopBar.tsx": [
-        "ui-monospace, SFMono-Regular", // the font-stack CSS variable declaration itself, not applied content
+        'borderTop: "1px solid var(--glass-border)"', // the font-stack CSS variable declaration itself, not applied content
         "bg-zinc-800 font-mono text-[9px] font-bold", // provider avatar fallback initial
       ],
       "components/ui/ComposerDropdown.tsx": ['metaMono ? "font-mono text-[10.5px]"'], // shared row: mono-ness is the caller's `metaMono` prop
-      "components/editor/FileTree.tsx": ['fontFamily: "var(--font-mono)",'], // ext tile / row+folder names / rename input / relativePath / header "N changed" badge — all file identity or counts scoped out of Task 12's "labels only" leftover sweep
+      "components/editor/FileTree.tsx": [
+        "fontSize: Math.round(size * 0.6)", // ExtTile: file-extension badge (file identity)
+        "file-tree-row group", // tree row: file/folder name (file identity)
+        'color: "var(--text-tertiary, #a1a1aa)"', // header: root folder name/path
+        "{changedCount} changed", // header: changed-file count badge (a count, out of "labels only" scope for this file's leftover sweep)
+        'padding: "7px 10px"', // rename dialog: input editing a filename
+        'background: "var(--surface-2)"', // delete-confirmation dialog: the relativePath being deleted
+      ],
       "components/settings/TeamsSyncSection.tsx": ["batchId.slice(0, 8)"], // truncated batch id — a short hash-like identifier
-      "components/settings/OpenCodeAuthPanel.tsx": ["bg-black/30 px-2 py-1 font-mono text-xs text-zinc-100"], // API-key text input
+      "components/settings/OpenCodeAuthPanel.tsx": [
+        'placeholder="Paste API key"', // API-key text input
+        'placeholder="Callback code"', // OAuth callback-code text input
+      ],
     };
 
+    it("every REVIEWED_EXCEPTIONS fragment matches exactly one line (self-check)", () => {
+      const problems: string[] = [];
+      for (const [file, fragments] of Object.entries(REVIEWED_EXCEPTIONS)) {
+        const lines = src(file).split("\n");
+        for (const fragment of fragments) {
+          const count = lines.filter((l) => l.includes(fragment)).length;
+          if (count !== 1) {
+            problems.push(`${file}: ${JSON.stringify(fragment)} matches ${count} lines (expected exactly 1)`);
+          }
+        }
+      }
+      if (problems.length > 0) console.error(problems.join("\n"));
+      expect(problems).toEqual([]);
+    });
+
+    /** True if the offender's own paragraph contains a fragment unique to exactly one reviewed site. */
+    function matchesReviewedException(file: string, offender: MonoOffender): boolean {
+      const exceptions = REVIEWED_EXCEPTIONS[file] ?? [];
+      if (exceptions.length === 0) return false;
+      const lines = src(file).split("\n");
+      const [lo, hi] = paragraphBounds(lines, offender.lineNo - 1);
+      const paragraphText = lines.slice(lo, hi + 1).join("\n");
+      return exceptions.some((sub) => paragraphText.includes(sub));
+    }
+
     it.each(ALL_SWEPT_FILES)("%s: every font-mono line is machine text or a reviewed exception", (f) => {
-      const exceptions = REVIEWED_EXCEPTIONS[f] ?? [];
-      const offenders = windowsWithoutMarker(f).filter(
-        (o) => !exceptions.some((sub) => o.text.includes(sub)),
-      );
+      const offenders = windowsWithoutMarker(f).filter((o) => !matchesReviewedException(f, o));
       if (offenders.length > 0) {
         const formatted = offenders.map((o) => `${f}:${o.lineNo}: ${o.text}`).join("\n");
         console.error(`Unreviewed font-mono lines in ${f}:\n${formatted}`);

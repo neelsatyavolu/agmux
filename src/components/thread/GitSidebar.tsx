@@ -406,10 +406,10 @@ function DiffViewer({ rawDiff, density = "comfortable" }: { rawDiff: string; den
   if (hunks.length === 0) {
     return (
       <div
-        className="px-5 py-8 text-center font-mono"
+        className="px-5 py-8 text-center"
         style={{ color: "var(--text-muted)", fontSize: 11.5, background: "var(--surface-code-panel)" }}
       >
-        <div className="mb-1">No hunks captured for this diff.</div>
+        <div className="mb-1 ui-meta">No hunks captured for this diff.</div>
       </div>
     );
   }
