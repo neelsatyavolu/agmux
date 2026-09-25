@@ -5603,8 +5603,9 @@ export function CodexSessionView({ session, embedded, compact = false, initialVi
   const handleTerminalUserLine = useCallback((line: string) => {
     if (viewMode !== "terminal") return;
     const text = line.trim();
-    if (!text) return;
-    useSessionNameStore.getState().summarize(session.id, text);
+    // Empty text = a recalled history prompt (TerminalView only reports those
+    // without typed text): nothing to name, but still check for a turn.
+    if (text) useSessionNameStore.getState().summarize(session.id, text);
     // Newlines (including Option+Enter and pasted text) only request a check.
     // The session's task_started event is what confirms Codex accepted a turn.
     if (terminalSawTaskStartRef.current) return;

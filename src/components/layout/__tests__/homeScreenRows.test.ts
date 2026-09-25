@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildHomeSessionRows,
   homeRowLimits,
@@ -212,6 +212,16 @@ describe("toTimestamp", () => {
     );
   });
 
+  it("respects RFC 3339 offsets with a colon", () => {
+    // Kimi session times arrive as chrono's to_rfc3339(): "+00:00".
+    expect(toTimestamp("2026-04-22T10:00:00.123456789+00:00")).toBe(
+      toTimestamp("2026-04-22T10:00:00.123Z")
+    );
+    expect(toTimestamp("2026-04-22T12:00:00+02:00")).toBe(
+      toTimestamp("2026-04-22 10:00:00")
+    );
+  });
+
   it("returns 0 for null/undefined/invalid", () => {
     expect(toTimestamp(null)).toBe(0);
     expect(toTimestamp(undefined)).toBe(0);
@@ -305,6 +315,35 @@ describe("buildHomeSessionRows", () => {
     );
     const keys = rows.map((r) => r.key).sort();
     expect(keys).toEqual(["claude:other", "thread:xanom-uuid"]);
+  });
+
+  it("shows an in-app Claude terminal under its own id and name", () => {
+    // "+ Claude" terminals are not DB threads: the agmux id maps to the real
+    // Claude session that discovery lists.
+    const selectClaudeSession = vi.fn();
+    const rows = buildHomeSessionRows(
+      baseInput({
+        claudeSessionMap: { "xanom-uuid": ["real-old", "real-abc"] },
+        claudeByProject: { p1: [mkClaude("real-abc", { preview: "fix login" })] },
+        sessionNames: { "xanom-uuid": "My rename" },
+        selectClaudeSession,
+      })
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].title).toBe("My rename");
+    rows[0].open();
+    expect(selectClaudeSession).toHaveBeenCalledWith("xanom-uuid", "/tmp/p1", false, "My rename");
+  });
+
+  it("hides an in-app Claude terminal the user hid", () => {
+    const rows = buildHomeSessionRows(
+      baseInput({
+        claudeSessionMap: { "xanom-uuid": ["real-abc"] },
+        claudeByProject: { p1: [mkClaude("real-abc")] },
+        hiddenByProject: { p1: new Set(["xanom-uuid"]) },
+      })
+    );
+    expect(rows).toEqual([]);
   });
 
   it("skips default-named discovered sessions (Session abc123)", () => {

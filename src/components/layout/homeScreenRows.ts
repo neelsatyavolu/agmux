@@ -132,7 +132,7 @@ export function homeRowLimits(availableHeight: number): {
 export function toTimestamp(value: string | number | undefined | null): number {
   if (value == null) return 0;
   if (typeof value === "string") {
-    const normalized = /[Z+\-]\d{0,4}$/.test(value) ? value : value + "Z";
+    const normalized = /[Z+\-]\d{0,4}$|[+\-]\d{2}:\d{2}$/.test(value) ? value : value + "Z";
     const d = new Date(normalized);
     return isNaN(d.getTime()) ? 0 : d.getTime();
   }
@@ -342,6 +342,21 @@ export function buildHomeSessionRows(
     }
   }
 
+  // Claude terminals opened from "+ Claude" are not DB threads: their agmux id
+  // owns the real session (latest mapping, after /clear). Show and open that
+  // row under the agmux id, as the sidebar does — opening the real id started
+  // a second Claude process and skipped the user's rename.
+  const threadIdsAnyState = new Set<string>();
+  for (const list of Object.values(allThreads)) {
+    for (const t of list ?? []) threadIdsAnyState.add(t.id);
+  }
+  const claudeOwnerByRealId = new Map<string, string>();
+  for (const [ownerId, realIds] of Object.entries(claudeSessionMap)) {
+    if (threadIdsAnyState.has(ownerId)) continue;
+    const latest = realIds?.[realIds.length - 1];
+    if (latest) claudeOwnerByRealId.set(latest, ownerId);
+  }
+
   const realSessionById = new Map<string, ClaudeSession>();
   for (const list of Object.values(claudeByProject)) {
     if (!list) continue;
@@ -529,7 +544,9 @@ export function buildHomeSessionRows(
         });
         continue;
       }
-      if (hidden?.has(s.id)) {
+      const ownerId = claudeOwnerByRealId.get(s.id);
+      const rowId = ownerId ?? s.id;
+      if (hidden?.has(s.id) || (ownerId && hidden?.has(ownerId))) {
         debug?.skipped.push({
           projectId: p.id,
           kind: "claude",
@@ -559,9 +576,10 @@ export function buildHomeSessionRows(
       }
       seenKeys.add(key);
       const updatedMs = toTimestamp(s.updated_at);
-      const promptMs = lastPromptAt[s.id] ?? 0;
+      const promptMs = Math.max(lastPromptAt[rowId] ?? 0, lastPromptAt[s.id] ?? 0);
       const best = Math.max(promptMs, updatedMs);
       const title =
+        sessionNames[rowId] ||
         sessionNames[s.id] ||
         (DEFAULT_SESSION_RE.test(s.preview ?? "")
           ? "New Thread"
@@ -579,7 +597,7 @@ export function buildHomeSessionRows(
         lastActiveIso: best > 0 ? new Date(best).toISOString() : s.updated_at,
         open: () => {
           selectProject(p.id);
-          selectClaudeSession(s.id, p.repo_path, false, title);
+          selectClaudeSession(rowId, p.repo_path, false, title);
         },
         _sortKey: best,
         _createdKey: updatedMs,

@@ -11,13 +11,27 @@ import { syncRemoteSidebarPrefs } from "./remoteSidebarPrefs";
 
 const KEY_PREFIX = "xanom:hidden-sessions:";
 
-function persistSet(projectId: string, set: Set<string>): void {
-  localStorage.setItem(`${KEY_PREFIX}${projectId}`, JSON.stringify([...set]));
+/**
+ * Changes that could not be saved (e.g. localStorage quota exceeded), kept for
+ * the rest of this app run: projectId → sessionId → hidden. A failed write
+ * must not throw out of hide/delete handlers or bring the session back.
+ */
+const unsaved = new Map<string, Map<string, boolean>>();
+
+function persistSet(projectId: string, set: Set<string>, changes: Array<[string, boolean]>): void {
+  try {
+    localStorage.setItem(`${KEY_PREFIX}${projectId}`, JSON.stringify([...set]));
+    // The full set (including earlier unsaved changes) is now on disk.
+    unsaved.delete(projectId);
+  } catch (err) {
+    unsaved.set(projectId, new Map([...(unsaved.get(projectId) ?? []), ...changes]));
+    console.warn("[hiddenSessions] could not save hidden sessions; keeping them for this run", err);
+    return;
+  }
   syncRemoteSidebarPrefs();
 }
 
-/** Load hidden session IDs for a project. */
-export function loadHiddenSessions(projectId: string): Set<string> {
+function readSaved(projectId: string): Set<string> {
   try {
     const raw = localStorage.getItem(`${KEY_PREFIX}${projectId}`);
     if (!raw) return new Set();
@@ -28,19 +42,29 @@ export function loadHiddenSessions(projectId: string): Set<string> {
   }
 }
 
+/** Load hidden session IDs for a project. */
+export function loadHiddenSessions(projectId: string): Set<string> {
+  const ids = readSaved(projectId);
+  for (const [id, hidden] of unsaved.get(projectId) ?? []) {
+    if (hidden) ids.add(id);
+    else ids.delete(id);
+  }
+  return ids;
+}
+
 /** Hide a session and persist. */
 export function addHiddenSession(projectId: string, sessionId: string): void {
   if (!sessionId) return;
   const set = loadHiddenSessions(projectId);
   set.add(sessionId);
-  persistSet(projectId, set);
+  persistSet(projectId, set, [[sessionId, true]]);
 }
 
 /** Unhide a session and persist. */
 export function removeHiddenSession(projectId: string, sessionId: string): void {
   const set = loadHiddenSessions(projectId);
   if (set.delete(sessionId)) {
-    persistSet(projectId, set);
+    persistSet(projectId, set, [[sessionId, false]]);
   }
 }
 
@@ -51,6 +75,6 @@ export function transferHiddenSessions(fromProjectId: string, toProjectId: strin
   if (from.size === 0) return;
   const to = loadHiddenSessions(toProjectId);
   for (const id of from) to.add(id);
-  persistSet(toProjectId, to);
-  persistSet(fromProjectId, new Set());
+  persistSet(toProjectId, to, [...from].map((id): [string, boolean] => [id, true]));
+  persistSet(fromProjectId, new Set(), [...from].map((id): [string, boolean] => [id, false]));
 }

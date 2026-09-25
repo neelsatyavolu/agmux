@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { installLocalStorage } from "./_localStorage";
 import {
   addHiddenSession,
@@ -53,6 +53,29 @@ describe("hiddenSessions", () => {
     addHiddenSession("p1", "dup");
     addHiddenSession("p1", "dup");
     expect(loadHiddenSessions("p1").size).toBe(1);
+  });
+
+  it("keeps hidden ids for this app run when localStorage is full", () => {
+    const quota = () => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    };
+    addHiddenSession("p1", "saved");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const setItem = vi.spyOn(localStorage, "setItem").mockImplementation(quota);
+    try {
+      expect(() => addHiddenSession("p1", "dismissed")).not.toThrow();
+      expect(loadHiddenSessions("p1")).toEqual(new Set(["saved", "dismissed"]));
+      expect(warn).toHaveBeenCalled();
+      expect(() => removeHiddenSession("p1", "saved")).not.toThrow();
+      expect(loadHiddenSessions("p1")).toEqual(new Set(["dismissed"]));
+    } finally {
+      setItem.mockRestore();
+      warn.mockRestore();
+    }
+    // The next successful save writes the whole in-memory set.
+    addHiddenSession("p1", "later");
+    expect(JSON.parse(localStorage.getItem("xanom:hidden-sessions:p1") ?? "[]").sort())
+      .toEqual(["dismissed", "later"]);
   });
 
   it("returns an empty set when stored payload is corrupt", () => {

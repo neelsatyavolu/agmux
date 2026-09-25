@@ -306,7 +306,8 @@ export function ClaudeTerminalView({
           next = next.slice(0, -1);
           continue;
         }
-        if (ch === "\u0015") {
+        // Ctrl+U and Ctrl+C both clear Claude's input box.
+        if (ch === "\u0015" || ch === "\u0003") {
           next = "";
           continue;
         }
@@ -857,7 +858,8 @@ export function ClaudeTerminalView({
                 const respondedAt = approvalRespondedAtRef.current;
                 const s3 = useUiStore.getState();
                 const rids = s3.claudeSessionMap[threadId] ?? [];
-                const sessionToRead = rids[0] ?? threadId;
+                // Latest mapping: /clear and /resume append the new session.
+                const sessionToRead = rids[rids.length - 1] ?? threadId;
                 if (!projectPath) return;
                 readClaudeSessionHistory(sessionToRead, projectPath)
                   .then((result) => {

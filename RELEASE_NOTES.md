@@ -106,6 +106,13 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Cline terminals stop spinning after an error** — When a Cline reply failed (for example a provider or network error), the session kept showing as working. It now settles when the reply ends.
 - **Crash with non-English text in terminals** — agmux could quit suddenly when a Pi or OpenCode terminal sent it a prompt or file edit containing characters like accents, emoji, dashes or non-Latin text. That no longer happens.
 - **No leftover requests after a Grok or Gemini restart** — Changing effort or model in a Grok or Gemini chat now clears permission requests the old session can no longer answer, so new ones show right away.
+- **Hiding, pinning and deleting sessions on long-used installs** — When agmux's saved sidebar data was full, choosing Hide or Pin on a session did nothing, deleting a thread could leave it in the list, and moving threads to another project reported a failure even though they moved. These now work straight away.
+- **Claude terminal sessions missing from the sidebar** — If you use Claude Code plugins or startup hooks, many Claude sessions you started outside agmux never appeared in the sidebar. They now show up with their first message as the title.
+- **Droid listed agmux twice** — On Macs that used agmux before it was renamed, Droid ran agmux's status updates twice after every message and listed them twice. It now runs them once.
+- **Terminal session names** — Using the arrow keys while typing in a Codex terminal no longer puts stray characters like "[D" into the session's name, and text you clear with Ctrl+C in a Claude terminal no longer ends up in it.
+- **Claude terminal stays "working" after you decline** — After using /clear or /resume in a Claude terminal, declining a permission request left the session showing as working. It now goes idle.
+- **Claude terminals on Home** — Claude terminals you started in agmux now show their name on Home (including names you gave them), and opening one from Home returns to that terminal instead of starting a second copy of the session.
+- **Kimi sessions sort by when you used them** — Kimi sessions in the sidebar and on Home showed no time and sank to the bottom of the list. They now show when they were last active and sort with everything else.
 
 ## v4.2.0 — 2026-09-23
 
