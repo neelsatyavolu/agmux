@@ -13,10 +13,10 @@
   <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#sheen)"/>
   <rect x="101" y="101" width="822" height="822" rx="184" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2"/>
   <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M204 352 H394" stroke="#eef0f3" stroke-opacity="0.5" stroke-width="58"/>
-    <path d="M204 672 H394" stroke="#eef0f3" stroke-opacity="0.5" stroke-width="58"/>
-    <path d="M394 282 L614 380 L614 644 L394 742 Z" stroke="#eef0f3" stroke-width="58"/>
-    <path d="M204 512 H762" stroke="#f2a516" stroke-width="64"/>
+    <path d="M231 316 H405" stroke="#eef0f3" stroke-opacity="0.5" stroke-width="58"/>
+    <path d="M231 708 H405" stroke="#eef0f3" stroke-opacity="0.5" stroke-width="58"/>
+    <path d="M405 231 L606 351 L606 673 L405 793 Z" stroke="#eef0f3" stroke-width="58"/>
+    <path d="M234 512 H738" stroke="#f2a516" stroke-width="64"/>
   </g>
-  <circle cx="780" cy="512" r="70" fill="#f2a516"/>
+  <circle cx="756" cy="512" r="66" fill="#f2a516"/>
 </svg>

@@ -11,8 +11,8 @@ describe("brand icons", () => {
   it("has the Router mark as the icon source", () => {
     for (const f of ["agmux-mark.svg", "agmux-app-icon.svg", "agmux-square-icon.svg"]) {
       const svg = readFileSync(new URL(`src-tauri/icons/source/${f}`, root), "utf8");
-      expect(svg).toContain("M394 282 L614 380 L614 644 L394 742 Z"); // mux body
-      expect(svg).toContain("M204 512 H762"); // gold route through the body
+      expect(svg).toContain("M405 231 L606 351 L606 673 L405 793 Z"); // mux body
+      expect(svg).toContain("M234 512 H738"); // gold route through the body
       expect(svg).toContain("#f2a516"); // routed output
     }
   });
