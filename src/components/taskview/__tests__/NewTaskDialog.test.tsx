@@ -58,6 +58,13 @@ describe("NewTaskDialog", () => {
     expect(baseElement).toBeTruthy();
   });
 
+  it("Create button stays visually disabled under fx-accent when no branch name is set", () => {
+    render(<NewTaskDialog projectId="p1" onClose={() => {}} />);
+    const createBtn = screen.getByRole("button", { name: /Create task/ }) as HTMLButtonElement;
+    expect(createBtn.className).toContain("fx-accent");
+    expect(createBtn.disabled).toBe(true);
+  });
+
   it("does not invoke onClose on mount", () => {
     const onClose = vi.fn();
     render(<NewTaskDialog projectId="p1" onClose={onClose} />);
