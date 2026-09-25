@@ -76,7 +76,19 @@ holder), and allocation ranks by other members active on the same login first, t
 gains one `SHARED`/`SHARED_SHORT` line in both copies, so the release uploads the reproduced production asset
 set with only `disclosure.js` changed.
 
-**Web restyle (current production, 2026-09-25):** version `0bf613dc-4878-4e6a-b49d-0988126f8150`. The server
+**Sessions started (current production, 2026-09-25):** version `34ceef93-bf9c-44c2-ae8f-87b09e6b4e0b`, deployed
+08:32 UTC. The live `0bf613dc` bundle with only the `sessions_started` edits from `2d807267` applied by exact,
+match-once string patches (aggregate totals/daily/projects, dashboard select + deltas, metrics upsert, CSV export incl.
+`tokens_total` without reasoning), uploaded with `--no-bundle`. Web = the 27 live files with the 8 web files from
+`2d807267` patched (no rejects). Migration `016_sessions_started.sql` was applied first; D1 bookmark before it:
+`00004340-00001a53-000050f1-797d365c607eec110c832f44d598a2b1` (existing 10,569 rows stay NULL = unknown). Before
+deploy, a local Miniflare run of the live bundle vs the candidate on the production schema (legacy + 013–015) checked
+old-client upload/retry, 20 read contracts identical apart from the added fields, CSV columns, and the live Worker plus
+rollback with 016 applied. 18 bindings and runtime identical; all 27 served files matched the release. An old desktop
+upload succeeded 19 s after deploy. Roll back with `wrangler versions deploy 0bf613dc-4878-4e6a-b49d-0988126f8150@100%`
+and leave the column.
+
+**Web restyle (previous production, 2026-09-25):** version `0bf613dc-4878-4e6a-b49d-0988126f8150`. The server
 bundle is the live `89f699da` bundle, unchanged (both modules byte for byte, uploaded with `--no-bundle`). The web
 assets are the 25 live files with the agmux.dev restyle from `4d869a52` applied: new `teams.css`/`app.css`, a
 `fonts/` directory, and 12 patched files. `views/restrictions.js` and the Settings Restrictions card stay out, and
