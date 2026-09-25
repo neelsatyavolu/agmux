@@ -21,9 +21,10 @@ fn search_tokens(query: &str) -> Vec<String> {
 /// Sanitize a bare FTS5 token (alphanumeric / _ only — already filtered).
 /// Never emit `-`: FTS5 treats it as the NOT operator.
 /// FTS5 prefix queries must be barewords (`auth*`), not quoted (`"auth"*`).
+/// Barewords allow any non-ASCII character, so keep letters like ś or せ.
 fn fts_bare_token(tok: &str) -> String {
     tok.chars()
-        .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
+        .filter(|c| c.is_alphanumeric() || *c == '_')
         .collect()
 }
 
@@ -297,5 +298,38 @@ mod tests {
         let hits = search_threads_fts(&pool, "main.rs", 10).await.unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].thread_id, thread_id);
+    }
+
+    #[tokio::test]
+    async fn search_finds_transcript_hit_for_non_ascii_words() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let proj = crate::db::queries::create_project(&pool, "demo", "/w").await.unwrap();
+        let thread_id = uuid::Uuid::new_v4().to_string();
+        crate::db::queries::create_thread(
+            &pool, &thread_id, &proj.id, "generic session", "ClaudeCode", "/w", "/s",
+            None, None, false, "DirectRepo", None, None, None,
+        )
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO search_messages (body, thread_id, project_id, source, role, external_id)
+             VALUES (?, ?, ?, 'claude', 'user', 'u1')",
+        )
+        .bind("napraw śledzenie błędów w せんせい module")
+        .bind(&thread_id)
+        .bind(&proj.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        for query in ["śledzenie", "błędów", "せんせい"] {
+            let hits = search_threads_fts(&pool, query, 10).await.unwrap();
+            assert_eq!(hits.len(), 1, "query {query}");
+        }
     }
 }
