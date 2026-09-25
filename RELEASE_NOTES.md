@@ -56,6 +56,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Answered from your phone, gone on your Mac** — When you answer a Claude chat's permission request or question on your phone, the Mac chat now clears it instead of keeping it on screen and showing an error if you click it.
 - **Token counts in Claude chat** — The token line under each Claude chat reply now shows that reply's real numbers, instead of wrong or negative counts from the second reply on.
 - **Background agents finish in Claude chat** — A background agent in a Claude chat now shows as finished when it's done, with its tool count as it works, instead of looking like it's still running forever.
+- **One "finished" alert per OpenCode reply** — An OpenCode chat no longer sends two "Agent finished" notifications for each reply.
 - **OpenCode chat asks about every action** — When OpenCode wants to run several commands at once, each permission request now waits its turn on screen instead of the earlier ones disappearing and leaving OpenCode stuck.
 - **Grok chat shows connected-tool results** — Tools from connected servers in a Grok chat now show their output, or the error when they fail, instead of an empty result. Folder listings and background command output show up too.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.

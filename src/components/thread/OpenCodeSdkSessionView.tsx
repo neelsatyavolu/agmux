@@ -545,6 +545,12 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
   const [input, setInput] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
   const [sending, setSending] = useState(false);
+  // OpenCode's own session.idle and the bridge's post-prompt session.idle
+  // both arrive for one turn; announce the finish only once per turn.
+  const turnFinishAnnouncedRef = useRef(false);
+  useEffect(() => {
+    if (sending) turnFinishAnnouncedRef.current = false;
+  }, [sending]);
   const renderBlocks = useMemo(
     () => collapseOpenCodeTurns(groupBlocks(blocks), sending),
     [blocks, sending],
@@ -998,6 +1004,8 @@ export function OpenCodeSdkSessionView({ sessionId: threadId, cwd, isNew, hideTo
         }
         setSending(false);
         setClaudeProcessing(threadId, false);
+        if (turnFinishAnnouncedRef.current) return;
+        turnFinishAnnouncedRef.current = true;
         // Mark as unread if the user isn't currently viewing this session —
         // store-level logic suppresses when the session is the active one.
         markSessionUnread(threadId);

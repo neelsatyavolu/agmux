@@ -1552,6 +1552,42 @@ describe("OpenCodeSdkSessionView — Maximum coverage", () => {
     expect(respond).toHaveBeenCalledWith("oc-mc-15b", "per_second", "accept");
   });
 
+  it("notifies once per turn although the bridge reports idle twice", async () => {
+    // OpenCode publishes session.idle when the run stops, and the bridge
+    // emits its own session.idle after prompt() returns — two per turn.
+    const handlers = await setupCapture();
+    seedThread("oc-mc-15d");
+    const { container } = render(
+      <OpenCodeSdkSessionView sessionId="oc-mc-15d" cwd="/tmp/repo" />
+    );
+    await flush();
+    fireOpenCode(handlers, "oc-mc-15d", { event: "session.started", sessionId: "ses_example" });
+    await flush();
+    const notifications = await import("../../../lib/notifications");
+    const notify = vi.mocked(notifications.sendNotification);
+    const finished = () => notify.mock.calls.filter((c) => String(c[1]).includes("Agent finished")).length;
+    const sendTurn = async (text: string) => {
+      const ta = container.querySelector("textarea") as HTMLTextAreaElement;
+      fireEvent.change(ta, { target: { value: text } });
+      await flush();
+      fireEvent.keyDown(ta, { key: "Enter", shiftKey: false });
+      await flush();
+    };
+    notify.mockClear();
+    await sendTurn("first task");
+    fireOpenCode(handlers, "oc-mc-15d", { event: "session.idle", timestamp: "2026-01-01T00:00:00Z" });
+    await flush();
+    fireOpenCode(handlers, "oc-mc-15d", { event: "session.idle", timestamp: "2026-01-01T00:00:01Z" });
+    await flush();
+    expect(finished()).toBe(1);
+    await sendTurn("second task");
+    fireOpenCode(handlers, "oc-mc-15d", { event: "session.idle", timestamp: "2026-01-01T00:01:00Z" });
+    await flush();
+    fireOpenCode(handlers, "oc-mc-15d", { event: "session.idle", timestamp: "2026-01-01T00:01:01Z" });
+    await flush();
+    expect(finished()).toBe(2);
+  });
+
   it("answering the first permission from the toast keeps the next one queued", async () => {
     const handlers = await setupCapture();
     seedThread("oc-mc-15c");
