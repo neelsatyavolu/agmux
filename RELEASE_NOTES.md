@@ -56,6 +56,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **IDE editor stuck on "Failed to load file"** — After opening a file that can't be shown (like an image), opening another file now shows it instead of the same error.
 - **Search with accented letters, Japanese text or emoji** — Messages containing characters like ś, せ or 🐛 are no longer garbled in search results, the words around them can be found again, and searching for words like "śledzenie" or "せんせい" now finds your conversations.
 - **Search finds recent work summaries** — The summary of what an agent did in its latest turn can now be found in search, instead of staying missing until you started another turn.
+- **Session times in the command palette** — Recent and other sessions in the command palette now show how long ago they were used, instead of "now" (or a time off by several hours, depending on your time zone).
 - **Search results match what you typed** — Search no longer sometimes shows results for an earlier, shorter version of your search.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
 - **Stopping from your phone** — Tapping Stop on a terminal session from your phone no longer risks closing Claude or Codex.
