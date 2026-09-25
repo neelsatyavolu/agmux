@@ -251,13 +251,7 @@ pub async fn create_task(
             .await;
 
         let stderr = String::from_utf8_lossy(&output.stderr);
-        // ── Fix 2: Friendly error when the path already exists ───────────────
-        if stderr.contains("already exists") {
-            return Err(format!(
-                "A worktree already exists at {worktree_path}. Remove it first or choose a different branch name."
-            ));
-        }
-        return Err(format!("git worktree add failed: {}", stderr.trim()));
+        return Err(worktree_add_error(&stderr, &worktree_path, &branch_name));
     }
 
     // Copy agent / IDE config files that may be gitignored first. The
@@ -288,6 +282,23 @@ pub async fn create_task(
     }
 
     Ok(task)
+}
+
+/// ── Fix 2: Friendly error when the path already exists ───────────────────────
+fn worktree_add_error(stderr: &str, worktree_path: &str, branch_name: &str) -> String {
+    // Deleting a task keeps its branch, so reusing the name fails on the
+    // branch while the folder is gone.
+    if stderr.contains("a branch named") {
+        return format!(
+            "A branch named '{branch_name}' already exists. Choose a different branch name."
+        );
+    }
+    if stderr.contains("already exists") {
+        return format!(
+            "A worktree already exists at {worktree_path}. Remove it first or choose a different branch name."
+        );
+    }
+    format!("git worktree add failed: {}", stderr.trim())
 }
 
 /// Copies a curated allowlist of agent / IDE config files from the main repo
@@ -2047,6 +2058,34 @@ prunable gitdir file points to non-existent location
     async fn get_worktree_changes_validates_path() {
         let r = get_worktree_changes("relative".to_string()).await;
         assert!(r.is_err());
+    }
+
+    #[tokio::test]
+    async fn worktree_add_error_names_existing_branch_not_missing_folder() {
+        // Deleting a task removes its worktree but keeps the branch, so a new
+        // task with the same name hits "a branch named … already exists" while
+        // the folder does not exist.
+        let tmp = tempdir().unwrap();
+        let repo = tmp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_repo(&repo).await;
+        commit_file(&repo, "a.txt", "hi\n", "init").await;
+        let wt = tmp.path().join("wt").to_string_lossy().to_string();
+        assert!(run_git(&repo, &["worktree", "add", "-b", "fix-login", &wt, "main"]).await.status.success());
+        assert!(run_git(&repo, &["worktree", "remove", &wt]).await.status.success());
+
+        let out = run_git(&repo, &["worktree", "add", "-b", "fix-login", &wt, "main"]).await;
+        assert!(!out.status.success());
+        let msg = worktree_add_error(&String::from_utf8_lossy(&out.stderr), &wt, "fix-login");
+        assert!(msg.contains("fix-login"), "{msg}");
+        assert!(!msg.contains("A worktree already exists"), "{msg}");
+
+        // An existing folder still gets the worktree message.
+        std::fs::create_dir_all(tmp.path().join("taken/x")).unwrap();
+        let taken = tmp.path().join("taken").to_string_lossy().to_string();
+        let out = run_git(&repo, &["worktree", "add", "-b", "other", &taken, "main"]).await;
+        let msg = worktree_add_error(&String::from_utf8_lossy(&out.stderr), &taken, "other");
+        assert!(msg.starts_with("A worktree already exists at"), "{msg}");
     }
 
     #[tokio::test]
