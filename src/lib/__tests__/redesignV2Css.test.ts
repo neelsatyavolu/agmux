@@ -72,3 +72,33 @@ describe("redesign v2 foundation", () => {
     expect(decl(unified, `${FLAT} .${cls}`, prop)).toBe(value);
   });
 });
+
+describe("flat neutral remap", () => {
+  const FLAT = 'html[data-surface="flat"]';
+  const DARK_FLAT = 'html[data-surface="flat"]:not([data-mode="light"])';
+  it.each([
+    ["--color-zinc-100", "var(--text-primary)"], ["--color-zinc-200", "var(--text-primary)"],
+    ["--color-zinc-300", "var(--text-secondary)"], ["--color-zinc-400", "var(--text-tertiary)"],
+    ["--color-zinc-500", "var(--text-muted)"], ["--color-zinc-600", "var(--text-muted)"],
+    ["--color-zinc-700", "var(--ui-rule-2)"], ["--color-zinc-800", "var(--ui-panel-2)"],
+    ["--color-zinc-900", "var(--ui-panel)"], ["--color-zinc-950", "var(--ui-canvas)"],
+  ])("%s -> %s", (v, value) => expect(decl(unified, FLAT, v)).toBe(value));
+
+  it("keeps zinc-700 text readable", () => {
+    expect(decl(unified, `${FLAT} .text-zinc-700`, "color")).toBe("var(--text-muted)");
+  });
+
+  it.each([
+    ["--color-red-400", "var(--status-red)"], ["--color-emerald-400", "var(--status-green)"],
+    ["--color-green-400", "var(--status-green)"], ["--color-blue-400", "var(--status-blue)"],
+    ["--color-sky-400", "var(--status-blue)"], ["--color-indigo-400", "var(--status-blue)"],
+    ["--color-amber-400", "var(--status-amber)"], ["--color-violet-400", "var(--status-purple)"],
+  ])("dark flat status hue %s", (v, value) => expect(decl(unified, DARK_FLAT, v)).toBe(value));
+
+  it.each([
+    [".border-white\\/5", "var(--ui-rule)"], [".border-white\\/\\[0\\.06\\]", "var(--ui-rule)"],
+    [".border-white\\/10", "var(--ui-rule-2)"], [".border-white\\/\\[0\\.08\\]", "var(--ui-rule-2)"],
+  ])("white-alpha border %s", (sel, value) => {
+    expect(decl(unified, `${FLAT} ${sel}`, "border-color")).toBe(value);
+  });
+});

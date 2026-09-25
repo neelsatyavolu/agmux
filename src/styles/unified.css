@@ -397,3 +397,66 @@ html[data-surface="flat"] .fx-accent {
   border-color: transparent !important;
   box-shadow: none !important;
 }
+
+/* ── Tailwind neutral remap (flat): zinc utilities become slate ── */
+html[data-surface="flat"] {
+  --color-zinc-50: var(--text-primary);
+  --color-zinc-100: var(--text-primary);
+  --color-zinc-200: var(--text-primary);
+  --color-zinc-300: var(--text-secondary);
+  --color-zinc-400: var(--text-tertiary);
+  --color-zinc-500: var(--text-muted);
+  --color-zinc-600: var(--text-muted);
+  --color-zinc-700: var(--ui-rule-2);
+  --color-zinc-800: var(--ui-panel-2);
+  --color-zinc-900: var(--ui-panel);
+  --color-zinc-950: var(--ui-canvas);
+}
+/* zinc-700 is a rule color for bg/border but a (dim) text color too. */
+html[data-surface="flat"] .text-zinc-700 { color: var(--text-muted); }
+
+/* Status hues: Tailwind 300/400 text shades snap to the status tokens.
+   Dark only; light keeps its existing readable remaps. */
+html[data-surface="flat"]:not([data-mode="light"]) {
+  --color-red-300: var(--status-red);
+  --color-red-400: var(--status-red);
+  --color-rose-400: var(--status-red);
+  --color-green-300: var(--status-green);
+  --color-green-400: var(--status-green);
+  --color-emerald-300: var(--status-green);
+  --color-emerald-400: var(--status-green);
+  --color-blue-300: var(--status-blue);
+  --color-blue-400: var(--status-blue);
+  --color-sky-300: var(--status-blue);
+  --color-sky-400: var(--status-blue);
+  --color-indigo-300: var(--status-blue);
+  --color-indigo-400: var(--status-blue);
+  --color-amber-300: var(--status-amber);
+  --color-amber-400: var(--status-amber);
+  --color-yellow-300: var(--status-amber);
+  --color-yellow-400: var(--status-amber);
+  --color-violet-300: var(--status-purple);
+  --color-violet-400: var(--status-purple);
+  --color-purple-300: var(--status-purple);
+  --color-purple-400: var(--status-purple);
+}
+
+/* White-alpha hairlines become the slate rules. */
+html[data-surface="flat"] .border-white\/5,
+html[data-surface="flat"] .border-white\/6,
+html[data-surface="flat"] .border-white\/\[0\.035\],
+html[data-surface="flat"] .border-white\/\[0\.04\],
+html[data-surface="flat"] .border-white\/\[0\.05\],
+html[data-surface="flat"] .border-white\/\[0\.06\] {
+  border-color: var(--ui-rule);
+}
+html[data-surface="flat"] .border-white\/8,
+html[data-surface="flat"] .border-white\/10,
+html[data-surface="flat"] .border-white\/\[0\.07\],
+html[data-surface="flat"] .border-white\/\[0\.08\],
+html[data-surface="flat"] .border-white\/\[0\.09\],
+html[data-surface="flat"] .border-white\/\[0\.1\],
+html[data-surface="flat"] .border-white\/\[0\.10\],
+html[data-surface="flat"] .border-white\/\[0\.12\] {
+  border-color: var(--ui-rule-2);
+}
