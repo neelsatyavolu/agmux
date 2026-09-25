@@ -2,45 +2,91 @@
 
 import { html, raw, toast } from "../dom.js";
 import { api, signInUrl } from "../api.js";
-import { emptyState } from "../components.js";
+import { brandMark, emptyState } from "../components.js";
+import { disclosureBlock } from "../disclosure.js";
 
 export function landing({ next }) {
   return html`
-    <section class="center landing">
-      <div class="tex"></div>
-      <div class="glow"></div>
-      <div class="col landing-col">
-        <div class="landing-brand">
-          <img class="mark lg" src="/favicon.png" width="32" height="32" alt="" />
-          <b style="font-size:17px;font-weight:600;color:var(--ink)">agmux</b>
-          <span class="pill acc">teams</span>
-        </div>
-        <h1 class="landing-title">
-          Org analytics for <em>AI coding agents</em>
-        </h1>
-        <p class="landing-lead">
-          Tokens, active hours, budgets, and leaderboards across Claude, Codex, and Grok —
-          aggregates only. Never prompts, diffs, or source code.
-        </p>
-        <div class="landing-actions">
-          <a class="btn lg primary" href="${signInUrl("github", next)}"
-            ><i data-lucide="github"></i>Continue with GitHub</a
-          >
-          <a class="btn lg" href="${signInUrl("google", next)}"
-            ><i data-lucide="chrome"></i>Continue with Google</a
-          >
-        </div>
-        <div class="landing-trust">
-          <span><i data-lucide="shield-check"></i>Privacy-first telemetry</span>
-          <span><i data-lucide="users"></i>First 3 seats free</span>
-          <span><i data-lucide="laptop"></i>macOS desktop required</span>
-        </div>
-        <p class="hint" style="max-width:400px;margin-top:14px">
-          Members review the disclosure before joining.
-          <a href="#/privacy">Read the disclosure →</a>
-        </p>
+    <div class="landing">
+      <header class="landing-nav">
+        <nav class="landing-wrap" aria-label="Main">
+          <a class="landing-brand" href="https://agmux.dev">
+            ${raw(brandMark())}
+            <b>agmux</b>
+            <span class="brand-sub">Teams</span>
+          </a>
+          <div class="landing-nav-links">
+            <a href="#/privacy">What gets shared</a>
+            <a class="hide-sm" href="https://agmux.dev">agmux.dev</a>
+          </div>
+        </nav>
+      </header>
+
+      <div>
+        <section class="landing-wrap landing-hero">
+          <h1 class="landing-title">See how your team uses AI coding agents.</h1>
+          <p class="landing-lead">
+            Tokens, active hours, budgets and leaderboards across Claude, Codex and Grok, from
+            sessions your team runs in agmux. Aggregates only. Never prompts, diffs or source code.
+          </p>
+          <div class="landing-actions">
+            <a class="btn lg primary" href="${signInUrl("github", next)}"
+              ><i data-lucide="github"></i>Continue with GitHub</a
+            >
+            <a class="btn lg" href="${signInUrl("google", next)}"
+              ><i data-lucide="chrome"></i>Continue with Google</a
+            >
+          </div>
+          <p class="landing-fine">
+            First 3 seats are free. Members use the
+            <a href="https://agmux.dev">agmux Mac app</a> and review the
+            <a href="#/privacy">disclosure</a> before joining.
+          </p>
+        </section>
+
+        <section class="landing-section">
+          <div class="landing-wrap">
+            <h2 class="landing-h2">Built for the people paying for the tokens.</h2>
+            <ul class="landing-trio">
+              <li>
+                <b>Know where the spend goes</b>
+                <span>Token and cost totals by person, provider, model and project, with budgets and a forecast.</span>
+              </li>
+              <li>
+                <b>See how agents work</b>
+                <span>Active hours, tool calls, files changed and how long agents waited for approval.</span>
+              </li>
+              <li>
+                <b>Set the rules once</b>
+                <span>Roles, groups and restrictions on the agents, models and modes your team can use.</span>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="landing-section">
+          <div class="landing-wrap">
+            <h2 class="landing-h2">Every member sees exactly what is shared.</h2>
+            <p class="landing-body">
+              Members accept this list before their usage appears. It is the same list the Mac app
+              shows.
+            </p>
+            ${raw(
+              disclosureBlock({ short: true }).replace('class="dsc"', 'class="dsc landing-dsc"'),
+            )}
+          </div>
+        </section>
       </div>
-    </section>
+
+      <footer class="landing-foot">
+        <div class="landing-wrap">
+          <span>agmux Teams</span>
+          <a href="https://agmux.dev">agmux.dev</a>
+          <a href="#/privacy">Disclosure</a>
+          <a href="https://github.com/neelsatyavolu/agmux">GitHub</a>
+        </div>
+      </footer>
+    </div>
   `;
 }
 

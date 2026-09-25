@@ -5,16 +5,16 @@
 import { fmtDate, html, raw } from "../dom.js";
 import { signInUrl } from "../api.js";
 import { disclosureBlock } from "../disclosure.js";
-import { avatar, emptyState } from "../components.js";
+import { avatar, brandMark, emptyState } from "../components.js";
 
 const shell = (step, body) => html`
   <section class="center">
     <div class="col" style="max-width:600px">
       <div style="display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:9px">
-          <img class="mark" src="/favicon.png" width="26" height="26" alt="" />
-          <b style="font-size:14px;font-weight:600;color:var(--ink)">agmux</b>
-          <span class="pill acc">teams</span>
+        <div class="landing-brand">
+          ${raw(brandMark())}
+          <b>agmux</b>
+          <span class="brand-sub">Teams</span>
         </div>
         <div class="steps">
           <button class="${step === "signin" ? "on" : ""}" disabled>1 Sign in</button>
@@ -41,7 +41,7 @@ export function joinDead(preview) {
       <div class="empty">
         <div
           class="ic"
-          style="color:var(--red);border-color:rgba(248,113,113,0.24);background:rgba(248,113,113,0.08)"
+          style="color:var(--red-text);border-color:var(--red-line);background:var(--red-soft)"
         >
           <i data-lucide="link-2-off"></i>
         </div>
@@ -119,7 +119,7 @@ export function joinDisclose(preview) {
         <i data-lucide="shield" style="color:var(--accent)"></i>
         <h3>Before you join</h3>
         <div class="sp"></div>
-        <span class="sub mono">required</span>
+        <span class="sub">required</span>
       </div>
       <div class="pnl-b" style="display:flex;flex-direction:column;gap:13px">
         <p class="hint" style="margin:0">
@@ -159,7 +159,7 @@ export function joinDone(team) {
       <div class="empty">
         <div
           class="ic"
-          style="color:var(--green);border-color:rgba(52,211,153,0.24);background:rgba(52,211,153,0.08)"
+          style="color:var(--green-text);border-color:var(--green-line);background:var(--green-soft)"
         >
           <i data-lucide="check"></i>
         </div>

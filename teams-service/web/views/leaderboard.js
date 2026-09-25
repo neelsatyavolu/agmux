@@ -143,6 +143,7 @@ export function leaderboardView({
     <section class="page">
       <div class="phead">
         <div>
+          <p class="eyeb">Teams plan</p>
           <h1>Leaderboard</h1>
           <div class="meta">
             <span>${esc(team.name)}</span>
@@ -150,6 +151,7 @@ export function leaderboardView({
             <span>Weekly efficiency — lower $/pt is better</span>
           </div>
         </div>
+        <div class="sp"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <div class="seg">
             <button class="btn ${week === "current" ? "on" : ""}" data-lb-week="current">This week</button>

@@ -238,11 +238,11 @@ export function teamPlan({ team, role, billing = null, prices = null, membersCou
             <span class="pill ${status.tone === "acc" ? "acc" : status.tone === "ok" ? "ok" : status.tone === "warn" ? "warn" : status.tone === "err" ? "err" : ""}">${esc(status.label)}</span>
             ${
               status.key === "trial" || status.key === "trialing"
-                ? raw(`<span class="plan-countdown mono">${days ?? "—"}d left</span>`)
+                ? raw(`<span class="plan-countdown">${days ?? "—"}d left</span>`)
                 : ""
             }
           </div>
-          <h2 class="plan-hero-title">${esc(heroTitle)}</h2>
+          <h2 class="plan-hero-title">${heroTitle}</h2>
           <p class="plan-hero-sub">${esc(heroMeta)}</p>
           ${
             status.key === "paid" || status.key === "past_due"
@@ -252,7 +252,7 @@ export function teamPlan({ team, role, billing = null, prices = null, membersCou
                     <div><dt>Licensed</dt><dd>${licensed}</dd></div>
                     <div><dt>Paid seats</dt><dd>${paid}</dd></div>
                     <div><dt>Est. monthly</dt><dd>$${moTotal}</dd></div>
-                    ${periodEnd ? `<div><dt>Renews</dt><dd class="mono" style="font-size:14px">${esc(periodEnd)}</dd></div>` : ""}
+                    ${periodEnd ? `<div><dt>Renews</dt><dd style="font-size:18px">${esc(periodEnd)}</dd></div>` : ""}
                   </dl>`,
                 )
               : status.key === "free"

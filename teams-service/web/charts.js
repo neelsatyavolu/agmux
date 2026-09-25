@@ -159,7 +159,7 @@ export function daily(host, days) {
     const r = el("rect", { x: PL + i * bw, y: PT, width: bw, height: ih, fill: "transparent" });
     r.style.cursor = "crosshair";
     r.addEventListener("mouseenter", () => {
-      r.setAttribute("fill", "rgba(255,255,255,0.04)");
+      r.setAttribute("fill", "var(--hover)");
       const b = host.getBoundingClientRect();
       const s = b.width / W;
       const body = day.hasData
@@ -263,7 +263,7 @@ export function steps(host, arr, labels, dayLabels) {
     const r = el("rect", { x: PL + i * sw, y: PT, width: sw, height: ih, fill: "transparent" });
     r.style.cursor = "crosshair";
     r.addEventListener("mouseenter", () => {
-      r.setAttribute("fill", "rgba(255,255,255,0.04)");
+      r.setAttribute("fill", "var(--hover)");
       const b = host.getBoundingClientRect();
       const s = b.width / W;
       const title = (dayLabels && dayLabels[i]) || `Day ${i + 1}`;

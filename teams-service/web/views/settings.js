@@ -93,10 +93,19 @@ export function teamSettings({
         ${raw(teamAndInviteSection(team, invite, isOwner))}
         ${raw(membersSection(members, counts, scopeByUser, isOwner))}
         ${raw(groupsPanel(groups, members, isOwner))}
-        ${raw(`<section class="set-card"><div class="set-card-b"><h2>Restrictions</h2>
-          <p class="hint">Manage allowed session modes, agents, models and reasoning effort.</p>
-          <a class="btn" href="#/t/${encodeURIComponent(team.slug)}/restrictions">Open restrictions</a>
-        </div></section>`)}
+        ${raw(`<section class="set-card" aria-labelledby="set-restrictions-h">
+          <header class="set-card-h">
+            <div class="set-card-ico"><i data-lucide="shield"></i></div>
+            <div class="set-card-h-main">
+              <p class="eyeb">Workspace rules</p>
+              <h2 id="set-restrictions-h">Restrictions</h2>
+            </div>
+            <a class="btn" href="#/t/${encodeURIComponent(team.slug)}/restrictions">Open restrictions</a>
+          </header>
+          <div class="set-card-b">
+            <p class="hint" style="margin:0">Manage allowed session modes, agents, models and reasoning effort.</p>
+          </div>
+        </section>`)}
         ${
           isOwner
             ? raw(

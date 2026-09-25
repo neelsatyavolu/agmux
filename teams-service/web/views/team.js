@@ -55,7 +55,7 @@ export function teamHome({ team, data, role }) {
           ${raw(scopeNote)}
           ${asOf
             ? raw(
-                `<span class="meta-sep">·</span><span>as of <span class="mono">${asOf}</span></span>`,
+                `<span class="meta-sep">·</span><span>as of ${asOf}</span>`,
               )
             : ""}
           ${staleCount
@@ -216,7 +216,7 @@ export function teamHome({ team, data, role }) {
           <div class="pnl-h">
             <h3>Provider &amp; model mix</h3>
             <div class="sp"></div>
-            <span class="sub mono">tokens · time</span>
+            <span class="sub">tokens · time</span>
           </div>
           <div class="pnl-b mix">
             ${raw(mixRows(data.providerMix))}
@@ -236,7 +236,7 @@ export function teamHome({ team, data, role }) {
           <div class="pnl-h">
             <h3>What the agents did</h3>
             <div class="sp"></div>
-            <span class="sub mono">${t.toolCalls.toLocaleString()} tool calls</span>
+            <span class="sub">${t.toolCalls.toLocaleString()} tool calls</span>
           </div>
           <div class="pnl-b">${raw(toolMixPanel(t))}</div>
         </div>
@@ -252,7 +252,7 @@ export function teamHome({ team, data, role }) {
           <div class="pnl-h">
             <h3>Token composition</h3>
             <div class="sp"></div>
-            <span class="sub mono">${fmt.tok(t.tokens)} total</span>
+            <span class="sub">${fmt.tok(t.tokens)} total</span>
           </div>
           <div class="pnl-b">${raw(tokenBreakdown(t))}</div>
         </div>
@@ -276,7 +276,7 @@ export function teamHome({ team, data, role }) {
           <div class="pnl-h">
             <h3>Peak simultaneous sessions</h3>
             <div class="sp"></div>
-            <span class="sub mono">max ${maxConc}</span>
+            <span class="sub">max ${maxConc}</span>
           </div>
           <div class="pnl-b"><div data-chart="conc"></div></div>
         </div>
@@ -284,7 +284,7 @@ export function teamHome({ team, data, role }) {
           <div class="pnl-h">
             <h3>Projects</h3>
             <div class="sp"></div>
-            <span class="sub mono">basename or hash only</span>
+            <span class="sub">basename or hash only</span>
           </div>
           ${raw(projectsTable(data.projects || [], { limit: 10 }))}
         </div>
@@ -336,7 +336,7 @@ export function teamHome({ team, data, role }) {
                     <span class="sub">Membership, billing, groups, invites, exports</span>
                   </div>
                   <div class="sp"></div>
-                  <span class="sub mono">no telemetry</span>
+                  <span class="sub">no telemetry</span>
                 </div>
                 <div data-slot="audit">
                   <div class="pnl-b"><p class="hint" style="margin:0">Loading…</p></div>

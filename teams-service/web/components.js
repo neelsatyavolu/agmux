@@ -5,6 +5,11 @@ import { esc, fmtDate, html, initials, raw, since, syncPill } from "./dom.js";
 import { fmt, providerColor } from "./charts.js";
 import { prettyMixLabel } from "./labels.js";
 
+/** The agmux mark, drawn as on agmux.dev: inputs routed through one body to a single gold output. */
+export function brandMark(cls = "mark") {
+  return `<svg class="${cls}" viewBox="196 196 632 632" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M231 316 H405" stroke="currentColor" stroke-width="58" opacity="0.5"/><path d="M231 708 H405" stroke="currentColor" stroke-width="58" opacity="0.5"/><path d="M405 231 L606 351 L606 673 L405 793 Z" stroke="currentColor" stroke-width="58"/><path d="M234 512 H738" stroke="var(--accent)" stroke-width="64"/><circle cx="756" cy="512" r="66" fill="var(--accent)"/></svg>`;
+}
+
 export const RANGES = [
   { key: "7d", label: "7 days" },
   { key: "14d", label: "14 days" },
@@ -169,8 +174,8 @@ export function memberTable(members, { sortKey = "activeHours", clickable = true
         return html`
           <tr data-member="">
             ${raw(who)}
-            <td colspan="6" style="text-align:left;color:var(--t5)">
-              <span class="mono" style="font-size:11px"
+            <td colspan="6" style="text-align:left;color:var(--t4)">
+              <span style="font-size:12.5px"
                 >joined ${since(m.joinedAt) ?? "recently"} ago · waiting for first sync — no metrics
                 yet</span
               >
@@ -281,7 +286,7 @@ export function tokenBreakdown(t) {
           <span class="tb-k"
             ><i style="background:${raw(p.color)}"></i>${p.key}</span
           >
-          <span class="tb-v mono">${fmt.tok(p.n)}</span>
+          <span class="tb-v">${fmt.tok(p.n)}</span>
           <span class="tb-p">${fmt.pct(p.n / total)}</span>
         </div>
       `,
@@ -293,7 +298,7 @@ export function tokenBreakdown(t) {
       <div class="tb-legend">${raw(legend)}</div>
       <div class="tb-foot">
         <span>Cache hit rate</span>
-        <b class="mono">${fmt.pct(t.cacheHitRate)}</b>
+        <b>${fmt.pct(t.cacheHitRate)}</b>
       </div>
     </div>
   `;
@@ -341,7 +346,7 @@ export function efficiencyGrid(t) {
         (r) => html`
           <div class="eff-cell">
             <div class="eff-k">${r.k}</div>
-            <div class="eff-v mono">${r.v}</div>
+            <div class="eff-v">${r.v}</div>
           </div>
         `,
       )}
@@ -408,7 +413,7 @@ export function toolMixPanel(t) {
       (p) => html`
         <div class="tb-row">
           <span class="tb-k"><i style="background:${raw(p.color)}"></i>${p.label}</span>
-          <span class="tb-v mono">${p.n.toLocaleString()}</span>
+          <span class="tb-v">${p.n.toLocaleString()}</span>
           <span class="tb-p">${fmt.pct(p.n / total)}</span>
         </div>
       `,
@@ -464,7 +469,7 @@ export function outputPanel(t) {
         (r) => html`
           <div class="eff-cell">
             <div class="eff-k">${r.k}</div>
-            <div class="eff-v mono">${r.v}</div>
+            <div class="eff-v">${r.v}</div>
           </div>
         `,
       )}
@@ -511,10 +516,10 @@ export function budgetCard(budget, { canManage = false } = {}) {
       <div class="budget-head">
         <div>
           <div class="sub">${partial ? "Partial estimate" : "Estimated cost"}</div>
-          <div class="budget-spend mono">${fmt.money(budget.spendUsd)}</div>
+          <div class="budget-spend">${fmt.money(budget.spendUsd)}</div>
           <div class="sub" style="margin-top:4px">of ${fmt.money(budget.monthlyUsd)} this month</div>
         </div>
-        <div class="budget-pct mono" style="color:${raw(barColor)}">${pct}%</div>
+        <div class="budget-pct" style="color:${raw(barColor)}">${pct}%</div>
       </div>
       <div class="budget-track">
         <i style="width:${pct}%;background:${raw(barColor)}"></i>
@@ -526,7 +531,7 @@ export function budgetCard(budget, { canManage = false } = {}) {
       </div>
       <div class="budget-foot">
         <span>Day ${budget.daysElapsed} of ${budget.daysInMonth}</span>
-        <span class="mono"
+        <span
           >Projected ${partial ? "(partial estimate) " : ""}${fmt.money(budget.projectedUsd)}</span
         >
       </div>
@@ -808,7 +813,7 @@ export function skeletonDashboard(statCount = 5) {
   const rows = Array.from(
     { length: 6 },
     () =>
-      '<div style="display:flex;gap:12px;align-items:center;padding:0 16px;height:var(--rowh);border-bottom:1px solid rgba(255,255,255,0.035)"><div class="sk" style="width:24px;height:24px;border-radius:9999px"></div><div class="sk" style="width:130px"></div><div style="flex:1"></div><div class="sk" style="width:60px"></div><div class="sk" style="width:60px"></div><div class="sk" style="width:44px"></div></div>',
+      '<div style="display:flex;gap:12px;align-items:center;padding:0 16px;height:var(--rowh);border-bottom:1px solid var(--hair)"><div class="sk" style="width:24px;height:24px;border-radius:9999px"></div><div class="sk" style="width:130px"></div><div style="flex:1"></div><div class="sk" style="width:60px"></div><div class="sk" style="width:60px"></div><div class="sk" style="width:44px"></div></div>',
   ).join("");
   return html`
     <div style="display:flex;flex-direction:column;gap:12px">

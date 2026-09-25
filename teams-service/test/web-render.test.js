@@ -24,7 +24,7 @@ import { membersDirectory, sortMembers } from "../web/views/members.js";
 import { privacy } from "../web/views/privacy.js";
 import { teamHelp } from "../web/views/help.js";
 import { landing } from "../web/views/landing.js";
-import { disclosureBlock, NEVER, SHARED } from "../web/disclosure.js";
+import { disclosureBlock, NEVER, NEVER_SHORT, SHARED } from "../web/disclosure.js";
 import {
   leaderboardView,
   memberDisplayName,
@@ -854,13 +854,16 @@ describe("plan page", () => {
 });
 
 describe("landing", () => {
-  it("renders enterprise sign-in with trust chips", () => {
+  it("renders sign-in, pricing note and the disclosure list", () => {
     // signInUrl reads location; vitest node has none.
     globalThis.location = { pathname: "/", hash: "", search: "" };
     const m = landing({});
-    expect(m).toContain("Org analytics");
-    expect(m).toContain("First 3 seats free");
+    expect(m).toContain("See how your team uses AI coding agents.");
+    expect(m).toContain("First 3 seats are free");
     expect(m).toContain("Continue with GitHub");
+    expect(m).toContain("Continue with Google");
+    expect(m).toContain('class="dsc landing-dsc"');
+    for (const line of NEVER_SHORT) expect(m).toContain(esc(line));
     assertClean(m);
   });
 });

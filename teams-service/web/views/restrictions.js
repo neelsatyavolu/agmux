@@ -31,11 +31,10 @@ export function restrictionsPanel(data) {
   const { policy, editablePolicy, canManage, scopeLabel } = data;
   const layer = editablePolicy || policy;
   return `<header class="set-card-h"><div class="set-card-ico"><i data-lucide="shield-check"></i></div>
-    <div class="set-card-h-main"><p class="eyeb">Workspace rules</p><h2>Restrictions</h2></div>
+    <div class="set-card-h-main"><p class="eyeb">Applies to</p><h2>${esc(scopeLabel)}</h2></div>
     <span class="pill">${canManage ? "Editable" : "Read only"}</span></header>
     <div class="set-card-b">
       <div class="restriction-intro">
-      <p class="restriction-scope">${esc(scopeLabel)}</p>
       <p class="hint">${editablePolicy && !("teamId" in editablePolicy) ? "Your rules can only narrow what the owner allows. They follow the people and groups you currently manage, covering active employees and yourself, never owners or other managers." : "The owner sets the team’s rules. Managers can add tighter rules for the employees they manage."}</p>
       <p class="hint">Applies to work started in agmux. It does not stop running turns or control external apps.</p>
       <details class="restriction-support"><summary>Supported restrictions</summary>

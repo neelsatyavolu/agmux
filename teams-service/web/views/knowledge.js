@@ -32,7 +32,8 @@ export function knowledgeView({ team, settings, overview, role, searchHits }) {
 
   if (settings?.planRequired) {
     return html`
-      <section class="page">
+      <section class="page knowledge-page">
+        <header class="page-h"><div><p class="eyeb">Teams plan</p><h2>Knowledge</h2></div></header>
         <div class="pnl">
           <div class="empty">
             <h3>Team Knowledge needs a Teams plan</h3>
@@ -53,7 +54,8 @@ export function knowledgeView({ team, settings, overview, role, searchHits }) {
 
   if (access === "none" && mode === "disabled") {
     return html`
-      <section class="page">
+      <section class="page knowledge-page">
+        <header class="page-h"><div><p class="eyeb">Teams plan</p><h2>Knowledge</h2></div></header>
         <div class="pnl">
           <div class="empty">
             <h3>Team Knowledge is off</h3>
@@ -141,7 +143,7 @@ export function knowledgeView({ team, settings, overview, role, searchHits }) {
     : html`<p class="muted pad">No digests yet. Share a session from the desktop app.</p>`;
 
   return html`
-    <section class="page">
+    <section class="page knowledge-page">
       <header class="page-h">
         <div>
           <h2>Knowledge</h2>

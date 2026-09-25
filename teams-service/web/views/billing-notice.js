@@ -84,8 +84,8 @@ export async function maybeShowBillingNotice({ slug, teamId, role, billing }) {
   overlay.innerHTML = html`
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="billing-notice-title" style="max-width:460px;width:92vw">
       <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
-        <div style="width:36px;height:36px;border-radius:10px;background:rgba(247,173,60,0.12);border:1px solid rgba(247,173,60,0.28);display:grid;place-items:center;flex-shrink:0">
-          <i data-lucide="sparkles" style="width:18px;height:18px;color:var(--acc,#f7ad3c)"></i>
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--bg);border:1px solid var(--hair);display:grid;place-items:center;flex-shrink:0">
+          <i data-lucide="sparkles" style="width:18px;height:18px;color:var(--t2)"></i>
         </div>
         <div>
           <h3 id="billing-notice-title" style="margin:0 0 4px">Teams is becoming a subscription</h3>
@@ -163,7 +163,7 @@ export async function maybeShowBillingNotice({ slug, teamId, role, billing }) {
       } else {
         const p = document.createElement("p");
         p.setAttribute("data-billing-err", "1");
-        p.style.cssText = "margin:10px 0 0;font-size:12px;color:#fca5a5";
+        p.style.cssText = "margin:10px 0 0;font-size:12px;color:var(--red-text)";
         p.textContent = msg;
         overlay.querySelector(".modal")?.appendChild(p);
       }

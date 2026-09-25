@@ -6,7 +6,7 @@ import { mountRestrictions, restrictionsPage } from "./views/restrictions.js";
 import { $, $$, esc, html, icons, initials, onClick, raw, toast } from "./dom.js";
 import { api, ApiError, exportCsvUrl, linkProviderUrl } from "./api.js";
 import * as charts from "./charts.js";
-import { auditList, avatar, skeletonDashboard } from "./components.js";
+import { auditList, avatar, brandMark, skeletonDashboard } from "./components.js";
 import { landing, noTeams, createTeam, bindCreateTeam } from "./views/landing.js";
 import { teamHome } from "./views/team.js";
 import { memberDetail } from "./views/member.js";
@@ -199,10 +199,10 @@ function renderChrome(route) {
 
   chrome.innerHTML = html`
     <div class="wtop">
-      <a class="brand" href="#/teams" style="color:inherit" title="All teams">
-        <img class="mark" src="/favicon.png" width="26" height="26" alt="" />
+      <a class="brand" href="#/teams" title="All teams">
+        ${raw(brandMark())}
         <b>agmux</b>
-        <span class="pill acc">Teams</span>
+        <span class="brand-sub">Teams</span>
       </a>
       ${team
         ? raw(`<button class="tsw" id="teamSwitch" title="${esc(team.name)}"><span class="sq">${esc(
@@ -267,7 +267,7 @@ function openTeamSwitcher(anchor) {
   menu.innerHTML = html`
     ${state.teams.map(
       (t) => html`<button data-goto="${t.slug}">
-        <span class="sq" style="width:16px;height:16px;border-radius:4px;font-size:8px"
+        <span class="sq"
           >${initials(t.name)[0]}</span
         >
         ${t.name}<span class="role ${t.role === "owner" && !t.staffPreview ? "owner" : ""}">${t.staffPreview ? "staff" : t.role}</span>
@@ -445,7 +445,7 @@ function fail(err) {
         <div class="empty">
           <div
             class="ic"
-            style="color:var(--red);border-color:rgba(248,113,113,0.24);background:rgba(248,113,113,0.08)"
+            style="color:var(--red-text);border-color:var(--red-line);background:var(--red-soft)"
           >
             <i data-lucide="alert-triangle"></i>
           </div>
@@ -1157,7 +1157,7 @@ async function viewLink() {
       <div class="col">
         <div class="pnl">
           <div class="empty">
-            <div class="ic" style="color:var(--blue);border-color:rgba(96,165,250,0.24);background:rgba(96,165,250,0.08)">
+            <div class="ic" style="color:var(--blue);border-color:var(--blue-line);background:var(--blue-soft)">
               <i data-lucide="laptop"></i>
             </div>
             <h3>Link this device?</h3>
@@ -1197,8 +1197,8 @@ async function viewLink() {
 
 function linkPanel({ ok, title, body }) {
   const tint = ok
-    ? "color:var(--green);border-color:rgba(52,211,153,0.24);background:rgba(52,211,153,0.08)"
-    : "color:var(--red);border-color:rgba(248,113,113,0.24);background:rgba(248,113,113,0.08)";
+    ? "color:var(--green-text);border-color:var(--green-line);background:var(--green-soft)"
+    : "color:var(--red-text);border-color:var(--red-line);background:var(--red-soft)";
   return html`
     <section class="center">
       <div class="col">
