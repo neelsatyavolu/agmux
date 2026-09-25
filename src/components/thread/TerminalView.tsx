@@ -1358,7 +1358,25 @@ export function TerminalView({
       // key so the CLI actually cancels.
       const dataDisposable = bundle.term.onData((data) => {
         if (onUserLineRef.current) {
-          for (const ch of data) {
+          for (let i = 0; i < data.length; i += 1) {
+            const ch = data[i];
+            if (ch === "\x1b") {
+              // Arrow/history/word-jump keys: skip the whole CSI/SS3 or
+              // Alt+key sequence, not just ESC, so "[D" / "OC" / "b" don't
+              // end up in the line (and the session title).
+              const next = data[i + 1];
+              if (next === "[" || next === "O") {
+                i += 1;
+                while (i + 1 < data.length) {
+                  i += 1;
+                  const code = data.charCodeAt(i);
+                  if (code >= 0x40 && code <= 0x7e) break;
+                }
+              } else if (next != null) {
+                i += 1;
+              }
+              continue;
+            }
             if (ch === "\r" || ch === "\n") {
               const line = inputLineRef.current.trim();
               inputLineRef.current = "";

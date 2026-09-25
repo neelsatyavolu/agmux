@@ -69,6 +69,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Hiding, pinning and deleting sessions on long-used installs** — When agmux's saved sidebar data was full, choosing Hide or Pin on a session did nothing, deleting a thread could leave it in the list, and moving threads to another project reported a failure even though they moved. These now work straight away.
 - **Claude terminal sessions missing from the sidebar** — If you use Claude Code plugins or startup hooks, many Claude sessions you started outside agmux never appeared in the sidebar. They now show up with their first message as the title.
 - **Droid listed agmux twice** — On Macs that used agmux before it was renamed, Droid ran agmux's status updates twice after every message and listed them twice. It now runs them once.
+- **Codex terminal titles** — Using the arrow keys while typing in a Codex terminal no longer puts stray characters like "[D" into the session's name.
 
 ## v4.2.0 — 2026-09-23
 
