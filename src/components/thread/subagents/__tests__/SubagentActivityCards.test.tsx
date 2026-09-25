@@ -58,6 +58,19 @@ describe("stacked Tasks and Subagents cards", () => {
     expect(runningRow.querySelector(".animate-spin")).toBeTruthy();
   });
 
+  it("L1: 'Subagents' title outweighs the 'Active agents' eyebrow (13px/600 vs the eyebrow's smaller default), and the active count isn't duplicated next to the eyebrow", async () => {
+    render(<Harness />);
+    const card = await screen.findByRole("complementary", { name: "Subagents" });
+    const title = within(card).getByText("Subagents");
+    expect(title.className).toContain("text-[13px]");
+    expect(title.className).toContain("font-semibold");
+    const eyebrow = within(card).getByText("Active agents");
+    expect(eyebrow.className).toContain("ui-eyebrow");
+    // Only the header chip ("2 active") carries the count now — no second
+    // count span sits next to the "Active agents" eyebrow.
+    expect(eyebrow.parentElement?.textContent).toBe("Active agents");
+  });
+
   it("refreshes status without loading full conversations and pauses hidden parents", async () => {
     vi.useFakeTimers();
     const mounted = render(<Harness />);
