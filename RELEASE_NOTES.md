@@ -51,6 +51,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs, including when you pulled it back into the message box to edit it first.
+- **Codex access requests from your phone** — When a Codex chat asks for extra file or network access, the phone now shows what it wants, and tapping Allow actually grants it.
 - **Stopping from your phone** — Tapping Stop on a terminal session from your phone no longer risks closing Claude or Codex.
 - **Phone remote history for Claude Desktop Cowork** — Cowork sessions from Claude Desktop now show their full history on your phone.
 - **Pairing code in Settings** — After a phone pairs, Settings → Remote Control no longer keeps showing a code that has already been used.
