@@ -56,7 +56,12 @@ html[data-surface="flat"] {
   --surface-commit-dialog: var(--ui-panel);
   --surface-modal: var(--ui-panel);
   --surface-tab-inactive: var(--ui-sidebar);
-  --surface-tab-inactive-hover: var(--ui-panel);
+  /* M4: this used to be --ui-panel (lighter than the active tab's canvas
+     fill below), so hovering an inactive tab read as MORE selected than the
+     actually-active one. Keep the resting sidebar fill on hover and carry
+     the feedback via border + text color instead (see .pane-tab-inactive:hover
+     rules further down). */
+  --surface-tab-inactive-hover: var(--ui-sidebar);
   --surface-tab-inactive-border: var(--ui-rule);
   --surface-tab-inactive-border-hover: var(--ui-rule-2);
   --hairline: var(--ui-rule);
@@ -97,6 +102,16 @@ html[data-surface="flat"] .sb-row[data-active="true"],
 html[data-surface="flat"] .sb-thread-row[data-active="true"] {
   background: var(--ui-panel);
   box-shadow: inset 0 0 0 1px var(--ui-rule);
+}
+/* H2: dark-mode selected row was almost indistinguishable from hover (both
+   landed near #1e2125). Bump selected to panel-2 + a visible rule-2 ring.
+   Scoped to dark: in light, selected white-on-hover-grey already reads fine
+   (controller ruling). */
+html[data-surface="flat"]:not([data-mode="light"]) .sb-row.on,
+html[data-surface="flat"]:not([data-mode="light"]) .sb-row[data-active="true"],
+html[data-surface="flat"]:not([data-mode="light"]) .sb-thread-row[data-active="true"] {
+  background: var(--ui-panel-2);
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
 }
 
 /* Home */
@@ -343,6 +358,16 @@ html[data-surface="flat"] .ui-choice-item[data-active="true"] {
   box-shadow: inset 0 0 0 1.5px var(--accent);
   color: var(--text-primary);
 }
+/* M2: the radio/checkbox indicator kept the old blue Tailwind fill even
+   though the item's own selection ring went gold — mixed selection colors
+   in one control. Match the ring (mockup radio is gold) and swap the check
+   mark to accent-foreground ink so it clears contrast on a gold fill
+   (white-on-gold was ~2:1). */
+html[data-surface="flat"] .ui-choice-item[data-active="true"] .ui-choice-dot {
+  background: var(--brand-gold) !important;
+  border-color: transparent !important;
+  color: var(--accent-foreground) !important;
+}
 
 /* ── fx-* : flat-only helpers (add next to existing Tailwind colors) ── */
 html[data-surface="flat"] .fx-ink { color: var(--text-primary) !important; }
@@ -557,13 +582,24 @@ html[data-surface="flat"] .sb-nav-item[data-active="true"] {
   background: var(--ui-panel);
   box-shadow: inset 0 0 0 1px var(--ui-rule);
 }
+/* H2: same selected/hover collision as .sb-row, dark only. */
+html[data-surface="flat"]:not([data-mode="light"]) .sb-nav-item[data-active="true"] {
+  background: var(--ui-panel-2);
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
 .sb-thh .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 html[data-surface="flat"] .sb-thh .lbl { color: var(--text-tertiary); }
 html[data-surface="flat"] .sb-thh .add { color: var(--text-tertiary); }
 html[data-surface="flat"] .sb-thh .add:hover { background: var(--ui-hover); color: var(--text-primary); }
 
-.pg-h .pnm { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-html[data-surface="flat"] .pg-h .pnm { color: var(--text-tertiary); }
+/* H3: project group names are user repo names, not an eyebrow — keep the
+   caps/tracking eyebrow treatment on the section header only (.sb-thh .lbl
+   above). Mixed case, no tracking, so names don't truncate sooner and the
+   "PROJECTS" section header stays visually distinct from its child groups.
+   The rename input shares this class, so this also fixes it typing in caps. */
+.pg-h .pnm { font-size: 12.5px; font-weight: 600; letter-spacing: normal; text-transform: none; }
+html[data-surface="flat"] .pg-h .pnm { color: var(--text-secondary); }
+.pg-h input.pnm { text-transform: none; letter-spacing: normal; }
 .pg-h .pcount { font-size: 11px; }
 html[data-surface="flat"] .pg-h .pcount { color: var(--text-muted); }
 html[data-surface="flat"] .pg-h .chev,
@@ -573,8 +609,17 @@ html[data-surface="flat"] .pg-h:hover { background: var(--ui-hover); }
 html[data-surface="flat"] .pg-h .padd:hover { background: var(--ui-hover); color: var(--text-primary); }
 
 .sb-row, .sb-thread-row { border-radius: 10px; }
-.sb-ttl { font-size: 13.5px; font-weight: 600; }
-html[data-surface="flat"] .sb-ttl { color: var(--text-primary); }
+/* H4: bold-on-every-row truncated titles sooner and erased the active/unread
+   signal weight used to carry. Inactive rows are lighter and secondary;
+   weight/color step up only on the active row (H2). */
+.sb-ttl { font-size: 13px; font-weight: 500; }
+html[data-surface="flat"] .sb-ttl { color: var(--text-secondary); }
+html[data-surface="flat"] .sb-row.on .sb-ttl,
+html[data-surface="flat"] .sb-row[data-active="true"] .sb-ttl,
+html[data-surface="flat"] .sb-thread-row[data-active="true"] .sb-ttl {
+  color: var(--text-primary);
+  font-weight: 600;
+}
 html[data-surface="flat"] .sb-mt { color: var(--text-tertiary); }
 
 .sb-arch .h { font-size: 13px; font-weight: 550; }
@@ -590,16 +635,19 @@ html[data-surface="flat"] .tbtn,
 html[data-surface="flat"] .glass-icon-btn { color: var(--text-tertiary); }
 html[data-surface="flat"] .tbtn:hover,
 html[data-surface="flat"] .glass-icon-btn:hover { background: var(--ui-hover); color: var(--text-primary); }
+/* M5: on (--ui-press, 8% white) and hover (--ui-hover, 4.5% white) read as
+   nearly the same fill. Add a ring so "on" stays visibly on next to hover. */
 html[data-surface="flat"] .tbtn[data-active="true"]:not(.split-on),
 html[data-surface="flat"] .glass-icon-btn[data-active="true"]:not(.split-on) {
   background: var(--ui-press);
   color: var(--text-primary);
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
 }
 html[data-surface="flat"] .tbtn.split-on,
 html[data-surface="flat"] .glass-icon-btn[data-active="true"].split-on {
   background: var(--ui-press);
   color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
 }
 
 /* ── Horizontal agent chrome (mockup #layouts) ── */
@@ -646,11 +694,15 @@ html[data-surface="flat"] .agent-top-chrome-pill[data-active="true"] {
   border-color: transparent;
   box-shadow: inset 0 0 0 1px var(--ui-rule-2);
 }
+/* M4: canvas (the darkest surface) read as recessed/unselected next to
+   hover's lighter --ui-hover fill. Match the scope/filter/pill active
+   treatment (panel-2 + a visible rule-2 ring) so active reads as raised,
+   not hover. */
 html[data-surface="flat"] .agent-top-chrome-chip[data-active="true"] {
   color: var(--text-primary);
-  background: var(--ui-canvas);
+  background: var(--ui-panel-2);
   border-color: transparent;
-  box-shadow: inset 0 0 0 1px var(--ui-rule);
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
 }
 .agent-top-chrome-scope .count,
 .agent-top-chrome-pill .count { font-size: 11px; font-weight: 700; }
@@ -693,6 +745,23 @@ html[data-surface="flat"] .pane-tab-active {
   border-color: var(--ui-rule);
   border-bottom-color: transparent;
   box-shadow: none;
+}
+/* H5: the floating editor tab pill is a different shape than the top
+   session pane tabs above (8px-radius pill sitting on the sidebar-colored
+   bar, mockup .ttab.on) — a canvas fill there was ~1.1:1 against the bar,
+   and the transparent bottom border dropped the pill's bottom edge
+   entirely. Scoped to .editor-tabs-bar so the session pane tabs (still
+   correctly canvas-on-sidebar) are untouched. */
+html[data-surface="flat"] .editor-tabs-bar .pane-tab-active {
+  background: var(--ui-panel-2);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
+/* M4: background hover is now a no-op (--surface-tab-inactive-hover ==
+   --surface-tab-inactive above), so give the title text a hover shift —
+   the border already gets one via --surface-tab-inactive-border-hover. */
+html[data-surface="flat"] .pane-tab-inactive:hover .text-zinc-300 {
+  color: var(--text-primary) !important;
 }
 
 /* ── Home + shared cards (mockup .card/.tile/.list-card/.lrow/.chip/.kb/.inp/.bar/.stat) ── */
@@ -953,6 +1022,11 @@ html[data-surface="flat"] .settings-nav-item[data-active="true"] {
   border-color: transparent;
   box-shadow: inset 0 0 0 1px var(--ui-rule);
 }
+/* H2: same selected/hover collision as .sb-row, dark only. */
+html[data-surface="flat"]:not([data-mode="light"]) .settings-nav-item[data-active="true"] {
+  background: var(--ui-panel-2);
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
 /* Task 13: the shell behind the whole dialog is still the old near-black
    frosted wall (.settings-shell, blur+rgba(9,10,11,.42)) with a fully
    transparent .settings-sidebar drawn over it — this is the main reason
@@ -1021,7 +1095,12 @@ html[data-surface="flat"] .mem-entry {
   border-color: transparent;
   box-shadow: inset 0 0 0 1px var(--ui-rule);
 }
-html[data-surface="flat"] .mem-entry-important { box-shadow: inset 0 0 0 1px var(--ui-rule); }
+/* M7: important entries had the exact same ring as every other entry —
+   no visual emphasis at all. Add the gold left edge back (master used a
+   gold border here). */
+html[data-surface="flat"] .mem-entry-important {
+  box-shadow: inset 2px 0 0 var(--brand-gold), inset 0 0 0 1px var(--ui-rule);
+}
 html[data-surface="flat"] .mem-kind,
 html[data-surface="flat"] .mem-kind-binding,
 html[data-surface="flat"] .mem-kind-review,
@@ -1155,8 +1234,8 @@ html[data-surface="flat"] .file-tree-filter-input {
    classes are applied via className (not inline style), so no !important
    is needed to beat the Tailwind utilities carrying the Glass look. */
 html[data-surface="flat"] .file-tree-row-active {
-  background: var(--ui-press);
-  border-left-color: transparent;
+  background: var(--ui-panel-2);
+  border-left-color: var(--text-tertiary);
   color: var(--text-primary);
 }
 /* Context menu ring (mockup .menu: panel, rule-2 ring). Background already

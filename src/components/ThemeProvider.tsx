@@ -215,7 +215,9 @@ export function buildFlatVars(lightMode: boolean): Record<string, string> {
       "--text-primary": "#171b22",
       "--text-secondary": "#2b313b",
       "--text-tertiary": "#586170",
-      "--text-muted": "#818a98",
+      // H1: #818a98 on white/canvas/sidebar was ~3.5:1; #636c7d clears
+      // 4.5:1 on every flat light background (canvas/sidebar/panel).
+      "--text-muted": "#636c7d",
     };
   }
   return {
@@ -232,7 +234,9 @@ export function buildFlatVars(lightMode: boolean): Record<string, string> {
     "--text-primary": "#eef0f3",
     "--text-secondary": "#cfd4dc",
     "--text-tertiary": "#98a1af",
-    "--text-muted": "#6c7482",
+    // H1: #6c7482 was ~3.5:1 on panel; #808895 clears 4.5:1 on canvas,
+    // sidebar and panel (4.68:1 worst case).
+    "--text-muted": "#808895",
   };
 }
 

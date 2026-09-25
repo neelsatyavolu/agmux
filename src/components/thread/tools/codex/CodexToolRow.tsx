@@ -111,7 +111,7 @@ export const CodexToolRow = memo(function CodexToolRow({
         </span>
       )}
 
-      {detail && <span className="shrink-0 tabular-nums text-[var(--text-muted)] opacity-70">{detail}</span>}
+      {detail && <span className="shrink-0 tabular-nums text-[var(--text-muted)]">{detail}</span>}
 
       {typeof additions === "number" && additions > 0 && (
         <span className="shrink-0 text-[color:var(--status-green)]">+{additions}</span>

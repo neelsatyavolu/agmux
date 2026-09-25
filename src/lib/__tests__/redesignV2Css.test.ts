@@ -142,12 +142,55 @@ describe("shell + home flat families", () => {
   ])("%s %s", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
 
   it.each([
-    [".pg-h .pnm", "text-transform", "uppercase"], [".pg-h .pnm", "font-size", "11px"],
-    [".sb-ttl", "font-weight", "600"], [".sb-ttl", "font-size", "13.5px"],
+    // H3: project group names are user repo names, not an eyebrow — mixed
+    // case, no tracking, so "PROJECTS" (the real eyebrow, .sb-thh .lbl)
+    // stays visually distinct from its child group names.
+    [".pg-h .pnm", "text-transform", "none"], [".pg-h .pnm", "font-size", "12.5px"],
+    [".pg-h .pnm", "letter-spacing", "normal"], [".pg-h .pnm", "font-weight", "600"],
+    // H4: inactive rows are lighter than before so bold no longer marks
+    // every row (weight/color step up only on the active row — see the
+    // "H2/H4: sidebar row active vs inactive" describe block below).
+    [".sb-ttl", "font-weight", "500"], [".sb-ttl", "font-size", "13px"],
     [".sb-nav-item", "font-weight", "550"], [".pill", "text-transform", "none"],
     ["#splash-wordmark", "font-family", "var(--font-sans)"],
     [".agent-top-chrome-seg button", "font-size", "12.5px"],
   ])("type %s %s", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
+
+  it("H3: the rename input shares .pg-h .pnm's casing fix explicitly (belt + suspenders on top of the base selector)", () => {
+    expect(decl(unified, ".pg-h input.pnm", "text-transform")).toBe("none");
+    expect(decl(unified, ".pg-h input.pnm", "letter-spacing")).toBe("normal");
+  });
+});
+
+describe("H2/H4: sidebar row active vs inactive (dark hover/selected collision + bold-every-row)", () => {
+  const F = 'html[data-surface="flat"]';
+  const DARK_F = `${F}:not([data-mode="light"])`;
+
+  it.each([
+    [`${DARK_F} .sb-row.on`, "background", "var(--ui-panel-2)"],
+    [`${DARK_F} .sb-row.on`, "box-shadow", "inset 0 0 0 1px var(--ui-rule-2)"],
+    [`${DARK_F} .sb-nav-item[data-active="true"]`, "background", "var(--ui-panel-2)"],
+    [`${DARK_F} .sb-nav-item[data-active="true"]`, "box-shadow", "inset 0 0 0 1px var(--ui-rule-2)"],
+    [`${DARK_F} .settings-nav-item[data-active="true"]`, "background", "var(--ui-panel-2)"],
+    [`${DARK_F} .settings-nav-item[data-active="true"]`, "box-shadow", "inset 0 0 0 1px var(--ui-rule-2)"],
+  ])("%s %s -> %s", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
+
+  it("light flat keeps the pre-existing selected treatment (white bg was already fine, not touched)", () => {
+    // No light-only override exists for these selectors — only the light
+    // base rule (panel/rule) + this dark-only bump. Confirms the dark-only
+    // scoping actually excludes light.
+    expect(hasSelector(unified, 'html[data-surface="flat"][data-mode="light"] .sb-row.on')).toBe(false);
+  });
+
+  it.each([
+    [`${F} .sb-row.on .sb-ttl`, "color", "var(--text-primary)"],
+    [`${F} .sb-row.on .sb-ttl`, "font-weight", "600"],
+    [`${F} .sb-row[data-active="true"] .sb-ttl`, "color", "var(--text-primary)"],
+  ])("%s %s -> %s (active title steps up)", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
+
+  it("inactive .sb-ttl is secondary, not primary (H2)", () => {
+    expect(decl(unified, `${F} .sb-ttl`, "color")).toBe("var(--text-secondary)");
+  });
 });
 
 function hasSelector(root: postcss.Root, selector: string) {
@@ -367,8 +410,10 @@ describe("Task 13: subagent cards, editor/file tree, settings sidebar", () => {
     [`${F} .file-tree-filter-section`, "border-bottom-color", "var(--ui-rule)"],
     [`${F} .file-tree-filter-input`, "background", "var(--ui-canvas)"],
     [`${F} .file-tree-filter-input`, "border-color", "var(--ui-rule-2)"],
-    [`${F} .file-tree-row-active`, "background", "var(--ui-press)"],
-    [`${F} .file-tree-row-active`, "border-left-color", "transparent"],
+    // H5: press (8% white) barely read as selected next to hover (4.5%),
+    // and the left bar that used to mark the open file was gone entirely.
+    [`${F} .file-tree-row-active`, "background", "var(--ui-panel-2)"],
+    [`${F} .file-tree-row-active`, "border-left-color", "var(--text-tertiary)"],
     [`${F} .file-tree-context-menu`, "border-color", "transparent"],
     [`${F} .file-tree-context-menu`, "box-shadow", "inset 0 0 0 1px var(--ui-rule-2), var(--ui-shadow-pop)"],
     [`${F} .settings-shell`, "background", "var(--ui-canvas)"],
@@ -473,5 +518,76 @@ describe("Task 13: subagent cards, editor/file tree, settings sidebar", () => {
     // (item.label is plain text, not wrapped in a span) — that flat
     // counterpart already exists and is asserted in the it.each table above.
     expect(hasSelector(unified, `${F} .settings-nav-item[data-active="true"] .settings-nav-icon`)).toBe(true);
+  });
+});
+
+describe("Task 14 usability audit: H1/H5/M2/M4/M5/M7", () => {
+  const F = 'html[data-surface="flat"]';
+
+  function relLuminance(hex: string): number {
+    const n = hex.replace("#", "");
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16) / 255);
+    const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  }
+  function contrast(a: string, b: string): number {
+    const [l1, l2] = [relLuminance(a), relLuminance(b)].sort((x, y) => y - x);
+    return (l1 + 0.05) / (l2 + 0.05);
+  }
+
+  it("H1: --text-muted clears 4.5:1 on canvas/sidebar/panel in both modes", () => {
+    const darkMuted = "#808895";
+    const darkBgs = { canvas: "#0f1115", sidebar: "#13161b", panel: "#1a1e25" };
+    for (const [name, bg] of Object.entries(darkBgs)) {
+      expect(contrast(darkMuted, bg), `dark muted vs ${name}`).toBeGreaterThanOrEqual(4.5);
+    }
+    const lightMuted = "#636c7d";
+    const lightBgs = { canvas: "#f7f8fa", sidebar: "#edf0f3", panel: "#ffffff" };
+    for (const [name, bg] of Object.entries(lightBgs)) {
+      expect(contrast(lightMuted, bg), `light muted vs ${name}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("H5: the floating editor tab pill is scoped separately from the top session pane tabs, which keep their canvas-on-sidebar fill", () => {
+    expect(decl(unified, `${F} .editor-tabs-bar .pane-tab-active`, "background")).toBe("var(--ui-panel-2)");
+    expect(decl(unified, `${F} .editor-tabs-bar .pane-tab-active`, "box-shadow")).toBe(
+      "inset 0 0 0 1px var(--ui-rule-2)",
+    );
+    // Unscoped rule (session pane tabs) is untouched.
+    expect(decl(unified, `${F} .pane-tab-active`, "background")).toBe("var(--ui-canvas)");
+  });
+
+  it("M2: the choice-item radio/checkbox indicator matches the gold selection ring when selected", () => {
+    expect(decl(unified, `${F} .ui-choice-item[data-active="true"] .ui-choice-dot`, "background")).toBe(
+      "var(--brand-gold)",
+    );
+    expect(decl(unified, `${F} .ui-choice-item[data-active="true"] .ui-choice-dot`, "color")).toBe(
+      "var(--accent-foreground)",
+    );
+  });
+
+  it("M4: active top-chrome session chip is panel-2 + a rule-2 ring, not canvas (canvas read as recessed next to hover)", () => {
+    expect(decl(unified, `${F} .agent-top-chrome-chip[data-active="true"]`, "background")).toBe("var(--ui-panel-2)");
+    expect(decl(unified, `${F} .agent-top-chrome-chip[data-active="true"]`, "box-shadow")).toBe(
+      "inset 0 0 0 1px var(--ui-rule-2)",
+    );
+  });
+
+  it("M4: inactive pane tab hover no longer paints a lighter fill than the active tab (background token collapses to the resting sidebar fill; feedback moves to border + text)", () => {
+    expect(decl(unified, F, "--surface-tab-inactive-hover")).toBe("var(--ui-sidebar)");
+    expect(decl(unified, `${F} .pane-tab-inactive:hover .text-zinc-300`, "color")).toBe("var(--text-primary)");
+  });
+
+  it("M5: split/task-view toggle 'on' state carries a ring so it doesn't read the same as hover", () => {
+    expect(decl(unified, `${F} .tbtn[data-active="true"]:not(.split-on)`, "box-shadow")).toBe(
+      "inset 0 0 0 1px var(--ui-rule-2)",
+    );
+    expect(decl(unified, `${F} .tbtn.split-on`, "box-shadow")).toBe("inset 0 0 0 1px var(--ui-rule-2)");
+  });
+
+  it("M7: important memory entries get a gold left edge distinct from the normal entry ring", () => {
+    expect(decl(unified, `${F} .mem-entry-important`, "box-shadow")).toBe(
+      "inset 2px 0 0 var(--brand-gold), inset 0 0 0 1px var(--ui-rule)",
+    );
   });
 });
