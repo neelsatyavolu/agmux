@@ -5978,6 +5978,48 @@ describe("ClaudeSdkSessionView — Final coverage gaps", () => {
     await flush();
     expect(container.firstChild).toBeTruthy();
   });
+
+  it("keeps an approval that has waited over a minute when a second one arrives", async () => {
+    // Parallel subagents can each block on a permission prompt. The bridge
+    // waits for every requestId indefinitely, so dropping the older one from
+    // the UI would leave its subagent hung with nothing to answer.
+    const handlers = await setupCapture();
+    render(<ClaudeSdkSessionView sessionId="eg46" cwd="/tmp/repo" isNew />);
+    await flush();
+    const t0 = Date.now();
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(t0);
+    try {
+      await act(async () => {
+        fire(handlers, "eg46", {
+          type: "approval.requested",
+          requestId: "toolu_first",
+          toolName: "Bash",
+          detail: "first command",
+          requestType: "command_execution",
+        });
+      });
+      nowSpy.mockReturnValue(t0 + 61_000);
+      await act(async () => {
+        fire(handlers, "eg46", {
+          type: "approval.requested",
+          requestId: "toolu_second",
+          toolName: "Edit",
+          detail: "second edit",
+          requestType: "file_change",
+        });
+      });
+      await flush();
+      const calls = approvalBannerSpy.mock.calls;
+      const last = calls[calls.length - 1]?.[0] as {
+        description?: string;
+        pendingCount?: number;
+      };
+      expect(last.description).toBe("first command");
+      expect(last.pendingCount).toBe(2);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
 });
 
 describe("ClaudeSdkSessionView — timeline rebind gating", () => {

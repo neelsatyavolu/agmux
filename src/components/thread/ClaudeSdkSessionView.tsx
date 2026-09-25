@@ -1709,10 +1709,12 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
         }
 
         case "approval.requested": {
-          // Evict stale approvals before adding new one
+          // Keep every earlier approval, however old: the bridge waits on each
+          // requestId until answered, so dropping one here would hang the
+          // (sub)agent that asked. Turn end / session end clear the queue.
           const now = Date.now();
           setApprovalQueue((prev) => [
-            ...prev.filter((a) => now - a.createdAt < APPROVAL_TTL_MS),
+            ...prev,
             {
               requestId: sdkEvent.requestId,
               toolName: sdkEvent.toolName,
