@@ -185,7 +185,7 @@ html[data-surface="flat"] .drag-drop-overlay {
 .card-h .cnt,
 .app-card-head .cnt,
 .card-h .lnk,
-.proj .pt,
+.proj .br,
 .proj .tm,
 .sess .sub,
 .app-chip,
@@ -201,7 +201,7 @@ html[data-surface="flat"] .drag-drop-overlay {
   font-variant-numeric: tabular-nums;
 }
 .sb-mt {
-  font-size: 11.5px;
+  font-size: 12px;
 }
 /* Section labels: phone-app eyebrow (11px, 700, .08em caps). */
 .card-h .eye,
@@ -467,3 +467,285 @@ html[data-surface="flat"] .border-white\/\[0\.10\],
 html[data-surface="flat"] .border-white\/\[0\.12\] {
   border-color: var(--ui-rule-2);
 }
+
+/* ── Sidebar (mockup .nv/.eb/.pg-h/.row/.sb-foot) ── */
+.sb-nav-item { font-weight: 550; }
+html[data-surface="flat"] .sb-nav-item { color: var(--text-secondary); }
+html[data-surface="flat"] .sb-nav-item:hover { color: var(--text-primary); background: var(--ui-hover); }
+html[data-surface="flat"] .sb-nav-item[data-active="true"] {
+  color: var(--text-primary);
+  background: var(--ui-panel);
+  box-shadow: inset 0 0 0 1px var(--ui-rule);
+}
+.sb-thh .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+html[data-surface="flat"] .sb-thh .lbl { color: var(--text-tertiary); }
+html[data-surface="flat"] .sb-thh .add { color: var(--text-tertiary); }
+html[data-surface="flat"] .sb-thh .add:hover { background: var(--ui-hover); color: var(--text-primary); }
+
+.pg-h .pnm { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+html[data-surface="flat"] .pg-h .pnm { color: var(--text-tertiary); }
+.pg-h .pcount { font-size: 11px; }
+html[data-surface="flat"] .pg-h .pcount { color: var(--text-muted); }
+html[data-surface="flat"] .pg-h .chev,
+html[data-surface="flat"] .pg-h .picn,
+html[data-surface="flat"] .pg-h .padd { color: var(--text-tertiary); }
+html[data-surface="flat"] .pg-h:hover { background: var(--ui-hover); }
+html[data-surface="flat"] .pg-h .padd:hover { background: var(--ui-hover); color: var(--text-primary); }
+
+.sb-row, .sb-thread-row { border-radius: 10px; }
+.sb-ttl { font-size: 13.5px; font-weight: 600; }
+html[data-surface="flat"] .sb-ttl { color: var(--text-primary); }
+html[data-surface="flat"] .sb-mt { color: var(--text-tertiary); }
+
+.sb-arch .h { font-size: 13px; font-weight: 550; }
+.sb-arch .h .n { font-size: 11px; }
+html[data-surface="flat"] .sb-arch { border-top-color: var(--ui-rule); }
+html[data-surface="flat"] .sb-arch .h { color: var(--text-secondary); }
+html[data-surface="flat"] .sb-arch .h:hover { color: var(--text-primary); }
+html[data-surface="flat"] .sb-arch .h .n { color: var(--text-muted); }
+
+/* Title-bar / tool icon buttons (mockup .ib; size kept to avoid toolbar reflow) */
+.tbtn, .glass-icon-btn { border-radius: 8px; }
+html[data-surface="flat"] .tbtn,
+html[data-surface="flat"] .glass-icon-btn { color: var(--text-tertiary); }
+html[data-surface="flat"] .tbtn:hover,
+html[data-surface="flat"] .glass-icon-btn:hover { background: var(--ui-hover); color: var(--text-primary); }
+html[data-surface="flat"] .tbtn[data-active="true"]:not(.split-on),
+html[data-surface="flat"] .glass-icon-btn[data-active="true"]:not(.split-on) {
+  background: var(--ui-press);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+html[data-surface="flat"] .tbtn.split-on,
+html[data-surface="flat"] .glass-icon-btn[data-active="true"].split-on {
+  background: var(--ui-press);
+  color: var(--text-primary);
+}
+
+/* ── Horizontal agent chrome (mockup #layouts) ── */
+html[data-surface="flat"] .agent-top-chrome {
+  background: var(--ui-sidebar);
+  box-shadow: none;
+  border-bottom-color: var(--ui-rule);
+}
+html[data-surface="flat"] .agent-top-chrome-row { border-bottom-color: var(--ui-rule); }
+html[data-surface="flat"] .agent-top-chrome-seg {
+  background: var(--ui-canvas);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule);
+}
+.agent-top-chrome-seg button { font-size: 12.5px; font-weight: 550; }
+html[data-surface="flat"] .agent-top-chrome-seg button { color: var(--text-tertiary); }
+html[data-surface="flat"] .agent-top-chrome-seg button:hover { color: var(--text-primary); background: var(--ui-hover); }
+html[data-surface="flat"] .agent-top-chrome-seg button[data-active="true"] {
+  color: var(--text-primary);
+  background: var(--ui-panel-2);
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
+.agent-top-chrome-scope,
+.agent-top-chrome-pill,
+.agent-top-chrome-filter { font-size: 12px; font-weight: 550; }
+html[data-surface="flat"] .agent-top-chrome-scope,
+html[data-surface="flat"] .agent-top-chrome-filter {
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
+html[data-surface="flat"] .agent-top-chrome-pill,
+html[data-surface="flat"] .agent-top-chrome-chip { color: var(--text-tertiary); }
+html[data-surface="flat"] .agent-top-chrome-scope:hover,
+html[data-surface="flat"] .agent-top-chrome-filter:hover,
+html[data-surface="flat"] .agent-top-chrome-pill:hover,
+html[data-surface="flat"] .agent-top-chrome-chip:hover { color: var(--text-primary); background: var(--ui-hover); }
+html[data-surface="flat"] .agent-top-chrome-scope[data-active="true"],
+html[data-surface="flat"] .agent-top-chrome-filter[data-active="true"],
+html[data-surface="flat"] .agent-top-chrome-pill[data-active="true"] {
+  color: var(--text-primary);
+  background: var(--ui-panel-2);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
+html[data-surface="flat"] .agent-top-chrome-chip[data-active="true"] {
+  color: var(--text-primary);
+  background: var(--ui-canvas);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule);
+}
+.agent-top-chrome-scope .count,
+.agent-top-chrome-pill .count { font-size: 11px; font-weight: 700; }
+html[data-surface="flat"] .agent-top-chrome-scope .count,
+html[data-surface="flat"] .agent-top-chrome-pill .count,
+html[data-surface="flat"] .agent-top-chrome-scope[data-active="true"] .count,
+html[data-surface="flat"] .agent-top-chrome-pill[data-active="true"] .count {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+html[data-surface="flat"] .agent-top-chrome-scope-divider { background: var(--ui-rule-2); }
+html[data-surface="flat"] .agent-top-chrome-create { border-right-color: var(--ui-rule); }
+html[data-surface="flat"] .agent-top-chrome-create-btn {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-tertiary);
+}
+html[data-surface="flat"] .agent-top-chrome-create-btn:hover { background: var(--ui-hover); color: var(--text-primary); }
+html[data-surface="flat"] .agent-top-chrome-create-btn.primary,
+html[data-surface="flat"] .agent-top-chrome-create-btn.primary:hover,
+html[data-surface="flat"] .agent-top-chrome-create-btn[aria-expanded="true"] {
+  background: var(--ui-accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+}
+html[data-surface="flat"] .agent-top-chrome-chip-close { color: var(--text-muted); }
+html[data-surface="flat"] .agent-top-chrome-chip-close:hover { background: var(--ui-press); color: var(--text-primary); }
+html[data-surface="flat"] .agent-top-chrome-show-more { border-color: var(--ui-rule-2); color: var(--text-tertiary); }
+html[data-surface="flat"] .agent-top-chrome-show-more:hover { background: var(--ui-hover); color: var(--text-primary); }
+
+/* ── Pane tabs ── */
+html[data-surface="flat"] .pane-tab-bar {
+  background: var(--ui-sidebar) !important;
+  border-bottom-color: var(--ui-rule) !important;
+}
+html[data-surface="flat"] .chrome-sheen { background-image: none; }
+html[data-surface="flat"] .pane-tab-active {
+  background: var(--ui-canvas);
+  border-color: var(--ui-rule);
+  border-bottom-color: transparent;
+  box-shadow: none;
+}
+
+/* ── Home + shared cards (mockup .card/.tile/.list-card/.lrow/.chip/.kb/.inp/.bar/.stat) ── */
+html[data-surface="flat"] .app-card,
+html[data-surface="flat"] .card {
+  background: var(--ui-panel);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule);
+}
+html[data-surface="flat"] .app-card-head,
+html[data-surface="flat"] .card-h { border-bottom-color: var(--ui-rule); }
+.card-h .eye, .app-card-head .eye { font-size: 11px; }
+html[data-surface="flat"] .card-h .eye,
+html[data-surface="flat"] .app-card-head .eye { color: var(--text-tertiary); }
+.card-h .cnt, .app-card-head .cnt { font-size: 11px; }
+html[data-surface="flat"] .card-h .cnt,
+html[data-surface="flat"] .app-card-head .cnt { color: var(--text-muted); }
+.card-h .lnk { font-size: 12px; }
+html[data-surface="flat"] .card-h .lnk { color: var(--text-tertiary); }
+html[data-surface="flat"] .card-h .lnk:hover { color: var(--text-primary); }
+
+.app-tile, .tile { border-radius: 14px; }
+html[data-surface="flat"] .app-tile,
+html[data-surface="flat"] .tile {
+  background: var(--ui-panel);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule);
+}
+html[data-surface="flat"] .app-tile:hover,
+html[data-surface="flat"] .tile:hover { box-shadow: inset 0 0 0 1px var(--ui-rule-2); }
+html[data-surface="flat"] .tile .ib,
+html[data-surface="flat"] .app-icon-well {
+  background: var(--ui-panel-2);
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+html[data-surface="flat"] .tile.primary {
+  background: linear-gradient(var(--ui-accent-soft), var(--ui-accent-soft)), var(--ui-panel);
+  box-shadow: inset 0 0 0 1px var(--ui-accent-line);
+}
+html[data-surface="flat"] .tile.primary .ib,
+html[data-surface="flat"] .app-icon-well[data-accent="true"] {
+  background: var(--ui-accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+}
+.tile .tt { font-size: 14px; font-weight: 650; }
+.tile .td { font-size: 12.5px; }
+html[data-surface="flat"] .tile .tt { color: var(--text-primary); }
+html[data-surface="flat"] .tile .td { color: var(--text-tertiary); }
+
+.proj { border-radius: 10px; }
+.proj .pic { font-family: var(--font-sans); }
+.proj .nm { font-size: 13.5px; font-weight: 600; }
+html[data-surface="flat"] .proj:hover { background: var(--ui-hover); }
+html[data-surface="flat"] .proj .pic { background: var(--ui-panel-2); border-color: transparent; color: var(--text-secondary); }
+html[data-surface="flat"] .proj.on .pic,
+html[data-surface="flat"] .proj[data-active="true"] .pic { background: var(--ui-panel-2); color: var(--text-primary); box-shadow: inset 0 0 0 1px var(--ui-rule-2); }
+html[data-surface="flat"] .proj .nm { color: var(--text-primary); }
+html[data-surface="flat"] .proj .pt,
+html[data-surface="flat"] .proj .tm { color: var(--text-muted); }
+html[data-surface="flat"] .proj .br { background: transparent; border-color: transparent; box-shadow: inset 0 0 0 1px var(--ui-rule-2); color: var(--text-tertiary); }
+
+.sess .lb { font-size: 13.5px; font-weight: 600; }
+.sess .sub { font-size: 12px; }
+html[data-surface="flat"] .sess { border-top-color: var(--ui-rule); }
+html[data-surface="flat"] .sess:hover { background: var(--ui-hover); }
+html[data-surface="flat"] .sess .lb { color: var(--text-primary); }
+html[data-surface="flat"] .sess .sub { color: var(--text-tertiary); }
+
+/* Session status pill -> mockup .chip (running = blue Working, wait = gold Needs you) */
+.pill {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: normal;
+  text-transform: none;
+  height: 22px;
+  padding: 0 9px;
+}
+html[data-surface="flat"] .pill.run { color: var(--status-blue); background: var(--ui-blue-soft); border-color: transparent; }
+html[data-surface="flat"] .pill.wait { color: var(--status-amber); background: var(--ui-gold-soft); border-color: transparent; }
+html[data-surface="flat"] .pill.idle { color: var(--text-tertiary); background: transparent; border-color: transparent; box-shadow: inset 0 0 0 1px var(--ui-rule-2); }
+
+.app-kbd, .kbd { font-size: 10.5px; padding: 1px 5px; border-radius: 5px; line-height: 1.3; }
+html[data-surface="flat"] .app-kbd,
+html[data-surface="flat"] .kbd {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+  color: var(--text-tertiary);
+}
+/* ActionTile wraps <Kbd> (.kbd) in another .kbd; only the inner one draws the ring. */
+html[data-surface="flat"] .kbd:has(> .kbd) { box-shadow: none; padding: 0; }
+
+html[data-surface="flat"] .cmdk,
+html[data-surface="flat"] .glass-field {
+  background: var(--ui-canvas);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+  color: var(--text-muted);
+}
+html[data-surface="flat"] .glass-progress,
+html[data-surface="flat"] .u-bar { background: var(--ui-panel-2); }
+
+.app-chip { letter-spacing: normal; font-size: 11.5px; font-weight: 650; }
+html[data-surface="flat"] .app-chip { border-color: transparent; background: transparent; box-shadow: inset 0 0 0 1px var(--ui-rule-2); color: var(--text-tertiary); }
+html[data-surface="flat"] .app-chip[data-tone="accent"],
+html[data-surface="flat"] .app-chip[data-tone="muted"] { background: transparent; border-color: transparent; box-shadow: inset 0 0 0 1px var(--ui-rule-2); color: var(--text-tertiary); }
+html[data-surface="flat"] .app-chip[data-tone="warn"] { background: var(--ui-gold-soft); border-color: transparent; box-shadow: none; color: var(--status-amber); }
+html[data-surface="flat"] .app-chip[data-tone="info"] { background: var(--ui-blue-soft); border-color: transparent; box-shadow: none; color: var(--status-blue); }
+html[data-surface="flat"] .app-chip[data-tone="green"] { background: var(--ui-green-soft); border-color: transparent; box-shadow: none; color: var(--status-green); }
+html[data-surface="flat"] .app-chip[data-tone="red"] { background: var(--ui-red-soft); border-color: transparent; box-shadow: none; color: var(--status-red); }
+
+.app-list-row { border-radius: 10px; }
+html[data-surface="flat"] .app-list-row:hover,
+html[data-surface="flat"] .app-session-row:hover { background: var(--ui-hover); }
+html[data-surface="flat"] .app-session-row { border-top-color: var(--ui-rule); }
+
+/* Home footer stats sit on the divider, not in cards (mockup .stat). */
+html[data-surface="flat"] .app-card.home-stat { background: transparent; box-shadow: none; }
+
+html[data-surface="flat"] .usage-manage-btn { color: var(--text-tertiary); }
+html[data-surface="flat"] .usage-manage-btn:hover { color: var(--text-primary); }
+
+/* ── Splash / Cowork switch ── */
+#splash-wordmark,
+.cowork-switch-label {
+  font-family: var(--font-sans);
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  font-size: 11px;
+}
+html[data-surface="flat"] #splash-wordmark,
+html[data-surface="flat"] .cowork-switch-label { color: var(--text-tertiary); }
+html[data-surface="flat"] .cowork-switch-mark { color: var(--brand-gold); }

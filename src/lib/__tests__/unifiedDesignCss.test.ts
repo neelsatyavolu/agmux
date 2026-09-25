@@ -73,7 +73,7 @@ describe("unified design stylesheet", () => {
 
   it.each([
     ".sb-mt", ".pg-h .pcount", ".sb-arch .h .n", ".card-h .eye", ".card-h .cnt", ".card-h .lnk",
-    ".proj .pt", ".proj .tm", ".sess .sub", ".app-chip",
+    ".proj .br", ".proj .tm", ".sess .sub", ".app-chip",
     ".agent-top-chrome-scope .count", ".agent-top-chrome-pill .count", ".usage-manage-btn",
     ".mem-health", ".mem-filter", ".mem-count", ".mem-kind", ".mem-section-label",
   ])("%s reads in the UI font", selector => {
@@ -81,7 +81,7 @@ describe("unified design stylesheet", () => {
   });
 
   it("keeps machine text monospace", () => {
-    for (const selector of [".app-kbd", ".md-inline-code", ".terminal-panel-cwd", ".proj .br", ".mem-transcript-path"]) {
+    for (const selector of [".app-kbd", ".md-inline-code", ".terminal-panel-cwd", ".proj .pt", ".mem-transcript-path"]) {
       expect(decl(unified, selector, "font-family")).toBe("");
     }
   });

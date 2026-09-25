@@ -698,7 +698,7 @@ export function PaneTabBar({ paneId }: Props) {
   return (
     <div
       ref={barRef}
-      className={`chrome-sheen relative flex h-[56px] min-w-0 flex-shrink-0 items-stretch transition-[padding] duration-300 ${sidebarCollapsed ? "pl-[20px]" : ""}`}
+      className={`chrome-sheen pane-tab-bar relative flex h-[56px] min-w-0 flex-shrink-0 items-stretch transition-[padding] duration-300 ${sidebarCollapsed ? "pl-[20px]" : ""}`}
       style={{ borderBottom: "1px solid var(--glass-border)", background: "var(--glass-header)" }}
     >
       <div className="flex min-w-0 flex-1 items-end gap-[2px] overflow-x-auto scrollbar-none pt-2 px-1.5">

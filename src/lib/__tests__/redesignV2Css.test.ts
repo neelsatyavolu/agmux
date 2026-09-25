@@ -110,3 +110,30 @@ describe("flat neutral remap", () => {
     expect(decl(unified, `${FLAT} ${sel}`, "border-color")).toBe(value);
   });
 });
+
+describe("shell + home flat families", () => {
+  const F = 'html[data-surface="flat"]';
+  it.each([
+    [`${F} .sb-nav-item[data-active="true"]`, "background", "var(--ui-panel)"],
+    [`${F} .agent-top-chrome`, "background", "var(--ui-sidebar)"],
+    [`${F} .agent-top-chrome-seg button[data-active="true"]`, "background", "var(--ui-panel-2)"],
+    [`${F} .agent-top-chrome-pill[data-active="true"]`, "color", "var(--text-primary)"],
+    [`${F} .app-card`, "background", "var(--ui-panel)"],
+    [`${F} .tile.primary`, "box-shadow", "inset 0 0 0 1px var(--ui-accent-line)"],
+    [`${F} .pill.run`, "color", "var(--status-blue)"],
+    [`${F} .pill.wait`, "color", "var(--status-amber)"],
+    [`${F} .app-kbd`, "box-shadow", "inset 0 0 0 1px var(--ui-rule-2)"],
+    [`${F} .cmdk`, "background", "var(--ui-canvas)"],
+    [`${F} .pane-tab-active`, "background", "var(--ui-canvas)"],
+    [`${F} .pane-tab-bar`, "background", "var(--ui-sidebar)"],
+    [`${F} .u-bar`, "background", "var(--ui-panel-2)"],
+  ])("%s %s", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
+
+  it.each([
+    [".pg-h .pnm", "text-transform", "uppercase"], [".pg-h .pnm", "font-size", "11px"],
+    [".sb-ttl", "font-weight", "600"], [".sb-ttl", "font-size", "13.5px"],
+    [".sb-nav-item", "font-weight", "550"], [".pill", "text-transform", "none"],
+    ["#splash-wordmark", "font-family", "var(--font-sans)"],
+    [".agent-top-chrome-seg button", "font-size", "12.5px"],
+  ])("type %s %s", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
+});
