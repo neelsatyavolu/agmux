@@ -80,11 +80,12 @@ export function AddToJournalDialog({ open, threadId, initialContent, initialKind
                 <button
                   key={k}
                   onClick={() => setKind(k)}
+                  data-active={kind === k ? "true" : undefined}
                   className={`ui-chip sm rounded px-2.5 py-1 text-xs font-medium transition-colors ${
                     kind === k
                       ? kindColors[k] + " ring-1 ring-current"
                       : "bg-zinc-800 text-zinc-400 hover:text-zinc-300"
-                  } ${k === "KnownIssue" ? "fx-soft-gold" : "fx-chip-q"}`}
+                  } ${kind === k ? "fx-soft-gold" : "fx-chip-q"}`}
                 >
                   {k === "CompletedWork" ? "Completed" : k === "KnownIssue" ? "Issue" : k}
                 </button>

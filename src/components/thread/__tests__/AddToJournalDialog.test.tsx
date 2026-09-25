@@ -101,4 +101,30 @@ describe("AddToJournalDialog", () => {
       expect.any(String),
     );
   });
+
+  it("moves the gold selected styling to the clicked kind, not just KnownIssue", () => {
+    render(<AddToJournalDialog {...baseProps} initialKind="Note" />);
+    const noteBtn = screen.getByText("Note").closest("button")!;
+    const decisionBtn = screen.getByText("Decision").closest("button")!;
+    const issueBtn = screen.getByText("Issue").closest("button")!;
+
+    // Initial kind (Note) is selected — gold; Issue is not clicked, so neutral.
+    expect(noteBtn.dataset.active).toBe("true");
+    expect(noteBtn.className).toContain("fx-soft-gold");
+    expect(decisionBtn.dataset.active).toBeUndefined();
+    expect(decisionBtn.className).toContain("fx-chip-q");
+    expect(issueBtn.dataset.active).toBeUndefined();
+    expect(issueBtn.className).toContain("fx-chip-q");
+    expect(issueBtn.className).not.toContain("fx-soft-gold");
+
+    fireEvent.click(decisionBtn);
+
+    // Selected styling now follows the clicked kind (Decision), not KnownIssue.
+    expect(decisionBtn.dataset.active).toBe("true");
+    expect(decisionBtn.className).toContain("fx-soft-gold");
+    expect(noteBtn.dataset.active).toBeUndefined();
+    expect(noteBtn.className).toContain("fx-chip-q");
+    expect(issueBtn.dataset.active).toBeUndefined();
+    expect(issueBtn.className).toContain("fx-chip-q");
+  });
 });

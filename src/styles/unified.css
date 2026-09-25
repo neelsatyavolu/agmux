@@ -390,6 +390,11 @@ html[data-surface="flat"] .fx-input:focus-within {
   box-shadow: inset 0 0 0 1px var(--ui-accent-line), 0 0 0 3px var(--ui-accent-soft) !important;
   outline: none !important;
 }
+/* fx-input is also used on button-shaped fields (folder/host pickers) — give
+   those hover feedback without fighting the focus ring above. */
+html[data-surface="flat"] .fx-input:hover:not(:focus):not(:focus-within) {
+  background: var(--ui-hover) !important;
+}
 html[data-surface="flat"] .fx-press {
   background: var(--ui-panel-2) !important;
   color: var(--text-primary) !important;

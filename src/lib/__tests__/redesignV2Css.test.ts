@@ -77,6 +77,12 @@ describe("redesign v2 foundation", () => {
       "color-mix(in srgb, var(--accent) 88%, white)",
     );
   });
+
+  it("fx-input has a flat hover state that doesn't fight the focus ring (button-shaped fields keep hover feedback)", () => {
+    expect(decl(unified, `${FLAT} .fx-input:hover:not(:focus):not(:focus-within)`, "background")).toBe(
+      "var(--ui-hover)",
+    );
+  });
 });
 
 describe("flat neutral remap", () => {
