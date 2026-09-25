@@ -690,20 +690,24 @@ html[data-surface="flat"] .sess .sub { color: var(--text-tertiary); }
   font-weight: 650;
   letter-spacing: normal;
   text-transform: none;
-  height: 22px;
-  padding: 0 9px;
 }
+/* Box model is flat-only so Glass chips keep their existing size. */
+html[data-surface="flat"] .pill { height: 22px; padding: 0 9px; }
 html[data-surface="flat"] .pill.run { color: var(--status-blue); background: var(--ui-blue-soft); border-color: transparent; }
 html[data-surface="flat"] .pill.wait { color: var(--status-amber); background: var(--ui-gold-soft); border-color: transparent; }
 html[data-surface="flat"] .pill.idle { color: var(--text-tertiary); background: transparent; border-color: transparent; box-shadow: inset 0 0 0 1px var(--ui-rule-2); }
 
-.app-kbd, .kbd { font-size: 10.5px; padding: 1px 5px; border-radius: 5px; line-height: 1.3; }
+/* Typography + radius unscoped; box model (padding, line-height) is flat-only
+   so Glass kbd keeps its existing size. */
+.app-kbd, .kbd { font-size: 10.5px; border-radius: 5px; }
 html[data-surface="flat"] .app-kbd,
 html[data-surface="flat"] .kbd {
   background: transparent;
   border-color: transparent;
   box-shadow: inset 0 0 0 1px var(--ui-rule-2);
   color: var(--text-tertiary);
+  padding: 1px 5px;
+  line-height: 1.3;
 }
 /* ActionTile wraps <Kbd> (.kbd) in another .kbd; only the inner one draws the ring. */
 html[data-surface="flat"] .kbd:has(> .kbd) { box-shadow: none; padding: 0; }
@@ -749,3 +753,45 @@ html[data-surface="flat"] .usage-manage-btn:hover { color: var(--text-primary); 
 html[data-surface="flat"] #splash-wordmark,
 html[data-surface="flat"] .cowork-switch-label { color: var(--text-tertiary); }
 html[data-surface="flat"] .cowork-switch-mark { color: var(--brand-gold); }
+
+/* ── Light + Flat cascade fix (fix round 1) ──
+   index.css's html[data-mode="light"] .home-screen-root … rules (≈5247-5270)
+   carry an extra .home-screen-root class, which makes them MORE specific
+   than the flat rules above (which lack that class) and so they win in
+   Light + Flat regardless of load order. Re-declare every .proj/.sess/.pill
+   selector from that index.css block scoped to .home-screen-root, with the
+   same values as the flat rules above: this ties the specificity, and
+   unified.css (loaded after index.css, see main.tsx) wins the tie. */
+html[data-surface="flat"] .home-screen-root .proj .nm { color: var(--text-primary); }
+html[data-surface="flat"] .home-screen-root .sess .lb { color: var(--text-primary); }
+html[data-surface="flat"] .home-screen-root .proj .pic {
+  background: var(--ui-panel-2);
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+html[data-surface="flat"] .home-screen-root .proj .br {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+  color: var(--text-tertiary);
+}
+html[data-surface="flat"] .home-screen-root .proj .pt,
+html[data-surface="flat"] .home-screen-root .proj .tm { color: var(--text-muted); }
+html[data-surface="flat"] .home-screen-root .sess .sub { color: var(--text-tertiary); }
+html[data-surface="flat"] .home-screen-root .pill.idle {
+  color: var(--text-tertiary);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
+html[data-surface="flat"] .home-screen-root .proj.on .pic,
+html[data-surface="flat"] .home-screen-root .proj[data-active="true"] .pic {
+  background: var(--ui-panel-2);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
+html[data-surface="flat"] .home-screen-root .proj:hover,
+html[data-surface="flat"] .home-screen-root .sess:hover { background: var(--ui-hover); }
+html[data-surface="flat"] .home-screen-root .sess { border-top-color: var(--ui-rule); }
+html[data-surface="flat"] .home-screen-root .pill.run { color: var(--status-blue); background: var(--ui-blue-soft); border-color: transparent; }
+html[data-surface="flat"] .home-screen-root .pill.wait { color: var(--status-amber); background: var(--ui-gold-soft); border-color: transparent; }

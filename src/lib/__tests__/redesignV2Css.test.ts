@@ -137,3 +137,58 @@ describe("shell + home flat families", () => {
     [".agent-top-chrome-seg button", "font-size", "12.5px"],
   ])("type %s %s", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
 });
+
+function hasSelector(root: postcss.Root, selector: string) {
+  let found = false;
+  root.walkRules(rule => { if (rule.selectors.includes(selector)) found = true; });
+  return found;
+}
+
+describe("fix round 1: Light + Flat cascade + Glass parity", () => {
+  const F = 'html[data-surface="flat"]';
+
+  it.each([
+    [`${F} .home-screen-root .proj .nm`, "color", "var(--text-primary)"],
+    [`${F} .home-screen-root .sess .lb`, "color", "var(--text-primary)"],
+    [`${F} .home-screen-root .proj .pic`, "background", "var(--ui-panel-2)"],
+    [`${F} .home-screen-root .proj .pic`, "color", "var(--text-secondary)"],
+    [`${F} .home-screen-root .proj .br`, "color", "var(--text-tertiary)"],
+    [`${F} .home-screen-root .proj .br`, "box-shadow", "inset 0 0 0 1px var(--ui-rule-2)"],
+    [`${F} .home-screen-root .proj .pt`, "color", "var(--text-muted)"],
+    [`${F} .home-screen-root .proj .tm`, "color", "var(--text-muted)"],
+    [`${F} .home-screen-root .sess .sub`, "color", "var(--text-tertiary)"],
+    [`${F} .home-screen-root .pill.idle`, "color", "var(--text-tertiary)"],
+    [`${F} .home-screen-root .proj.on .pic`, "background", "var(--ui-panel-2)"],
+    [`${F} .home-screen-root .proj.on .pic`, "color", "var(--text-primary)"],
+    [`${F} .home-screen-root .proj[data-active="true"] .pic`, "box-shadow", "inset 0 0 0 1px var(--ui-rule-2)"],
+    [`${F} .home-screen-root .proj:hover`, "background", "var(--ui-hover)"],
+    [`${F} .home-screen-root .sess:hover`, "background", "var(--ui-hover)"],
+    [`${F} .home-screen-root .sess`, "border-top-color", "var(--ui-rule)"],
+    [`${F} .home-screen-root .pill.run`, "color", "var(--status-blue)"],
+    [`${F} .home-screen-root .pill.wait`, "color", "var(--status-amber)"],
+  ])("%s %s", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
+
+  it("every index.css light .home-screen-root .proj/.pill/.sess selector has a flat counterpart in unified.css", () => {
+    const missing: string[] = [];
+    index.walkRules(rule => {
+      for (const sel of rule.selectors) {
+        if (!sel.startsWith('html[data-mode="light"] .home-screen-root')) continue;
+        if (!(sel.includes(".proj") || sel.includes(".pill") || sel.includes(".sess"))) continue;
+        const flatSel = sel.replace('html[data-mode="light"]', F);
+        if (!hasSelector(unified, flatSel)) missing.push(sel);
+      }
+    });
+    expect(missing).toEqual([]);
+  });
+
+  it("pill and kbd box model are flat-only so Glass keeps its size", () => {
+    expect(decl(unified, ".pill", "height")).toBe("");
+    expect(decl(unified, ".pill", "padding")).toBe("");
+    expect(decl(unified, `${F} .pill`, "height")).toBe("22px");
+    expect(decl(unified, `${F} .pill`, "padding")).toBe("0 9px");
+    expect(decl(unified, ".app-kbd", "padding")).toBe("");
+    expect(decl(unified, ".app-kbd", "line-height")).toBe("");
+    expect(decl(unified, `${F} .app-kbd`, "padding")).toBe("1px 5px");
+    expect(decl(unified, `${F} .app-kbd`, "line-height")).toBe("1.3");
+  });
+});
