@@ -1,12 +1,12 @@
 /** Shared Codex-style composer control classes for all chat surfaces. */
 
 export const CBTN =
-  "inline-flex h-[29px] shrink-0 items-center justify-center gap-1.5 rounded-lg border border-transparent px-[9px] " +
+  "inline-flex h-[29px] shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-transparent px-[9px] " +
   "font-sans text-[12px] font-medium tracking-[-0.01em] text-[var(--text-secondary)] whitespace-nowrap " +
   "transition-colors hover:bg-white/[0.06] hover:text-[var(--text-primary)] disabled:pointer-events-none disabled:opacity-40";
 
 export const CBTN_SQ =
-  "inline-flex h-[29px] w-[30px] shrink-0 items-center justify-center rounded-lg border border-transparent " +
+  "inline-flex h-[29px] w-[30px] shrink-0 items-center justify-center rounded-[10px] border border-transparent " +
   "text-[var(--text-secondary)] transition-colors hover:bg-white/[0.06] hover:text-[var(--text-primary)] " +
   "disabled:pointer-events-none disabled:opacity-40";
 
@@ -32,9 +32,9 @@ export const SEND_BTN_ACTIVE =
 
 export const SEND_BTN_IDLE =
   "ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full " +
-  "bg-white/[0.07] text-white/40 transition-all duration-150 disabled:cursor-not-allowed";
+  "bg-white/[0.07] text-white/40 transition-all duration-150 disabled:cursor-not-allowed fx-panel-2 fx-muted";
 
 export const STOP_BTN =
-  "ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full " +
+  "composer-stop ml-0.5 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full " +
   "bg-red-500/20 text-red-400 shadow-[0_4px_16px_-4px_rgba(248,113,113,0.4)] " +
   "transition-all hover:bg-red-500/30 active:scale-95";

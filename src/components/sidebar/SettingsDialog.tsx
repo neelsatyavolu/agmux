@@ -1819,23 +1819,14 @@ function AccountsPage({
       </SettingsCard>
 
       <div
-        className="mb-5 rounded-xl border px-6 pt-[22px] pb-5"
+        className="fx-card mb-5 rounded-xl border px-6 pt-[22px] pb-5"
         style={{
           borderColor: "rgba(255,255,255,0.06)",
           background: "rgba(255,255,255,0.02)",
           boxShadow: "0 4px 20px -5px rgba(0,0,0,0.30)",
         }}
       >
-        <div
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10.5,
-            color: "var(--accent)",
-            textTransform: "uppercase",
-            letterSpacing: "0.2em",
-            marginBottom: 8,
-          }}
-        >
+        <div className="ui-eyebrow settings-card-eyebrow" style={{ marginBottom: 8 }}>
           Account
         </div>
         <h3 className="m-0" style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary, #fff)", letterSpacing: "-0.015em" }}>
@@ -3334,11 +3325,11 @@ function AboutPage({
 function PageHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="mb-6 flex items-baseline gap-3 pb-4 border-b border-white/[0.05]">
-      <h1 className="ui-display m-0 text-[26px] font-semibold leading-[1.1] text-[var(--text-primary)]">
+      <h1 className="ui-title-xl m-0 text-[var(--text-primary)]">
         {title}
       </h1>
       {description && (
-        <span className="text-[12.5px] text-[var(--text-muted)]" style={{ letterSpacing: "-0.01em" }}>
+        <span className="text-[13.5px] text-[var(--text-muted)] fx-graphite" style={{ letterSpacing: "-0.01em" }}>
           {description}
         </span>
       )}
@@ -3362,21 +3353,12 @@ function SettingsCard({
   const hasHeader = !!(eyebrow || title || description);
   return (
     <div
-      className={`settings-card overflow-hidden rounded-xl mb-5 ${className ?? ""}`}
+      className={`settings-card overflow-hidden rounded-[14px] mb-5 ${className ?? ""}`}
     >
       {hasHeader && (
         <div className="settings-card-header px-6 pt-[22px] pb-3.5">
           {eyebrow && (
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10.5,
-                color: "var(--accent)",
-                textTransform: "uppercase",
-                letterSpacing: "0.2em",
-                marginBottom: 8,
-              }}
-            >
+            <div className="ui-eyebrow settings-card-eyebrow" style={{ marginBottom: 8 }}>
               {eyebrow}
             </div>
           )}
@@ -3468,7 +3450,7 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean
     <button
       onClick={() => onChange(!enabled)}
       aria-pressed={enabled}
-      className={`settings-toggle ${enabled ? "settings-toggle-on" : "settings-toggle-off"} relative inline-flex h-[18px] w-8 items-center rounded-full border transition-all`}
+      className={`settings-toggle settings-toggle-track ${enabled ? "settings-toggle-on" : "settings-toggle-off"} relative inline-flex h-[18px] w-8 items-center rounded-full border transition-all`}
       style={{
         background: enabled ? "var(--accent)" : undefined,
         borderColor: enabled ? "var(--accent)" : undefined,
@@ -3610,7 +3592,8 @@ function Slider({
         <span
           className="text-right"
           style={{
-            fontFamily: "var(--font-mono)",
+            fontFamily: "var(--font-sans)",
+            fontVariantNumeric: "tabular-nums",
             fontSize: 11.5,
             color: "var(--text-tertiary)",
             minWidth: 38,

@@ -1,3 +1,3 @@
-export const button = "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[var(--glass-border)] px-3 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
-export const primaryButton = `${button} border-[var(--accent-border)] bg-[var(--accent-dim)] text-[var(--accent)]`;
+export const button = "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[var(--glass-border)] px-3 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 fx-quiet";
+export const primaryButton = `${button} fx-accent border-[var(--accent-border)] bg-[var(--accent-dim)] text-[var(--accent)]`;
 export const input = "min-h-9 rounded-lg border border-[var(--glass-border)] bg-transparent px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]";

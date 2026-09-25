@@ -4,12 +4,12 @@
 export function PageHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="mb-6 flex items-baseline gap-3 border-b border-white/[0.05] pb-4">
-      <h1 className="ui-display m-0 text-[26px] font-semibold leading-[1.1] text-[var(--text-primary)]">
+      <h1 className="ui-title-xl m-0 text-[var(--text-primary)]">
         {title}
       </h1>
       {description ? (
         <span
-          className="text-[12.5px] text-[var(--text-muted)]"
+          className="text-[13.5px] text-[var(--text-muted)] fx-graphite"
           style={{ letterSpacing: "-0.01em" }}
         >
           {description}
@@ -34,20 +34,11 @@ export function SettingsCard({
 }) {
   const hasHeader = !!(eyebrow || title || description);
   return (
-    <div className={`settings-card mb-5 overflow-hidden rounded-xl ${className ?? ""}`}>
+    <div className={`settings-card mb-5 overflow-hidden rounded-[14px] ${className ?? ""}`}>
       {hasHeader ? (
         <div className="settings-card-header px-6 pb-3.5 pt-[22px]">
           {eyebrow ? (
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10.5,
-                color: "var(--accent)",
-                textTransform: "uppercase",
-                letterSpacing: "0.2em",
-                marginBottom: 8,
-              }}
-            >
+            <div className="ui-eyebrow settings-card-eyebrow" style={{ marginBottom: 8 }}>
               {eyebrow}
             </div>
           ) : null}
@@ -164,7 +155,7 @@ export function Toggle({
       aria-pressed={enabled}
       role="switch"
       aria-checked={enabled}
-      className={`settings-toggle ${enabled ? "settings-toggle-on" : "settings-toggle-off"} relative inline-flex h-[18px] w-8 items-center rounded-full border transition-all disabled:opacity-50`}
+      className={`settings-toggle settings-toggle-track ${enabled ? "settings-toggle-on" : "settings-toggle-off"} relative inline-flex h-[18px] w-8 items-center rounded-full border transition-all disabled:opacity-50`}
       style={{
         background: enabled ? "var(--accent)" : undefined,
         borderColor: enabled ? "var(--accent)" : undefined,

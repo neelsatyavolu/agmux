@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 
-type ButtonSize = "sm" | "md";
+type ButtonSize = "sm" | "md" | "lg";
 type ButtonVariant = "primary" | "ghost" | "accent" | "destructive";
 
 interface GlassButtonProps {
@@ -19,6 +19,7 @@ interface GlassButtonProps {
 const SIZE_CLASSES: Record<ButtonSize, string> = {
   sm: "px-2.5 py-[5px] text-[11px] gap-1",
   md: "px-3 py-[5px] text-xs gap-1.5",
+  lg: "px-4 py-[5px] text-[13.5px] gap-2",
 };
 
 export function GlassButton({
@@ -34,7 +35,7 @@ export function GlassButton({
   className = "",
 }: GlassButtonProps) {
   const base =
-    "relative inline-flex items-center justify-center font-medium rounded-[7px] cursor-default select-none transition-[background-color,border-color,transform] duration-200";
+    "ui-btn relative inline-flex items-center justify-center font-medium rounded-[7px] cursor-default select-none transition-[background-color,border-color,transform] duration-200";
 
   const variantClass =
     variant === "accent"
@@ -65,13 +66,16 @@ export function GlassButton({
     ? "border-white/[0.10] bg-white/[0.08] text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.10)]"
     : "";
 
-  const iconSize = size === "sm" ? 11 : 12;
+  const iconSize = size === "sm" ? 11 : size === "lg" ? 14 : 12;
 
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       title={title}
+      data-variant={variant}
+      data-size={size}
+      data-active={active ? "true" : undefined}
       className={`${base} ${SIZE_CLASSES[size]} ${variantClass} ${activeClass} ${className}`}
     >
       {Icon && <Icon size={iconSize} />}

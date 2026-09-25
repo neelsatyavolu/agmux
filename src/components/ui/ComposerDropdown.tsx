@@ -59,9 +59,9 @@ interface DropdownHeaderProps {
 export function DropdownHeader({ title, kbd }: DropdownHeaderProps) {
   return (
     <div className="flex items-center justify-between px-3 pt-2 pb-1.5">
-      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-zinc-500">{title}</span>
+      <span className="ui-eyebrow text-zinc-500">{title}</span>
       {kbd && (
-        <span className="font-mono text-[9.5px] text-zinc-500 rounded border border-white/[0.06] bg-white/[0.04] px-1.5 py-[1px]">
+        <span className="ui-kbd text-zinc-500 border border-white/[0.06] bg-white/[0.04]">
           {kbd}
         </span>
       )}
@@ -71,7 +71,7 @@ export function DropdownHeader({ title, kbd }: DropdownHeaderProps) {
 
 export function DropdownSectionHeader({ children }: { children: ReactNode }) {
   return (
-    <div className="font-mono text-[9.5px] uppercase tracking-[0.22em] text-zinc-600 px-3 pt-2 pb-1">
+    <div className="ui-eyebrow text-zinc-600 px-3 pt-2 pb-1">
       {children}
     </div>
   );
@@ -90,7 +90,7 @@ export interface DropdownRowProps {
   icon?: ReactNode;
   /** Primary label. */
   title: ReactNode;
-  /** Secondary caption (mono, muted). */
+  /** Secondary caption (muted). */
   meta?: ReactNode;
   /** Right-side adornment (tag, kbd, check). */
   right?: ReactNode;
@@ -108,26 +108,28 @@ export function DropdownRow({
   right,
   className = "",
 }: DropdownRowProps) {
-  const base = "flex w-full items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors";
+  const base = "dd-row flex w-full items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors";
   const color = danger
     ? "text-red-400 hover:bg-red-500/[0.06]"
     : selected
     ? "bg-[var(--accent-dim)] text-white"
     : "text-zinc-200 hover:bg-white/[0.04]";
   return (
-    <button type="button" onClick={onClick} disabled={!!disabledReason} title={disabledReason} className={`${base} ${color} ${className} disabled:opacity-50`}>
+    <button type="button" onClick={onClick} disabled={!!disabledReason} title={disabledReason} data-selected={selected ? "true" : undefined} className={`${base} ${color} ${className} disabled:opacity-50`}>
       {icon && <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center">{icon}</span>}
       <span className="flex-1 min-w-0">
         <span className="block text-[13.5px] font-medium tracking-[-0.015em] leading-tight truncate">{title}</span>
         {disabledReason && <span className="mt-0.5 block text-[10.5px] text-[var(--text-secondary)]">{disabledReason}</span>}
         {meta && (
-          <span className="mt-0.5 block font-mono text-[10.5px] text-zinc-500 truncate">{meta}</span>
+          <span className="mt-0.5 block text-[12px] text-zinc-500 truncate">{meta}</span>
         )}
       </span>
       {right && <span className="flex shrink-0 items-center gap-1.5">{right}</span>}
     </button>
   );
 }
+
+const FLAT_TONE = { accent: "fx-chip-q", emerald: "fx-chip-q", violet: "fx-soft-violet", amber: "fx-soft-gold" } as const;
 
 /** Small pill tag ("Rec", "New"). */
 export function DropdownTag({ children, variant = "accent" }: { children: ReactNode; variant?: "accent" | "emerald" | "violet" | "amber" }) {
@@ -139,7 +141,7 @@ export function DropdownTag({ children, variant = "accent" }: { children: ReactN
     amber: "bg-amber-400/10 border-amber-400/20 text-amber-400",
   };
   return (
-    <span className={`font-mono text-[9px] font-medium uppercase tracking-[0.1em] px-1.5 py-[1px] rounded-full border ${map[variant]}`}>
+    <span className={`ui-chip sm border ${map[variant]} ${FLAT_TONE[variant]}`}>
       {children}
     </span>
   );
@@ -148,7 +150,7 @@ export function DropdownTag({ children, variant = "accent" }: { children: ReactN
 /** Inline keybinding pill. */
 export function DropdownKbd({ children }: { children: ReactNode }) {
   return (
-    <span className="font-mono text-[9.5px] text-zinc-500 rounded border border-white/[0.06] bg-white/[0.04] px-1.5 py-[1px]">
+    <span className="ui-kbd text-zinc-500 border border-white/[0.06] bg-white/[0.04]">
       {children}
     </span>
   );
