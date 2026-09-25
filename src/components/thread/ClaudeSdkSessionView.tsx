@@ -2069,6 +2069,14 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
           // session exists. Flip running so the composer doesn't sit on
           // "Starting session…" until the parent ensure_server invoke returns.
           setStatus("running");
+          // Grok/Gemini emit session.init only when an agent process binds
+          // the session (start or restart); that process can't answer an
+          // earlier one's requests. Claude sends init every turn, and a
+          // background subagent may still be waiting, so keep Claude's queue.
+          if (providerOverride === "Grok" || providerOverride === "Gemini") {
+            setApprovalQueue([]);
+            setPendingInput(null);
+          }
           // Capture the SDK's authoritative slash command list for autocomplete
           if (Array.isArray(sdkEvent.slashCommands) && sdkEvent.slashCommands.length > 0) {
             sdkSlashCommandsCache.set(sessionId, sdkEvent.slashCommands);

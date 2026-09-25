@@ -6052,6 +6052,40 @@ describe("ClaudeSdkSessionView — Final coverage gaps", () => {
     expect(container.textContent).not.toContain("Failed to approve");
   });
 
+  it("drops approvals left over from a session that was restarted", async () => {
+    // A restarted agent process (e.g. a Grok effort change) can never answer
+    // the old process's requests; they must not sit in front of new ones.
+    const handlers = await setupCapture();
+    render(<ClaudeSdkSessionView sessionId="eg50" cwd="/tmp/repo" isNew providerOverride="Grok" transport={{ send: vi.fn(), respondApproval: vi.fn(), interrupt: vi.fn(), setModel: vi.fn() } as never} externalSessionReady />);
+    await flush();
+    await act(async () => {
+      fire(handlers, "eg50", { type: "approval.requested", requestId: "0", toolName: "command", detail: "old command", requestType: "command_execution" });
+    });
+    await act(async () => {
+      fire(handlers, "eg50", { type: "session.init", sessionId: "11111111-1111-4111-8111-111111111111", slashCommands: [] });
+      fire(handlers, "eg50", { type: "approval.requested", requestId: "1", toolName: "command", detail: "new command", requestType: "command_execution" });
+    });
+    await flush();
+    const calls = approvalBannerSpy.mock.calls;
+    const last = calls[calls.length - 1]?.[0] as { description?: string; pendingCount?: number };
+    expect(last.description).toBe("new command");
+    expect(last.pendingCount).toBe(1);
+  });
+
+  it("keeps a Claude approval across the next turn's session.init", async () => {
+    // Claude emits init at the start of every turn; a background subagent's
+    // pending approval is still live then.
+    const handlers = await setupCapture();
+    const { queryByTestId } = render(<ClaudeSdkSessionView sessionId="eg51" cwd="/tmp/repo" isNew />);
+    await flush();
+    await act(async () => {
+      fire(handlers, "eg51", { type: "approval.requested", requestId: "toolu_bg", toolName: "Bash", detail: "npm test", requestType: "command_execution" });
+      fire(handlers, "eg51", { type: "session.init", sessionId: "11111111-1111-4111-8111-111111111111", slashCommands: [] });
+    });
+    await flush();
+    expect(queryByTestId("approval-banner")).toBeTruthy();
+  });
+
   it("keeps an approval that has waited over a minute when a second one arrives", async () => {
     // Parallel subagents can each block on a permission prompt. The bridge
     // waits for every requestId indefinitely, so dropping the older one from
