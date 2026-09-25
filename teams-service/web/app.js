@@ -318,7 +318,7 @@ function mountCharts(data) {
     tok: data.daily.map((d) => d.tokens),
     cost: data.daily.map((d) => d.tokens), // cost tracks tokens in shape
     hrs: data.daily.map((d) => d.activeHours),
-    ses: data.daily.map((d) => d.sessions),
+    ses: data.daily.map((d) => d.sessionsStarted),
     con: data.daily.map((d) => d.peakConcurrent),
   };
   $$("svg.spark[data-spark]").forEach((svg) => {

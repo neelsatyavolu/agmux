@@ -306,3 +306,25 @@ describe("cost completeness", () => {
     expect(totals([b({ cost_incomplete: 0 }), b()]).costIncomplete).toBe(true);
   });
 });
+
+describe("sessions started", () => {
+  it("sums distinct starts separately from session-hours", () => {
+    const t = totals([
+      b({ hour_utc: "2026-07-29T14", sessions: 2, sessions_started: 2 }),
+      b({ hour_utc: "2026-07-29T15", sessions: 2, sessions_started: 0 }),
+    ]);
+    expect(t).toMatchObject({ sessions: 4, sessionsStarted: 2, sessionsStartedIncomplete: false });
+  });
+
+  it("marks older uploads as unknown instead of zero", () => {
+    const old = b({ hour_utc: "2026-07-29T16", sessions: 3, sessions_started: null });
+    const t = totals([b({ sessions: 1, sessions_started: 1 }), old]);
+    expect(t).toMatchObject({ sessionsStarted: 1, sessionsStartedIncomplete: true });
+    // A bucket with no session activity (e.g. approvals only) is not a gap.
+    expect(totals([b({ sessions: 0, sessions_started: null })]).sessionsStartedIncomplete).toBe(false);
+    const [day] = dailySeries([old], 1, new Date("2026-07-29T20:00:00Z"));
+    expect(day).toMatchObject({ sessions: 3, sessionsStarted: 0, sessionsStartedIncomplete: true });
+    expect(projects([old])[0]).toMatchObject({ sessionsStarted: 0, sessionsStartedIncomplete: true });
+  });
+});
+

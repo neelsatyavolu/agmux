@@ -67,7 +67,7 @@ async function fetchBuckets(
   const r = await env.DB.prepare(
     `SELECT user_id, hour_utc, provider, model, project_key,
             tokens_in, tokens_out, tokens_cache_read, tokens_cache_write, tokens_reasoning, cost_usd, cost_incomplete,
-            active_ms, after_hours_ms, weekend_ms, sessions, turns, tool_calls,
+            active_ms, after_hours_ms, weekend_ms, sessions, sessions_started, turns, tool_calls,
             peak_concurrent,
             tool_bash, tool_edit, tool_read, tool_search, tool_web, tool_agent,
             tool_mcp, tool_other, tool_errors, tools_measured,
@@ -149,6 +149,9 @@ export async function teamOverview(
       costUsd: delta(t.costUsd, p.costUsd),
       activeHours: delta(t.activeHours, p.activeHours),
       sessions: delta(t.sessions, p.sessions),
+      sessionsStarted: t.sessionsStartedIncomplete || p.sessionsStartedIncomplete
+        ? null
+        : delta(t.sessionsStarted, p.sessionsStarted),
     },
     daily: dailySeries(current, win.days, win.endDate),
     heatmap: heatmap(current),
@@ -274,6 +277,9 @@ export async function memberDetail(
       tokens: delta(t.tokens, p.tokens),
       activeHours: delta(t.activeHours, p.activeHours),
       sessions: delta(t.sessions, p.sessions),
+      sessionsStarted: t.sessionsStartedIncomplete || p.sessionsStartedIncomplete
+        ? null
+        : delta(t.sessionsStarted, p.sessionsStarted),
       costUsd: delta(t.costUsd, p.costUsd),
     },
     daily: dailySeries(current, win.days, win.endDate),

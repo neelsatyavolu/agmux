@@ -74,20 +74,34 @@ describe("provider accounts backward compatibility", () => {
     } finally { logs.mockRestore(); }
   });
 
+  it("requires migration 016 before a Worker that stores session starts", async () => {
+    const { env, desktop } = await fixture();
+    await env.DB.prepare("ALTER TABLE metric_hourly DROP COLUMN sessions_started").run();
+    const logs = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect((await call(env, "/api/metrics/upload", desktop, oldUpload())).status).toBe(500);
+      expect(logs.mock.calls.some(args => args.some(arg => String(arg).includes("sessions_started")))).toBe(true);
+    } finally { logs.mockRestore(); }
+  });
+
   it("adds only its table/index to the HEAD schema and preserves all existing rows and definitions", async () => {
     const { env, desktop } = await fixture();
     await env.DB.prepare("DROP TABLE provider_accounts").run();
     // Later additive provider-account tables (migration 015) are not part of this comparison.
     await env.DB.prepare("DROP TABLE provider_account_activity").run();
     await env.DB.prepare("DROP TABLE provider_account_settings").run();
+    // Nullable session-start counter (migration 016) is also later and additive.
+    await env.DB.prepare("ALTER TABLE metric_hourly DROP COLUMN sessions_started").run();
     // Compare against the actual pre-feature schema, not a slice of the new schema.
     const head = new DatabaseSync(":memory:");
     try {
       head.exec(execFileSync("git", ["show", "e2f26037:teams-service/schema.sql"], {
         cwd: new URL("..", import.meta.url), encoding: "utf8",
       }));
+      expect((await env.DB.prepare(catalogSql).all()).results).toEqual(head.prepare(catalogSql).all());
+      // Restore 016 (the Worker writes it), then compare later steps against this schema.
+      await env.DB.prepare("ALTER TABLE metric_hourly ADD COLUMN sessions_started INTEGER").run();
       const catalog = (await env.DB.prepare(catalogSql).all()).results;
-      expect(catalog).toEqual(head.prepare(catalogSql).all());
       expect((await call(env, "/api/metrics/upload", desktop, oldUpload())).status).toBe(200);
       await env.DB.prepare("INSERT INTO team_policies (team_id,allowed_providers,allowed_models,updated_by,updated_at) VALUES ('team','[]','[]','owner','2026-09-12T00:00:00Z')").run();
       const tables = catalog.filter(row => row.type === "table").map(row => String(row.name));

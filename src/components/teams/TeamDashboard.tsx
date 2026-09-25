@@ -19,11 +19,14 @@ import {
   agoLabel,
   fmtMoney,
   fmtPct,
+  fmtSessions,
   fmtTokens,
+  sessionsCard,
   teamsOverview,
   TEAM_RANGE_LABELS,
   TEAM_RANGES,
   type MemberRow,
+  type ProjectRow,
   type TeamMembership,
   type TeamOverview,
   type TeamRange,
@@ -203,9 +206,8 @@ export function TeamDashboard({
         />
         <StatCard
           icon={MessageSquare}
-          label="Session activity"
-          help="Each session counts once per hour with recorded activity. This is not a count of distinct conversations."
-          value={String(t.sessions)}
+          {...sessionsCard(t)}
+          value={fmtSessions(t)}
           note={`${t.turns.toLocaleString()} turns · ${t.toolCalls.toLocaleString()} tool calls`}
         />
         <StatCard
@@ -592,7 +594,7 @@ function EfficiencyGrid({ totals: t }: { totals: TeamOverview["totals"] }) {
   );
 }
 
-function ProjectsTable({ rows }: { rows: { projectKey: string; activeHours: number; tokens: number; sessions: number }[] }) {
+function ProjectsTable({ rows }: { rows: ProjectRow[] }) {
   if (!rows.length) {
     return <p className="m-0 px-3.5 py-4 text-[11.5px] text-[var(--text-muted)]">No project activity in this range.</p>;
   }
@@ -600,7 +602,7 @@ function ProjectsTable({ rows }: { rows: { projectKey: string; activeHours: numb
     <table className="w-full border-collapse tabular-nums">
       <thead>
         <tr>
-          {["Project", "Active", "Tokens", "Session activity"].map((h, i) => (
+          {["Project", "Active", "Tokens", "Sessions"].map((h, i) => (
             <th
               key={h}
               className={`ui-eyebrow border-b border-white/[0.06] px-3 py-[7px] text-[var(--text-muted)] ${
@@ -627,7 +629,7 @@ function ProjectsTable({ rows }: { rows: { projectKey: string; activeHours: numb
                 {tok.value}
                 {tok.unit}
               </td>
-              <td className="border-b border-white/[0.035] px-3 text-right text-[12px] text-[var(--text-muted)]">{r.sessions}</td>
+              <td className="border-b border-white/[0.035] px-3 text-right text-[12px] text-[var(--text-muted)]">{fmtSessions(r)}</td>
             </tr>
           );
         })}
@@ -710,7 +712,7 @@ function MemberTable({
     <table className="w-full border-collapse tabular-nums">
       <thead>
         <tr>
-          {["Member", "Active", "Tokens", "Session activity", "Peak", "Last seen"].map((h, i) => (
+          {["Member", "Active", "Tokens", "Sessions", "Peak", "Last seen"].map((h, i) => (
             <th
               key={h}
               className={`ui-eyebrow border-b border-white/[0.06] px-3 py-[7px] text-[var(--text-muted)] ${
@@ -764,7 +766,7 @@ function MemberTable({
                     {tokens.unit}
                   </td>
                   <td className="border-b border-white/[0.035] px-3 text-right text-[12.5px] text-[var(--text-muted)]">
-                    {m.totals.sessions.toLocaleString("en-US")}
+                    {fmtSessions(m.totals)}
                   </td>
                   <td className="border-b border-white/[0.035] px-3 text-right text-[12.5px] text-[var(--text-muted)]">
                     {m.totals.peakConcurrent.toLocaleString("en-US")}

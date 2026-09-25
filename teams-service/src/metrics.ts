@@ -26,6 +26,8 @@ export interface IncomingBucket {
   afterHoursMs?: number;
   weekendMs?: number;
   sessions?: number;
+  /** Absent from older desktops: stored as NULL (unknown), never zero. */
+  sessionsStarted?: number | null;
   turns?: number;
   toolCalls?: number;
   peakConcurrent?: number;
@@ -95,6 +97,7 @@ const num = (v: unknown): number => {
   const n = Number(v ?? 0);
   return Number.isFinite(n) && n >= 0 ? n : 0;
 };
+const optionalInt = (v: unknown): number | null => (v === undefined || v === null ? null : int(v));
 const clamp = (v: unknown, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, int(v)));
 
@@ -237,7 +240,7 @@ export async function applyUpload(
     `INSERT INTO metric_hourly (
        team_id, user_id, device_id, hour_utc, provider, model, project_key,
        tokens_in, tokens_out, tokens_cache_read, tokens_cache_write, tokens_reasoning, cost_usd, cost_incomplete,
-       active_ms, after_hours_ms, weekend_ms, sessions, turns, tool_calls,
+       active_ms, after_hours_ms, weekend_ms, sessions, sessions_started, turns, tool_calls,
        peak_concurrent,
        tool_bash, tool_edit, tool_read, tool_search, tool_web, tool_agent,
        tool_mcp, tool_other, tool_errors, tools_measured,
@@ -245,7 +248,7 @@ export async function applyUpload(
        approval_requests, approval_wait_ms,
        local_hour, local_dow, updated_at
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (team_id, user_id, device_id, hour_utc, provider, model, project_key)
      DO UPDATE SET
        tokens_in = excluded.tokens_in,
@@ -259,6 +262,7 @@ export async function applyUpload(
        after_hours_ms = excluded.after_hours_ms,
        weekend_ms = excluded.weekend_ms,
        sessions = excluded.sessions,
+       sessions_started = excluded.sessions_started,
        turns = excluded.turns,
        tool_calls = excluded.tool_calls,
        peak_concurrent = excluded.peak_concurrent,
@@ -306,6 +310,7 @@ export async function applyUpload(
           int(b.afterHoursMs),
           int(b.weekendMs),
           int(b.sessions),
+          optionalInt(b.sessionsStarted),
           int(b.turns),
           int(b.toolCalls),
           int(b.peakConcurrent),

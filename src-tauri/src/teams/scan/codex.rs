@@ -87,6 +87,7 @@ where I: IntoIterator<Item = S>, S: AsRef<str> {
     let mut parsed_id = session_id.to_string();
     let mut header_seen = false;
     let mut forked_from_id: Option<String> = None;
+    let mut subagent = false;
     let mut counter = CodexSessionCounter::default();
     let mut history_boundary = CodexHistoryBoundary::default();
     // Tool calls and patch results sit on their own lines, ahead of the
@@ -157,6 +158,8 @@ where I: IntoIterator<Item = S>, S: AsRef<str> {
                         .filter(|s| !s.is_empty())
                         .map(ToOwned::to_owned);
                 }
+                // Spawned subagents and auto-review threads: `{"subagent": …}`.
+                subagent = p.pointer("/source/subagent").is_some();
                 history_boundary = CodexHistoryBoundary::from_meta(p);
             }
         }
@@ -258,6 +261,7 @@ where I: IntoIterator<Item = S>, S: AsRef<str> {
             claude_row_key: None,
             is_sidechain: false,
             is_subagent_path: false,
+            subagent,
         });
     }
 
@@ -703,6 +707,28 @@ mod tests {
             "timestamp":"2026-07-29T14:01:00Z",
             "source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent"}}}
         }}).to_string()
+    }
+
+    #[test]
+    fn subagent_and_auto_review_threads_are_flagged_but_user_forks_are_not() {
+        let usage = serde_json::json!({"timestamp":"2026-07-29T14:02:00Z","payload":{"info":{
+            "last_token_usage":{"input_tokens":10},"total_token_usage":{"input_tokens":10}}}});
+        let header = |source: Value| serde_json::json!({"type":"session_meta","payload":{"id":"s","source":source}});
+        for (source, expected) in [
+            (serde_json::json!({"subagent":{"thread_spawn":{"parent_thread_id":"p"}}}), true),
+            (serde_json::json!({"subagent":{"other":"guardian"}}), true),
+            (serde_json::json!("cli"), false),
+            (serde_json::json!("exec"), false),
+        ] {
+            let events = parse_session(&format!("{}\n{usage}", header(source)), "s");
+            assert_eq!(events.len(), 1);
+            assert_eq!(events[0].subagent, expected);
+        }
+        // Copied ancestor headers never change the first header's identity.
+        let copied = header(serde_json::json!({"subagent":{"other":"guardian"}}));
+        let events = parse_session(&format!("{}\n{copied}\n{usage}", header(serde_json::json!("cli"))), "s");
+        assert!(!events[0].subagent);
+        assert!(parse_session(&format!("{}\n{usage}", fork_header()), "child").iter().all(|e| e.subagent));
     }
 
     #[test]

@@ -89,6 +89,11 @@ pub struct UsageEvent {
     pub claude_row_key: Option<String>,
     pub is_sidechain: bool,
     pub is_subagent_path: bool,
+    /// Native child thread (Codex subagent or auto-review): its usage counts,
+    /// but it is not a session a person started. Claude children use
+    /// `is_subagent_path`; Grok children roll up into the parent's usage.
+    #[serde(default)]
+    pub subagent: bool,
 }
 
 /// The wire shape. Field names match the Worker's `IncomingBucket` exactly.
@@ -110,7 +115,13 @@ pub struct HourlyBucket {
     pub active_ms: i64,
     pub after_hours_ms: i64,
     pub weekend_ms: i64,
+    /// Sessions active in this hour (session-hours when summed).
     pub sessions: i64,
+    /// Top-level sessions whose first retained event falls in this bucket.
+    /// Summing over a range gives distinct sessions started in it. `None` only
+    /// for batches queued by an older build, which the server stores as unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sessions_started: Option<i64>,
     pub turns: i64,
     pub tool_calls: i64,
     pub peak_concurrent: i64,
@@ -295,6 +306,8 @@ pub fn build_buckets_in_tz(
     // span is attributed to, which keeps active time continuous across a
     // mid-session model switch without double counting it.
     let mut timeline_by_session: HashMap<(String, String), Vec<(DateTime<Utc>, Ident)>> = HashMap::new();
+    // Each top-level session is started once, in the bucket of its first event.
+    let mut session_starts: HashMap<(String, String), (DateTime<Utc>, Key)> = HashMap::new();
 
     for e in events {
         if e.at > now {
@@ -338,6 +351,11 @@ pub fn build_buckets_in_tz(
         session_hours.entry((key.0.clone(), e.provider.clone(), e.session_id.clone()))
             .and_modify(|existing| { if &key < existing { *existing = key.clone(); } })
             .or_insert_with(|| key.clone());
+        if !e.subagent && !e.is_subagent_path {
+            session_starts.entry((e.provider.clone(), e.session_id.clone()))
+                .and_modify(|first| { if (e.at, &key) < (first.0, &first.1) { *first = (e.at, key.clone()); } })
+                .or_insert_with(|| (e.at, key.clone()));
+        }
         timeline_by_session
             .entry((e.provider.clone(), e.session_id.clone()))
             .or_default()
@@ -394,6 +412,9 @@ pub fn build_buckets_in_tz(
     for key in session_hours.values() {
         if let Some(b) = acc.get_mut(key) { b.sessions += 1; }
     }
+    for (_, key) in session_starts.values() {
+        if let Some(b) = acc.get_mut(key) { *b.sessions_started.get_or_insert(0) += 1; }
+    }
 
     let mut out: Vec<HourlyBucket> = acc.into_values().collect();
     out.sort_by(|a, b| {
@@ -415,6 +436,7 @@ fn new_bucket(at: DateTime<Utc>, key: &Key, tz: Tz) -> HourlyBucket {
         project_key: key.3.clone(),
         local_hour: local.hour(),
         local_dow: local_dow(local),
+        sessions_started: Some(0),
         ..Default::default()
     }
 }
@@ -512,6 +534,7 @@ mod tests {
             claude_row_key: None,
             is_sidechain: false,
             is_subagent_path: false,
+            subagent: false,
         }
     }
 
@@ -728,6 +751,49 @@ mod tests {
         let c = ev("2026-07-29T15:05:00Z");
         let buckets = build_buckets(&[a, b, c], ts("2026-07-29T16:00:00Z"));
         assert_eq!(buckets.iter().map(|b| b.sessions).sum::<i64>(), 2);
+    }
+
+    #[test]
+    fn sessions_started_counts_each_top_level_session_once_in_its_first_bucket() {
+        // s1 runs across two hours and switches model; it is one session.
+        let mut late_model = ev("2026-07-29T14:05:00Z");
+        late_model.model = "another-model".into();
+        let s1 = [ev("2026-07-29T14:00:00Z"), late_model, ev("2026-07-29T15:05:00Z")];
+        let mut s2 = ev("2026-07-29T15:30:00Z");
+        s2.session_id = "s2".into();
+        // Children do real work but nobody started them.
+        let mut codex_child = ev("2026-07-29T15:31:00Z");
+        codex_child.provider = "Codex".into();
+        codex_child.session_id = "review".into();
+        codex_child.subagent = true;
+        let mut claude_child = ev("2026-07-29T15:32:00Z");
+        claude_child.session_id = "s1:agent-a".into();
+        claude_child.is_subagent_path = true;
+        let events: Vec<_> = s1.into_iter().chain([s2, codex_child, claude_child]).collect();
+        let buckets = build_buckets(&events, ts("2026-07-29T16:00:00Z"));
+        let started = |hour: &str, model: &str| buckets.iter()
+            .filter(|b| b.hour_utc == hour && b.model == model)
+            .map(|b| b.sessions_started.unwrap()).sum::<i64>();
+        assert_eq!(started("2026-07-29T14", "opus-5"), 1);
+        assert_eq!(started("2026-07-29T14", "another-model"), 0);
+        assert_eq!(started("2026-07-29T15", "opus-5"), 1, "only s2 starts in the second hour");
+        assert_eq!(buckets.iter().map(|b| b.sessions_started.unwrap()).sum::<i64>(), 2);
+        assert!(buckets.iter().map(|b| b.sessions).sum::<i64>() > 2, "session-hours still include children");
+    }
+
+    #[test]
+    fn batches_queued_before_sessions_started_stay_unknown_on_the_wire() {
+        let old: Vec<HourlyBucket> = serde_json::from_str(r#"[{"hourUtc":"2026-07-29T14","provider":"Codex",
+            "model":"","projectKey":"","tokensIn":0,"tokensOut":0,"tokensCacheRead":0,"tokensCacheWrite":0,
+            "tokensReasoning":0,"costUsd":0,"activeMs":0,"afterHoursMs":0,"weekendMs":0,"sessions":3,
+            "turns":0,"toolCalls":0,"peakConcurrent":0,"toolBash":0,"toolEdit":0,"toolRead":0,
+            "toolSearch":0,"toolWeb":0,"toolAgent":0,"toolMcp":0,"toolOther":0,"toolErrors":0,
+            "toolsMeasured":0,"filesChanged":0,"linesAdded":0,"linesRemoved":0,"approvalRequests":0,
+            "approvalWaitMs":0,"localHour":0,"localDow":0}]"#).unwrap();
+        assert_eq!(old[0].sessions_started, None);
+        assert!(!serde_json::to_string(&old).unwrap().contains("sessionsStarted"));
+        let fresh = build_buckets(&[ev("2026-07-29T14:00:00Z")], ts("2026-07-29T16:00:00Z"));
+        assert!(serde_json::to_string(&fresh).unwrap().contains("\"sessionsStarted\":1"));
     }
 
     #[test]

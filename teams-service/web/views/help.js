@@ -311,7 +311,7 @@ export function teamHelp({ team, role }) {
               <div>
                 <dt>Sessions / turns / tools</dt>
                 <dd>
-                  Session activity counts each session once per active hour, rather than counting distinct conversations across the date range. Conversation turns and tool calls are counted separately. Tools are grouped:
+                  Sessions counts each conversation started in agmux once, on the day it started. Subagents and automatic reviews add to tokens and active time but are not sessions. Per-hour rates divide by active session-hours instead (each session counts once per hour it was active). Conversation turns and tool calls are counted separately. Tools are grouped:
                   terminal, edits, reads, search, web, subagents, MCP, other.
                 </dd>
               </div>

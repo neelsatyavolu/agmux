@@ -24,7 +24,10 @@ export interface Bucket {
   active_ms: number;
   after_hours_ms: number;
   weekend_ms: number;
+  /** Sessions active in this hour; summing gives session-hours. */
   sessions: number;
+  /** Top-level sessions started in this bucket. Null: older desktop, unknown. */
+  sessions_started?: number | null;
   turns: number;
   tool_calls: number;
   peak_concurrent: number;
@@ -164,6 +167,9 @@ export const MS_PER_HOUR = 3_600_000;
  * Total tokens for dashboards: pure in + out + cache read/write.
  * `tokens_reasoning` is a subset of output (OpenAI) — never add it again.
  */
+/** An active bucket whose uploader predates session-start counting. */
+const startsUnknown = (b: Bucket): boolean => b.sessions > 0 && b.sessions_started == null;
+
 export const bucketTokens = (b: Bucket): number =>
   b.tokens_in + b.tokens_out + b.tokens_cache_read + b.tokens_cache_write;
 
@@ -180,7 +186,12 @@ export interface Totals {
   activeHours: number;
   afterHoursShare: number; // 0–1
   weekendShare: number; // 0–1
+  /** Session-hours: sessions active per hour, summed. Denominator for ratios. */
   sessions: number;
+  /** Distinct top-level sessions started in the range (subagents excluded). */
+  sessionsStarted: number;
+  /** Some active hours came from a desktop that did not report starts. */
+  sessionsStartedIncomplete: boolean;
   turns: number;
   toolCalls: number;
   peakConcurrent: number;
@@ -224,6 +235,8 @@ export function totals(buckets: Bucket[]): Totals {
     afterHoursShare: 0,
     weekendShare: 0,
     sessions: 0,
+    sessionsStarted: 0,
+    sessionsStartedIncomplete: false,
     turns: 0,
     toolCalls: 0,
     peakConcurrent: 0,
@@ -256,6 +269,8 @@ export function totals(buckets: Bucket[]): Totals {
     t.costUsd += b.cost_usd;
     t.costIncomplete ||= b.cost_incomplete !== 0;
     t.sessions += b.sessions;
+    t.sessionsStarted += b.sessions_started ?? 0;
+    t.sessionsStartedIncomplete ||= startsUnknown(b);
     t.turns += b.turns;
     t.toolCalls += b.tool_calls;
     for (const kind of TOOL_KINDS) {
@@ -300,6 +315,8 @@ export interface DayPoint {
   tokens: number;
   activeHours: number;
   sessions: number;
+  sessionsStarted: number;
+  sessionsStartedIncomplete: boolean;
   peakConcurrent: number;
   weekend: boolean;
   /** False when no bucket exists for this day — the chart breaks the line. */
@@ -344,6 +361,8 @@ export function dailySeries(buckets: Bucket[], days: number, end = new Date()): 
       tokens: 0,
       activeHours: 0,
       sessions: 0,
+      sessionsStarted: 0,
+      sessionsStartedIncomplete: false,
       peakConcurrent: 0,
       // Prefer the member-local weekend signal when we have buckets: a Tokyo
       // Saturday morning is still Friday UTC and must not be shaded as a weekday.
@@ -359,6 +378,8 @@ export function dailySeries(buckets: Bucket[], days: number, end = new Date()): 
       point.tokens += bucketTokens(b);
       point.activeHours += b.active_ms / MS_PER_HOUR;
       point.sessions += b.sessions;
+      point.sessionsStarted += b.sessions_started ?? 0;
+      point.sessionsStartedIncomplete ||= startsUnknown(b);
       peakByHour.set(b.hour_utc, Math.max(peakByHour.get(b.hour_utc) ?? 0, b.peak_concurrent));
       weekendMs += b.weekend_ms;
       activeMs += b.active_ms;
@@ -455,6 +476,8 @@ export interface ProjectRow {
   activeHours: number;
   tokens: number;
   sessions: number;
+  sessionsStarted: number;
+  sessionsStartedIncomplete: boolean;
 }
 
 export function projects(buckets: Bucket[]): ProjectRow[] {
@@ -463,12 +486,17 @@ export function projects(buckets: Bucket[]): ProjectRow[] {
     const key = b.project_key || "(unlabelled)";
     let row = byKey.get(key);
     if (!row) {
-      row = { projectKey: key, activeHours: 0, tokens: 0, sessions: 0 };
+      row = {
+        projectKey: key, activeHours: 0, tokens: 0, sessions: 0,
+        sessionsStarted: 0, sessionsStartedIncomplete: false,
+      };
       byKey.set(key, row);
     }
     row.activeHours += b.active_ms / MS_PER_HOUR;
     row.tokens += bucketTokens(b);
     row.sessions += b.sessions;
+    row.sessionsStarted += b.sessions_started ?? 0;
+    row.sessionsStartedIncomplete ||= startsUnknown(b);
   }
   return [...byKey.values()].sort((a, b) => b.activeHours - a.activeHours);
 }

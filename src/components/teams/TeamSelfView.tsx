@@ -15,7 +15,9 @@ import {
   agoLabel,
   fmtMoney,
   fmtPct,
+  fmtSessions,
   fmtTokens,
+  sessionsCard,
   parseTeamsTs,
   teamsLeave,
   teamsSelfView,
@@ -227,9 +229,8 @@ export function TeamSelfView({
         />
         <StatCard
           icon={MessageSquare}
-          label="Session activity"
-          help="Each session counts once per hour with recorded activity. This is not a count of distinct conversations."
-          value={String(t.sessions)}
+          {...sessionsCard(t)}
+          value={fmtSessions(t)}
           note={`${t.turns.toLocaleString()} turns · ${t.toolCalls.toLocaleString()} tools`}
         />
         <StatCard icon={Receipt} label={t.costIncomplete === false ? "Est. cost" : "Partial est. cost"} value={cost.value} unit={cost.unit} help="Missing prices or usage details are excluded; not an invoice." />

@@ -210,6 +210,8 @@ export interface HourlyBucket {
   afterHoursMs: number;
   weekendMs: number;
   sessions: number;
+  /** Absent only in batches queued by an older build. */
+  sessionsStarted?: number;
   turns: number;
   toolCalls: number;
   peakConcurrent: number;
@@ -244,7 +246,12 @@ export interface Totals {
   activeHours: number;
   afterHoursShare: number;
   weekendShare: number;
+  /** Session-hours: each session once per active hour. Denominator for rates. */
   sessions: number;
+  /** Distinct top-level sessions started. Absent from an older Teams server. */
+  sessionsStarted?: number;
+  /** Some activity came from a desktop that did not report starts. */
+  sessionsStartedIncomplete?: boolean;
   turns: number;
   toolCalls: number;
   peakConcurrent: number;
@@ -285,6 +292,8 @@ export interface DayPoint {
   tokens: number;
   activeHours: number;
   sessions: number;
+  sessionsStarted?: number;
+  sessionsStartedIncomplete?: boolean;
   peakConcurrent: number;
   weekend: boolean;
   hasData: boolean;
@@ -328,6 +337,8 @@ export interface ProjectRow {
   activeHours: number;
   tokens: number;
   sessions: number;
+  sessionsStarted?: number;
+  sessionsStartedIncomplete?: boolean;
 }
 
 export interface TeamOverview {
@@ -345,6 +356,7 @@ export interface TeamOverview {
     costUsd: number | null;
     activeHours: number | null;
     sessions: number | null;
+    sessionsStarted?: number | null;
   };
   daily: DayPoint[];
   heatmap: number[][];
@@ -590,6 +602,22 @@ export function fmtMoney(n: number): { value: string; unit: string } {
 }
 
 export const fmtPct = (n: number): string => `${Math.round(n * 100)}%`;
+
+/**
+ * Distinct sessions started. "—" when the Teams server predates the count;
+ * "12+" when some activity came from an agmux build that didn't report starts.
+ */
+export function fmtSessions(r: { sessionsStarted?: number; sessionsStartedIncomplete?: boolean }): string {
+  if (r.sessionsStarted == null) return "—";
+  return r.sessionsStarted.toLocaleString("en-US") + (r.sessionsStartedIncomplete ? "+" : "");
+}
+
+/** Label/help for a Sessions stat card, honest about partial counts. */
+export function sessionsCard(t: { sessionsStarted?: number; sessionsStartedIncomplete?: boolean }): { label: string; help: string } {
+  return t.sessionsStartedIncomplete
+    ? { label: "Sessions (partial)", help: "Sessions started in agmux in this range. Some activity came from an older agmux version that doesn't report session starts, so the real count is higher." }
+    : { label: "Sessions", help: "Sessions started in agmux in this range. Subagents and automatic reviews add to usage, not to this count." };
+}
 
 /** Compact active-time label: `<1m` / `12m` / `1.4h` / `18h`. */
 export function fmtActiveMs(ms: number): string {

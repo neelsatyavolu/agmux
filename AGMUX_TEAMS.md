@@ -485,7 +485,17 @@ and heavily tested — put arithmetic there, not in the scanners.
   activity, deduplicated across model/project buckets. It is not distinct
   conversations over an arbitrary range. Web/desktop labels and CSV
   `active_session_hours` use this meaning; the compatible wire field is still
-  `sessions`. Session timelines are provider-scoped.
+  `sessions`. Session timelines are provider-scoped. It is the denominator for
+  the per-hour rates only.
+- **Sessions** (`sessionsStarted` on the wire, D1 `sessions_started`, migration
+  016) is the count shown as "Sessions": each top-level session +1 in the bucket
+  of its first retained event, so any range sums to distinct sessions started
+  in it. Codex subagent/auto-review threads (`source.subagent`) and Claude
+  `subagents/` files are excluded; their tokens still count. Grok children are
+  never separate sessions (their usage rolls into the parent). NULL = uploaded
+  by a desktop that predates the field: the UI shows "N+"/"(partial)", CSV a
+  blank, and the delta is null — never a zero. Apply migration 016 before
+  deploying a Worker that writes it (uploads 500 otherwise; see compat test).
 - **Active time** = gaps between a session's consecutive events, each capped at
   `ACTIVE_GAP_CAP` (5 min) so idle does not count, plus `ACTIVE_TAIL` (30s) for
   the final event. The disclosure promises "idle excluded" — honour it.

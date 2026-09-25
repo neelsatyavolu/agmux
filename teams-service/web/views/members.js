@@ -7,7 +7,7 @@ import { avatar, emptyState, rangeSeg, roleBadge, syncPillHtml } from "../compon
 const SORTS = [
   { key: "activeHours", label: "Active hours" },
   { key: "tokens", label: "Tokens" },
-  { key: "sessions", label: "Sessions" },
+  { key: "sessionsStarted", label: "Sessions" },
   { key: "name", label: "Name" },
   { key: "lastSeen", label: "Last sync" },
 ];
@@ -164,7 +164,7 @@ function memberRow(m, { maxActive, teamSlug }) {
          </div>
          <div class="mem-metric">
            <span class="mem-metric-k">Sessions</span>
-           <span class="mem-metric-v">${(t.sessions ?? 0).toLocaleString("en-US")}</span>
+           <span class="mem-metric-v">${fmt.sessions(t.sessionsStarted, t.sessionsStartedIncomplete)}</span>
          </div>
          <div class="mem-metric">
            <span class="mem-metric-k">Peak</span>

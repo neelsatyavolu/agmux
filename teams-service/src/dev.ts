@@ -187,6 +187,7 @@ export interface SeedBucket {
   afterHoursMs: number;
   weekendMs: number;
   sessions: number;
+  sessionsStarted: number;
   turns: number;
   toolCalls: number;
   peakConcurrent: number;
@@ -329,6 +330,8 @@ export function generateSeed(cast: SeedPerson[], days: number, now: Date): SeedB
           afterHoursMs: afterHours ? activeMs : 0,
           weekendMs: weekend ? activeMs : 0,
           sessions: 1,
+          // Each seeded row is its own short session.
+          sessionsStarted: 1,
           turns,
           toolCalls,
           peakConcurrent: 1 + (rand() < 0.3 ? Math.round(rand() * 3) : 0),
@@ -367,6 +370,7 @@ function mergeDuplicates(rows: SeedBucket[]): SeedBucket[] {
     existing.afterHoursMs += r.afterHoursMs;
     existing.weekendMs += r.weekendMs;
     existing.sessions += r.sessions;
+    existing.sessionsStarted += r.sessionsStarted;
     existing.turns += r.turns;
     existing.toolCalls += r.toolCalls;
     existing.toolBash += r.toolBash;
@@ -499,14 +503,14 @@ export async function applySeed(
     `INSERT INTO metric_hourly (
        team_id, user_id, device_id, hour_utc, provider, model, project_key,
        tokens_in, tokens_out, tokens_cache_read, tokens_cache_write, cost_usd,
-       active_ms, after_hours_ms, weekend_ms, sessions, turns, tool_calls,
+       active_ms, after_hours_ms, weekend_ms, sessions, sessions_started, turns, tool_calls,
        peak_concurrent,
        tool_bash, tool_edit, tool_read, tool_search, tool_web, tool_agent,
        tool_mcp, tool_other, tool_errors, tools_measured,
        files_changed, lines_added, lines_removed,
        local_hour, local_dow, updated_at
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (team_id, user_id, device_id, hour_utc, provider, model, project_key)
      DO UPDATE SET tokens_in = excluded.tokens_in`,
   );
@@ -532,6 +536,7 @@ export async function applySeed(
           b.afterHoursMs,
           b.weekendMs,
           b.sessions,
+          b.sessionsStarted,
           b.turns,
           b.toolCalls,
           b.peakConcurrent,

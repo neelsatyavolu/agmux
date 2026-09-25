@@ -96,7 +96,7 @@ fn parse_lines<S: AsRef<str>>(
         let meta = v.pointer("/params/_meta").unwrap_or(&Value::Null);
         let Some(at) = event_time(&v, meta) else { continue };
         if let Some(id) = meta.get("eventId").and_then(Value::as_str) {
-            if !seen_events.insert(id.to_string()) { continue; }
+            if !seen_events.insert(replay_key(id, &v)) { continue; }
         }
         if let Some(m) = model_from_line(&v) { model = m; }
         let event = |model: String| UsageEvent {
@@ -104,7 +104,7 @@ fn parse_lines<S: AsRef<str>>(
             session_id: session_id.to_string(), tokens_in: 0, tokens_out: 0,
             cache_read: 0, cache_write: 0, reasoning: 0, cost_usd: 0.0, cost_incomplete: false,
             is_turn: false, tool_calls: 0, tools: ToolTally::default(),
-            claude_row_key: None, is_sidechain: false, is_subagent_path: false,
+            claude_row_key: None, is_sidechain: false, is_subagent_path: false, subagent: false,
         };
         let tool = tool_signal(&v);
         if !tool.is_empty() {
@@ -211,6 +211,17 @@ fn parse_lines<S: AsRef<str>>(
     if !saw_usage { out.extend(activity); }
     out.sort_by_key(|e| e.at);
     Ok(out)
+}
+
+/// Identity of a replayed update. Grok restarts its `eventId` counter when a
+/// session is resumed, so the same ID can label a different, genuinely new
+/// event later in the file. Only a repeat of the same ID with identical
+/// content is a replay.
+pub(crate) fn replay_key(event_id: &str, row: &Value) -> (String, u64) {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    row.to_string().hash(&mut hasher);
+    (event_id.to_string(), hasher.finish())
 }
 
 fn cost_is_incomplete(usage: &Value) -> bool {

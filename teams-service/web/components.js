@@ -140,7 +140,7 @@ export function memberTable(members, { sortKey = "activeHours", clickable = true
     ["activeHours", "Active"],
     ["tokens", "Tokens"],
     ["cacheHitRate", "Cache hit"],
-    ["sessions", "Session activity"],
+    ["sessionsStarted", "Sessions"],
     ["turns", "Turns"],
     ["peakConcurrent", "Peak conc."],
     ["lastSeen", "Last seen"],
@@ -197,7 +197,7 @@ export function memberTable(members, { sortKey = "activeHours", clickable = true
           </td>
           <td class="n">${fmt.tok(t.tokens)}</td>
           <td class="dim">${fmt.pct(t.cacheHitRate)}</td>
-          <td>${t.sessions.toLocaleString("en-US")}</td>
+          <td>${fmt.sessions(t.sessionsStarted, t.sessionsStartedIncomplete)}</td>
           <td class="dim">${t.turns.toLocaleString("en-US")}</td>
           <td>${t.peakConcurrent.toLocaleString("en-US")}</td>
           <td>${raw(syncPillHtml(m.lastUploadAt))}</td>
@@ -709,7 +709,7 @@ export function projectsTable(rows, { limit = 12 } = {}) {
             <th>Project</th>
             <th>Active</th>
             <th>Tokens</th>
-            <th>Session activity</th>
+            <th>Sessions</th>
           </tr>
         </thead>
         <tbody>
@@ -719,7 +719,7 @@ export function projectsTable(rows, { limit = 12 } = {}) {
                 <td><span class="mono">${r.projectKey}</span></td>
                 <td class="n">${fmt.h(r.activeHours)}</td>
                 <td>${fmt.tok(r.tokens)}</td>
-                <td class="dim">${r.sessions}</td>
+                <td class="dim">${fmt.sessions(r.sessionsStarted, r.sessionsStartedIncomplete)}</td>
               </tr>
             `,
           )}

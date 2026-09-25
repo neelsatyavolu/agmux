@@ -151,9 +151,11 @@ export function memberDetail({ team, data, isSelf, fromLeaderboard = null }) {
         ${raw(
           statCard({
             icon: "message-square",
-            label: "Session activity",
-            help: "Each session counts once per hour with recorded activity. This is not a count of distinct conversations.",
-            value: String(t.sessions),
+            label: t.sessionsStartedIncomplete ? "Sessions (partial)" : "Sessions",
+            help: t.sessionsStartedIncomplete
+              ? "Sessions started in agmux in this range. Some activity came from an older agmux version that doesn't report session starts, so the real count is higher."
+              : "Sessions started in agmux in this range. Subagents and automatic reviews add to usage, not to this count.",
+            value: fmt.sessions(t.sessionsStarted, t.sessionsStartedIncomplete),
             spark: "ses",
             note: `${t.turns.toLocaleString()} turns · ${t.toolCalls.toLocaleString()} tool calls`,
           }),

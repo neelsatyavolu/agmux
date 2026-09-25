@@ -43,6 +43,7 @@ const COLUMNS = [
   "after_hours_hours",
   "weekend_hours",
   "active_session_hours",
+  "sessions_started",
   "turns",
   "tool_calls",
   "tool_bash",
@@ -156,7 +157,12 @@ export async function exportCsv(
               SUM(tokens_reasoning) AS tokens_reasoning,
               SUM(cost_usd) AS cost_usd, SUM(active_ms) AS active_ms,
               SUM(after_hours_ms) AS after_hours_ms, SUM(weekend_ms) AS weekend_ms,
-              SUM(sessions) AS sessions, SUM(turns) AS turns, SUM(tool_calls) AS tool_calls,
+              SUM(sessions) AS sessions,
+              -- Blank, not zero, when an active row came from a desktop that
+              -- did not report session starts.
+              CASE WHEN SUM(sessions > 0 AND sessions_started IS NULL) > 0 THEN NULL
+                   ELSE COALESCE(SUM(sessions_started), 0) END AS sessions_started,
+              SUM(turns) AS turns, SUM(tool_calls) AS tool_calls,
               SUM(tool_bash) AS tool_bash, SUM(tool_edit) AS tool_edit,
               SUM(tool_read) AS tool_read, SUM(tool_search) AS tool_search,
               SUM(tool_web) AS tool_web, SUM(tool_agent) AS tool_agent,
@@ -180,12 +186,13 @@ export async function exportCsv(
   const lines = [csvRow([...COLUMNS])];
   for (const r of results ?? []) {
     const n = (k: string): number => Number(r[k] ?? 0);
+    // Reasoning is already inside tokens_out (it is a reported subset), so it
+    // is not added again. Matches the dashboard's token total.
     const tokens =
       n("tokens_in") +
       n("tokens_out") +
       n("tokens_cache_read") +
-      n("tokens_cache_write") +
-      n("tokens_reasoning");
+      n("tokens_cache_write");
     lines.push(
       csvRow([
         r.hour_utc.slice(0, 10),
@@ -206,6 +213,7 @@ export async function exportCsv(
         round(n("after_hours_ms") / HOURS, 3),
         round(n("weekend_ms") / HOURS, 3),
         n("sessions"),
+        r.sessions_started == null ? "" : n("sessions_started"),
         n("turns"),
         n("tool_calls"),
         n("tool_bash"),

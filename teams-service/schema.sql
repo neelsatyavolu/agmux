@@ -186,6 +186,7 @@ CREATE TABLE IF NOT EXISTS metric_hourly (
     after_hours_ms      INTEGER NOT NULL DEFAULT 0,
     weekend_ms          INTEGER NOT NULL DEFAULT 0,
     sessions            INTEGER NOT NULL DEFAULT 0,
+    sessions_started    INTEGER,
     turns               INTEGER NOT NULL DEFAULT 0,
     tool_calls          INTEGER NOT NULL DEFAULT 0,
     peak_concurrent     INTEGER NOT NULL DEFAULT 0,

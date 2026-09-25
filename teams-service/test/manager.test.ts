@@ -138,6 +138,22 @@ describe("CSV export", () => {
     expect(rows[0]).toContain("Eve Employee");
   });
 
+  it("totals tokens without adding reasoning twice and leaves unknown session starts blank", async () => {
+    const env = await fixture();
+    await addMetric(env, "emp1", "2026-07-29T14", { tokens_out: 500, tokens_reasoning: 200, sessions_started: 1 });
+    await addMetric(env, "mgr1", "2026-07-29T14", { sessions: 2 });
+    const body = await (await exportCsv(req("https://x/e.csv"), env, principal("owner1"), "tm1")).text();
+    const [header, ...rows] = body.trim().split("\n").map((line) => line.split(","));
+    const col = (row: string[], name: string) => row[header.indexOf(name)];
+    const eve = rows.find((row) => row.includes("Eve Employee"))!;
+    const max = rows.find((row) => row.includes("Max Manager"))!;
+    // Reasoning is a reported subset of output: 1000 in + 500 out.
+    expect(col(eve, "tokens_total")).toBe("1500");
+    expect(col(eve, "sessions_started")).toBe("1");
+    expect(col(max, "sessions_started")).toBe("");
+    expect(col(max, "active_session_hours")).toBe("2");
+  });
+
   it("gives an employee only their own rows, without a 403", async () => {
     const env = await fixture();
     await addMetric(env, "emp1", "2026-07-29T14");

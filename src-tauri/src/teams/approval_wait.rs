@@ -147,6 +147,7 @@ pub async fn merge_into_buckets(
                 project_key,
                 approval_requests: 1,
                 approval_wait_ms: wait_ms,
+                sessions_started: Some(0),
                 ..Default::default()
             });
         }

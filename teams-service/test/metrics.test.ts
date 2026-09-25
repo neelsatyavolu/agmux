@@ -81,6 +81,20 @@ describe("upload idempotency", () => {
     expect(await stored()).toEqual({ cost_incomplete: 1 });
   });
 
+  it("stores session starts, keeps an absent count unknown, and replaces on retry", async () => {
+    const env = await fixture();
+    const stored = () => env.DB.prepare("SELECT sessions, sessions_started FROM metric_hourly")
+      .first<{ sessions: number; sessions_started: number | null }>();
+    await applyUpload(env, "emp1", "dev1", payload("starts-old", [bucket({ sessions: 3 })]));
+    expect(await stored()).toEqual({ sessions: 3, sessions_started: null });
+    await applyUpload(env, "emp1", "dev1", payload("starts-new", [bucket({ sessions: 3, sessionsStarted: 2 })]));
+    expect(await stored()).toEqual({ sessions: 3, sessions_started: 2 });
+    await applyUpload(env, "emp1", "dev1", payload("starts-retry", [bucket({ sessions: 3, sessionsStarted: 2 })]));
+    expect(await stored()).toEqual({ sessions: 3, sessions_started: 2 });
+    await applyUpload(env, "emp1", "dev1", payload("starts-hostile", [bucket({ sessionsStarted: -5 })]));
+    expect((await stored())?.sessions_started).toBe(0);
+  });
+
   it("persists every app provider without filtering", async () => {
     const env = await fixture();
     const providers = ["ClaudeCode", "Codex", "Grok", "Cursor", "Droid", "Pi", "Kimi", "Cline", "Gemini", "Hermes", "OpenCode", "MLX"];

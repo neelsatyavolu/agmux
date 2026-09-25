@@ -111,7 +111,7 @@ mod tests {
         UsageEvent { at, provider: "Codex".into(), session_id: "owned".into(), model: "gpt-5".into(),
             project_key: "repo".into(), tokens_in: tokens, tokens_out: 0, cache_read: 0, cache_write: 0,
             reasoning: 0, cost_usd: 0.0, cost_incomplete: false, is_turn: true, tool_calls: 0, tools: Default::default(),
-            claude_row_key: None, is_sidechain: false, is_subagent_path: false }
+            claude_row_key: None, is_sidechain: false, is_subagent_path: false, subagent: false }
     }
 
     #[tokio::test]

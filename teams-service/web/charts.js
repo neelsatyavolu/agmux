@@ -20,6 +20,8 @@ export const fmt = {
   pct: (n) => Math.round(n * 100) + "%",
   money: (n) =>
     "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  /** "12+" when some activity came from a desktop that didn't report starts. */
+  sessions: (n, incomplete) => (n ?? 0).toLocaleString("en-US") + (incomplete ? "+" : ""),
 };
 
 const el = (t, a, kids) => {
@@ -165,7 +167,7 @@ export function daily(host, days) {
       const body = day.hasData
         ? `<div class="r"><span>Tokens</span><b>${day.tokens.toLocaleString()}</b></div>
            <div class="r"><span>Active</span><b>${fmt.h(day.activeHours)}</b></div>
-           <div class="r"><span>Session activity</span><b>${day.sessions}</b></div>`
+           <div class="r"><span>Sessions started</span><b>${fmt.sessions(day.sessionsStarted, day.sessionsStartedIncomplete)}</b></div>`
         : `<div class="r"><span>No data uploaded</span></div>`;
       tp.show(
         `<div class="hd">${day.full}</div>${body}`,

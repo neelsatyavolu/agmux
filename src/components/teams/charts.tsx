@@ -10,7 +10,7 @@
 
 import { Fragment, useId, useState, type ReactNode } from "react";
 import type { DayPoint, MixSlice } from "../../lib/teams";
-import { fmtActiveMs, fmtPct, prettyMixLabel } from "../../lib/teams";
+import { fmtActiveMs, fmtPct, fmtSessions, prettyMixLabel } from "../../lib/teams";
 
 const W = 1000;
 const ACCENT = "#60a5fa";
@@ -123,7 +123,7 @@ export function DailyTrends({ days }: { days: DayPoint[] }) {
             <>
               <TipRow label="Tokens" value={day.tokens.toLocaleString()} />
               <TipRow label="Active" value={`${day.activeHours.toFixed(1)}h`} />
-              <TipRow label="Session activity" value={String(day.sessions)} />
+              <TipRow label="Sessions started" value={fmtSessions(day)} />
             </>
           ) : (
             <div>No data uploaded</div>

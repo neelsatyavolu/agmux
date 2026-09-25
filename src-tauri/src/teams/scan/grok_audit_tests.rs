@@ -68,6 +68,19 @@ fn tool_only_lines_keep_activity_and_replays_are_deduplicated() {
 }
 
 #[test]
+fn resumed_session_event_ids_restart_without_dropping_new_work() {
+    // A resumed Grok process numbers events from 1 again; observed locally
+    // when a later turn_completed reused an earlier hook_execution's ID.
+    let usage=|prompt:&str,input:i64|json!({"timestamp":1785283300,"params":{"_meta":{"eventId":"s-7"},
+        "update":{"sessionUpdate":"turn_completed","prompt_id":prompt,
+            "usage":{"inputTokens":input,"outputTokens":10,"totalTokens":input+10,"costUsdTicks":1000}}}});
+    let first=json!({"timestamp":1785283200,"params":{"_meta":{"eventId":"s-7"},
+        "update":{"sessionUpdate":"hook_execution"}}});
+    let e=parse(&[first,usage("p1",100),usage("p1",100),usage("p2",50)]);
+    assert_eq!(e.iter().map(|e|e.tokens_in).sum::<i64>(),150,"identical replays still count once");
+}
+
+#[test]
 fn live_grok_native_usage_matches_independent_prompt_sums() {
     let Some(home)=dirs::home_dir() else { return };
     let root=home.join(".grok/sessions");

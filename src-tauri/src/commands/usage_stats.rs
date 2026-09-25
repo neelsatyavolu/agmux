@@ -1500,7 +1500,7 @@ struct GrokUsageAccumulator {
     saw_real_billable: bool,
     active: ActiveTimeAcc,
     pending_usage: std::collections::HashMap<String, GrokUsageSnap>,
-    seen_events: std::collections::HashSet<String>,
+    seen_events: std::collections::HashSet<(String, u64)>,
 }
 
 impl GrokUsageAccumulator {
@@ -1509,7 +1509,7 @@ impl GrokUsageAccumulator {
         let meta = params.get("_meta").unwrap_or(&Value::Null);
         let update = params.get("update").unwrap_or(&Value::Null);
         if let Some(id) = meta.get("eventId").and_then(Value::as_str) {
-            if !self.seen_events.insert(id.to_string()) {
+            if !self.seen_events.insert(crate::teams::scan::grok::replay_key(id, value)) {
                 return;
             }
         }
@@ -3553,6 +3553,17 @@ mod tests {
     }
 
     // ── Grok usage accumulator / scan ────────────────────────────────────────
+
+    #[test]
+    fn grok_accumulator_keeps_new_work_when_a_resumed_session_reuses_event_ids() {
+        let usage = |prompt: &str, input: i64| json!({"params": {"_meta": {"eventId": "s-7"},
+            "update": {"sessionUpdate": "turn_completed", "prompt_id": prompt,
+                "usage": {"inputTokens": input, "outputTokens": 10, "costUsdTicks": 1000}}}});
+        let mut acc = GrokUsageAccumulator::default();
+        for row in [usage("p1", 100), usage("p1", 100), usage("p2", 50)] { acc.ingest(&row); }
+        assert_eq!(acc.input_tokens, 150);
+        assert_eq!(acc.output_tokens, 20);
+    }
 
     #[test]
     fn grok_accumulator_does_not_bill_context_segments() {

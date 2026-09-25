@@ -9,7 +9,7 @@
 export const SHARED: string[] = [
   "Token totals from sessions started in agmux: in, out, cached — plus estimated cost",
   "Active agent time in hourly buckets",
-  "Session activity by hour, turn counts, and tool-call counts",
+  "Sessions started, session activity by hour, turn counts, and tool-call counts",
   "Tool calls grouped by kind: terminal, edits, reads, search, web, subagents, MCP",
   "How many tool calls failed, where the provider reports an outcome",
   "How many files changed and how many lines were added or removed — counts only, never the lines",
