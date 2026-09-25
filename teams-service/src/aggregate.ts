@@ -109,7 +109,8 @@ export function windowFromRange(range: RangeKey, now = new Date()): TimeWindow {
   return {
     range,
     days,
-    sinceHour: hourFloorDaysAgo(days, now),
+    // Today is the last of the `days` days, matching `dailySeries`.
+    sinceHour: hourFloorDaysAgo(days - 1, now),
     untilHour: null,
     endDate: now,
   };

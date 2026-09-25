@@ -14,6 +14,7 @@ import {
   outputPanel,
   projectsTable,
   statCard,
+  tokenBreakdown,
   toolMixPanel,
 } from "../web/components.js";
 import { teamHome } from "../web/views/team.js";
@@ -419,6 +420,20 @@ describe("tool mix and output honesty", () => {
     );
     expect(m).toContain("Files changed");
     expect(m.replace(/\s+/g, " ")).not.toContain("Not recorded for this range");
+  });
+});
+
+describe("tokenBreakdown", () => {
+  it("shows reasoning as part of output, not as extra tokens", () => {
+    // Reasoning is a reported subset of output: 400 in + 100 out = 500 tokens.
+    const out = tokenBreakdown(totalsWith({ tokensIn: 400, tokensOut: 100, tokensReasoning: 60, tokens: 500 }));
+    const rows = [...out.toString().matchAll(/<\/i>([^<]+)<\/span\s*>\s*<span class="tb-v">([^<]+)<\/span>\s*<span class="tb-p">([^<]+)<\/span>/g)]
+      .map((m) => [m[1].trim(), m[2].trim(), m[3].trim()]);
+    expect(rows).toEqual([
+      ["Input", "400", "80%"],
+      ["Output", "40", "8%"],
+      ["Reasoning", "60", "12%"],
+    ]);
   });
 });
 

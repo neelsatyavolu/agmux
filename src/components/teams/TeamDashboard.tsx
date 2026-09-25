@@ -317,12 +317,15 @@ export function TeamDashboard({
 }
 
 function TokenBreakdown({ totals: t }: { totals: TeamOverview["totals"] }) {
+  // Reasoning is a reported subset of output, so it is split out of Output
+  // rather than added again — the bar must sum to the token total.
+  const reasoning = Math.min(t.tokensReasoning, t.tokensOut);
   const parts = [
     { key: "Input", n: t.tokensIn, color: "#60a5fa" },
-    { key: "Output", n: t.tokensOut, color: "#f2a516" },
+    { key: "Output", n: t.tokensOut - reasoning, color: "#f2a516" },
     { key: "Cache read", n: t.tokensCacheRead, color: "#a78bfa" },
     { key: "Cache write", n: t.tokensCacheWrite, color: "#22d3ee" },
-    { key: "Reasoning", n: t.tokensReasoning, color: "#fbbf24" },
+    { key: "Reasoning", n: reasoning, color: "#fbbf24" },
   ].filter((p) => p.n > 0);
   const total = parts.reduce((a, p) => a + p.n, 0);
   if (!total) {

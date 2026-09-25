@@ -9,7 +9,7 @@
 //! before it leaves this module; prompt and reply text is never touched.
 
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
@@ -45,6 +45,9 @@ fn parse_reader(reader: impl BufRead, session_id: &str, fallback_dir: &str) -> R
     // Streaming assistant chunks share message.id + requestId. Last cumulative
     // usage wins (CodexBar / ccusage) instead of summing partials.
     let mut keyed: HashMap<String, usize> = HashMap::new();
+    // One response's content blocks arrive as separate lines, so its tool
+    // calls are merged across them; a repeated block is still one call.
+    let mut seen_tool_ids: HashSet<String> = HashSet::new();
 
     for line in reader.lines() {
         let line = line.map_err(|e| format!("Teams could not read a Claude log: {e}"))?;
@@ -112,7 +115,7 @@ fn parse_reader(reader: impl BufRead, session_id: &str, fallback_dir: &str) -> R
 
         let project = project_key(cwd_seen.as_deref().unwrap_or(fallback_dir), false);
 
-        let mut tools = tool_uses(&v);
+        let mut tools = tool_uses(&v, &mut seen_tool_ids);
         if !pending_results.is_empty() {
             tools.add(&pending_results);
             pending_results = ToolTally::default();
@@ -147,13 +150,9 @@ fn parse_reader(reader: impl BufRead, session_id: &str, fallback_dir: &str) -> R
         };
         if let Some(key) = claude_row_key(&v) {
             if let Some(&idx) = keyed.get(&key) {
-                let prev_tools = out[idx].tools.clone();
-                let prev_calls = out[idx].tool_calls;
-                out[idx] = event;
-                if out[idx].tool_calls == 0 && prev_calls > 0 {
-                    out[idx].tools = prev_tools;
-                    out[idx].tool_calls = prev_calls;
-                }
+                let mut tools = out[idx].tools;
+                tools.add(&event.tools);
+                out[idx] = UsageEvent { tool_calls: tools.calls(), tools, ..event };
                 continue;
             }
             keyed.insert(key, out.len());
@@ -249,7 +248,7 @@ pub fn reconcile_events(events: &mut Vec<UsageEvent>) {
 /// Only the tool *name* and the *length* of the edit strings are read. The
 /// strings themselves, and the file paths beside them, never leave this
 /// function.
-fn tool_uses(v: &Value) -> ToolTally {
+fn tool_uses(v: &Value, seen_ids: &mut HashSet<String>) -> ToolTally {
     let mut t = ToolTally::default();
     let Some(blocks) = v.pointer("/message/content").and_then(Value::as_array) else {
         return t;
@@ -257,6 +256,11 @@ fn tool_uses(v: &Value) -> ToolTally {
     for b in blocks {
         if b.get("type").and_then(Value::as_str) != Some("tool_use") {
             continue;
+        }
+        if let Some(id) = b.get("id").and_then(Value::as_str) {
+            if !seen_ids.insert(id.to_string()) {
+                continue;
+            }
         }
         let name = b.get("name").and_then(Value::as_str).unwrap_or("");
         t.count(classify(name));
@@ -639,6 +643,32 @@ mod tests {
             (events[0].tokens_in, events[0].tokens_out, events[0].cache_read),
             (100, 50, 20)
         );
+    }
+
+    #[test]
+    fn parallel_tool_calls_split_across_lines_all_count() {
+        // Claude Code writes each content block of one response as its own
+        // line (same message.id + requestId), and results can land between.
+        let block = |ts: &str, content: &str| format!(
+            r#"{{"type":"assistant","timestamp":"{ts}","requestId":"req-1","message":{{"id":"msg-1","model":"claude-opus-5","usage":{{"input_tokens":10,"output_tokens":5}},"content":[{content}]}}}}"#
+        );
+        let lines = [
+            block("2026-07-29T14:05:00Z", r#"{"type":"text","text":"hi"}"#),
+            block("2026-07-29T14:05:01Z", r#"{"type":"tool_use","id":"toolu_1","name":"Bash","input":{"command":"ls"}}"#),
+            r#"{"type":"user","timestamp":"2026-07-29T14:05:02Z","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1","is_error":true}]}}"#.to_string(),
+            block("2026-07-29T14:05:03Z", r#"{"type":"tool_use","id":"toolu_2","name":"Edit","input":{"old_string":"a","new_string":"a\nb"}}"#),
+            r#"{"type":"user","timestamp":"2026-07-29T14:05:04Z","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_2"}]}}"#.to_string(),
+        ].join("\n");
+        let events = parse_session(&lines, "s", "");
+        assert_eq!(events.len(), 1);
+        let e = &events[0];
+        assert_eq!((e.tool_calls, e.tools.bash, e.tools.edit), (2, 1, 1));
+        assert_eq!((e.tools.measured, e.tools.errors), (2, 1));
+        assert_eq!((e.tools.files_changed, e.tools.lines_added, e.tools.lines_removed), (1, 2, 1));
+        assert_eq!((e.tokens_in, e.tokens_out), (10, 5));
+        // A repeated copy of a block is still one call.
+        let repeated = format!("{lines}\n{}", block("2026-07-29T14:05:05Z", r#"{"type":"tool_use","id":"toolu_2","name":"Edit","input":{"old_string":"a","new_string":"a\nb"}}"#));
+        assert_eq!(parse_session(&repeated, "s", "")[0].tool_calls, 2);
     }
 
     #[test]

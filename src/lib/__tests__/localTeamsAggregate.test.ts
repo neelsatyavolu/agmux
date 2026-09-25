@@ -28,6 +28,7 @@ function bucket(partial: Partial<HourlyBucket> & { hourUtc: string }): HourlyBuc
     afterHoursMs: partial.afterHoursMs ?? 0,
     weekendMs: partial.weekendMs ?? 0,
     sessions: partial.sessions ?? 1,
+    sessionsStarted: partial.sessionsStarted,
     turns: partial.turns ?? 2,
     toolCalls: partial.toolCalls ?? 5,
     peakConcurrent: partial.peakConcurrent ?? 1,
@@ -201,5 +202,37 @@ describe("buildLocalSelfView", () => {
     expect(view.lastBucketHour).toBe("2026-08-06T09");
     expect(view.heatmap).toHaveLength(7);
     expect(view.heatmap[0]).toHaveLength(24);
+  });
+
+  it("counts sessions started, not session-hours", () => {
+    // One session active across three hours: started once.
+    const view = buildLocalSelfView(
+      [
+        bucket({ hourUtc: "2026-08-06T08", sessionsStarted: 1 }),
+        bucket({ hourUtc: "2026-08-06T09", sessionsStarted: 0 }),
+        bucket({ hourUtc: "2026-08-06T10", sessionsStarted: 0 }),
+      ],
+      "7d",
+      new Date("2026-08-06T12:00:00Z"),
+    );
+    expect(view.totals.sessions).toBe(3);
+    expect(view.totals.sessionsStarted).toBe(1);
+    expect(view.totals.sessionsStartedIncomplete).toBe(false);
+    expect(view.projects[0].sessionsStarted).toBe(1);
+    // A bucket from an older build without the field is unknown, not zero.
+    const old = buildLocalSelfView([bucket({ hourUtc: "2026-08-06T08" })], "7d", new Date("2026-08-06T12:00:00Z"));
+    expect(old.totals.sessionsStartedIncomplete).toBe(true);
+  });
+
+  it("totals only the days the daily chart draws", () => {
+    const now = new Date("2026-08-06T12:00:00Z");
+    const view = buildLocalSelfView(
+      [bucket({ hourUtc: "2026-07-30T10" }), bucket({ hourUtc: "2026-07-31T10" })],
+      "7d",
+      now,
+    );
+    expect(view.daily[0].date).toBe("2026-07-31");
+    expect(view.totals.daysWithData).toBe(1);
+    expect(view.totals.sessions).toBe(1);
   });
 });

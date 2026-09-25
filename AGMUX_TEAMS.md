@@ -381,8 +381,8 @@ Unknown names fall to `other`, so the kind columns always re-sum to `tool_calls`
 | Signal | Claude | Codex | Grok |
 |---|---|---|---|
 | Tool name | `tool_use.name` | `function_call` / `custom_tool_call` `.name` | first word of `update.title` |
-| Outcome | `tool_result.is_error` — every call | **none** except `patch_apply_end.success` | `tool_call_update.status` |
-| Lines ± | `Edit` / `Write` / `MultiEdit` inputs | `patch_apply_end.changes` (`unified_diff` / `content`) | `rawInput` old/new strings |
+| Outcome | `tool_result.is_error` — every call | **none** except edits: `patch_apply_end.success` / `FileChange` item `status` | `tool_call_update.status` |
+| Lines ± | `Edit` / `Write` / `MultiEdit` inputs (merged across a response's lines, deduped by `tool_use.id`) | `changes` (`unified_diff` / `content`) on `patch_apply_end` or, in current Codex, `item_completed` `FileChange` items (deduped by call/item ID) | `rawInput` old/new strings |
 
 Traps here, each verified against real logs before the code was written:
 
@@ -515,6 +515,8 @@ and heavily tested — put arithmetic there, not in the scanners.
   cross-hour gaps vanish (13:58 → 14:01 measured as two isolated events).
 - **Concurrency is a max, never a sum.** Two sessions that each ran ten minutes
   in the same hour are not "two concurrent" unless they actually overlapped.
+  The sweep spans every session in the hour (any provider/model/project), and
+  each bucket carries that hour's peak.
 - **A span that straddles an hour boundary is split** across both buckets.
 - **After-hours / weekend** are judged per slice in the **member's own IANA
   timezone** (outside 08:00–18:00; Sat/Sun) — not UTC and not the manager's

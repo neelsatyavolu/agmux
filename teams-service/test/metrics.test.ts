@@ -370,6 +370,47 @@ describe("pruneStale", () => {
     expect(hours.results?.map((r) => r.hour_utc)).toEqual(["2026-07-29T14"]);
   });
 
+  it("keeps history in a team this upload no longer writes to (trial ended, read-only)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-08T10:00:00.000Z"));
+    const env = makeEnv({ BILLING_ENFORCE: "true" });
+    for (const id of ["owner1", "emp1", "emp2", "emp3"]) await seedUser(env, id);
+    await seedTeam(env, "tm1", "owner1");
+    for (const id of ["emp1", "emp2", "emp3"]) await addMember(env, "tm1", id, "employee");
+    await env.DB.prepare("UPDATE teams SET billing_status = 'trialing', trial_ends_at = ?")
+      .bind("2026-09-10T00:00:00.000Z").run();
+    await applyUpload(env, "emp1", "dev1", payload("during-trial", [bucket({ hourUtc: "2026-09-05T10" })]));
+    expect(await rows(env)).toHaveLength(1);
+
+    // Trial ends: the team is read-only (dashboards stay readable), so the
+    // desktop's next complete snapshot is not written to it — and its prune
+    // must not delete the history that team can still read.
+    vi.setSystemTime(new Date("2026-09-12T10:00:00.000Z"));
+    const next = await applyUpload(env, "emp1", "dev1", payload("after-trial", [bucket({ hourUtc: "2026-09-05T10" })]));
+    expect(next.teamsSkipped).toEqual([{ id: "tm1", reason: "billing" }]);
+    vi.setSystemTime(new Date("2026-09-12T10:00:05.000Z"));
+    await pruneStale(env, "emp1", "dev1", { sinceHour: "2026-06-14T00", notBefore: next.acceptedAt });
+    expect(await rows(env)).toHaveLength(1);
+  });
+
+  it("still prunes a leaver's rows in the team they left", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-08T10:00:00.000Z"));
+    const env = makeEnv({ BILLING_ENFORCE: "true" });
+    await seedUser(env, "owner1");
+    await seedUser(env, "emp1");
+    await seedTeam(env, "tm1", "owner1");
+    await addMember(env, "tm1", "emp1", "employee");
+    await applyUpload(env, "emp1", "dev1", payload("before-leaving", [bucket({ hourUtc: "2026-09-05T10" })]));
+    await env.DB.prepare("UPDATE team_members SET left_at = ? WHERE user_id = 'emp1'")
+      .bind("2026-09-09T00:00:00.000Z").run();
+    vi.setSystemTime(new Date("2026-09-12T10:00:00.000Z"));
+    const next = await applyUpload(env, "emp1", "dev1", payload("after-leaving", [bucket({ hourUtc: "2026-09-05T10" })]));
+    vi.setSystemTime(new Date("2026-09-12T10:00:05.000Z"));
+    await pruneStale(env, "emp1", "dev1", { sinceHour: "2026-06-14T00", notBefore: next.acceptedAt });
+    expect(await rows(env)).toHaveLength(0);
+  });
+
   it("does nothing when this device has never uploaded", async () => {
     const env = makeEnv();
     await seedUser(env, "emp1");

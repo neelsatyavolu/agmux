@@ -89,9 +89,13 @@ export function filterBucketsByRange(
   range: TeamRange,
   now = new Date(),
 ): HourlyBucket[] {
-  const since = hourFloorDaysAgo(RANGE_DAYS[range], now);
+  // Today is the last of the range's days, matching `dailySeries`.
+  const since = hourFloorDaysAgo(RANGE_DAYS[range] - 1, now);
   return buckets.filter((b) => b.hourUtc >= since && b.hourUtc <= `${dateKey(now)}T23`);
 }
+
+/** An active bucket from a build that predates session-start counting. */
+const startsUnknown = (b: HourlyBucket): boolean => b.sessions > 0 && b.sessionsStarted == null;
 
 export function totals(buckets: HourlyBucket[]): Totals {
   const t: Totals = {
@@ -107,6 +111,8 @@ export function totals(buckets: HourlyBucket[]): Totals {
     afterHoursShare: 0,
     weekendShare: 0,
     sessions: 0,
+    sessionsStarted: 0,
+    sessionsStartedIncomplete: false,
     turns: 0,
     toolCalls: 0,
     peakConcurrent: 0,
@@ -134,6 +140,8 @@ export function totals(buckets: HourlyBucket[]): Totals {
     t.tokensReasoning += b.tokensReasoning;
     t.costUsd += b.costUsd;
     t.sessions += b.sessions;
+    t.sessionsStarted! += b.sessionsStarted ?? 0;
+    t.sessionsStartedIncomplete ||= startsUnknown(b);
     t.turns += b.turns;
     t.toolCalls += b.toolCalls;
     for (const kind of TOOL_KIND_KEYS) {
@@ -282,12 +290,17 @@ export function projects(buckets: HourlyBucket[]): ProjectRow[] {
     const key = b.projectKey || "(unlabelled)";
     let row = byKey.get(key);
     if (!row) {
-      row = { projectKey: key, activeHours: 0, tokens: 0, sessions: 0 };
+      row = {
+        projectKey: key, activeHours: 0, tokens: 0, sessions: 0,
+        sessionsStarted: 0, sessionsStartedIncomplete: false,
+      };
       byKey.set(key, row);
     }
     row.activeHours += b.activeMs / MS_PER_HOUR;
     row.tokens += bucketTokens(b);
     row.sessions += b.sessions;
+    row.sessionsStarted! += b.sessionsStarted ?? 0;
+    row.sessionsStartedIncomplete ||= startsUnknown(b);
   }
   return [...byKey.values()].sort((a, b) => b.activeHours - a.activeHours);
 }
@@ -329,7 +342,7 @@ export function buildLocalSelfView(
   }
 
   // Previous window for after-hours delta on flags (same length, immediately prior).
-  const since = hourFloorDaysAgo(days, now);
+  const since = hourFloorDaysAgo(days - 1, now);
   const prevUntil = since;
   const prevStartMs = Date.parse(`${prevUntil.slice(0, 10)}T00:00:00Z`) - days * 86_400_000;
   const prevSince = `${dateKey(new Date(prevStartMs))}T00`;

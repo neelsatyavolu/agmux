@@ -165,14 +165,21 @@ export async function pruneStale(
     (n): n is number => n != null,
   );
   if (candidates.length === 0) return { deleted: 0 };
+  // A team the user still belongs to but uploads skip for billing (read-only
+  // after a trial) was not refreshed: its rows are old because nothing is
+  // sent, not stale. Keep that history; other teams prune as before.
+  const memberships = await listActiveMemberships(env, userId);
+  const { skipped } = await filterUploadTeamIds(env, memberships.map((m) => m.team_id));
+  const kept = skipped.filter((t) => t.reason === "billing").map((t) => t.id);
   const cutoff = new Date(Math.min(...candidates)).toISOString();
   const r = await env.DB.prepare(
     `DELETE FROM metric_hourly
       WHERE user_id = ? AND device_id = ?
         AND hour_utc >= ?
-        AND updated_at < ?`,
+        AND updated_at < ?${kept.length ? `
+        AND team_id NOT IN (${kept.map(() => "?").join(",")})` : ""}`,
   )
-    .bind(userId, deviceId, payload.sinceHour, cutoff)
+    .bind(userId, deviceId, payload.sinceHour, cutoff, ...kept)
     .run();
   return { deleted: Number(r.meta?.changes ?? 0) };
 }

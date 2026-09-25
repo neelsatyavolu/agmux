@@ -366,7 +366,9 @@ pub fn build_buckets_in_tz(
     }
 
     // Active time and concurrency, derived from each session's event spacing.
-    let mut spans_by_key: HashMap<Key, Vec<Span>> = HashMap::new();
+    // Concurrency spans every session in the hour, whatever its provider,
+    // model or project: two agents in two repos at once are two at once.
+    let mut spans_by_hour: HashMap<String, Vec<Span>> = HashMap::new();
     for ((provider, session), timeline) in &mut timeline_by_session {
         for (span, ident) in session_spans(timeline) {
             for (bucket_start, slice) in split_by_hour(span.start, span.end) {
@@ -399,15 +401,17 @@ pub fn build_buckets_in_tz(
                     b.weekend_ms += ms;
                 }
 
-                spans_by_key.entry(sliced).or_default().push(slice);
+                spans_by_hour.entry(sliced.0).or_default().push(slice);
             }
         }
     }
 
-    for (key, spans) in &spans_by_key {
-        if let Some(b) = acc.get_mut(key) {
-            b.peak_concurrent = peak_overlap(spans);
-        }
+    let peak_by_hour: HashMap<&String, i64> = spans_by_hour
+        .iter()
+        .map(|(hour, spans)| (hour, peak_overlap(spans)))
+        .collect();
+    for b in acc.values_mut() {
+        b.peak_concurrent = peak_by_hour.get(&b.hour_utc).copied().unwrap_or(0);
     }
     for key in session_hours.values() {
         if let Some(b) = acc.get_mut(key) { b.sessions += 1; }
@@ -650,6 +654,34 @@ mod tests {
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].peak_concurrent, 2);
         assert_eq!(buckets[0].sessions, 2);
+    }
+
+    #[test]
+    fn peak_concurrency_counts_overlapping_sessions_in_different_projects_and_providers() {
+        let mut a = ev("2026-07-29T14:00:00Z");
+        a.session_id = "s1".into();
+        let mut a2 = ev("2026-07-29T14:04:00Z");
+        a2.session_id = "s1".into();
+        let mut b = ev("2026-07-29T14:01:00Z");
+        b.session_id = "s2".into();
+        b.project_key = "other-repo".into();
+        let mut b2 = ev("2026-07-29T14:05:00Z");
+        b2.session_id = "s2".into();
+        b2.project_key = "other-repo".into();
+        let mut c = ev("2026-07-29T14:02:00Z");
+        c.session_id = "s3".into();
+        c.provider = "Codex".into();
+        c.model = "gpt-5".into();
+        let mut c2 = ev("2026-07-29T14:03:00Z");
+        c2.session_id = "s3".into();
+        c2.provider = "Codex".into();
+        c2.model = "gpt-5".into();
+
+        let buckets = build_buckets(&[a, a2, b, b2, c, c2], ts("2026-07-29T15:00:00Z"));
+        assert_eq!(buckets.len(), 3);
+        // The dashboards take the max per hour across buckets, so each bucket
+        // must carry the hour's true peak rather than its own slice of it.
+        assert!(buckets.iter().all(|b| b.peak_concurrent == 3), "{buckets:?}");
     }
 
     #[test]
