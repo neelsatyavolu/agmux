@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { installLocalStorage } from "./_localStorage";
 import {
   addPinnedSession,
@@ -55,6 +55,27 @@ describe("pinnedSessions", () => {
     transferPinnedSessions("from", "to");
     expect(loadPinnedSessions("from").size).toBe(0);
     expect(loadPinnedSessions("to")).toEqual(new Set(["a", "b", "c"]));
+  });
+
+  it("keeps pins for this app run when localStorage is full", () => {
+    const quota = () => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    };
+    addPinnedSession("p1", "saved");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const setItem = vi.spyOn(localStorage, "setItem").mockImplementation(quota);
+    try {
+      expect(() => addPinnedSession("p1", "pinned")).not.toThrow();
+      expect(loadPinnedSessions("p1")).toEqual(new Set(["saved", "pinned"]));
+      expect(() => removePinnedSession("p1", "saved")).not.toThrow();
+      expect(() => transferPinnedSessions("p1", "p2")).not.toThrow();
+      expect(loadPinnedSessions("p1").size).toBe(0);
+      expect(loadPinnedSessions("p2")).toEqual(new Set(["pinned"]));
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      setItem.mockRestore();
+      warn.mockRestore();
+    }
   });
 
   it("returns an empty set when stored payload is corrupt", () => {
