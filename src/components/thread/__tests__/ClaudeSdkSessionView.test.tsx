@@ -6008,6 +6008,50 @@ describe("ClaudeSdkSessionView — Final coverage gaps", () => {
     expect(text).toContain("8 in · 400 out · 42,000 cache read · Turn 2");
   });
 
+  it("drops an approval and question once their tool finishes (answered from the phone)", async () => {
+    // A phone answer goes straight to the bridge; the chat only sees the
+    // tool finish. Claude's approval/question ids are the tool_use ids.
+    const handlers = await setupCapture();
+    const { queryByTestId } = render(<ClaudeSdkSessionView sessionId="eg48" cwd="/tmp/repo" isNew />);
+    await flush();
+    await act(async () => {
+      fire(handlers, "eg48", { type: "tool.started", toolUseId: "toolu_bash", name: "Bash", input: { command: "npm test" }, parentToolUseId: null });
+      fire(handlers, "eg48", { type: "approval.requested", requestId: "toolu_bash", toolName: "Bash", detail: "npm test", requestType: "command_execution" });
+      fire(handlers, "eg48", { type: "tool.started", toolUseId: "toolu_ask", name: "AskUserQuestion", input: {}, parentToolUseId: null });
+      fire(handlers, "eg48", { type: "userInput.requested", requestId: "toolu_ask", questions: [{ question: "Which one?", options: [] }] });
+    });
+    await flush();
+    expect(queryByTestId("approval-banner")).toBeTruthy();
+    expect(queryByTestId("ask-user-question-dialog")).toBeTruthy();
+    await act(async () => {
+      fire(handlers, "eg48", { type: "tool.completed", toolUseId: "toolu_bash", content: "ok", isError: false, parentToolUseId: null });
+      fire(handlers, "eg48", { type: "tool.completed", toolUseId: "toolu_ask", content: "answered", isError: false, parentToolUseId: null });
+    });
+    await flush();
+    expect(queryByTestId("approval-banner")).toBeNull();
+    expect(queryByTestId("ask-user-question-dialog")).toBeNull();
+  });
+
+  it("treats an approval the bridge no longer has as already answered", async () => {
+    const handlers = await setupCapture();
+    const cmd = await import("../../../lib/commands");
+    vi.mocked(cmd.sdkRespondApproval).mockRejectedValueOnce(
+      "No pending approval for requestId: toolu_gone",
+    );
+    const { queryByTestId, getByTestId, container } = render(
+      <ClaudeSdkSessionView sessionId="eg49" cwd="/tmp/repo" isNew />,
+    );
+    await flush();
+    await act(async () => {
+      fire(handlers, "eg49", { type: "approval.requested", requestId: "toolu_gone", toolName: "Bash", detail: "ls", requestType: "command_execution" });
+    });
+    await flush();
+    await act(async () => { fireEvent.click(getByTestId("ab-approve")); });
+    await flush();
+    expect(queryByTestId("approval-banner")).toBeNull();
+    expect(container.textContent).not.toContain("Failed to approve");
+  });
+
   it("keeps an approval that has waited over a minute when a second one arrives", async () => {
     // Parallel subagents can each block on a permission prompt. The bridge
     // waits for every requestId indefinitely, so dropping the older one from

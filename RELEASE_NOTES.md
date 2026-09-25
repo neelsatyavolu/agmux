@@ -51,6 +51,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 - **Chat approvals no longer vanish** — When two permission requests are waiting in a chat and the first has waited over a minute, it stays on screen instead of disappearing and leaving the agent stuck.
+- **Answered from your phone, gone on your Mac** — When you answer a Claude chat's permission request or question on your phone, the Mac chat now clears it instead of keeping it on screen and showing an error if you click it.
 - **Token counts in Claude chat** — The token line under each Claude chat reply now shows that reply's real numbers, instead of wrong or negative counts from the second reply on.
 - **Background agents finish in Claude chat** — A background agent in a Claude chat now shows as finished when it's done, with its tool count as it works, instead of looking like it's still running forever.
 - **OpenCode chat asks about every action** — When OpenCode wants to run several commands at once, each permission request now waits its turn on screen instead of the earlier ones disappearing and leaving OpenCode stuck.

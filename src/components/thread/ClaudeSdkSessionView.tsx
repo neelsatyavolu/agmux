@@ -1705,6 +1705,14 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
         case "tool.completed": {
           const result = { content: sdkEvent.content, isError: sdkEvent.isError };
           setMessages((prev) => mergeToolResult(prev, sdkEvent.toolUseId, result));
+          // Claude approval/question ids are tool_use ids. A finished tool was
+          // answered elsewhere (e.g. from the phone), so drop its prompt here.
+          setApprovalQueue((prev) =>
+            prev.some((a) => a.requestId === sdkEvent.toolUseId)
+              ? prev.filter((a) => a.requestId !== sdkEvent.toolUseId)
+              : prev,
+          );
+          setPendingInput((cur) => (cur?.requestId === sdkEvent.toolUseId ? null : cur));
           break;
         }
 
@@ -2731,7 +2739,7 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
     } catch (err) {
       const msg = String(err);
       // Stale/unknown approval — silently evict from queue
-      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found")) {
+      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found") || msg.includes("No pending approval")) {
         setApprovalQueue((prev) => prev.filter((a) => a.requestId !== approval.requestId));
       } else {
         const message = `Failed to approve ${approval.toolName}: ${msg}`;
@@ -2750,7 +2758,7 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
       setErrorMessage(null);
     } catch (err) {
       const msg = String(err);
-      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found")) {
+      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found") || msg.includes("No pending approval")) {
         setApprovalQueue((prev) => prev.filter((a) => a.requestId !== approval.requestId));
       } else {
         const message = `Failed to reject ${approval.toolName}: ${msg}`;
@@ -2769,7 +2777,7 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
       setErrorMessage(null);
     } catch (err) {
       const msg = String(err);
-      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found")) {
+      if (msg.includes("stale") || msg.includes("unknown") || msg.includes("not found") || msg.includes("No pending approval")) {
         setApprovalQueue((prev) => prev.filter((a) => a.requestId !== approval.requestId));
       } else {
         const message = `Failed to approve ${approval.toolName}: ${msg}`;
