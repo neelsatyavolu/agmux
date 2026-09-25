@@ -55,16 +55,17 @@ vi.mock("../../settings/AccountsSection", () => ({
 vi.mock("../../settings/OpenCodeAuthPanel", () => ({
   OpenCodeAuthPanel: () => <div data-testid="opencode-auth-panel" />,
 }));
+const updateCheckerState = vi.hoisted(() => ({
+  status: "idle" as string,
+  version: null as string | null,
+  body: null as string | null,
+  progress: 0,
+  message: null as string | null,
+  needsManualDownload: false,
+}));
 vi.mock("../../UpdateChecker", () => ({
   useUpdateChecker: () => ({
-    state: {
-      status: "idle",
-      version: null,
-      body: null,
-      progress: 0,
-      message: null,
-      needsManualDownload: false,
-    },
+    state: updateCheckerState,
     checkForUpdate: vi.fn(),
     installUpdate: vi.fn(),
     openManualDownload: vi.fn(),
@@ -74,8 +75,14 @@ vi.mock("../../../hooks/useAppVersion", () => ({
   useAppVersion: () => "9.9.9-test",
 }));
 vi.mock("../../ui/GlassButton", () => ({
-  GlassButton: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) =>
-    <button onClick={onClick}>{children}</button>,
+  GlassButton: (
+    { children, onClick, variant, size, disabled }:
+      { children: React.ReactNode; onClick?: () => void; variant?: string; size?: string; disabled?: boolean },
+  ) => (
+    <button onClick={onClick} data-variant={variant} data-size={size} disabled={disabled}>
+      {children}
+    </button>
+  ),
 }));
 
 // Asset imports.
@@ -95,6 +102,9 @@ beforeEach(() => {
   // Reset stores to a known baseline before each test.
   useSettingsStore.getState().closeSettings();
   useSessionNameStore.setState({ names: {}, logs: [], failedSummarizations: [] } as Partial<ReturnType<typeof useSessionNameStore.getState>>);
+  Object.assign(updateCheckerState, {
+    status: "idle", version: null, body: null, progress: 0, message: null, needsManualDownload: false,
+  });
 });
 
 describe("SettingsDialog", () => {
@@ -246,6 +256,36 @@ describe("SettingsDialog", () => {
     fireEvent.click(screen.getByText("About"));
     // useAppVersion mock returns "9.9.9-test"
     expect(screen.getAllByText(/9\.9\.9-test/).length).toBeGreaterThan(0);
+  });
+
+  it("L4: 'Up to date' is a success (green) state, not gold needs-you", () => {
+    updateCheckerState.status = "up-to-date";
+    useSettingsStore.getState().openSettings();
+    render(<SettingsDialog />);
+    fireEvent.click(screen.getByText("About"));
+    const el = screen.getByText("Up to date");
+    expect(el.className).toContain("var(--status-green)");
+    expect(el.className).not.toContain("var(--accent)");
+  });
+
+  it("L4: 'Restart to apply' is a success (green) state, not gold needs-you", () => {
+    updateCheckerState.status = "ready";
+    useSettingsStore.getState().openSettings();
+    render(<SettingsDialog />);
+    fireEvent.click(screen.getByText("About"));
+    const el = screen.getByText("Restart to apply");
+    expect(el.className).toContain("var(--status-green)");
+    expect(el.className).not.toContain("var(--accent)");
+  });
+
+  it("M3: 'Install' (available update) keeps solid gold — it's the one legitimate needs-you primary, unlike the repeated Download buttons", () => {
+    updateCheckerState.status = "available";
+    updateCheckerState.version = "10.0.0";
+    useSettingsStore.getState().openSettings();
+    render(<SettingsDialog />);
+    fireEvent.click(screen.getByText("About"));
+    const installBtn = screen.getByText("Install").closest("button")!;
+    expect(installBtn.getAttribute("data-variant")).toBe("accent");
   });
 
   it("keeps Accounts adjacent to Git & Connections with independent content", () => {
@@ -874,6 +914,14 @@ describe("SettingsDialog — Maximum coverage", () => {
     expect(useSettingsStore.getState().settings.setupWizardCompleted).toBe(false);
   });
 
+  it("M3: 'Run setup' is no longer a solid-gold accent button (rare/manual action, not a primary competing with real needs-you gold)", () => {
+    useSettingsStore.getState().openSettings();
+    render(<SettingsDialog />);
+    fireEvent.click(screen.getAllByText("General")[0]);
+    const wizardBtn = screen.getByText("Run setup").closest("button")!;
+    expect(wizardBtn.getAttribute("data-variant")).toBe("primary");
+  });
+
   it("General: commit message model segment pins GPT-6 Luna Low", () => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);
@@ -1127,6 +1175,38 @@ describe("SettingsDialog — Maximum coverage", () => {
     fireEvent.click(screen.getByText("Summaries"));
     const localModelState = useLocalModelStore.getState();
     expect(typeof localModelState).toBe("object");
+  });
+
+  it("M3: a not-yet-downloaded summary model's Download button is a neutral primary, not solid gold (it repeats once per catalog variant)", () => {
+    useLocalModelStore.setState({
+      status: {
+        model_downloaded: false,
+        server_downloaded: false,
+        server_running: false,
+        model_name: "",
+        model_size_bytes: null,
+        active_variant: "qwen3-4b",
+        variants: [
+          {
+            variant: "qwen3-4b",
+            display_name: "Qwen3 4B",
+            blurb: "Balanced",
+            recommended: true,
+            legacy: false,
+            downloaded: false,
+            size_bytes: null,
+            approx_size_bytes: 2_500_000_000,
+          },
+        ],
+      },
+    });
+    useSettingsStore.getState().openSettings();
+    render(<SettingsDialog />);
+    fireEvent.click(screen.getByText("Summaries"));
+    const downloadBtn = screen.getByText("Download").closest("button")!;
+    expect(downloadBtn.getAttribute("data-variant")).toBe("primary");
+    // Don't leak this status into later tests (real zustand store).
+    useLocalModelStore.setState({ status: null });
   });
 
   it("session name store can be cleared mid-session", () => {

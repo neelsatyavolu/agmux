@@ -1431,7 +1431,7 @@ function GeneralPage({
           description="Re-run onboarding — providers, look, memory, permissions, phone remote, and essentials."
           last
         >
-          <GlassButton size="sm" variant="accent" onClick={onRerunWizard}>
+          <GlassButton size="sm" variant="primary" onClick={onRerunWizard}>
             Run setup
           </GlassButton>
         </SettingsRow>
@@ -2080,10 +2080,7 @@ function AppearancePage({
                       </span>
                     </div>
                     {t.value === "midnight-glass" && (
-                      <span
-                        className="ui-eyebrow"
-                        style={{ color: "var(--text-muted)" }}
-                      >
+                      <span className="ui-eyebrow">
                         Default
                       </span>
                     )}
@@ -2485,7 +2482,7 @@ function SummariesPage({
                 {v.downloaded ? (
                   <>
                     {isActive ? (
-                      <span className="flex items-center gap-1.5 text-xs text-[color:var(--accent)]">
+                      <span className="flex items-center gap-1.5 text-xs text-[color:var(--status-green)]">
                         <CheckCircle2 size={13} />
                         Installed · Active
                       </span>
@@ -2510,7 +2507,7 @@ function SummariesPage({
                 ) : (
                   <GlassButton
                     size="sm"
-                    variant="accent"
+                    variant="primary"
                     icon={Download}
                     onClick={() => handleStartDownload(v.variant)}
                     disabled={downloading}
@@ -3217,7 +3214,7 @@ function AboutPage({
               </span>
             )}
             {updateState.status === "up-to-date" && (
-              <span className="flex items-center gap-1.5 text-xs text-[color:var(--accent)]">
+              <span className="flex items-center gap-1.5 text-xs text-[color:var(--status-green)]">
                 <CheckCircle2 size={12} />
                 Up to date
               </span>
@@ -3239,7 +3236,7 @@ function AboutPage({
               </span>
             )}
             {updateState.status === "ready" && (
-              <span className="flex items-center gap-1.5 text-xs text-[color:var(--accent)]">
+              <span className="flex items-center gap-1.5 text-xs text-[color:var(--status-green)]">
                 <CheckCircle2 size={12} />
                 Restart to apply
               </span>
@@ -3294,7 +3291,7 @@ function AboutPage({
           description="Re-run onboarding anytime — providers, look, memory, permissions, phone remote, and essentials."
           last
         >
-          <GlassButton size="sm" variant="accent" onClick={onRerunWizard}>
+          <GlassButton size="sm" variant="primary" onClick={onRerunWizard}>
             Run setup
           </GlassButton>
         </SettingsRow>
