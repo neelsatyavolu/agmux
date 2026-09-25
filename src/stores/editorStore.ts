@@ -100,23 +100,27 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   renameTab: (oldPath, newPath) => {
     if (!oldPath || !newPath || oldPath === newPath) return;
+    // A renamed folder moves every open file inside it too.
+    const moved = (path: string): string | null =>
+      path === oldPath ? newPath
+        : path.startsWith(`${oldPath}/`) ? newPath + path.slice(oldPath.length)
+        : null;
     set((state) => {
-      const idx = state.openTabs.findIndex((t) => t.path === oldPath);
-      if (idx === -1) return state;
-      const name = getFilename(newPath);
-      const language = getLanguageFromExtension(name);
+      if (!state.openTabs.some((t) => moved(t.path) !== null)) return state;
       const remap = <T,>(rec: Record<string, T>): Record<string, T> => {
-        if (!(oldPath in rec)) return rec;
-        const next = { ...rec };
-        next[newPath] = rec[oldPath];
-        delete next[oldPath];
+        if (!Object.keys(rec).some((key) => moved(key) !== null)) return rec;
+        const next: Record<string, T> = {};
+        for (const [key, value] of Object.entries(rec)) next[moved(key) ?? key] = value;
         return next;
       };
       return {
-        openTabs: state.openTabs.map((t) =>
-          t.path === oldPath ? { path: newPath, name, language } : t,
-        ),
-        activeTabPath: state.activeTabPath === oldPath ? newPath : state.activeTabPath,
+        openTabs: state.openTabs.map((t) => {
+          const path = moved(t.path);
+          if (path === null) return t;
+          const name = getFilename(path);
+          return { path, name, language: getLanguageFromExtension(name) };
+        }),
+        activeTabPath: state.activeTabPath === null ? null : moved(state.activeTabPath) ?? state.activeTabPath,
         dirtyFiles: remap(state.dirtyFiles),
         fileContents: remap(state.fileContents),
         rawMode: remap(state.rawMode),

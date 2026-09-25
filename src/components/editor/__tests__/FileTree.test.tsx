@@ -20,12 +20,14 @@ vi.mock("../../../lib/commands", () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
   renameFile: vi.fn().mockResolvedValue(undefined),
   deleteFile: vi.fn().mockResolvedValue(undefined),
+  renamePath: vi.fn(),
+  deletePath: vi.fn().mockResolvedValue(undefined),
   createFile: vi.fn().mockResolvedValue(undefined),
   createDirectory: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { FileTree } from "../FileTree";
-import { listDirectory } from "../../../lib/commands";
+import { listDirectory, renamePath } from "../../../lib/commands";
 import { useEditorStore } from "../../../stores/editorStore";
 
 afterEach(() => {
@@ -432,5 +434,52 @@ describe("FileTree — Maximum coverage", () => {
     expect(row.textContent).toContain("M");
     const letter = Array.from(row.querySelectorAll("span")).find((el) => el.textContent === "M");
     expect(letter?.className).toContain("font-mono");
+  });
+});
+
+describe("FileTree — folder rename/delete with open tabs", () => {
+  beforeEach(() => {
+    useEditorStore.setState({ openTabs: [], activeTabPath: null, dirtyFiles: {}, fileContents: {} });
+  });
+  afterEach(() => {
+    useEditorStore.setState({ openTabs: [], activeTabPath: null, dirtyFiles: {}, fileContents: {} });
+  });
+
+  async function openFolderMenu(action: string) {
+    const { fireEvent } = await import("@testing-library/react");
+    (listDirectory as any).mockResolvedValue([{ name: "src", path: "/r/src", is_dir: true }]);
+    render(<FileTree rootPath="/r" threadId={null} />);
+    await waitFor(() => expect(screen.queryByText("src")).toBeTruthy());
+    fireEvent.contextMenu(screen.getByText("src"));
+    fireEvent.click(await screen.findByText(action));
+    return fireEvent;
+  }
+
+  it("renaming a folder moves open tabs for files inside it", async () => {
+    useEditorStore.getState().openTab("/r/src/a.ts");
+    useEditorStore.getState().markDirty("/r/src/a.ts", "edited");
+    useEditorStore.getState().openTab("/r/srcx/b.ts");
+    (renamePath as any).mockResolvedValue("/r/lib");
+    const fireEvent = await openFolderMenu("Rename…");
+    const input = document.body.querySelector("form input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "lib" } });
+    fireEvent.submit(input.closest("form")!);
+    await waitFor(() => expect(renamePath).toHaveBeenCalledWith("/r/src", "lib"));
+    await waitFor(() => {
+      const state = useEditorStore.getState();
+      expect(state.openTabs.map((t) => t.path)).toEqual(["/r/lib/a.ts", "/r/srcx/b.ts"]);
+      expect(state.dirtyFiles["/r/lib/a.ts"]).toBe(true);
+      expect(state.fileContents["/r/lib/a.ts"]).toBe("edited");
+    });
+  });
+
+  it("deleting a folder closes open tabs for files inside it", async () => {
+    useEditorStore.getState().openTab("/r/src/a.ts");
+    useEditorStore.getState().openTab("/r/srcx/b.ts");
+    const fireEvent = await openFolderMenu("Delete");
+    fireEvent.click(await screen.findByRole("button", { name: /^Delete$/ }));
+    await waitFor(() => {
+      expect(useEditorStore.getState().openTabs.map((t) => t.path)).toEqual(["/r/srcx/b.ts"]);
+    });
   });
 });
