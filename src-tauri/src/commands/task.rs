@@ -473,10 +473,19 @@ pub async fn delete_task(
     remove_worktree: bool,
     force: bool,
 ) -> Result<(), String> {
+    delete_task_in(&state.db, &id, remove_worktree, force).await
+}
+
+async fn delete_task_in(
+    db: &sqlx::SqlitePool,
+    id: &str,
+    remove_worktree: bool,
+    force: bool,
+) -> Result<(), String> {
     // Fetch first so we know the worktree path before deleting.
     let task = sqlx::query_as::<sqlx::Sqlite, Task>("SELECT * FROM tasks WHERE id = ?")
-        .bind(&id)
-        .fetch_one(&state.db)
+        .bind(id)
+        .fetch_one(db)
         .await
         .map_err(|e| format!("Failed to find task: {e}"))?;
 
@@ -484,9 +493,12 @@ pub async fn delete_task(
     // the task is still recoverable from the database.
     if remove_worktree {
         let augmented_path = build_augmented_path();
+        // A folder removed outside agmux has no uncommitted work to protect,
+        // and walking up from it could land in an unrelated repo.
+        let worktree_exists = Path::new(&task.worktree_path).exists();
 
         // ── Fix 3: Dirty-file guard when force=false ──────────────────────────
-        if !force {
+        if !force && worktree_exists {
             let status_out = Command::new("git")
                 .args(["status", "--porcelain"])
                 .current_dir(&task.worktree_path)
@@ -515,7 +527,7 @@ pub async fn delete_task(
 
         // Find the repo root by looking for the .git dir going up from worktree_path.
         let worktree = Path::new(&task.worktree_path);
-        if let Some(repo_root) = find_repo_root(worktree) {
+        if let Some(repo_root) = find_repo_root(worktree).filter(|_| worktree_exists) {
             let mut args = vec!["worktree", "remove"];
             if force {
                 args.push("--force");
@@ -554,7 +566,7 @@ pub async fn delete_task(
                 "SELECT repo_path FROM projects WHERE id = ?",
             )
             .bind(&task.project_id)
-            .fetch_one(&state.db)
+            .fetch_one(db)
             .await
             {
                 let _ = Command::new("git")
@@ -572,13 +584,13 @@ pub async fn delete_task(
     sqlx::query("DELETE FROM threads WHERE project_id = ? AND worktree_branch = ?")
         .bind(&task.project_id)
         .bind(&task.branch_name)
-        .execute(&state.db)
+        .execute(db)
         .await
         .map_err(|e| format!("Failed to delete task threads: {e}"))?;
 
     sqlx::query("DELETE FROM tasks WHERE id = ?")
-        .bind(&id)
-        .execute(&state.db)
+        .bind(id)
+        .execute(db)
         .await
         .map_err(|e| format!("Failed to delete task: {e}"))?;
 
@@ -2070,6 +2082,54 @@ prunable gitdir file points to non-existent location
     async fn get_worktree_changes_validates_path() {
         let r = get_worktree_changes("relative".to_string()).await;
         assert!(r.is_err());
+    }
+
+    #[tokio::test]
+    async fn delete_task_succeeds_when_worktree_folder_is_already_gone() {
+        // A task whose folder was removed outside agmux must still be
+        // deletable from the sidebar (non-force Delete), not stuck on a
+        // `git status` that cannot run in a missing directory.
+        let tmp = tempdir().unwrap();
+        let repo = tmp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_repo(&repo).await;
+        commit_file(&repo, "a.txt", "hi\n", "init").await;
+        let wt = tmp.path().join("worktrees").join("demo").join("fix-login");
+        let wt_str = wt.to_string_lossy().to_string();
+        assert!(run_git(&repo, &["worktree", "add", "-q", "-b", "fix-login", &wt_str, "main"])
+            .await
+            .status
+            .success());
+        std::fs::remove_dir_all(&wt).unwrap();
+
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let project = crate::db::queries::create_project(&pool, "demo", repo.to_str().unwrap())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO tasks (id, project_id, name, branch_name, worktree_path, base_branch, status)
+             VALUES ('task-1', ?, 'Fix login', 'fix-login', ?, 'main', 'in_progress')",
+        )
+        .bind(&project.id)
+        .bind(&wt_str)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        delete_task_in(&pool, "task-1", true, false).await.unwrap();
+
+        let left: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tasks")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(left, 0);
+        let listed = run_git(&repo, &["worktree", "list", "--porcelain"]).await;
+        assert!(!String::from_utf8_lossy(&listed.stdout).contains(&wt_str));
     }
 
     #[tokio::test]
