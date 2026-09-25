@@ -175,7 +175,7 @@ describe("ThreadTopBar", () => {
         isProcessing={true}
       />
     );
-    const pill = screen.getByText(/^running/);
+    const pill = screen.getByText(/^Working/);
     expect(pill.getAttribute("style") ?? "").toContain("var(--status-blue)");
     expect(pill.getAttribute("style") ?? "").not.toContain("245,158,11");
   });
@@ -1156,8 +1156,61 @@ it("pauses elapsed ticks while hidden and catches up on reveal", async () => {
   expect(intervals.mock.calls.filter(call => call[1] === 1000)).toHaveLength(0);
   await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
   rerender(<ThreadTopBar {...props} active />);
-  expect(screen.getByText(/running · 20s/)).toBeTruthy();
+  expect(screen.getByText(/Working · 20s/)).toBeTruthy();
   unmount();
   intervals.mockRestore();
   vi.useRealTimers();
+});
+
+describe("ThreadTopBar unified (flat) look", () => {
+  const base = {
+    threadId: "look-1",
+    workDir: "/tmp/repo",
+    onToggleGitSidebar: () => {},
+    onToggleTerminal: () => {},
+    terminalOpen: false,
+  };
+  const setSurface = (surfaceStyle: "flat" | "glass") =>
+    useSettingsStore.setState((st) => ({ settings: { ...st.settings, surfaceStyle } }));
+  afterEach(() => setSurface("flat"));
+
+  it("shows a soft blue Working chip with a spinner while running", () => {
+    setSurface("flat");
+    render(<ThreadTopBar {...base} gitSidebarOpen={false} isProcessing />);
+    const pill = screen.getByText(/^Working/);
+    expect(pill.getAttribute("style") ?? "").toContain("var(--ui-blue-soft)");
+    expect(pill.querySelector(".animate-spin")).toBeTruthy();
+  });
+
+  it("labels a finished session Idle in a ringed neutral chip", () => {
+    setSurface("flat");
+    render(<ThreadTopBar {...base} gitSidebarOpen={false} isProcessing={false} />);
+    const pill = screen.getByText("Idle");
+    expect(pill.getAttribute("style") ?? "").toContain("var(--ui-rule-2)");
+  });
+
+  it("draws Commit as a quiet ringed button", () => {
+    setSurface("flat");
+    render(<ThreadTopBar {...base} gitSidebarOpen={false} />);
+    const commit = screen.getByTitle("Commit changes");
+    const style = commit.getAttribute("style") ?? "";
+    expect(style).toContain("var(--ui-rule-2)");
+    expect(style).toContain("border-radius: 9px");
+  });
+
+  it("marks an open panel with the neutral pressed fill, not a ring", () => {
+    setSurface("flat");
+    render(<ThreadTopBar {...base} gitSidebarOpen />);
+    const git = screen.getByTitle("Git panel");
+    expect(git.getAttribute("style") ?? "").toContain("var(--ui-press)");
+  });
+
+  it("keeps the original pill and chip look under Glass", () => {
+    setSurface("glass");
+    render(<ThreadTopBar {...base} gitSidebarOpen={false} isProcessing />);
+    const pill = screen.getByText(/^Working/);
+    expect(pill.getAttribute("style") ?? "").not.toContain("var(--ui-blue-soft)");
+    expect(pill.querySelector(".animate-spin")).toBeNull();
+    expect(screen.getByTitle("Commit changes").getAttribute("style") ?? "").toContain("border-radius: 6px");
+  });
 });

@@ -467,13 +467,18 @@ function IconBtn({
   accent?: "green" | "amber" | "default";
 }) {
   const isLight = useResolvedColorMode();
-  const hoverColor = isLight ? "#1a1a1a" : "#e4e4e7";
+  const flat = (useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat") === "flat";
+  // Flat: graphite icon, hover fill, neutral pressed fill when active (no ring).
+  const hoverColor = flat ? "var(--text-primary)" : isLight ? "#1a1a1a" : "#e4e4e7";
   const activeColor =
-    accent === "green" ? "var(--accent)" : accent === "amber" ? "var(--status-amber)" : hoverColor;
-  const idleColor = isLight ? "#52525b" : "#a1a1aa";
+    accent === "green"
+      ? flat ? "var(--status-green)" : "var(--accent)"
+      : accent === "amber" ? "var(--status-amber)" : hoverColor;
+  const idleColor = flat ? "var(--text-tertiary)" : isLight ? "#52525b" : "#a1a1aa";
   const baseColor = active ? activeColor : idleColor;
-  const hoverBg = isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)";
-  const hoverBorder = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
+  const hoverBg = flat ? "var(--ui-hover)" : isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)";
+  const activeBg = flat ? "var(--ui-press)" : hoverBg;
+  const hoverBorder = flat ? "transparent" : isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
   return (
     <button
       type="button"
@@ -483,8 +488,8 @@ function IconBtn({
       style={{
         width: 30,
         height: 30,
-        borderRadius: 7,
-        background: active ? hoverBg : "transparent",
+        borderRadius: flat ? 8 : 7,
+        background: active ? activeBg : "transparent",
         border: `1px solid ${active ? hoverBorder : "transparent"}`,
         color: baseColor,
         display: "flex",
@@ -553,28 +558,38 @@ export function ThreadTopBar({
   const textSecondary = flat ? "var(--text-secondary)" : isLight ? "#52525b" : "#a1a1aa";
   const textMuted = flat ? "var(--text-muted)" : isLight ? "#71717a" : "#71717a";
   const textDivider = flat ? "var(--text-tertiary)" : isLight ? "#a1a1aa" : "#3f3f46";
-  const chipBg = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
-  const chipBgHover = isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)";
-  const chipBorder = isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.08)";
-  const chipBorderHover = isLight ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.12)";
-  const chipHairline = isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.08)";
-  const chipHoverSubtle = isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)";
-  const stateIdleBg = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
-  const stateIdleBorder = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
-  const contextTrackBg = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
-  const titleColor = isLight ? "#1a1a1a" : "#fff";
+  // Flat = the unified look: quiet ringed buttons, soft status chips, slate tokens.
+  const chipBg = flat ? "transparent" : isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
+  const chipBgHover = flat ? "var(--ui-hover)" : isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)";
+  const chipBorder = flat ? "var(--ui-rule-2)" : isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.08)";
+  const chipBorderHover = flat ? "var(--ui-rule-2)" : isLight ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.12)";
+  const chipHairline = flat ? "var(--ui-rule-2)" : isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.08)";
+  const chipHoverSubtle = flat ? "var(--ui-hover)" : isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)";
+  const chipRadius = flat ? 9 : 6;
+  const chipText = flat ? textSecondary : textPrimary;
+  const chipWeight = flat ? 600 : 500;
+  const stateIdleBg = flat ? "transparent" : isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
+  const stateIdleBorder = flat ? "var(--ui-rule-2)" : isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
+  const stateRunningBg = flat ? "var(--ui-blue-soft)" : "color-mix(in srgb, var(--status-blue) 10%, transparent)";
+  const stateRunningBorder = flat ? "transparent" : "color-mix(in srgb, var(--status-blue) 22%, transparent)";
+  const contextTrackBg = flat ? "var(--ui-panel-2)" : isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
+  const titleColor = flat ? "var(--text-primary)" : isLight ? "#1a1a1a" : "#fff";
   // Chat surfaces use `.codex-topbar` (emerald wall washes through). Terminal
   // surfaces use a solid neutral bar so PTY sessions don't inherit the chat
   // emerald gradient. flushTerminal matches Grok's full-bleed panel
   // (.terminal-flush-host / ansiBlackDark).
   const terminalBarBg = flushTerminal
     ? (isLight ? "#f5f5f7" : "#141414")
-    : (isLight ? "rgba(255,255,255,0.65)" : "rgba(10,10,11,0.55)");
+    : flat
+      ? "var(--ui-canvas)"
+      : (isLight ? "rgba(255,255,255,0.65)" : "rgba(10,10,11,0.55)");
   const terminalBarBorder = flushTerminal
     ? "none"
-    : isLight
-      ? "1px solid rgba(0,0,0,0.08)"
-      : "1px solid rgba(255,255,255,0.06)";
+    : flat
+      ? "1px solid var(--ui-rule)"
+      : isLight
+        ? "1px solid rgba(0,0,0,0.08)"
+        : "1px solid rgba(255,255,255,0.06)";
   const isChatSurface = surface === "chat";
 
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
@@ -848,12 +863,12 @@ export function ThreadTopBar({
     : typeof isProcessing === "boolean"
       ? "idle"
       : null;
-  const stateColor = stateKind === "running" ? "var(--status-blue)" : "#71717a";
+  const stateColor = stateKind === "running" ? "var(--status-blue)" : flat ? textDivider : "#71717a";
   const stateHalo = stateKind === "running" ? "color-mix(in srgb, var(--status-blue) 22%, transparent)" : "transparent";
   const stateLabel = stateKind === "running"
-    ? elapsedMs > 0 ? `running · ${formatElapsed(elapsedMs)}` : "running"
+    ? elapsedMs > 0 ? `Working · ${formatElapsed(elapsedMs)}` : "Working"
     : stateKind === "idle"
-      ? "idle"
+      ? "Idle"
       : "";
 
 
@@ -921,6 +936,60 @@ export function ThreadTopBar({
     parent.style.setProperty("--xanom-topbar-h", `${totalHeight}px`);
   }, [totalHeight]);
 
+  // Status pill. Flat: the unified soft chip (blue spinner while working,
+  // ringed neutral when idle). Glass keeps the original pulsing-dot pill.
+  const renderStatePill = (extra?: CSSProperties) => (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: flat ? 6 : 5,
+        padding: flat ? "0 8px" : "1.5px 7px",
+        height: flat ? 20 : undefined,
+        borderRadius: 9999,
+        fontSize: flat ? 11.5 : 10.5,
+        fontWeight: flat ? 650 : undefined,
+        fontVariantNumeric: "tabular-nums",
+        background: stateKind === "running" ? stateRunningBg : stateIdleBg,
+        border: `1px solid ${stateKind === "running" ? stateRunningBorder : stateIdleBorder}`,
+        color: stateColor,
+        flexShrink: 0,
+        ...extra,
+      }}
+    >
+      {flat && stateKind === "running" ? (
+        <span
+          className="animate-spin"
+          aria-hidden
+          style={{
+            display: "inline-block",
+            width: 9,
+            height: 9,
+            borderRadius: 9999,
+            border: "1.5px solid currentColor",
+            borderTopColor: "transparent",
+            flexShrink: 0,
+          }}
+        />
+      ) : (
+        <span
+          className="bg-pausable"
+          style={{
+            display: "inline-block",
+            width: 5,
+            height: 5,
+            borderRadius: 9999,
+            background: stateColor,
+            boxShadow: stateHalo !== "transparent" ? `0 0 0 3px ${stateHalo}` : "none",
+            animation: stateKind === "running" ? "tb-pulse 1.6s ease-in-out infinite" : "none",
+            flexShrink: 0,
+          }}
+        />
+      )}
+      {stateLabel}
+    </span>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -946,7 +1015,7 @@ export function ThreadTopBar({
           aria-hidden
           style={{
             background: terminalBarBg,
-            ...(flushTerminal
+            ...(flushTerminal || flat
               ? {}
               : {
                   backdropFilter: "blur(12px)",
@@ -986,24 +1055,34 @@ export function ThreadTopBar({
             }}
           >
             {folderName && (
-              <span className="truncate" style={{ color: textPrimary }}>{folderName}</span>
+              <span
+                className="truncate"
+                style={{ color: textPrimary, fontSize: flat ? 12.5 : undefined, fontWeight: flat ? 600 : undefined }}
+              >
+                {folderName}
+              </span>
             )}
             {branch && !isSplit && (
               <>
-                <ChevronDown size={10} style={{ color: textDivider, flexShrink: 0 }} strokeWidth={2} />
+                {flat ? (
+                  <span aria-hidden style={{ color: textMuted, flexShrink: 0 }}>/</span>
+                ) : (
+                  <ChevronDown size={10} style={{ color: textDivider, flexShrink: 0 }} strokeWidth={2} />
+                )}
                 {isWorktree && (
                   <span
                     style={{
                       flexShrink: 0,
-                      padding: "1px 6px",
-                      borderRadius: 4,
-                      fontSize: 9,
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                      fontWeight: 600,
+                      padding: flat ? "0 7px" : "1px 6px",
+                      borderRadius: flat ? 9999 : 4,
+                      fontSize: flat ? 10.5 : 9,
+                      lineHeight: flat ? "18px" : undefined,
+                      letterSpacing: flat ? undefined : "0.04em",
+                      textTransform: flat ? undefined : "uppercase",
+                      fontWeight: flat ? 650 : 600,
                       color: "var(--status-green)",
-                      background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-                      border: "1px solid color-mix(in srgb, var(--accent) 22%, transparent)",
+                      background: flat ? "var(--ui-green-soft)" : "color-mix(in srgb, var(--accent) 10%, transparent)",
+                      border: flat ? "none" : "1px solid color-mix(in srgb, var(--accent) 22%, transparent)",
                     }}
                     title={`Worktree at ${workDir}`}
                   >
@@ -1021,7 +1100,10 @@ export function ThreadTopBar({
                   <GitBranch size={11} style={{ flexShrink: 0 }} />
                   <span
                     className="truncate"
-                    style={{ fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)" }}
+                    style={{
+                      fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+                      fontSize: flat ? 11.5 : undefined,
+                    }}
                   >
                     {branch}
                   </span>
@@ -1078,38 +1160,7 @@ export function ThreadTopBar({
             {/* Inline state pill — only when there's no model/context to show
                 (terminal/PTY sessions), so the single row stays compact instead
                 of dropping to a second meta row. */}
-            {stateKind && !modelLabel && !showContext && (
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  marginLeft: 4,
-                  padding: "1.5px 7px",
-                  borderRadius: 9999,
-                  fontSize: 10.5,
-                  background: stateKind === "running" ? "color-mix(in srgb, var(--status-blue) 10%, transparent)" : stateIdleBg,
-                  border: `1px solid ${stateKind === "running" ? "color-mix(in srgb, var(--status-blue) 22%, transparent)" : stateIdleBorder}`,
-                  color: stateColor,
-                  flexShrink: 0,
-                }}
-              >
-                <span
-                  className="bg-pausable"
-                  style={{
-                    display: "inline-block",
-                    width: 5,
-                    height: 5,
-                    borderRadius: 9999,
-                    background: stateColor,
-                    boxShadow: stateHalo !== "transparent" ? `0 0 0 3px ${stateHalo}` : "none",
-                    animation: stateKind === "running" ? "tb-pulse 1.6s ease-in-out infinite" : "none",
-                    flexShrink: 0,
-                  }}
-                />
-                {stateLabel}
-              </span>
-            )}
+            {stateKind && !modelLabel && !showContext && renderStatePill({ marginLeft: 4 })}
           </div>
 
           {/* Row 2: state pill · model · context meter — only when at least one of
@@ -1120,45 +1171,16 @@ export function ThreadTopBar({
               style={{
                 gap: 8,
                 fontFamily: "var(--font-sans)",
-                fontSize: 10.5,
+                fontSize: flat ? 12 : 10.5,
                 minWidth: 0,
               }}
             >
-              {stateKind && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    padding: "1.5px 7px",
-                    borderRadius: 9999,
-                    background: stateKind === "running" ? "color-mix(in srgb, var(--status-blue) 10%, transparent)" : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${stateKind === "running" ? "color-mix(in srgb, var(--status-blue) 22%, transparent)" : "rgba(255,255,255,0.06)"}`,
-                    color: stateColor,
-                    flexShrink: 0,
-                  }}
-                >
-                  <span
-                    className="bg-pausable"
-                    style={{
-                      display: "inline-block",
-                      width: 5,
-                      height: 5,
-                      borderRadius: 9999,
-                      background: stateColor,
-                      boxShadow: stateHalo !== "transparent" ? `0 0 0 3px ${stateHalo}` : "none",
-                      animation: stateKind === "running" ? "tb-pulse 1.6s ease-in-out infinite" : "none",
-                      flexShrink: 0,
-                    }}
-                  />
-                  {stateLabel}
-                </span>
-              )}
+              {stateKind && renderStatePill()}
               {stateKind && (modelLabel || showContext) && (
                 <span style={{ color: textDivider, flexShrink: 0 }}>·</span>
               )}
               {modelLabel && (
-                <span className="truncate" style={{ color: textSecondary, maxWidth: 160 }} title={effectiveModelSlug ?? undefined}>
+                <span className="truncate" style={{ color: flat ? textDivider : textSecondary, maxWidth: 160 }} title={effectiveModelSlug ?? undefined}>
                   {modelLabel}
                 </span>
               )}
@@ -1168,16 +1190,16 @@ export function ThreadTopBar({
               {showContext && (
                 <span
                   className="inline-flex items-center"
-                  style={{ gap: 6, color: textSecondary, flexShrink: 0 }}
+                  style={{ gap: 6, color: flat ? textDivider : textSecondary, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}
                   title={`${ctxUsed.toLocaleString()} / ${ctxMax.toLocaleString()} tokens (${ctxPct.toFixed(1)}%)`}
                 >
                   <span
                     style={{
                       position: "relative",
-                      width: 28,
+                      width: flat ? 34 : 28,
                       height: 4,
-                      borderRadius: 9999,
-                      background: contextTrackBg,
+                      borderRadius: flat ? 2 : 9999,
+                      background: flat ? "var(--ui-rule-2)" : contextTrackBg,
                       overflow: "hidden",
                       flexShrink: 0,
                     }}
@@ -1189,7 +1211,7 @@ export function ThreadTopBar({
                         top: 0,
                         bottom: 0,
                         width: `${ctxPct}%`,
-                        background: ctxPct > 85 ? "var(--status-red)" : ctxPct > 70 ? "var(--status-amber)" : "var(--accent)",
+                        background: ctxPct > 85 ? "var(--status-red)" : ctxPct > 70 ? "var(--status-amber)" : flat ? "var(--text-tertiary)" : "var(--accent)",
                         borderRadius: 9999,
                         transition: "width 240ms ease-out",
                       }}
@@ -1218,9 +1240,9 @@ export function ThreadTopBar({
                 <img
                   src={PROVIDER_ICON_SRC[effectiveProvider] ?? claudeIcon}
                   alt=""
-                  width={16}
-                  height={16}
-                  style={{ borderRadius: 4, flexShrink: 0 }}
+                  width={flat ? 18 : 16}
+                  height={flat ? 18 : 16}
+                  style={{ borderRadius: flat ? 5 : 4, flexShrink: 0 }}
                 />
               ) : (
                 <span
@@ -1233,9 +1255,9 @@ export function ThreadTopBar({
               <span
                 className="truncate"
                 style={{
-                  fontSize: 12.5,
+                  fontSize: flat ? 13.5 : 12.5,
                   color: titleColor,
-                  fontWeight: 500,
+                  fontWeight: flat ? 650 : 500,
                   letterSpacing: "-0.01em",
                 }}
                 title={sessionName || thread?.name || titleOverride || ""}
@@ -1261,13 +1283,14 @@ export function ThreadTopBar({
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              padding: hasChanges ? "4px 6px 4px 8px" : "4px 9px",
-              borderRadius: 6,
+              padding: flat ? (hasChanges ? "0 7px 0 10px" : "0 11px") : hasChanges ? "4px 6px 4px 8px" : "4px 9px",
+              height: flat ? 28 : undefined,
+              borderRadius: chipRadius,
               background: chipBg,
               border: `1px solid ${chipBorder}`,
-              color: textPrimary,
-              fontSize: 12,
-              fontWeight: 500,
+              color: chipText,
+              fontSize: flat ? 12.5 : 12,
+              fontWeight: chipWeight,
               cursor: !workDir || workDir === "/" ? "not-allowed" : "pointer",
               letterSpacing: "-0.01em",
               opacity: !workDir || workDir === "/" ? 0.4 : 1,
@@ -1289,12 +1312,13 @@ export function ThreadTopBar({
               <span
                 style={{
                   marginLeft: 1,
-                  fontSize: 10,
-                  padding: "1px 5px",
-                  borderRadius: 4,
-                  background: "var(--accent-dim)",
-                  color: "var(--accent)",
-                  fontWeight: 500,
+                  fontSize: flat ? 10.5 : 10,
+                  padding: flat ? "0 6px" : "1px 5px",
+                  lineHeight: flat ? "16px" : undefined,
+                  borderRadius: flat ? 9999 : 4,
+                  background: flat ? "var(--ui-gold-soft)" : "var(--accent-dim)",
+                  color: flat ? "var(--status-amber)" : "var(--accent)",
+                  fontWeight: flat ? 700 : 500,
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
@@ -1312,7 +1336,8 @@ export function ThreadTopBar({
               <div
                 className="flex items-center"
                 style={{
-                  borderRadius: 6,
+                  borderRadius: chipRadius,
+                  height: flat ? 28 : undefined,
                   background: chipBg,
                   border: `1px solid ${chipBorder}`,
                   overflow: "hidden",
@@ -1328,10 +1353,11 @@ export function ThreadTopBar({
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 6,
-                    padding: "4px 8px",
-                    fontSize: 12,
-                    color: textPrimary,
-                    fontWeight: 500,
+                    padding: flat ? "0 9px 0 10px" : "4px 8px",
+                    height: flat ? "100%" : undefined,
+                    fontSize: flat ? 12.5 : 12,
+                    color: chipText,
+                    fontWeight: chipWeight,
                     letterSpacing: "-0.01em",
                     background: "transparent",
                     border: "none",
@@ -1362,8 +1388,9 @@ export function ThreadTopBar({
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    padding: "4px 6px",
-                    color: textSecondary,
+                    padding: flat ? "0 7px" : "4px 6px",
+                    height: flat ? "100%" : undefined,
+                    color: flat ? textDivider : textSecondary,
                     background: "transparent",
                     border: "none",
                     cursor: "pointer",
@@ -1375,7 +1402,7 @@ export function ThreadTopBar({
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = textSecondary;
+                    e.currentTarget.style.color = flat ? textDivider : textSecondary;
                   }}
                 >
                   <ChevronDown size={11} strokeWidth={2} />
@@ -1433,7 +1460,11 @@ export function ThreadTopBar({
 
           {/* Subtle separator — hairline only, no filled bar. Hidden in split to hug Commit. */}
           {!isSplit && (
-            <span style={{ width: 6, flexShrink: 0 }} />
+            flat ? (
+              <span aria-hidden style={{ width: 1, height: 18, margin: "0 3px", background: "var(--ui-rule-2)", flexShrink: 0 }} />
+            ) : (
+              <span style={{ width: 6, flexShrink: 0 }} />
+            )
           )}
 
           {/* Session timeline — icon-only, left of terminal panel toggle */}

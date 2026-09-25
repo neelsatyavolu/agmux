@@ -11,6 +11,7 @@ import {
 } from "../../lib/threadTimelineScroll";
 import { DropdownPopover } from "../ui/ComposerDropdown";
 import { useResolvedColorMode } from "../ThemeProvider";
+import { useSettingsStore } from "../../stores/settingsStore";
 
 function relativeTime(iso: string): string {
   const t = Date.parse(iso);
@@ -261,11 +262,14 @@ export function TimelineTriggerButton({
   onClick: () => void;
 }) {
   const isLight = useResolvedColorMode();
-  const hoverColor = isLight ? "#1a1a1a" : "#e4e4e7";
-  const idleColor = isLight ? "#52525b" : "#a1a1aa";
+  const flat = (useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat") === "flat";
+  // Flat matches the top bar icon buttons: graphite, hover fill, neutral pressed fill.
+  const hoverColor = flat ? "var(--text-primary)" : isLight ? "#1a1a1a" : "#e4e4e7";
+  const idleColor = flat ? "var(--text-tertiary)" : isLight ? "#52525b" : "#a1a1aa";
   const baseColor = open ? hoverColor : idleColor;
-  const hoverBg = isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)";
-  const hoverBorder = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
+  const hoverBg = flat ? "var(--ui-hover)" : isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)";
+  const openBg = flat ? "var(--ui-press)" : hoverBg;
+  const hoverBorder = flat ? "transparent" : isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
   const title =
     count > 0 ? `Session timeline (${count} turns)` : "Session timeline";
 
@@ -281,8 +285,8 @@ export function TimelineTriggerButton({
       style={{
         width: 30,
         height: 30,
-        borderRadius: 7,
-        background: open ? hoverBg : "transparent",
+        borderRadius: flat ? 8 : 7,
+        background: open ? openBg : "transparent",
         border: `1px solid ${open ? hoverBorder : "transparent"}`,
         color: baseColor,
         display: "flex",
