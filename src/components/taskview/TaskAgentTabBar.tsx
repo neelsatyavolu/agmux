@@ -34,8 +34,7 @@ function AddAgentRow({ icon, title, hint, onClick, disabled }: AddAgentRowProps)
         <div className="truncate text-[12.5px] text-zinc-200">{title}</div>
         {hint && (
           <div
-            className="truncate text-[10.5px] text-zinc-500"
-            style={{ fontFamily: "var(--font-mono)" }}
+            className="ui-eyebrow truncate text-zinc-500"
           >
             {hint}
           </div>
@@ -423,7 +422,7 @@ export function TaskAgentTabBar({ taskId }: TaskAgentTabBarProps) {
           style={{
             width: 28,
             height: 28,
-            borderRadius: 7,
+            borderRadius: 8,
             background: "transparent",
             border: "1px dashed var(--glass-border-highlight)",
             color: "var(--text-tertiary)",
@@ -463,7 +462,7 @@ export function TaskAgentTabBar({ taskId }: TaskAgentTabBarProps) {
               }}
               className="min-w-[260px] max-h-[360px] overflow-y-auto rounded-xl border border-white/10 bg-zinc-900/95 backdrop-blur-xl py-1.5 shadow-2xl"
             >
-              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-zinc-500">
+              <div className="ui-eyebrow px-3 py-1.5 text-zinc-500">
                 Archived in this worktree
               </div>
               {archivedThreads.map((t) => (
@@ -520,8 +519,7 @@ export function TaskAgentTabBar({ taskId }: TaskAgentTabBarProps) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div
-                    className="text-[10px] uppercase text-zinc-500"
-                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.2em" }}
+                    className="ui-eyebrow text-zinc-500"
                   >
                     New agent in
                   </div>
@@ -534,8 +532,7 @@ export function TaskAgentTabBar({ taskId }: TaskAgentTabBarProps) {
               {/* Chat section */}
               <div className="pt-1.5 pb-1">
                 <div
-                  className="px-3 pt-1 pb-1 text-[9.5px] uppercase text-zinc-600"
-                  style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.2em" }}
+                  className="ui-eyebrow px-3 pt-1 pb-1 text-zinc-600"
                 >
                   Chat
                 </div>
@@ -554,8 +551,7 @@ export function TaskAgentTabBar({ taskId }: TaskAgentTabBarProps) {
               {/* Terminal section */}
               <div className="border-t border-white/5 pt-1.5 pb-2">
                 <div
-                  className="px-3 pt-1 pb-1 text-[9.5px] uppercase text-zinc-600"
-                  style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.2em" }}
+                  className="ui-eyebrow px-3 pt-1 pb-1 text-zinc-600"
                 >
                   Terminal
                 </div>

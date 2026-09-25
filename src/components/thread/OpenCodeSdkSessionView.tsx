@@ -2393,7 +2393,7 @@ const BlockRenderer = memo(function BlockRenderer({ block }: { block: RenderBloc
         <div className="mb-1 animate-glass-in">
           <div className="rounded-md border border-violet-400/20 bg-violet-500/[0.04]">
             <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-violet-300">
-              <span className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-violet-400/80">Subtask</span>
+              <span className="ui-eyebrow text-violet-400/80">Subtask</span>
               <span className="font-medium text-zinc-100">{block.agent}</span>
               {block.subtaskModel && (
                 <span className="ml-auto font-mono text-[10px] text-zinc-500">{block.subtaskModel}</span>
@@ -2426,7 +2426,7 @@ const BlockRenderer = memo(function BlockRenderer({ block }: { block: RenderBloc
       return (
         <div className="mb-1 animate-glass-in">
           <div className="rounded-md border border-blue-400/20 bg-blue-500/[0.05] px-3 py-2 text-xs text-blue-200/90">
-            <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.15em] text-blue-300/70">
+            <div className="ui-eyebrow mb-1 text-blue-300/70">
               Patch · {block.files.length} {block.files.length === 1 ? "file" : "files"}
             </div>
             <ul className="space-y-0.5 font-mono text-[11px] text-zinc-300">
@@ -2473,7 +2473,7 @@ const BlockRenderer = memo(function BlockRenderer({ block }: { block: RenderBloc
               />
             ) : (
               <div className="flex items-center gap-2 px-1 py-0.5">
-                <span className="font-mono text-[10px] uppercase tracking-wide text-indigo-300/70">File</span>
+                <span className="ui-eyebrow text-indigo-300/70">File</span>
                 <span className="truncate">{block.filename || block.mime}</span>
               </div>
             )}

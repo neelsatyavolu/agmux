@@ -56,7 +56,7 @@ export function AddToJournalDialog({ open, threadId, initialContent, initialKind
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-lg rounded-lg border border-zinc-800 bg-zinc-900 shadow-xl">
+      <div className="w-full max-w-lg rounded-[20px] border border-zinc-800 bg-zinc-900 shadow-xl fx-dialog">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
           <h3 className="text-sm font-medium text-zinc-100">Add to Journal</h3>
@@ -80,11 +80,11 @@ export function AddToJournalDialog({ open, threadId, initialContent, initialKind
                 <button
                   key={k}
                   onClick={() => setKind(k)}
-                  className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                  className={`ui-chip sm rounded px-2.5 py-1 text-xs font-medium transition-colors ${
                     kind === k
                       ? kindColors[k] + " ring-1 ring-current"
                       : "bg-zinc-800 text-zinc-400 hover:text-zinc-300"
-                  }`}
+                  } ${k === "KnownIssue" ? "fx-soft-gold" : "fx-chip-q"}`}
                 >
                   {k === "CompletedWork" ? "Completed" : k === "KnownIssue" ? "Issue" : k}
                 </button>
@@ -101,7 +101,7 @@ export function AddToJournalDialog({ open, threadId, initialContent, initialKind
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-blue-500"
+              className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-blue-500 fx-input"
               placeholder="Entry title..."
             />
           </div>
@@ -115,7 +115,7 @@ export function AddToJournalDialog({ open, threadId, initialContent, initialKind
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={6}
-              className="w-full resize-none rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-blue-500"
+              className="w-full resize-none rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-blue-500 fx-input"
               placeholder="Entry content..."
             />
           </div>

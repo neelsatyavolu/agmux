@@ -291,7 +291,6 @@ export function TaskSidebar() {
             gap: 6,
             padding: "10px 12px 8px",
             borderBottom: "1px solid var(--hairline)",
-            fontFamily: "var(--font-mono)",
             fontSize: 10.5,
           }}
         >
@@ -326,11 +325,10 @@ export function TaskSidebar() {
                   {globalCounts[k]}
                 </span>
                 <span
+                  className="fx-graphite"
                   style={{
                     color: "var(--text-muted)",
-                    fontSize: 9.5,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.15em",
+                    fontSize: 12,
                   }}
                 >
                   {m.label}
@@ -456,7 +454,6 @@ function ProjectTaskGroup({
           </span>
           <span
             className="shrink-0 text-[10px] text-zinc-600"
-            style={{ fontFamily: "var(--font-mono)" }}
           >
             {tasks.length}
           </span>

@@ -192,7 +192,6 @@ export function FileTreeContextMenu({
         boxShadow:
           "0 18px 40px -12px rgba(0,0,0,0.28), 0 0 0 1px var(--glass-border)",
         padding: "4px 0",
-        fontFamily: "var(--font-mono)",
       }}
     >
       {visibleItems.map((item, idx) => {

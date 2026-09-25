@@ -125,15 +125,7 @@ function Eyebrow({ children, right }: { children: React.ReactNode; right?: React
         padding: "14px 4px 8px",
       }}
     >
-      <div
-        style={{
-          fontSize: 10,
-          fontFamily: "var(--font-mono, monospace)",
-          color: TOK.fg.mut,
-          textTransform: "uppercase",
-          letterSpacing: "0.2em",
-        }}
-      >
+      <div className="ui-eyebrow" style={{ color: TOK.fg.mut }}>
         {children}
       </div>
       {right}
@@ -258,12 +250,12 @@ function FileRow({
       </span>
 
       <span
-        style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: TOK.add }}
+        style={{ fontSize: 10, color: TOK.add }}
       >
         +{file.added}
       </span>
       <span
-        style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: TOK.del }}
+        style={{ fontSize: 10, color: TOK.del }}
       >
         −{file.removed}
       </span>
@@ -553,14 +545,13 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               style={{
                 fontSize: 10.5,
                 color: TOK.fg.mut,
-                fontFamily: "var(--font-mono, monospace)",
                 marginTop: 2,
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
               }}
             >
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-mono, monospace)" }}>
                 <GitBranch size={10} />
                 {branch}
               </span>
@@ -644,6 +635,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                 value={subject}
                 onChange={(e) => setCommitSubject(workDir, e.target.value)}
                 placeholder="Commit summary — leave blank to autogenerate"
+                className="fx-input"
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
@@ -665,7 +657,6 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                   right: 12,
                   top: "50%",
                   transform: "translateY(-50%)",
-                  fontFamily: "var(--font-mono, monospace)",
                   fontSize: 10.5,
                   color: subject.length > SUBJECT_LIMIT ? TOK.del : TOK.fg.mut,
                 }}
@@ -680,6 +671,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                 "Optional extended description\n\nUse conventional commit format: type(scope): summary"
               }
               rows={5}
+              className="fx-input"
               style={{
                 width: "100%",
                 boxSizing: "border-box",
@@ -705,7 +697,6 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                   border: `1px solid rgba(248,113,113,0.28)`,
                   borderRadius: 6,
                   fontSize: 11.5,
-                  fontFamily: "var(--font-mono, monospace)",
                   color: TOK.del,
                   lineHeight: 1.45,
                   wordBreak: "break-word",
@@ -722,7 +713,6 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span
                   style={{
-                    fontFamily: "var(--font-mono, monospace)",
                     fontSize: 10,
                     color: TOK.fg.mut,
                   }}
@@ -765,7 +755,6 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                   textAlign: "center",
                   fontSize: 11.5,
                   color: TOK.fg.mut,
-                  fontFamily: "var(--font-mono, monospace)",
                 }}
               >
                 {status === null ? "Loading changes…" : "No uncommitted changes"}
@@ -789,7 +778,6 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                 right={
                   <span
                     style={{
-                      fontFamily: "var(--font-mono, monospace)",
                       fontSize: 10,
                       color: TOK.fg.mut,
                     }}
@@ -854,7 +842,6 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               gap: 6,
               fontSize: 10.5,
               color: TOK.fg.mut,
-              fontFamily: "var(--font-mono, monospace)",
               marginRight: "auto",
               whiteSpace: "nowrap",
               flexShrink: 0,
@@ -880,6 +867,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
           <button
             disabled={!canCommit}
             onClick={() => void run("commit")}
+            className="fx-accent"
             style={{
               ...glassBtnPrimary,
               padding: "8px 14px",
@@ -1041,14 +1029,13 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
             style={{
               fontSize: 10.5,
               color: TOK.fg.mut,
-              fontFamily: "var(--font-mono, monospace)",
               marginTop: 2,
               display: "flex",
               alignItems: "center",
               gap: 8,
             }}
           >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-mono, monospace)" }}>
               <GitBranch size={10} />
               {branch}
             </span>
@@ -1102,7 +1089,6 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               alignItems: "center",
               justifyContent: "space-between",
               fontSize: 12,
-              fontFamily: "var(--font-mono, monospace)",
             }}
           >
             <span style={{ color: TOK.fg.mut }}>Branch</span>
@@ -1112,6 +1098,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
+                fontFamily: "var(--font-mono, monospace)",
               }}
             >
               <GitBranch size={11} color={TOK.fg.mut} />
@@ -1124,7 +1111,6 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               alignItems: "center",
               justifyContent: "space-between",
               fontSize: 12,
-              fontFamily: "var(--font-mono, monospace)",
             }}
           >
             <span style={{ color: TOK.fg.mut }}>Changes</span>
@@ -1280,6 +1266,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               handleClose();
             }
           }}
+          className="fx-scrim"
           style={{
             position: "fixed",
             top: 0,
@@ -1304,6 +1291,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.985 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="fx-dialog"
             style={{
               width: "min(720px, 92vw)",
               maxHeight: "86vh",
@@ -1311,7 +1299,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               backdropFilter: "blur(24px) saturate(140%)",
               WebkitBackdropFilter: "blur(24px) saturate(140%)",
               border: `1px solid ${TOK.bd.def}`,
-              borderRadius: 14,
+              borderRadius: 20,
               boxShadow:
                 "0 20px 50px -10px rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.02) inset",
               display: "flex",

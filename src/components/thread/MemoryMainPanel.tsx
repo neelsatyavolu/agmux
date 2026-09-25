@@ -752,17 +752,13 @@ export function MemoryMainPanel() {
             </div>
             <div className="min-w-0">
               <h1
-                className="truncate font-semibold tracking-tight text-[var(--text-primary)]"
+                className="ui-title-xl truncate font-semibold tracking-tight text-[var(--text-primary)]"
                 style={{ fontSize: "var(--text-ui)" }}
               >
                 Memory
               </h1>
               <p
-                className="mt-0.5 font-mono uppercase text-[var(--text-muted)]"
-                style={{
-                  fontSize: "var(--text-eyebrow)",
-                  letterSpacing: "var(--panel-eyebrow-tracking)",
-                }}
+                className="mt-0.5 text-[12px] text-[var(--text-muted)] fx-graphite"
               >
                 {statusLine}
               </p>

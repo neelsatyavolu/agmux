@@ -105,16 +105,13 @@ function TypeTag({ type }: { type: ItemType }) {
   const t = config[type];
   return (
     <span
-      className="shrink-0"
+      className="ui-chip sm fx-chip-q shrink-0"
       style={{
-        fontFamily: "var(--font-mono, ui-monospace, monospace)",
         fontSize: 9.5,
         padding: "2px 6px",
-        borderRadius: 4,
         background: `color-mix(in srgb, ${t.color} 8%, transparent)`,
         color: t.color,
         border: `1px solid color-mix(in srgb, ${t.color} 19%, transparent)`,
-        letterSpacing: "0.04em",
       }}
     >
       {t.label}
@@ -125,7 +122,7 @@ function TypeTag({ type }: { type: ItemType }) {
 function Kbd({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
   return (
     <span
-      className="shrink-0 inline-flex items-center gap-0.5"
+      className="ui-kbd shrink-0 inline-flex items-center gap-0.5"
       style={{
         fontFamily: "var(--font-mono, ui-monospace, monospace)",
         fontSize: 10,
@@ -472,7 +469,7 @@ export function CommandPalette({ open, onClose }: Props) {
 
       {/* Palette */}
       <div
-        className="relative overflow-hidden"
+        className="relative overflow-hidden fx-dialog"
         style={{
           width: 560,
           maxHeight: 520,
@@ -480,8 +477,8 @@ export function CommandPalette({ open, onClose }: Props) {
           backdropFilter: "blur(28px) saturate(140%)",
           WebkitBackdropFilter: "blur(28px) saturate(140%)",
           border: "1px solid var(--glass-border-highlight)",
-          borderRadius: 14,
-          boxShadow: "0 24px 48px -20px rgba(0,0,0,0.28), inset 0 0.5px 0 rgba(255,255,255,0.08)",
+          borderRadius: 20,
+          boxShadow: "0 24px 48px -20px rgba(0,0,0,0.28)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -528,11 +525,8 @@ export function CommandPalette({ open, onClose }: Props) {
               <div key={item.id}>
                 {showGroup && (
                   <div
+                    className="ui-eyebrow"
                     style={{
-                      fontFamily: "var(--font-mono, ui-monospace, monospace)",
-                      fontSize: 10,
-                      letterSpacing: "0.2em",
-                      textTransform: "uppercase",
                       color: "var(--text-muted)",
                       padding: "10px 14px 4px",
                     }}
@@ -563,7 +557,7 @@ export function CommandPalette({ open, onClose }: Props) {
                     <AgentIcon agent={item.agent} size={22} />
                   ) : (
                     <div
-                      className="flex items-center justify-center"
+                      className="flex items-center justify-center fx-panel-2"
                       style={{
                         width: 22,
                         height: 22,
@@ -593,8 +587,11 @@ export function CommandPalette({ open, onClose }: Props) {
                     </div>
                     {item.meta && (
                       <div
+                        className={item.type === "project" || item.type === "branch" ? "" : "ui-meta"}
                         style={{
-                          fontFamily: "var(--font-mono, ui-monospace, monospace)",
+                          fontFamily: item.type === "project" || item.type === "branch"
+                            ? "var(--font-mono, ui-monospace, monospace)"
+                            : undefined,
                           fontSize: 10.5,
                           color: "var(--text-muted)",
                           marginTop: 1,
@@ -625,7 +622,6 @@ export function CommandPalette({ open, onClose }: Props) {
           style={{
             padding: "8px 14px",
             borderTop: "1px solid var(--hairline)",
-            fontFamily: "var(--font-mono, ui-monospace, monospace)",
             fontSize: 10,
             color: "var(--text-muted)",
           }}

@@ -38,12 +38,12 @@ function statusChip(status: string): { label: string; className: string } {
     case "cancelled":
       return {
         label: "cancelled",
-        className: "bg-white/[0.06] text-zinc-500 border-white/[0.08]",
+        className: "ui-chip sm fx-chip-q bg-white/[0.06] text-zinc-500 border-white/[0.08]",
       };
     default:
       return {
         label: "done",
-        className: "bg-white/[0.06] text-zinc-400 border-white/[0.08]",
+        className: "ui-chip sm fx-chip-q bg-white/[0.06] text-zinc-400 border-white/[0.08]",
       };
   }
 }
@@ -171,7 +171,7 @@ export function ThreadTimelinePopover({
     >
       <DropdownPopover className="!p-0">
         <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-white/[0.06]">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+          <span className="ui-eyebrow text-zinc-500">
             Session timeline
           </span>
           <span className="text-[11px] text-zinc-600 tabular-nums">
@@ -204,10 +204,10 @@ export function ThreadTimelinePopover({
                   <span
                     className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${
                       turn.status === "running"
-                        ? "bg-[var(--accent)]"
+                        ? "bg-[var(--accent)] fx-fill-blue"
                         : turn.status === "failed"
-                          ? "bg-red-400"
-                          : "bg-zinc-600"
+                          ? "bg-red-400 fx-fill-red"
+                          : "bg-zinc-600 fx-fill-muted"
                     }`}
                   />
                   <div className="min-w-0 flex-1">

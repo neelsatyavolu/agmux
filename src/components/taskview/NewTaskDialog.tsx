@@ -1296,7 +1296,7 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
 
   return createPortal(
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm fx-scrim"
       onClick={onClose}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -1310,7 +1310,7 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 4 }}
         transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
-        className="overflow-hidden rounded-[14px] border border-white/[0.10] bg-zinc-900/90"
+        className="overflow-hidden rounded-[20px] border border-white/[0.10] bg-zinc-900/90 fx-dialog"
         style={{
           width: 580,
           backdropFilter: "blur(24px) saturate(140%)",
@@ -1332,7 +1332,7 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
           >
             <GitBranchPlus size={11} />
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--accent)]">
+          <span className="ui-eyebrow text-[color:var(--accent)]">
             New task
           </span>
           <div className="flex-1" />
@@ -1353,9 +1353,9 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
         </div>
 
         {/* Name + branch */}
-        <div className="focusable mx-4 mt-3.5 flex items-stretch overflow-hidden rounded-[10px] bg-black/25 border border-white/[0.06]">
+        <div className="focusable mx-4 mt-3.5 flex items-stretch overflow-hidden rounded-[10px] bg-black/25 border border-white/[0.06] fx-input">
           <div className="flex flex-1 flex-col gap-0.5 px-3.5 py-2.5">
-            <span className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-zinc-600">
+            <span className="text-[12px] text-zinc-600">
               Title
             </span>
             <input
@@ -1372,7 +1372,7 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
           </div>
           <div className="bg-white/[0.06]" style={{ width: 1 }} />
           <div className="flex w-[220px] flex-col gap-0.5 px-3.5 py-2.5">
-            <div className="flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[0.2em] text-zinc-600">
+            <div className="flex items-center gap-1.5 text-[12px] text-zinc-600">
               <GitBranch size={9} />
               <span>Branch</span>
               {!branchEdited && taskName && (
@@ -1433,8 +1433,8 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
         </div>
 
         {/* Prompt */}
-        <div className="focusable mx-4 mt-2.5 rounded-[10px] px-3.5 pt-2.5 pb-2.5 bg-black/25 border border-white/[0.06]">
-          <span className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-zinc-600">
+        <div className="focusable mx-4 mt-2.5 rounded-[10px] px-3.5 pt-2.5 pb-2.5 bg-black/25 border border-white/[0.06] fx-input">
+          <span className="text-[12px] text-zinc-600">
             Prompt
           </span>
           <textarea
@@ -1463,7 +1463,7 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
                   ? "Multi-repo: agent runs at the worktree's parent dir so it can see sibling repos"
                   : "Single-repo: agent runs inside the project's worktree"
               }
-              className={`shrink-0 rounded-md border px-1.5 py-[2px] font-mono text-[9.5px] uppercase tracking-[0.15em] transition-colors ${
+              className={`shrink-0 rounded-md border px-1.5 py-[2px] font-mono text-[9.5px] transition-colors ${
                 multiRepo
                   ? "border-blue-400/40 bg-blue-400/10 text-blue-300"
                   : "border-white/[0.08] bg-white/[0.03] text-zinc-500 hover:text-zinc-300"
@@ -1504,7 +1504,7 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
               <select
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-[3px] font-mono text-[11.5px] text-zinc-200 outline-none"
+                className="rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-[3px] font-mono text-[11.5px] text-zinc-200 outline-none fx-input"
               >
                 {projects.map((p) => (
                   <option key={p.id} value={p.id} style={{ background: "var(--surface-popover)" }}>
@@ -1521,7 +1521,7 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
 
           <span className="text-[11px] text-zinc-600">from</span>
 
-          <div className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-[3px]">
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-[3px] fx-input">
             <GitBranch size={10} className="text-zinc-600" />
             <input
               type="text"
@@ -1548,7 +1548,7 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
             type="button"
             onClick={handleCreate}
             disabled={!canCreate}
-            className="inline-flex items-center gap-1.5 rounded-[7px] px-4 py-[7px] text-[12.5px] font-semibold transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-[7px] px-4 py-[7px] text-[12.5px] font-semibold transition-colors fx-accent"
             style={{
               background: canCreate ? "color-mix(in srgb, var(--accent) 90%, transparent)" : "color-mix(in srgb, var(--accent) 25%, transparent)",
               border: `1px solid ${canCreate ? "color-mix(in srgb, var(--accent) 100%, transparent)" : "color-mix(in srgb, var(--accent) 30%, transparent)"}`,

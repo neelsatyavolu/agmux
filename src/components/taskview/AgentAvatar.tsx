@@ -49,7 +49,7 @@ export function AgentAvatar({ provider, size = 22 }: AgentAvatarProps) {
       style={{
         width: size,
         height: size,
-        borderRadius: 5,
+        borderRadius: 6,
         background: meta.bg,
         display: "flex",
         alignItems: "center",
@@ -66,7 +66,7 @@ export function AgentAvatar({ provider, size = 22 }: AgentAvatarProps) {
             fontSize: Math.round(size * 0.45),
             fontWeight: 700,
             color: "#fff",
-            fontFamily: "var(--font-mono)",
+            fontFamily: "var(--font-sans)",
           }}
         >
           {meta.label}

@@ -244,12 +244,12 @@ export function SearchDialog({ open, onClose }: Props) {
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm fx-scrim" />
 
       {/* Dialog — same glass surface as ComposerDropdown / model picker */}
       <div
         className={
-          "composer-popover relative w-full max-w-[560px] overflow-hidden rounded-xl " +
+          "composer-popover relative w-full max-w-[560px] overflow-hidden rounded-[20px] fx-dialog " +
           "border border-white/[0.09] " +
           "backdrop-blur-2xl backdrop-saturate-150 " +
           "shadow-[0_28px_60px_-12px_rgba(0,0,0,0.70),0_0_0_1px_rgba(0,0,0,0.40),inset_0_0.5px_0_rgba(255,255,255,0.08)]"
@@ -271,7 +271,7 @@ export function SearchDialog({ open, onClose }: Props) {
               className="flex-1 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none"
             />
             {searching && (
-              <div className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border border-white/20 border-t-white/60" />
+              <div className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border border-white/20 border-t-white/60 fx-blue" />
             )}
             <button
               onClick={onClose}
@@ -310,7 +310,7 @@ export function SearchDialog({ open, onClose }: Props) {
                         {item.name}
                       </span>
                       {item.type === "content" && (
-                        <span className="shrink-0 rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)]">
+                        <span className="ui-chip sm fx-chip-q shrink-0 rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-[var(--text-muted)]">
                           message
                         </span>
                       )}
@@ -335,16 +335,16 @@ export function SearchDialog({ open, onClose }: Props) {
           <div className="flex items-center justify-between border-t border-white/[0.06] px-4 py-2">
             <div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
               <span>
-                <kbd className="rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 font-mono text-[10px]">&uarr;</kbd>
-                <kbd className="ml-0.5 rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 font-mono text-[10px]">&darr;</kbd>
+                <kbd className="ui-kbd rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 text-[10px]">&uarr;</kbd>
+                <kbd className="ui-kbd ml-0.5 rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 text-[10px]">&darr;</kbd>
                 {" "}navigate
               </span>
               <span>
-                <kbd className="rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 font-mono text-[10px]">&crarr;</kbd>
+                <kbd className="ui-kbd rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 text-[10px]">&crarr;</kbd>
                 {" "}open
               </span>
               <span>
-                <kbd className="rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 font-mono text-[10px]">esc</kbd>
+                <kbd className="ui-kbd rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 text-[10px]">esc</kbd>
                 {" "}close
               </span>
               <span className="hidden sm:inline text-[var(--text-muted)]/80">

@@ -176,7 +176,7 @@ export function QuickOpenDialog({ workDir, open, onClose }: Props) {
 
       {/* Dialog */}
       <div
-        className="relative w-full max-w-lg rounded-lg border border-zinc-700 bg-zinc-900 shadow-2xl"
+        className="relative w-full max-w-lg rounded-[20px] border border-zinc-700 bg-zinc-900 shadow-2xl fx-dialog"
         style={{ height: "fit-content", maxHeight: "400px" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -218,7 +218,7 @@ export function QuickOpenDialog({ workDir, open, onClose }: Props) {
                 key={result.item}
                 className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm ${
                   i === selectedIndex
-                    ? "bg-blue-600/20 text-zinc-100"
+                    ? "bg-blue-600/20 text-zinc-100 fx-press"
                     : "text-zinc-300 hover:bg-zinc-800"
                 }`}
                 onClick={() => handleSelect(result.item)}

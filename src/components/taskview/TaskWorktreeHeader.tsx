@@ -319,7 +319,6 @@ export function TaskWorktreeHeader({ taskId }: TaskWorktreeHeaderProps) {
           style={{
             fontSize: 10.5,
             color: "var(--text-muted)",
-            fontFamily: "var(--font-mono)",
             marginTop: 2,
             display: "flex",
             alignItems: "center",
@@ -329,7 +328,7 @@ export function TaskWorktreeHeader({ taskId }: TaskWorktreeHeaderProps) {
             textOverflow: "ellipsis",
           }}
         >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-mono)" }}>
             <GitBranch size={10} />
             {task.branch_name}
           </span>
@@ -368,14 +367,13 @@ export function TaskWorktreeHeader({ taskId }: TaskWorktreeHeaderProps) {
       {agentCount > 0 && (
         <div
           title={`${agentCount} agent${agentCount > 1 ? "s" : ""}`}
-          className="task-agent-chip"
+          className="task-agent-chip ui-chip fx-chip-q"
           style={{
             padding: "3px 8px",
             borderRadius: 9999,
             background: "var(--surface-1)",
             border: "1px solid var(--glass-border)",
             color: "var(--text-tertiary)",
-            fontFamily: "var(--font-mono)",
             fontSize: 10.5,
             flexShrink: 0,
           }}

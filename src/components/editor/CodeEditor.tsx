@@ -246,7 +246,7 @@ export function CodeEditor({ filePath }: Props) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-sm">
         <span style={{ color: "var(--text-error, #f87171)" }}>Failed to load file</span>
-        <code className="max-w-full break-all rounded bg-zinc-900 px-3 py-2 text-xs text-zinc-400">
+        <code className="max-w-full break-all rounded bg-zinc-900 px-3 py-2 text-xs text-zinc-400 fx-code">
           {loadError}
         </code>
         <span className="text-xs text-zinc-600">{filePath}</span>

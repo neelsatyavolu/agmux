@@ -109,7 +109,7 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
         >
           {/* Backdrop */}
           <motion.div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm fx-scrim"
             onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -119,7 +119,7 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
 
           {/* Dialog */}
           <motion.div
-            className="flat-opaque-dialog relative w-80 rounded-2xl border border-white/[0.08] bg-zinc-900/70 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl"
+            className="flat-opaque-dialog relative w-80 rounded-[20px] border border-white/[0.08] bg-zinc-900/70 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl fx-dialog"
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -142,10 +142,11 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => setProvider("ClaudeCode")}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+                    data-active={provider === "ClaudeCode" ? "true" : undefined}
+                    className={`ui-choice-item rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
                       provider === "ClaudeCode"
                         ? "border-blue-500/50 bg-blue-500/15 text-blue-400 shadow-sm shadow-blue-500/10"
-                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200"
+                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 fx-ring-2"
                     }`}
                   >
                     Claude
@@ -153,10 +154,11 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => setProvider("Codex")}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+                    data-active={provider === "Codex" ? "true" : undefined}
+                    className={`ui-choice-item rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
                       provider === "Codex"
                         ? "border-green-500/50 bg-green-500/15 text-green-400 shadow-sm shadow-green-500/10"
-                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200"
+                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 fx-ring-2"
                     }`}
                   >
                     Codex
@@ -164,10 +166,11 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => setProvider("Pi")}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+                    data-active={provider === "Pi" ? "true" : undefined}
+                    className={`ui-choice-item rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
                       provider === "Pi"
                         ? "border-white/40 bg-white/10 text-zinc-100 shadow-sm"
-                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200"
+                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 fx-ring-2"
                     }`}
                   >
                     Pi
@@ -175,10 +178,11 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => setProvider("OpenCode")}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+                    data-active={provider === "OpenCode" ? "true" : undefined}
+                    className={`ui-choice-item rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
                       provider === "OpenCode"
                         ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-400 shadow-sm shadow-cyan-500/10"
-                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200"
+                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 fx-ring-2"
                     }`}
                   >
                     OpenCode
@@ -186,10 +190,11 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => setProvider("Grok")}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+                    data-active={provider === "Grok" ? "true" : undefined}
+                    className={`ui-choice-item rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
                       provider === "Grok"
                         ? "border-zinc-300/40 bg-zinc-100/[0.08] text-zinc-100 shadow-sm shadow-zinc-100/10"
-                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200"
+                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 fx-ring-2"
                     }`}
                   >
                     Grok
@@ -197,10 +202,11 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => setProvider("Cursor")}
-                    className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+                    data-active={provider === "Cursor" ? "true" : undefined}
+                    className={`ui-choice-item inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
                       provider === "Cursor"
                         ? "border-zinc-300/40 bg-zinc-100/[0.08] text-zinc-100 shadow-sm shadow-zinc-100/10"
-                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200"
+                        : "border-white/[0.06] bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-200 fx-ring-2"
                     }`}
                   >
                     <img src={cursorIcon} alt="" className="h-4 w-4 rounded-[4px]" />
@@ -231,7 +237,7 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
                         <select
                           value={baseBranch}
                           onChange={(e) => setBaseBranch(e.target.value)}
-                          className="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-2.5 py-1.5 text-xs text-zinc-100"
+                          className="w-full rounded-md border border-white/[0.06] bg-white/[0.04] px-2.5 py-1.5 text-xs text-zinc-100 fx-input"
                         >
                           {branches.map((b) => (
                             <option key={b.name} value={b.name}>
@@ -242,7 +248,7 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
                       </div>
                       <div>
                         <label className="mb-1 block text-xs text-zinc-500">Branch name</label>
-                        <div className="rounded-md border border-white/[0.04] bg-white/[0.02] px-2.5 py-1.5 text-xs text-zinc-500">
+                        <div className="rounded-md border border-white/[0.04] bg-white/[0.02] px-2.5 py-1.5 text-xs text-zinc-500 fx-input">
                           agmux/&lt;auto&gt;
                           <span className="ml-1 text-[10px] text-zinc-600">— assigned on create</span>
                         </div>
@@ -263,7 +269,7 @@ export function NewThreadDialog({ projectId, repoPath, open, onClose }: Props) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition-colors hover:bg-blue-500 disabled:opacity-50"
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition-colors hover:bg-blue-500 disabled:opacity-50 fx-accent"
                 >
                   {loading ? "Creating..." : "Create"}
                 </button>

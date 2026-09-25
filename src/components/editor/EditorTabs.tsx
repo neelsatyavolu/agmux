@@ -48,7 +48,6 @@ function ExtTile({ name }: { name: string }) {
         borderRadius: 3,
         background: `color-mix(in oklab, ${c} 14%, transparent)`,
         color: c,
-        fontFamily: "var(--font-mono)",
         fontSize: 7.5,
         fontWeight: 600,
         flexShrink: 0,
@@ -123,7 +122,6 @@ export function EditorTabs({ inTitlebar = false }: { inTitlebar?: boolean } = {}
               style={{
                 padding: "4px 8px",
                 borderRadius: 4,
-                fontFamily: "var(--font-mono)",
                 fontSize: 11,
                 background: isActive
                   ? "color-mix(in srgb, var(--accent) 10%, transparent)"
@@ -160,7 +158,6 @@ export function EditorTabs({ inTitlebar = false }: { inTitlebar?: boolean } = {}
                       lineHeight: 1,
                       padding: "1px 3px",
                       borderRadius: 9999,
-                      fontFamily: "var(--font-mono)",
                     }}
                   >
                     AI
@@ -215,16 +212,15 @@ export function EditorTabs({ inTitlebar = false }: { inTitlebar?: boolean } = {}
         <button
           onClick={() => toggleRawMode(activeTabPath)}
           title={isRaw ? "Switch to preview" : "Switch to raw editor"}
+          className="ui-seg-item"
+          data-active="true"
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: 4,
             padding: "3px 7px",
             borderRadius: 4,
-            fontFamily: "var(--font-mono)",
             fontSize: 9.5,
-            textTransform: "uppercase",
-            letterSpacing: "0.18em",
             color: "var(--accent)",
             background: "color-mix(in srgb, var(--accent) 8%, transparent)",
             border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)",

@@ -50,9 +50,9 @@ function getFileIconConfig(name: string): {
       return { Icon: FileCode2, colorClass: "text-blue-400" };
     case "js":
     case "jsx":
-      return { Icon: FileCode2, colorClass: "text-yellow-400" };
+      return { Icon: FileCode2, colorClass: "text-yellow-400 fx-gold" };
     case "json":
-      return { Icon: Braces, colorClass: "text-yellow-600" };
+      return { Icon: Braces, colorClass: "text-yellow-600 fx-gold" };
     case "rs":
       return { Icon: FileCode, colorClass: "text-orange-400" };
     case "css":
@@ -88,7 +88,7 @@ export function FileIcon({ name, isFolder, isOpen, size = 14, className }: Props
     return (
       <FolderIcon
         size={size}
-        className={`shrink-0 text-amber-400 ${className ?? ""}`}
+        className={`shrink-0 text-amber-400 fx-gold ${className ?? ""}`}
       />
     );
   }

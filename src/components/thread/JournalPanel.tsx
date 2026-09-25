@@ -54,18 +54,18 @@ function EntryCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
-    <div className="rounded border border-zinc-800 bg-zinc-900/50 p-3">
+    <div className="rounded-[14px] border border-zinc-800 bg-zinc-900/50 p-3 fx-card">
       <div className="mb-1.5 flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+            className={`ui-chip sm rounded px-1.5 py-0.5 text-[10px] font-medium ${
               kindColors[entry.kind as JournalKind] || "bg-zinc-700 text-zinc-400"
-            }`}
+            } ${entry.kind === "KnownIssue" ? "fx-soft-gold" : "fx-chip-q"}`}
           >
             {entry.kind}
           </span>
           <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+            className={`ui-chip sm rounded px-1.5 py-0.5 text-[10px] font-medium fx-chip-q ${
               sourceColors[entry.source] || "bg-zinc-700 text-zinc-400"
             }`}
           >
@@ -178,7 +178,7 @@ export function JournalPanel({ threadId, onClose }: Props) {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="flex h-full w-[340px] shrink-0 flex-col border-l border-white/5 bg-[var(--bg-panel)] shadow-xl z-10"
+          className="flex h-full w-[340px] shrink-0 flex-col border-l border-white/5 bg-[var(--bg-panel)] shadow-xl z-10 fx-hairline fx-noshadow"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5 bg-white/[0.02]">
@@ -225,14 +225,14 @@ export function JournalPanel({ threadId, onClose }: Props) {
                   value={addTitle}
                   onChange={(e) => setAddTitle(e.target.value)}
                   placeholder="Title"
-                  className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-blue-500"
+                  className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-blue-500 fx-input"
                 />
                 <textarea
                   value={addContent}
                   onChange={(e) => setAddContent(e.target.value)}
                   placeholder="Content"
                   rows={3}
-                  className="w-full resize-none rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-blue-500"
+                  className="w-full resize-none rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-blue-500 fx-input"
                 />
                 <div className="flex justify-end gap-1.5">
                   <button
@@ -260,13 +260,13 @@ export function JournalPanel({ threadId, onClose }: Props) {
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-blue-500"
+                  className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-blue-500 fx-input"
                 />
                 <textarea
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
                   rows={4}
-                  className="w-full resize-none rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-blue-500"
+                  className="w-full resize-none rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-blue-500 fx-input"
                 />
                 <div className="flex justify-end gap-1.5">
                   <button
@@ -296,7 +296,7 @@ export function JournalPanel({ threadId, onClose }: Props) {
                 {proposals.map((p, i) => (
                   <div
                     key={i}
-                    className="rounded border border-amber-500/20 bg-amber-950/10 p-3"
+                    className="rounded border border-amber-500/20 bg-amber-950/10 p-3 fx-soft-gold"
                   >
                     <div className="mb-1 flex items-center gap-1.5">
                       <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">

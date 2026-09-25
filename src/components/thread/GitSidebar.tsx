@@ -465,7 +465,7 @@ function ViewModeDropdown({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.96 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
-            className="absolute left-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-lg border shadow-xl shadow-black/40 backdrop-blur-xl"
+            className="absolute left-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-lg border shadow-xl shadow-black/40 backdrop-blur-xl fx-dialog"
             style={{ borderColor: "var(--glass-border-highlight)", background: "rgba(20, 20, 22, 0.92)" }}
           >
             {modes.map((mode) => (
@@ -585,7 +585,7 @@ function BranchSwitcher({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.96 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
-            className="absolute right-0 top-full z-50 mt-1 w-[260px] overflow-hidden rounded-lg border shadow-xl shadow-black/40 backdrop-blur-xl"
+            className="absolute right-0 top-full z-50 mt-1 w-[260px] overflow-hidden rounded-lg border shadow-xl shadow-black/40 backdrop-blur-xl fx-dialog"
             style={{ borderColor: "var(--glass-border-highlight)", background: "rgba(20, 20, 22, 0.92)" }}
           >
             <div className="p-2 hairline-b">
@@ -595,7 +595,7 @@ function BranchSwitcher({
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="Find or create branch..."
-                className="w-full bg-white/[0.04] border border-white/[0.06] rounded px-2 py-1.5 text-[12px] text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-blue-500/40"
+                className="w-full bg-white/[0.04] border border-white/[0.06] rounded px-2 py-1.5 text-[12px] text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-blue-500/40 fx-input"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && canCreate) handleCreate();
                 }}
@@ -728,7 +728,7 @@ function CommitActionButton({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.96 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
-            className="absolute right-0 bottom-full z-50 mb-1 min-w-[200px] overflow-hidden rounded-lg border shadow-xl shadow-black/40 backdrop-blur-xl"
+            className="absolute right-0 bottom-full z-50 mb-1 min-w-[200px] overflow-hidden rounded-lg border shadow-xl shadow-black/40 backdrop-blur-xl fx-dialog"
             style={{ borderColor: "var(--glass-border-highlight)", background: "rgba(20, 20, 22, 0.92)" }}
           >
             {(["commit", "push", "pr"] as CommitAction[]).map((a) => (
@@ -773,7 +773,7 @@ function PushConfirmDialog({
   const suspiciousFiles = files.filter((f) => isSuspicious(f.path));
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-[420px] max-h-[80vh] flex flex-col rounded-xl border border-white/10 bg-zinc-900/95 backdrop-blur-xl shadow-2xl">
+      <div className="w-[420px] max-h-[80vh] flex flex-col rounded-[20px] border border-white/10 bg-zinc-900/95 backdrop-blur-xl shadow-2xl fx-dialog">
         <div className="flex items-center justify-between px-4 py-3 hairline-b">
           <span className="text-[13px] font-semibold text-zinc-100">
             Confirm {action === "commit" ? "commit" : action === "push" ? "push" : "PR"}
@@ -789,7 +789,7 @@ function PushConfirmDialog({
           </div>
         </div>
         {suspiciousFiles.length > 0 && (
-          <div className="mx-4 mb-2 flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[12px] text-amber-300">
+          <div className="mx-4 mb-2 flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[12px] text-amber-300 fx-soft-gold">
             <AlertTriangle size={13} className="shrink-0 mt-0.5" />
             <div>
               <span className="font-semibold">Suspicious files:</span>{" "}
@@ -814,8 +814,8 @@ function PushConfirmDialog({
                 {f.path}
               </span>
               <div className="flex items-center gap-2 ml-2 shrink-0 font-mono text-[11px]">
-                {f.additions > 0 && <span className="text-emerald-400/80">+{f.additions}</span>}
-                {f.deletions > 0 && <span className="text-red-400/80">-{f.deletions}</span>}
+                {f.additions > 0 && <span className="text-emerald-400/80 fx-green">+{f.additions}</span>}
+                {f.deletions > 0 && <span className="text-red-400/80 fx-red">-{f.deletions}</span>}
               </div>
             </div>
           ))}
@@ -890,7 +890,7 @@ function LayoutSwitcher({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.96 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
-            className="absolute left-0 top-full z-50 mt-1 w-[220px] overflow-hidden rounded-lg border shadow-xl shadow-black/40 backdrop-blur-xl"
+            className="absolute left-0 top-full z-50 mt-1 w-[220px] overflow-hidden rounded-lg border shadow-xl shadow-black/40 backdrop-blur-xl fx-dialog"
             style={{ borderColor: "var(--glass-border-highlight)", background: "rgba(20, 20, 22, 0.92)" }}
           >
             <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500 hairline-b">
@@ -979,9 +979,9 @@ function WarpFileCard({
           className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] tabular-nums"
           style={{ background: "rgba(255,255,255,0.04)" }}
         >
-          {file.additions > 0 && <span className="text-emerald-400/90">+{file.additions}</span>}
+          {file.additions > 0 && <span className="text-emerald-400/90 fx-green">+{file.additions}</span>}
           {file.additions > 0 && file.deletions > 0 && <span className="text-zinc-600">·</span>}
-          {file.deletions > 0 && <span className="text-red-400/90">-{file.deletions}</span>}
+          {file.deletions > 0 && <span className="text-red-400/90 fx-red">-{file.deletions}</span>}
           {file.additions === 0 && file.deletions === 0 && <span className="text-zinc-500">0</span>}
         </span>
 
@@ -1597,7 +1597,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
               <select
                 value={selectedAccountIndex}
                 onChange={(e) => setSelectedAccountIndex(Number(e.target.value))}
-                className="w-full rounded-md bg-white/[0.04] border border-white/[0.06] px-2.5 py-1.5 text-[12px] text-zinc-100 outline-none focus:border-blue-500/40"
+                className="w-full rounded-md bg-white/[0.04] border border-white/[0.06] px-2.5 py-1.5 text-[12px] text-zinc-100 outline-none focus:border-blue-500/40 fx-input"
               >
                 <option value={-1}>None (default SSH)</option>
                 {gitAccounts.map((acc, i) => (
@@ -1614,7 +1614,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
                 value={remoteUrl}
                 onChange={(e) => setRemoteUrl(e.target.value)}
                 placeholder="git@github.com:user/repo.git"
-                className="w-full rounded-md bg-white/[0.04] border border-white/[0.06] px-2.5 py-1.5 text-[12px] text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-blue-500/40"
+                className="w-full rounded-md bg-white/[0.04] border border-white/[0.06] px-2.5 py-1.5 text-[12px] text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-blue-500/40 fx-input"
               />
             </div>
             <div className="space-y-1.5">
@@ -1624,7 +1624,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
                 value={defaultBranch}
                 onChange={(e) => setDefaultBranch(e.target.value)}
                 placeholder="master"
-                className="w-full rounded-md bg-white/[0.04] border border-white/[0.06] px-2.5 py-1.5 text-[12px] text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-blue-500/40"
+                className="w-full rounded-md bg-white/[0.04] border border-white/[0.06] px-2.5 py-1.5 text-[12px] text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-blue-500/40 fx-input"
               />
             </div>
           </div>
@@ -1704,12 +1704,9 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
       {/* Layout switcher row */}
       <div className="hairline-b flex items-center gap-2 px-3 py-1.5">
         <span
-          className="shrink-0 uppercase"
+          className="ui-eyebrow shrink-0"
           style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 9,
             color: "var(--text-muted)",
-            letterSpacing: "0.2em",
           }}
         >
           Layout
@@ -1751,7 +1748,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
               )}
               {behind > 0 && (
                 <span
-                  className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 border border-sky-500/30 px-1.5 py-0.5 font-mono text-[10px] text-sky-300"
+                  className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 border border-sky-500/30 px-1.5 py-0.5 font-mono text-[10px] text-sky-300 ui-chip sm fx-soft-blue"
                   title={`${behind} upstream commit${behind === 1 ? "" : "s"} to pull`}
                 >
                   <ArrowDown size={9} />
@@ -1974,12 +1971,9 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
             }}
           >
             <div
-              className="px-3 py-2 uppercase"
+              className="ui-eyebrow px-3 py-2"
               style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 9,
                 color: "var(--text-muted)",
-                letterSpacing: "0.2em",
               }}
             >
               Jump to
@@ -2083,7 +2077,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
               onChange={(e) => setCommitMessage(e.target.value)}
               placeholder="Commit message..."
               rows={2}
-              className="w-full bg-white/[0.04] rounded-md px-2.5 py-2 pr-8 text-[12px] text-zinc-100 placeholder:text-zinc-600 outline-none border border-white/[0.06] resize-none focus:border-blue-500/40 focus:bg-white/[0.06] transition-colors"
+              className="w-full bg-white/[0.04] rounded-md px-2.5 py-2 pr-8 text-[12px] text-zinc-100 placeholder:text-zinc-600 outline-none border border-white/[0.06] resize-none focus:border-blue-500/40 focus:bg-white/[0.06] transition-colors fx-input"
             />
             <button
               onClick={handleGenerateMessage}
