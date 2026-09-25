@@ -1,5 +1,6 @@
 import type { ProviderAccount } from "../../../lib/providerAccounts";
 import type { UsageData } from "../../../lib/commands";
+import { grokCreditsLabel, usageWindowLabel } from "../../../lib/providerUsageCache";
 
 // Order and names of the limits a provider reports; absent ones are never invented.
 const windows = [["session", "5-hour"], ["weekly", "Weekly"], ["opus", "Opus weekly"], ["sonnet", "Sonnet weekly"]] as const;
@@ -25,7 +26,10 @@ export function UsageBars({ account }: { account: ProviderAccount }) {
   const reported = windows.flatMap(([key, name]) => {
     const window = usage?.[key];
     if (!window || !Number.isFinite(window.utilization)) return [];
-    return [{ key, name, remaining: Math.max(0, Math.min(100, 100 - window.utilization)), reset: timestamp(window.resetsAt) }];
+    // Session/weekly are slots; a lone Codex or Grok window can be 30 days long.
+    const label = key !== "session" && key !== "weekly" ? name
+      : account.provider === "grok" ? grokCreditsLabel(window) : usageWindowLabel(window, name);
+    return [{ key, name: label, remaining: Math.max(0, Math.min(100, 100 - window.utilization)), reset: timestamp(window.resetsAt) }];
   });
   if (reported.length > 0) {
     return <div className="mt-3 space-y-2.5">

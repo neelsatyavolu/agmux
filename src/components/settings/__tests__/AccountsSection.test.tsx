@@ -561,6 +561,18 @@ describe("AccountsSection", () => {
     expect(screen.queryByText(/Opus/)).toBeNull();
     expect(screen.getAllByRole("progressbar")).toHaveLength(2);
   });
+  it("labels limits by their reported window length, not their slot", async () => {
+    // Codex puts a lone long window in the weekly slot even when it is 30 days.
+    state.accounts = [
+      { ...account, usage: { session: null, weekly: { utilization: 40, resetsAt: "1792918874", windowMinutes: 43200 } } },
+      { ...account, id: "grok", provider: "grok", label: "My Grok", usage: { session: null, weekly: { utilization: 10, resetsAt: null, windowMinutes: 43200 } } },
+    ];
+    render(<AccountsSection />);
+    await screen.findByText("My Codex");
+    expect(screen.getByRole("progressbar", { name: "My Codex Monthly remaining" })).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: "My Grok Monthly remaining" })).toBeTruthy();
+    expect(screen.queryByText("Weekly")).toBeNull();
+  });
   it("labels old readings honestly without a vague unknown status", async () => {
     state.teams = [{ id: "t", name: "Studio", role: "owner", canManage: true }];
     state.accounts = [
