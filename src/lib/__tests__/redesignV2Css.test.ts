@@ -88,6 +88,14 @@ describe("flat neutral remap", () => {
     expect(decl(unified, `${FLAT} .text-zinc-700`, "color")).toBe("var(--text-muted)");
   });
 
+  it("keeps the placeholder-zinc-700 composer placeholder readable", () => {
+    expect(decl(unified, `${FLAT} .placeholder-zinc-700::placeholder`, "color")).toBe("var(--text-muted)");
+  });
+
+  it("keeps border-zinc-300 a rule color, not a text color", () => {
+    expect(decl(unified, `${FLAT} .border-zinc-300`, "border-color")).toBe("var(--ui-rule-2)");
+  });
+
   it.each([
     ["--color-red-400", "var(--status-red)"], ["--color-emerald-400", "var(--status-green)"],
     ["--color-green-400", "var(--status-green)"], ["--color-blue-400", "var(--status-blue)"],

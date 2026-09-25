@@ -414,6 +414,13 @@ html[data-surface="flat"] {
 }
 /* zinc-700 is a rule color for bg/border but a (dim) text color too. */
 html[data-surface="flat"] .text-zinc-700 { color: var(--text-muted); }
+/* placeholder-zinc-700 resolves through --color-zinc-700 (a rule-2 border
+   token) via the placeholder pseudo-element; text-secondary is unreadable
+   there, so it gets its own readable remap like text-zinc-700 above. */
+html[data-surface="flat"] .placeholder-zinc-700::placeholder { color: var(--text-muted); }
+/* border-zinc-300 resolves through --color-zinc-300 (a text token); borders
+   need a rule color, not a text color. */
+html[data-surface="flat"] .border-zinc-300 { border-color: var(--ui-rule-2); }
 
 /* Status hues: Tailwind 300/400 text shades snap to the status tokens.
    Dark only; light keeps its existing readable remaps. */
