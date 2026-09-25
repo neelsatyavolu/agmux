@@ -393,6 +393,24 @@ describe("pruneStale", () => {
     expect(await rows(env)).toHaveLength(1);
   });
 
+  it("still prunes a leaver's rows in the team they left", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-08T10:00:00.000Z"));
+    const env = makeEnv({ BILLING_ENFORCE: "true" });
+    await seedUser(env, "owner1");
+    await seedUser(env, "emp1");
+    await seedTeam(env, "tm1", "owner1");
+    await addMember(env, "tm1", "emp1", "employee");
+    await applyUpload(env, "emp1", "dev1", payload("before-leaving", [bucket({ hourUtc: "2026-09-05T10" })]));
+    await env.DB.prepare("UPDATE team_members SET left_at = ? WHERE user_id = 'emp1'")
+      .bind("2026-09-09T00:00:00.000Z").run();
+    vi.setSystemTime(new Date("2026-09-12T10:00:00.000Z"));
+    const next = await applyUpload(env, "emp1", "dev1", payload("after-leaving", [bucket({ hourUtc: "2026-09-05T10" })]));
+    vi.setSystemTime(new Date("2026-09-12T10:00:05.000Z"));
+    await pruneStale(env, "emp1", "dev1", { sinceHour: "2026-06-14T00", notBefore: next.acceptedAt });
+    expect(await rows(env)).toHaveLength(0);
+  });
+
   it("does nothing when this device has never uploaded", async () => {
     const env = makeEnv();
     await seedUser(env, "emp1");
