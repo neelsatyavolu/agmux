@@ -21,7 +21,9 @@ import {
   agoLabel,
   fmtMoney,
   fmtPct,
+  fmtSessions,
   fmtTokens,
+  sessionsCard,
   teamsPreviewPayload,
   TEAM_RANGE_LABELS,
   TEAM_RANGES,
@@ -215,8 +217,8 @@ export function YourDataSection() {
         />
         <StatCard
           icon={MessageSquare}
-          label="Sessions"
-          value={String(t.sessions)}
+          {...sessionsCard(t)}
+          value={fmtSessions(t)}
           note={`${t.turns.toLocaleString()} turns · ${t.toolCalls.toLocaleString()} tools`}
         />
         <StatCard icon={Layers} label="Peak conc." value={String(t.peakConcurrent)} />
@@ -282,7 +284,7 @@ export function YourDataSection() {
                     {tok.unit}
                   </span>
                   <span className="ui-meta text-[11.5px] text-[var(--text-muted)]">
-                    {p.sessions} sess
+                    {fmtSessions(p)} sess
                   </span>
                 </div>
               );
