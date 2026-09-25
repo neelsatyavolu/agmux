@@ -54,7 +54,6 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **"Always allow" works in Codex chat** — Commands you chose to always allow in a Codex chat now run on their own instead of failing.
 - **Codex reset time in the top bar** — With the status line in the top bar, hovering a Codex usage limit now shows when it resets.
 - **Answered from your phone, gone on your Mac** — When you answer a Claude chat's permission request or question on your phone, the Mac chat now clears it instead of keeping it on screen and showing an error if you click it.
-- **Token counts in Claude chat** — The token line under each Claude chat reply now shows that reply's real numbers, instead of wrong or negative counts from the second reply on.
 - **Background agents finish in Claude chat** — A background agent in a Claude chat now shows as finished when it's done, with its tool count as it works, instead of looking like it's still running forever.
 - **One "finished" alert per OpenCode reply** — An OpenCode chat no longer sends two "Agent finished" notifications for each reply.
 - **OpenCode chat asks about every action** — When OpenCode wants to run several commands at once, each permission request now waits its turn on screen instead of the earlier ones disappearing and leaving OpenCode stuck.
