@@ -69,6 +69,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Grok terminals in folders with spaces** — For projects whose folder path contains a space, reopening a Grok terminal now continues the earlier conversation instead of starting a new one, and past Grok sessions from those folders show up in the sidebar.
 - **OpenCode terminal context meter** — While an OpenCode terminal was working on a reply, its context meter could jump to a huge number (the whole session's token total) and then drop back. It now keeps showing the latest real reading.
 - **Hermes terminal context meter** — After a few turns, a Hermes terminal's context meter showed the total of every token the session had ever sent, often far past full. It no longer shows that misleading number.
+- **Cline terminals stop spinning after an error** — When a Cline reply failed (for example a provider or network error), the session kept showing as working. It now settles when the reply ends.
 - **Crash with non-English text in terminals** — agmux could quit suddenly when a Pi or OpenCode terminal sent it a prompt or file edit containing characters like accents, emoji, dashes or non-Latin text. That no longer happens.
 
 ## v4.2.0 — 2026-09-23

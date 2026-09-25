@@ -13,6 +13,8 @@ const EVENTS: &[(&str, &str)] = &[
     ("PreToolUse", "pre-tool-use"),
     ("PostToolUse", "post-tool-use"),
     ("TaskComplete", "stop"),
+    // A run that fails fires TaskError instead of TaskComplete.
+    ("TaskError", "stop"),
 ];
 
 const CLINE_HOOK_SCRIPT: &str = r#"#!/usr/bin/env bash
@@ -235,6 +237,21 @@ mod tests {
         let body = fs::read_to_string(hooks.join("UserPromptSubmit")).unwrap();
         assert!(body.contains("prompt-submit"));
         assert!(hooks.join("TaskComplete").exists());
+    }
+
+    #[test]
+    fn failed_run_settles_the_turn() {
+        // Cline ends each run with exactly one of TaskComplete (agent_end),
+        // TaskCancel (agent_abort) or TaskError (agent_error). Without a
+        // TaskError hook, a failed run never sends `stop` and the spinner
+        // stays on.
+        let dir = tempfile::tempdir().unwrap();
+        let relay = dir.path().join("cline-hook.sh");
+        fs::write(&relay, "#!/bin/sh\n").unwrap();
+        let hooks = dir.path().join("hooks");
+        write_hooks_into(&hooks, &relay).unwrap();
+        let body = fs::read_to_string(hooks.join("TaskError")).unwrap();
+        assert!(body.ends_with(" stop\n"), "{body}");
     }
 
     #[test]
