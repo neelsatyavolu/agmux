@@ -937,10 +937,10 @@ pub async fn list_claude_sessions(
             //     last `timestamp`. Reading the tail (not the head) is what makes
             //     /model mid-session switches show the current model — using the
             //     first turn's model would be stale.
-            // Total per-file I/O is bounded to ~128 KB regardless of file size,
+            // Total per-file I/O is bounded to ~128 KB regardless of file size
+            // (plus a prompt-only scan when hook attachments fill the head),
             // which keeps the xanom project (602 files, hundreds of MB on disk)
             // responsive.
-            const HEAD_BYTES: u64 = 64 * 1024;
             const TAIL_BYTES: u64 = 64 * 1024;
 
             let mut preview = String::new();
@@ -955,86 +955,7 @@ pub async fn list_claude_sessions(
             let mut last_timestamp = String::new();
 
             // ---- HEAD pass ----
-            if let Ok(file) = std::fs::File::open(&path) {
-                use std::io::BufRead;
-                let reader = std::io::BufReader::new(std::io::Read::take(file, HEAD_BYTES));
-                for line in reader.lines().map_while(Result::ok) {
-                    if line.trim().is_empty() {
-                        continue;
-                    }
-                    let parsed: serde_json::Value = match serde_json::from_str(&line) {
-                        Ok(v) => v,
-                        Err(_) => continue,
-                    };
-                    if let Some(c) = parsed.get("cwd").and_then(|v| v.as_str()) {
-                        cwd = c.to_string();
-                    }
-                    if head_model.is_none()
-                        && parsed.get("type").and_then(|v| v.as_str()) == Some("assistant")
-                    {
-                        if let Some(m) = parsed
-                            .get("message")
-                            .and_then(|m| m.get("model"))
-                            .and_then(|v| v.as_str())
-                        {
-                            if !m.is_empty() && !m.starts_with('<') {
-                                head_model = Some(m.to_string());
-                            }
-                        }
-                    }
-                    if preview.is_empty()
-                        && parsed.get("type").and_then(|v| v.as_str()) == Some("user")
-                    {
-                        if let Some(msg) = parsed.get("message") {
-                            let text_content = if let Some(s) =
-                                msg.get("content").and_then(|v| v.as_str())
-                            {
-                                Some(s.to_string())
-                            } else if let Some(arr) = msg.get("content").and_then(|v| v.as_array()) {
-                                let texts: Vec<&str> = arr
-                                    .iter()
-                                    .filter_map(|block| {
-                                        if block.get("type").and_then(|t| t.as_str()) == Some("text") {
-                                            block.get("text").and_then(|t| t.as_str())
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .collect();
-                                if texts.is_empty() { None } else { Some(texts.join(" ")) }
-                            } else {
-                                None
-                            };
-                            if let Some(content) = text_content {
-                                if !content.starts_with("<local-command")
-                                    && !content.starts_with("<command-name>")
-                                {
-                                    let trimmed = content.trim();
-                                    if trimmed.len() > 80 {
-                                        let safe_end = trimmed
-                                            .char_indices()
-                                            .take_while(|(i, _)| *i <= 77)
-                                            .last()
-                                            .map(|(i, c)| i + c.len_utf8())
-                                            .unwrap_or(0);
-                                        preview = format!("{}...", &trimmed[..safe_end]);
-                                    } else {
-                                        preview = trimmed.to_string();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    // Break only when both fields are filled — preview always
-                    // comes from the first user turn (early), head_model from
-                    // the first assistant turn (after). Bailing on preview alone
-                    // means head_model never resolves and the TAIL-empty fallback
-                    // below has nothing to use.
-                    if !preview.is_empty() && head_model.is_some() {
-                        break;
-                    }
-                }
-            }
+            read_claude_session_head(&path, &mut preview, &mut cwd, &mut head_model);
 
             // ---- TAIL pass: latest assistant-turn model + last timestamp ----
             if let Ok(mut file) = std::fs::File::open(&path) {
@@ -2496,6 +2417,116 @@ pub async fn update_thread_settings(
     )
     .await
     .map_err(|e| e.to_string())
+}
+
+/// HEAD pass of a Claude session JSONL: first user prompt (sidebar preview),
+/// the last `cwd` seen, and the first assistant model. Hook attachments
+/// (SessionStart context, skill listings) routinely push the first prompt past
+/// the 64 KB head window; without a preview the session is listed as
+/// "Session <id>" and the sidebar hides it. Past the window, only lines that
+/// can be user records are parsed, up to `PREVIEW_SCAN_BYTES`.
+fn read_claude_session_head(
+    path: &Path,
+    preview: &mut String,
+    cwd: &mut String,
+    head_model: &mut Option<String>,
+) {
+    const HEAD_BYTES: u64 = 64 * 1024;
+    const PREVIEW_SCAN_BYTES: u64 = 512 * 1024;
+    if let Ok(file) = std::fs::File::open(path) {
+        use std::io::BufRead;
+        let reader = std::io::BufReader::new(std::io::Read::take(file, PREVIEW_SCAN_BYTES));
+        let mut scanned: u64 = 0;
+        for line in reader.lines().map_while(Result::ok) {
+            let past_head = scanned >= HEAD_BYTES;
+            scanned += line.len() as u64 + 1;
+            // Past the head window only the first prompt is still wanted: it
+            // precedes the first reply, so stop at a reply and skip the JSON
+            // parse for every other record.
+            if past_head {
+                if !preview.is_empty() || line.contains("\"type\":\"assistant\"") {
+                    break;
+                }
+                if !line.contains("\"type\":\"user\"") {
+                    continue;
+                }
+            }
+            if line.trim().is_empty() {
+                continue;
+            }
+            let parsed: serde_json::Value = match serde_json::from_str(&line) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            if let Some(c) = parsed.get("cwd").and_then(|v| v.as_str()) {
+                *cwd = c.to_string();
+            }
+            if head_model.is_none()
+                && parsed.get("type").and_then(|v| v.as_str()) == Some("assistant")
+            {
+                if let Some(m) = parsed
+                    .get("message")
+                    .and_then(|m| m.get("model"))
+                    .and_then(|v| v.as_str())
+                {
+                    if !m.is_empty() && !m.starts_with('<') {
+                        *head_model = Some(m.to_string());
+                    }
+                }
+            }
+            if preview.is_empty()
+                && parsed.get("type").and_then(|v| v.as_str()) == Some("user")
+            {
+                if let Some(msg) = parsed.get("message") {
+                    let text_content = if let Some(s) =
+                        msg.get("content").and_then(|v| v.as_str())
+                    {
+                        Some(s.to_string())
+                    } else if let Some(arr) = msg.get("content").and_then(|v| v.as_array()) {
+                        let texts: Vec<&str> = arr
+                            .iter()
+                            .filter_map(|block| {
+                                if block.get("type").and_then(|t| t.as_str()) == Some("text") {
+                                    block.get("text").and_then(|t| t.as_str())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+                        if texts.is_empty() { None } else { Some(texts.join(" ")) }
+                    } else {
+                        None
+                    };
+                    if let Some(content) = text_content {
+                        if !content.starts_with("<local-command")
+                            && !content.starts_with("<command-name>")
+                        {
+                            let trimmed = content.trim();
+                            if trimmed.len() > 80 {
+                                let safe_end = trimmed
+                                    .char_indices()
+                                    .take_while(|(i, _)| *i <= 77)
+                                    .last()
+                                    .map(|(i, c)| i + c.len_utf8())
+                                    .unwrap_or(0);
+                                *preview = format!("{}...", &trimmed[..safe_end]);
+                            } else {
+                                *preview = trimmed.to_string();
+                            }
+                        }
+                    }
+                }
+            }
+            // Break only when both fields are filled — preview always
+            // comes from the first user turn (early), head_model from
+            // the first assistant turn (after). Bailing on preview alone
+            // means head_model never resolves and the TAIL-empty fallback
+            // below has nothing to use.
+            if !preview.is_empty() && head_model.is_some() {
+                break;
+            }
+        }
+    }
 }
 
 /// Scan ~/.claude/projects/<encoded(work_dir)>/ for the JSONL with the most
@@ -4579,5 +4610,65 @@ mod native_codex_legacy_origin_tests {
         std::fs::write(&file, "broken header").unwrap();
         assert_eq!(native_codex_creation_origin(dir.path(), "native"), None);
         assert_eq!(native_codex_creation_origin(dir.path(), "missing"), None);
+    }
+}
+
+#[cfg(test)]
+mod claude_session_head_tests {
+    use super::read_claude_session_head;
+
+    fn attachment_line(bytes: usize) -> String {
+        serde_json::json!({
+            "type": "attachment",
+            "cwd": "/tmp/example-repo",
+            "attachment": { "type": "hook_success", "content": "x".repeat(bytes) },
+        })
+        .to_string()
+    }
+
+    fn read(lines: &[String]) -> (String, String, Option<String>) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("session.jsonl");
+        std::fs::write(&path, lines.join("\n") + "\n").unwrap();
+        let (mut preview, mut cwd, mut model) = (String::new(), String::from("/fallback"), None);
+        read_claude_session_head(&path, &mut preview, &mut cwd, &mut model);
+        (preview, cwd, model)
+    }
+
+    #[test]
+    fn finds_the_first_prompt_after_large_hook_attachments() {
+        let prompt = serde_json::json!({
+            "type": "user",
+            "cwd": "/tmp/example-repo",
+            "message": { "role": "user", "content": "Fix the login button" },
+        })
+        .to_string();
+        let reply = serde_json::json!({
+            "type": "assistant",
+            "message": { "model": "claude-example", "content": [] },
+        })
+        .to_string();
+        let lines = vec![attachment_line(40_000), attachment_line(40_000), prompt, reply];
+        let (preview, cwd, model) = read(&lines);
+        assert_eq!(preview, "Fix the login button");
+        assert_eq!(cwd, "/tmp/example-repo");
+        assert_eq!(model.as_deref(), None);
+    }
+
+    #[test]
+    fn stops_at_the_first_reply_when_no_prompt_is_found() {
+        let reply = serde_json::json!({
+            "type": "assistant",
+            "message": { "model": "claude-example", "content": [] },
+        })
+        .to_string();
+        let late_prompt = serde_json::json!({
+            "type": "user",
+            "message": { "role": "user", "content": "later message" },
+        })
+        .to_string();
+        let lines = vec![attachment_line(70_000), reply, late_prompt];
+        let (preview, _, _) = read(&lines);
+        assert_eq!(preview, "");
     }
 }
