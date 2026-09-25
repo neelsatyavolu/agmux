@@ -160,6 +160,8 @@ describe("fix round 1: Light + Flat cascade + Glass parity", () => {
     [`${F} .home-screen-root .pill.idle`, "color", "var(--text-tertiary)"],
     [`${F} .home-screen-root .proj.on .pic`, "background", "var(--ui-panel-2)"],
     [`${F} .home-screen-root .proj.on .pic`, "color", "var(--text-primary)"],
+    [`${F} .home-screen-root .proj.on .pic`, "border-color", "transparent"],
+    [`${F} .home-screen-root .proj[data-active="true"] .pic`, "border-color", "transparent"],
     [`${F} .home-screen-root .proj[data-active="true"] .pic`, "box-shadow", "inset 0 0 0 1px var(--ui-rule-2)"],
     [`${F} .home-screen-root .proj:hover`, "background", "var(--ui-hover)"],
     [`${F} .home-screen-root .sess:hover`, "background", "var(--ui-hover)"],
