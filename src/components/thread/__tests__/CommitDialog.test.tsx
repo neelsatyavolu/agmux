@@ -37,6 +37,7 @@ vi.mock("../../../lib/taskCommands", () => ({
 }));
 
 import { CommitDialog } from "../CommitDialog";
+import { useSettingsStore } from "../../../stores/settingsStore";
 
 afterEach(() => cleanup());
 
@@ -1325,5 +1326,61 @@ it("pairs commit button text, fill and border with the selected accent", async (
     expect(button.style.color).toBe("var(--accent)");
     expect(button.style.background).toBe("var(--accent-dim)");
     expect(button.style.border).toBe("1px solid var(--accent-border)");
+  });
+});
+
+describe("CommitDialog unified (Flat) look", () => {
+  const setSurface = (surfaceStyle: "flat" | "glass") =>
+    useSettingsStore.setState((st) => ({ settings: { ...st.settings, surfaceStyle } }));
+  afterEach(() => setSurface("flat"));
+
+  async function renderWithFiles(workDir: string) {
+    const { getWorktreeChanges } = await import("../../../lib/taskCommands");
+    vi.mocked(getWorktreeChanges).mockResolvedValueOnce([
+      { path: "src/new.ts", added: 12, removed: 0, status: "added" },
+      { path: "src/old.ts", added: 3, removed: 4, status: "modified" },
+    ] as never);
+    const view = render(<CommitDialog open onClose={() => {}} workDir={workDir} />);
+    await waitFor(() => expect(view.getByText("new.ts")).toBeTruthy());
+    return view;
+  }
+
+  it("uses the display title and a neutral icon tile", async () => {
+    setSurface("flat");
+    const { getByText, baseElement } = await renderWithFiles("/tmp/look-title");
+    expect(getByText("Commit changes").className).toContain("ui-title-d");
+    const tile = baseElement.querySelector("[data-commit-icon]") as HTMLElement;
+    expect(tile.getAttribute("style") ?? "").toContain("var(--ui-panel-2)");
+    expect(tile.getAttribute("style") ?? "").not.toContain("var(--accent)");
+  });
+
+  it("colors git status letters like the rest of the app (A green, M gold)", async () => {
+    setSurface("flat");
+    const { getByText } = await renderWithFiles("/tmp/look-letters");
+    expect(getByText("A").getAttribute("style") ?? "").toContain("var(--status-green)");
+    expect(getByText("M").getAttribute("style") ?? "").toContain("var(--status-amber)");
+  });
+
+  it("keeps Commit as the only gold action; Commit + Push is quiet", async () => {
+    setSurface("flat");
+    const { getByRole } = await renderWithFiles("/tmp/look-buttons");
+    const push = getByRole("button", { name: /Commit \+ Push/ });
+    expect(push.getAttribute("style") ?? "").toContain("var(--ui-rule-2)");
+    expect(push.getAttribute("style") ?? "").not.toContain("var(--accent-dim)");
+    expect(getByRole("button", { name: /^Commit \(2\)$/ }).className).toContain("fx-accent");
+  });
+
+  it("shows diff totals as +N −M without a slash", async () => {
+    setSurface("flat");
+    const { queryAllByText } = await renderWithFiles("/tmp/look-totals");
+    expect(queryAllByText("/")).toHaveLength(0);
+  });
+
+  it("leaves the Glass look unchanged", async () => {
+    setSurface("glass");
+    const { getByRole, getByText } = await renderWithFiles("/tmp/look-glass");
+    expect(getByRole("button", { name: /Commit \+ Push/ }).getAttribute("style") ?? "").toContain("var(--accent-dim)");
+    expect(getByText("M").getAttribute("style") ?? "").toContain("var(--status-blue)");
+    expect(getByText("Commit changes").className).not.toContain("ui-title-d");
   });
 });

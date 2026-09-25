@@ -24,6 +24,7 @@ import {
 import { getWorktreeChanges } from "../../lib/taskCommands";
 import type { ChangedFile } from "../../lib/types";
 import { useUiStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import {
   getCommitOpState,
   hasActiveCommitOp,
@@ -100,18 +101,98 @@ const glassBtnPrimary: React.CSSProperties = {
   color: TOK.accent,
 };
 
-function statusMeta(status: string): { icon: typeof Pencil; color: string; letter: string } {
+// Unified (Flat) look, from the mockup's dialog card: neutral chrome, quiet
+// ringed buttons (fx-quiet adds hover/disabled) and the app's status colors
+// (A green, M gold, D red). Glass keeps glassBtn / TOK above.
+const FLAT_INK = {
+  add: "var(--status-green)",
+  del: "var(--status-red)",
+  mod: "var(--status-amber)",
+  ren: "var(--status-purple)",
+};
+
+const quietBtn: React.CSSProperties = {
+  ...glassBtn,
+  height: 28,
+  padding: "0 11px",
+  borderRadius: 8,
+  background: "transparent",
+  border: "1px solid transparent",
+  boxShadow: "inset 0 0 0 1px var(--ui-rule-2)",
+  color: "var(--text-secondary)",
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: "normal",
+};
+
+/** Footer-size quiet button (mockup .btn.lg). */
+const quietBtnLg: React.CSSProperties = {
+  ...quietBtn,
+  height: 38,
+  padding: "0 16px",
+  borderRadius: 11,
+  fontSize: 13,
+};
+
+/** Size of the gold primary under Flat; its colors come from fx-accent. */
+const primaryLg: React.CSSProperties = {
+  height: 38,
+  padding: "0 16px",
+  borderRadius: 11,
+  fontSize: 13,
+  fontWeight: 600,
+  letterSpacing: "normal",
+};
+
+const flatCloseBtn: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  borderRadius: 8,
+  color: "var(--text-tertiary)",
+};
+
+/** Header icon tile (mockup .icon-tile): neutral, or a soft status tint. */
+function iconTile(tone: "neutral" | "green" | "red"): React.CSSProperties {
+  const [background, color] =
+    tone === "green"
+      ? ["var(--ui-green-soft)", "var(--status-green)"]
+      : tone === "red"
+        ? ["var(--ui-red-soft)", "var(--status-red)"]
+        : ["var(--ui-panel-2)", "var(--text-secondary)"];
+  return {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    background,
+    color,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  };
+}
+
+/** Boxed file list / summary under Flat: canvas well with a hairline ring. */
+const flatWell: React.CSSProperties = {
+  background: "var(--ui-canvas)",
+  border: "1px solid transparent",
+  boxShadow: "inset 0 0 0 1px var(--ui-rule)",
+  borderRadius: 12,
+};
+
+function statusMeta(status: string, flat = false): { icon: typeof Pencil; color: string; letter: string } {
+  const ink = flat ? FLAT_INK : TOK;
   const s = status.toLowerCase();
   if (s === "added" || s.startsWith("a") || s === "untracked" || s === "??") {
-    return { icon: Plus, color: TOK.add, letter: "A" };
+    return { icon: Plus, color: ink.add, letter: "A" };
   }
   if (s === "deleted" || s.startsWith("d")) {
-    return { icon: Minus, color: TOK.del, letter: "D" };
+    return { icon: Minus, color: ink.del, letter: "D" };
   }
   if (s === "renamed" || s.startsWith("r")) {
-    return { icon: ArrowRightLeft, color: TOK.ren, letter: "R" };
+    return { icon: ArrowRightLeft, color: ink.ren, letter: "R" };
   }
-  return { icon: Pencil, color: TOK.mod, letter: "M" };
+  return { icon: Pencil, color: ink.mod, letter: "M" };
 }
 
 /** Eyebrow header — matches ReviewPanel pattern from the design. */
@@ -138,10 +219,13 @@ function FileRow({
   staged,
   onToggle,
   committed = false,
+  flat = false,
 }: {
   file: ChangedFile;
   staged: boolean;
   onToggle: () => void;
+  /** Unified (Flat) surface look. */
+  flat?: boolean;
   /**
    * When true, the file has already been committed (i.e. shown as
    * informational — it will be pushed, not committed again). The row
@@ -149,11 +233,16 @@ function FileRow({
    */
   committed?: boolean;
 }) {
-  const meta = statusMeta(file.status);
+  const meta = statusMeta(file.status, flat);
+  const ink = flat ? FLAT_INK : TOK;
   const total = file.added + file.removed || 1;
   const addPct = (file.added / total) * 100;
   const [hover, setHover] = useState(false);
-  const bg = committed
+  const bg = flat
+    ? hover
+      ? "var(--ui-hover)"
+      : "transparent"
+    : committed
     ? hover
       ? "rgba(255,255,255,0.02)"
       : "transparent"
@@ -174,20 +263,33 @@ function FileRow({
     <>
       {committed ? (
         <span
-          style={{
-            flexShrink: 0,
-            fontFamily: "var(--font-mono, monospace)",
-            fontSize: 8.5,
-            fontWeight: 600,
-            letterSpacing: "0.08em",
-            color: "var(--status-purple)",
-            background: "rgba(167,139,250,0.10)",
-            border: "1px solid rgba(167,139,250,0.28)",
-            borderRadius: 4,
-            padding: "1px 5px",
-            textTransform: "uppercase",
-            lineHeight: 1.2,
-          }}
+          style={
+            flat
+              ? {
+                  flexShrink: 0,
+                  fontSize: 10.5,
+                  fontWeight: 650,
+                  color: "var(--text-tertiary)",
+                  boxShadow: "inset 0 0 0 1px var(--ui-rule-2)",
+                  borderRadius: 9999,
+                  padding: "0 7px",
+                  lineHeight: "18px",
+                }
+              : {
+                  flexShrink: 0,
+                  fontFamily: "var(--font-mono, monospace)",
+                  fontSize: 8.5,
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  color: "var(--status-purple)",
+                  background: "rgba(167,139,250,0.10)",
+                  border: "1px solid rgba(167,139,250,0.28)",
+                  borderRadius: 4,
+                  padding: "1px 5px",
+                  textTransform: "uppercase",
+                  lineHeight: 1.2,
+                }
+          }
           title="Already committed — will be pushed, not re-committed"
         >
           Committed
@@ -198,10 +300,10 @@ function FileRow({
             style={{
               width: 14,
               height: 14,
-              borderRadius: 4,
+              borderRadius: flat ? 5 : 4,
               flexShrink: 0,
-              background: staged ? TOK.accent : "var(--glass-card)",
-              border: `1px solid ${staged ? TOK.accentBd : TOK.bd.def}`,
+              background: staged ? TOK.accent : flat ? "transparent" : "var(--glass-card)",
+              border: `1px solid ${staged ? TOK.accentBd : flat ? "var(--ui-rule-2)" : TOK.bd.def}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -250,12 +352,12 @@ function FileRow({
       </span>
 
       <span
-        style={{ fontSize: 10, color: TOK.add }}
+        style={{ fontSize: flat ? 11 : 10, color: ink.add, fontVariantNumeric: "tabular-nums" }}
       >
         +{file.added}
       </span>
       <span
-        style={{ fontSize: 10, color: TOK.del }}
+        style={{ fontSize: flat ? 11 : 10, color: ink.del, fontVariantNumeric: "tabular-nums" }}
       >
         −{file.removed}
       </span>
@@ -263,13 +365,13 @@ function FileRow({
         style={{
           width: 36,
           height: 3,
-          background: "rgba(239,68,68,0.30)",
+          background: flat ? "var(--ui-red-soft)" : "rgba(239,68,68,0.30)",
           borderRadius: 9999,
           overflow: "hidden",
           flexShrink: 0,
         }}
       >
-        <div style={{ width: `${addPct}%`, height: "100%", background: TOK.add }} />
+        <div style={{ width: `${addPct}%`, height: "100%", background: ink.add }} />
       </div>
     </>
   );
@@ -279,7 +381,7 @@ function FileRow({
     alignItems: "center",
     gap: 10,
     padding: "7px 10px",
-    borderRadius: 6,
+    borderRadius: flat ? 8 : 6,
     userSelect: "none",
     background: bg,
     transition: "background 120ms cubic-bezier(0.16,1,0.3,1)",
@@ -312,6 +414,8 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
   const sidebarWidth = useUiStore((s) => s.sidebarWidth);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const overlayLeft = sidebarCollapsed ? 52 : sidebarWidth;
+  const flat = (useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat") === "flat";
+  const ink = flat ? FLAT_INK : TOK;
 
   // Op state (subject/body/phase/steps/isGenerating/etc.) is hoisted to a
   // module-level store keyed by workDir so it survives the dialog unmounting
@@ -515,44 +619,62 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
           }}
         >
           <div
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 7,
-              background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-              border: "1px solid color-mix(in srgb, var(--accent) 24%, transparent)",
-              color: TOK.accent,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
+            data-commit-icon=""
+            style={
+              flat
+                ? iconTile("neutral")
+                : {
+                    width: 30,
+                    height: 30,
+                    borderRadius: 7,
+                    background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--accent) 24%, transparent)",
+                    color: TOK.accent,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }
+            }
           >
-            <GitCommitHorizontal size={15} />
+            <GitCommitHorizontal size={flat ? 17 : 15} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
-              style={{
-                fontSize: 15,
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                letterSpacing: "-0.015em",
-              }}
+              className={flat ? "ui-title-d" : undefined}
+              style={
+                flat
+                  ? { color: "var(--text-primary)" }
+                  : {
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      letterSpacing: "-0.015em",
+                    }
+              }
             >
               Commit changes
             </div>
             <div
               style={{
-                fontSize: 10.5,
-                color: TOK.fg.mut,
-                marginTop: 2,
+                fontSize: flat ? 12 : 10.5,
+                color: flat ? "var(--text-tertiary)" : TOK.fg.mut,
+                marginTop: flat ? 4 : 2,
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
               }}
             >
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-mono, monospace)" }}>
-                <GitBranch size={10} />
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontFamily: "var(--font-mono, monospace)",
+                  fontSize: flat ? 11.5 : undefined,
+                }}
+              >
+                <GitBranch size={flat ? 11 : 10} />
                 {branch}
               </span>
               {statusError && (
@@ -577,6 +699,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              ...(flat ? flatCloseBtn : {}),
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = "var(--surface-2)";
@@ -599,28 +722,45 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               <button
                 onClick={() => void runGenerate()}
                 disabled={isGenerating}
-                style={{
-                  ...glassBtn,
-                  padding: "3px 9px",
-                  fontSize: 10.5,
-                  lineHeight: 1,
-                  whiteSpace: "nowrap",
-                  minWidth: 128,
-                  justifyContent: "center",
-                  background: "color-mix(in srgb, var(--accent) 6%, transparent)",
-                  borderColor: "color-mix(in srgb, var(--accent) 22%, transparent)",
-                  color: TOK.accent,
-                  opacity: isGenerating ? 0.5 : 1,
-                  cursor: isGenerating ? "wait" : "pointer",
-                  position: "relative",
-                  zIndex: 1,
-                  isolation: "isolate",
-                }}
+                className={flat ? "fx-quiet" : undefined}
+                style={
+                  flat
+                    ? {
+                        ...quietBtn,
+                        height: 26,
+                        lineHeight: 1,
+                        whiteSpace: "nowrap",
+                        minWidth: 128,
+                        justifyContent: "center",
+                        opacity: isGenerating ? 0.5 : 1,
+                        cursor: isGenerating ? "wait" : "pointer",
+                        position: "relative",
+                        zIndex: 1,
+                        isolation: "isolate",
+                      }
+                    : {
+                        ...glassBtn,
+                        padding: "3px 9px",
+                        fontSize: 10.5,
+                        lineHeight: 1,
+                        whiteSpace: "nowrap",
+                        minWidth: 128,
+                        justifyContent: "center",
+                        background: "color-mix(in srgb, var(--accent) 6%, transparent)",
+                        borderColor: "color-mix(in srgb, var(--accent) 22%, transparent)",
+                        color: TOK.accent,
+                        opacity: isGenerating ? 0.5 : 1,
+                        cursor: isGenerating ? "wait" : "pointer",
+                        position: "relative",
+                        zIndex: 1,
+                        isolation: "isolate",
+                      }
+                }
               >
                 {isGenerating ? (
-                  <Loader2 size={10} className="animate-spin" />
+                  <Loader2 size={flat ? 12 : 10} className="animate-spin" />
                 ) : (
-                  <Sparkles size={10} />
+                  <Sparkles size={flat ? 12 : 10} style={flat ? { color: "var(--accent)" } : undefined} />
                 )}
                 <span>{isGenerating ? "Generating…" : "Generate from diff"}</span>
               </button>
@@ -642,7 +782,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                   padding: "11px 62px 11px 14px",
                   background: "var(--glass-card)",
                   border: `1px solid ${TOK.bd.def}`,
-                  borderRadius: 8,
+                  borderRadius: flat ? 10 : 8,
                   color: "var(--text-primary)",
                   fontSize: 14,
                   fontWeight: 500,
@@ -657,7 +797,8 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                   right: 12,
                   top: "50%",
                   transform: "translateY(-50%)",
-                  fontSize: 10.5,
+                  fontSize: flat ? 11 : 10.5,
+                  fontVariantNumeric: "tabular-nums",
                   color: subject.length > SUBJECT_LIMIT ? TOK.del : TOK.fg.mut,
                 }}
               >
@@ -678,10 +819,11 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                 padding: "10px 12px",
                 background: "var(--glass-card)",
                 border: `1px solid ${TOK.bd.sub}`,
-                borderRadius: 8,
+                borderRadius: flat ? 10 : 8,
                 color: TOK.fg.sec,
-                fontSize: 12.5,
-                fontFamily: "var(--font-mono, monospace)",
+                fontSize: flat ? 13 : 12.5,
+                // Flat: the description is prose, so it reads in the UI face.
+                fontFamily: flat ? "var(--font-sans, inherit)" : "var(--font-mono, monospace)",
                 letterSpacing: 0,
                 lineHeight: 1.55,
                 outline: "none",
@@ -693,10 +835,10 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                 role="alert"
                 style={{
                   padding: "7px 10px",
-                  background: "rgba(248,113,113,0.07)",
-                  border: `1px solid rgba(248,113,113,0.28)`,
-                  borderRadius: 6,
-                  fontSize: 11.5,
+                  background: flat ? "var(--ui-red-soft)" : "rgba(248,113,113,0.07)",
+                  border: flat ? "1px solid transparent" : `1px solid rgba(248,113,113,0.28)`,
+                  borderRadius: flat ? 8 : 6,
+                  fontSize: flat ? 12 : 11.5,
                   color: TOK.del,
                   lineHeight: 1.45,
                   wordBreak: "break-word",
@@ -713,19 +855,25 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: flat ? 12 : 10,
                     color: TOK.fg.mut,
+                    fontVariantNumeric: "tabular-nums",
                   }}
                 >
                   {stagedCount}/{files.length} files ·{" "}
-                  <span style={{ color: TOK.add }}>+{totals.add}</span>{" "}
-                  <span style={{ color: TOK.fg.sub }}>/</span>{" "}
-                  <span style={{ color: TOK.del }}>−{totals.del}</span>
+                  <span style={{ color: ink.add }}>+{totals.add}</span>{" "}
+                  {!flat && (
+                    <>
+                      <span style={{ color: TOK.fg.sub }}>/</span>{" "}
+                    </>
+                  )}
+                  <span style={{ color: ink.del }}>−{totals.del}</span>
                 </span>
                 <button
                   onClick={toggleAll}
                   disabled={files.length === 0}
-                  style={{ ...glassBtn, padding: "3px 9px", fontSize: 10.5 }}
+                  className={flat ? "fx-quiet" : undefined}
+                  style={flat ? { ...quietBtn, height: 26 } : { ...glassBtn, padding: "3px 9px", fontSize: 10.5 }}
                 >
                   {allStaged ? "Unstage all" : "Stage all"}
                 </button>
@@ -740,6 +888,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               background: "var(--glass-card)",
               border: `1px solid ${TOK.bd.sub}`,
               borderRadius: 10,
+              ...(flat ? flatWell : {}),
               padding: 6,
               display: "flex",
               flexDirection: "column",
@@ -766,6 +915,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                   file={f}
                   staged={stagedIds.has(f.path)}
                   onToggle={() => toggleFile(f.path)}
+                  flat={flat}
                 />
               ))
             )}
@@ -778,16 +928,21 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                 right={
                   <span
                     style={{
-                      fontSize: 10,
+                      fontSize: flat ? 12 : 10,
                       color: TOK.fg.mut,
+                      fontVariantNumeric: "tabular-nums",
                     }}
                   >
                     {committedFiles.length} file{committedFiles.length !== 1 ? "s" : ""} ·{" "}
-                    <span style={{ color: TOK.add }}>
+                    <span style={{ color: ink.add }}>
                       +{committedFiles.reduce((n, f) => n + f.added, 0)}
                     </span>{" "}
-                    <span style={{ color: TOK.fg.sub }}>/</span>{" "}
-                    <span style={{ color: TOK.del }}>
+                    {!flat && (
+                      <>
+                        <span style={{ color: TOK.fg.sub }}>/</span>{" "}
+                      </>
+                    )}
+                    <span style={{ color: ink.del }}>
                       −{committedFiles.reduce((n, f) => n + f.removed, 0)}
                     </span>
                   </span>
@@ -800,6 +955,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                   background: "var(--glass-card)",
                   border: `1px solid ${TOK.bd.sub}`,
                   borderRadius: 10,
+                  ...(flat ? flatWell : {}),
                   padding: 6,
                   display: "flex",
                   flexDirection: "column",
@@ -815,6 +971,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                     staged={false}
                     onToggle={() => {}}
                     committed
+                    flat={flat}
                   />
                 ))}
               </div>
@@ -827,10 +984,10 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
           style={{
             padding: "12px 20px",
             borderTop: `1px solid ${TOK.bd.sub}`,
-            background: "var(--glass-card)",
+            background: flat ? "transparent" : "var(--glass-card)",
             display: "flex",
             alignItems: "center",
-            gap: 10,
+            gap: flat ? 8 : 10,
             flexWrap: "wrap",
             justifyContent: "flex-end",
           }}
@@ -840,28 +997,33 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               display: "flex",
               alignItems: "center",
               gap: 6,
-              fontSize: 10.5,
+              fontSize: flat ? 12 : 10.5,
               color: TOK.fg.mut,
               marginRight: "auto",
               whiteSpace: "nowrap",
               flexShrink: 0,
             }}
           >
+            {/* Flat: a quiet static dot — gold means "needs you", and nothing does here. */}
             <span
-              className="bg-pausable"
+              className={flat ? undefined : "bg-pausable"}
               style={{
                 display: "block",
                 width: 5,
                 height: 5,
                 flexShrink: 0,
                 borderRadius: 9999,
-                background: TOK.accent,
-                animation: "cd-pulse 1.6s cubic-bezier(0.16,1,0.3,1) infinite",
+                background: flat ? "var(--text-muted)" : TOK.accent,
+                animation: flat ? "none" : "cd-pulse 1.6s cubic-bezier(0.16,1,0.3,1) infinite",
               }}
             />
             {stagedCount > 0 ? "Pre-commit hooks will run" : "Existing commits will be pushed"}
           </div>
-          <button onClick={handleClose} style={glassBtn}>
+          <button
+            onClick={handleClose}
+            className={flat ? "fx-quiet" : undefined}
+            style={flat ? quietBtnLg : glassBtn}
+          >
             Cancel
           </button>
           <button
@@ -871,33 +1033,34 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
             style={{
               ...glassBtnPrimary,
               padding: "8px 14px",
+              ...(flat ? primaryLg : {}),
               opacity: canCommit ? 1 : 0.35,
               pointerEvents: canCommit ? "auto" : "none",
             }}
           >
-            <GitCommitHorizontal size={13} />
+            <GitCommitHorizontal size={flat ? 14 : 13} />
             {stagedCount > 0 ? `Commit (${stagedCount})` : "Commit"}
           </button>
           <button
             disabled={!canPush}
             onClick={() => void run(pushAction)}
+            className={flat ? "fx-quiet" : undefined}
             style={{
-              ...glassBtnPrimary,
-              padding: "8px 14px",
+              ...(flat ? quietBtnLg : { ...glassBtnPrimary, padding: "8px 14px" }),
               opacity: canPush ? 1 : 0.35,
               pointerEvents: canPush ? "auto" : "none",
             }}
           >
-            <ArrowUp size={13} />
+            <ArrowUp size={flat ? 14 : 13} />
             {stagedCount > 0 ? "Commit + Push" : "Push"}
           </button>
           {!isOnMainOrMaster && !hideCreatePrButton && (
             <button
               disabled={!canCommit}
               onClick={() => void run("commit-pr")}
+              className={flat ? "fx-quiet" : undefined}
               style={{
-                ...glassBtnPrimary,
-                padding: "8px 14px",
+                ...(flat ? quietBtnLg : { ...glassBtnPrimary, padding: "8px 14px" }),
                 opacity: canCommit ? 1 : 0.35,
                 pointerEvents: canCommit ? "auto" : "none",
               }}
@@ -917,17 +1080,21 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
     <div style={{ padding: "24px 20px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--accent) 24%, transparent)",
-            color: TOK.accent,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          style={
+            flat
+              ? iconTile("neutral")
+              : {
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--accent) 24%, transparent)",
+                  color: TOK.accent,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }
+          }
         >
           <GitCommitHorizontal size={18} />
         </div>
@@ -944,24 +1111,32 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            ...(flat ? flatCloseBtn : {}),
           }}
         >
           <X size={13} />
         </button>
       </div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
+      <div
+        className={flat ? "ui-title-d" : undefined}
+        style={
+          flat
+            ? { color: "var(--text-primary)", marginBottom: 6 }
+            : { fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }
+        }
+      >
         {progressTitle(action)}
       </div>
-      <div style={{ fontSize: 11, color: TOK.fg.mut, marginBottom: 18 }}>
+      <div style={{ fontSize: flat ? 12.5 : 11, color: TOK.fg.mut, marginBottom: 18 }}>
         Hold tight, this may take a few moments…
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {steps.map((s, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {s.state === "done" ? (
-              <Check size={16} color={TOK.accent} />
+              <Check size={16} color={flat ? "var(--status-green)" : TOK.accent} />
             ) : s.state === "running" ? (
-              <Loader2 size={16} className="animate-spin" color={TOK.fg.ter} />
+              <Loader2 size={16} className="animate-spin" color={flat ? "var(--status-blue)" : TOK.fg.ter} />
             ) : (
               <div
                 style={{
@@ -999,44 +1174,61 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
         }}
       >
         <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 7,
-            background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--accent) 24%, transparent)",
-            color: TOK.accent,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
+          style={
+            flat
+              ? iconTile("green")
+              : {
+                  width: 30,
+                  height: 30,
+                  borderRadius: 7,
+                  background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--accent) 24%, transparent)",
+                  color: TOK.accent,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }
+          }
         >
-          <Check size={15} />
+          <Check size={flat ? 17 : 15} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
-            style={{
-              fontSize: 15,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              letterSpacing: "-0.015em",
-            }}
+            className={flat ? "ui-title-d" : undefined}
+            style={
+              flat
+                ? { color: "var(--text-primary)" }
+                : {
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: "var(--text-primary)",
+                    letterSpacing: "-0.015em",
+                  }
+            }
           >
             {successTitle(action)}
           </div>
           <div
             style={{
-              fontSize: 10.5,
-              color: TOK.fg.mut,
-              marginTop: 2,
+              fontSize: flat ? 12 : 10.5,
+              color: flat ? "var(--text-tertiary)" : TOK.fg.mut,
+              marginTop: flat ? 4 : 2,
               display: "flex",
               alignItems: "center",
               gap: 8,
             }}
           >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-mono, monospace)" }}>
-              <GitBranch size={10} />
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: flat ? 11.5 : undefined,
+              }}
+            >
+              <GitBranch size={flat ? 11 : 10} />
               {branch}
             </span>
           </div>
@@ -1055,6 +1247,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            ...(flat ? flatCloseBtn : {}),
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "var(--surface-2)";
@@ -1077,6 +1270,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
             background: "var(--glass-card)",
             border: `1px solid ${TOK.bd.sub}`,
             borderRadius: 10,
+            ...(flat ? flatWell : {}),
             padding: "10px 12px",
             display: "flex",
             flexDirection: "column",
@@ -1126,10 +1320,10 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
                 {summaryStagedCount} file{summaryStagedCount !== 1 ? "s" : ""}
               </span>
               {summaryTotals.add > 0 && (
-                <span style={{ color: TOK.add }}>+{summaryTotals.add}</span>
+                <span style={{ color: ink.add, fontVariantNumeric: "tabular-nums" }}>+{summaryTotals.add}</span>
               )}
               {summaryTotals.del > 0 && (
-                <span style={{ color: TOK.del }}>−{summaryTotals.del}</span>
+                <span style={{ color: ink.del, fontVariantNumeric: "tabular-nums" }}>−{summaryTotals.del}</span>
               )}
             </span>
           </div>
@@ -1141,7 +1335,7 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
         style={{
           padding: "12px 20px",
           borderTop: `1px solid ${TOK.bd.sub}`,
-          background: "var(--glass-card)",
+          background: flat ? "transparent" : "var(--glass-card)",
           display: "flex",
           alignItems: "center",
           gap: 10,
@@ -1153,7 +1347,8 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
             type="button"
             onClick={() => void openCommitOnGithub()}
             aria-label="View commit on GitHub"
-            style={{ ...glassBtn, padding: "8px 14px" }}
+            className={flat ? "fx-quiet" : undefined}
+            style={flat ? quietBtnLg : { ...glassBtn, padding: "8px 14px" }}
           >
             <ExternalLink size={12} />
             View commit
@@ -1163,7 +1358,8 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
         )}
         <button
           onClick={handleClose}
-          style={{ ...glassBtn, padding: "8px 14px" }}
+          className={flat ? "fx-quiet" : undefined}
+          style={flat ? quietBtnLg : { ...glassBtn, padding: "8px 14px" }}
         >
           Close
         </button>
@@ -1175,17 +1371,21 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
     <div style={{ padding: "24px 20px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            background: "rgba(239,68,68,0.14)",
-            border: "1px solid rgba(239,68,68,0.30)",
-            color: TOK.del,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          style={
+            flat
+              ? iconTile("red")
+              : {
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: "rgba(239,68,68,0.14)",
+                  border: "1px solid rgba(239,68,68,0.30)",
+                  color: TOK.del,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }
+          }
         >
           <X size={18} />
         </div>
@@ -1202,20 +1402,28 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            ...(flat ? flatCloseBtn : {}),
           }}
         >
           <X size={13} />
         </button>
       </div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>
+      <div
+        className={flat ? "ui-title-d" : undefined}
+        style={
+          flat
+            ? { color: "var(--text-primary)", marginBottom: 10 }
+            : { fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }
+        }
+      >
         Something went wrong
       </div>
       <div
         style={{
           padding: "10px 12px",
-          borderRadius: 8,
-          border: "1px solid rgba(239,68,68,0.30)",
-          background: "rgba(239,68,68,0.08)",
+          borderRadius: flat ? 10 : 8,
+          border: flat ? "1px solid transparent" : "1px solid rgba(239,68,68,0.30)",
+          background: flat ? "var(--ui-red-soft)" : "rgba(239,68,68,0.08)",
           color: TOK.del,
           fontSize: 12,
           fontFamily: "var(--font-mono, monospace)",
@@ -1229,13 +1437,23 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
       <div style={{ display: "flex", gap: 8 }}>
         <button
           onClick={backToForm}
-          style={{ ...glassBtn, flex: 1, justifyContent: "center", padding: "10px 14px" }}
+          className={flat ? "fx-quiet" : undefined}
+          style={
+            flat
+              ? { ...quietBtnLg, flex: 1, justifyContent: "center" }
+              : { ...glassBtn, flex: 1, justifyContent: "center", padding: "10px 14px" }
+          }
         >
           Back
         </button>
         <button
           onClick={handleClose}
-          style={{ ...glassBtn, flex: 1, justifyContent: "center", padding: "10px 14px" }}
+          className={flat ? "fx-quiet" : undefined}
+          style={
+            flat
+              ? { ...quietBtnLg, flex: 1, justifyContent: "center" }
+              : { ...glassBtn, flex: 1, justifyContent: "center", padding: "10px 14px" }
+          }
         >
           Close
         </button>
@@ -1275,8 +1493,8 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
             left: overlayLeft,
             zIndex: 100,
             background: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(6px)",
-            WebkitBackdropFilter: "blur(6px)",
+            backdropFilter: flat ? "none" : "blur(6px)",
+            WebkitBackdropFilter: flat ? "none" : "blur(6px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1296,8 +1514,8 @@ export function CommitDialog({ open, onClose, workDir, hideCreatePrButton = fals
               width: "min(720px, 92vw)",
               maxHeight: "86vh",
               background: "var(--surface-commit-dialog)",
-              backdropFilter: "blur(24px) saturate(140%)",
-              WebkitBackdropFilter: "blur(24px) saturate(140%)",
+              backdropFilter: flat ? "none" : "blur(24px) saturate(140%)",
+              WebkitBackdropFilter: flat ? "none" : "blur(24px) saturate(140%)",
               border: `1px solid ${TOK.bd.def}`,
               borderRadius: 20,
               boxShadow:

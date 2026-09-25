@@ -638,3 +638,20 @@ describe("terminals: slate surface and shell panel chrome (Flat)", () => {
     }
   });
 });
+
+describe("commit dialog tokens (Flat)", () => {
+  const F = 'html[data-surface="flat"]';
+  it.each([
+    ["--commit-fg-pri", "var(--text-primary)"],
+    ["--commit-fg-sec", "var(--text-secondary)"],
+    ["--commit-fg-ter", "var(--text-tertiary)"],
+    ["--commit-fg-mut", "var(--text-muted)"],
+    ["--commit-fg-sub", "var(--ui-rule-2)"],
+    ["--commit-bd-sub", "var(--ui-rule)"],
+    ["--commit-bd-def", "var(--ui-rule-2)"],
+    ["--commit-bd-str", "var(--ui-rule-2)"],
+  ])("maps %s to the slate scale, covering the light-mode token", (token, value) => {
+    expect(decl(index, 'html[data-mode="light"]', token)).not.toBe("");
+    expect(decl(unified, F, token)).toBe(value);
+  });
+});

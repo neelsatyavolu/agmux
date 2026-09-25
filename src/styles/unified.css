@@ -54,6 +54,16 @@ html[data-surface="flat"] {
   --surface-popover-arrow: var(--ui-panel);
   --surface-code-panel: var(--ui-code);
   --surface-commit-dialog: var(--ui-panel);
+  /* Commit dialog ink + hairlines on the slate scale (ties the light-mode
+     block in index.css and wins on order). */
+  --commit-fg-pri: var(--text-primary);
+  --commit-fg-sec: var(--text-secondary);
+  --commit-fg-ter: var(--text-tertiary);
+  --commit-fg-mut: var(--text-muted);
+  --commit-fg-sub: var(--ui-rule-2);
+  --commit-bd-sub: var(--ui-rule);
+  --commit-bd-def: var(--ui-rule-2);
+  --commit-bd-str: var(--ui-rule-2);
   --surface-modal: var(--ui-panel);
   --surface-tab-inactive: var(--ui-sidebar);
   /* M4: this used to be --ui-panel (lighter than the active tab's canvas
