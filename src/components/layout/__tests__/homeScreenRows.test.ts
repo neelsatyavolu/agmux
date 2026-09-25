@@ -212,6 +212,16 @@ describe("toTimestamp", () => {
     );
   });
 
+  it("respects RFC 3339 offsets with a colon", () => {
+    // Kimi session times arrive as chrono's to_rfc3339(): "+00:00".
+    expect(toTimestamp("2026-04-22T10:00:00.123456789+00:00")).toBe(
+      toTimestamp("2026-04-22T10:00:00.123Z")
+    );
+    expect(toTimestamp("2026-04-22T12:00:00+02:00")).toBe(
+      toTimestamp("2026-04-22 10:00:00")
+    );
+  });
+
   it("returns 0 for null/undefined/invalid", () => {
     expect(toTimestamp(null)).toBe(0);
     expect(toTimestamp(undefined)).toBe(0);

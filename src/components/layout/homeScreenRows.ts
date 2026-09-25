@@ -132,7 +132,7 @@ export function homeRowLimits(availableHeight: number): {
 export function toTimestamp(value: string | number | undefined | null): number {
   if (value == null) return 0;
   if (typeof value === "string") {
-    const normalized = /[Z+\-]\d{0,4}$/.test(value) ? value : value + "Z";
+    const normalized = /[Z+\-]\d{0,4}$|[+\-]\d{2}:\d{2}$/.test(value) ? value : value + "Z";
     const d = new Date(normalized);
     return isNaN(d.getTime()) ? 0 : d.getTime();
   }

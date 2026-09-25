@@ -72,6 +72,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Terminal session names** — Using the arrow keys while typing in a Codex terminal no longer puts stray characters like "[D" into the session's name, and text you clear with Ctrl+C in a Claude terminal no longer ends up in it.
 - **Claude terminal stays "working" after you decline** — After using /clear or /resume in a Claude terminal, declining a permission request left the session showing as working. It now goes idle.
 - **Claude terminals on Home** — Claude terminals you started in agmux now show their name on Home (including names you gave them), and opening one from Home returns to that terminal instead of starting a second copy of the session.
+- **Kimi sessions sort by when you used them** — Kimi sessions in the sidebar and on Home showed no time and sank to the bottom of the list. They now show when they were last active and sort with everything else.
 
 ## v4.2.0 — 2026-09-23
 

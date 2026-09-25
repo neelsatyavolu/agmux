@@ -244,7 +244,7 @@ function toTimestamp(value: string | number | undefined | null): number {
   if (typeof value === "string") {
     // SQLite datetime('now') returns UTC without timezone suffix —
     // append Z so JS doesn't misparse it as local time.
-    const normalized = /[Z+\-]\d{0,4}$/.test(value) ? value : value + "Z";
+    const normalized = /[Z+\-]\d{0,4}$|[+\-]\d{2}:\d{2}$/.test(value) ? value : value + "Z";
     const d = new Date(normalized);
     return isNaN(d.getTime()) ? 0 : d.getTime();
   }
