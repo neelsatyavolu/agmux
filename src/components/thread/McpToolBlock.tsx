@@ -70,7 +70,7 @@ export function McpToolBlock({
         className={`flex w-full items-center gap-2 px-3 py-2 text-left${hasBody ? " cursor-pointer" : ""}`}
       >
         <div className="flex-1 min-w-0 flex items-center gap-2 text-xs truncate">
-          <span className="shrink-0 font-mono font-medium text-violet-400">MCP</span>
+          <span className="shrink-0 font-medium text-violet-400">MCP</span>
           <span className="shrink-0 text-zinc-600">·</span>
           <span className="truncate font-mono text-zinc-400">{displayName}</span>
           {isPending && resultText && (
@@ -106,7 +106,7 @@ export function McpToolBlock({
         <div className="border-t border-white/5 px-3 py-2.5 space-y-2">
           {argsText && (
             <div>
-              <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Arguments</div>
+              <div className="ui-eyebrow text-zinc-500 mb-1">Arguments</div>
               <pre className="overflow-x-auto rounded-[7px] border border-white/[0.06] bg-black/40 p-2.5 text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-5">
                 {argsText}
               </pre>
@@ -114,7 +114,7 @@ export function McpToolBlock({
           )}
           {resultText && (
             <div>
-              <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Result</div>
+              <div className="ui-eyebrow text-zinc-500 mb-1">Result</div>
               <pre className="overflow-x-auto rounded-[7px] border border-white/[0.06] bg-black/40 p-2.5 text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-5">
                 {resultText}
               </pre>
@@ -122,7 +122,7 @@ export function McpToolBlock({
           )}
           {errorMessage && (
             <div>
-              <div className="text-[10px] uppercase tracking-wide text-red-400 mb-1">Error</div>
+              <div className="ui-eyebrow text-red-400 mb-1 fx-red">Error</div>
               <pre className="overflow-x-auto rounded-[7px] border border-red-500/20 bg-red-500/5 p-2.5 text-xs font-mono text-red-300 whitespace-pre-wrap leading-5">
                 {errorMessage}
               </pre>

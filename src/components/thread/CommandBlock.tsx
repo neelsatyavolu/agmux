@@ -35,7 +35,7 @@ export function CommandBlock({ commandName, output, exitCode }: CommandBlockProp
         className={`flex w-full items-center gap-2 px-3 py-2 text-left${hasOutput ? " cursor-pointer" : ""}`}
       >
         <div className="flex-1 min-w-0 flex items-center gap-2 text-xs truncate">
-          <span className="shrink-0 font-mono font-medium text-[color:var(--accent)]">Bash</span>
+          <span className="shrink-0 font-medium text-[color:var(--accent)]">Bash</span>
           <span className="shrink-0 text-zinc-600">·</span>
           {commandName ? (
             <span className="truncate font-mono text-zinc-400">{commandName}</span>
@@ -66,7 +66,7 @@ export function CommandBlock({ commandName, output, exitCode }: CommandBlockProp
       {/* Expanded body — matches ToolUseBlock expandable body */}
       {expanded && hasOutput && (
         <div className="border-t border-white/5 px-3 py-2.5">
-          <pre className="overflow-x-auto rounded-[7px] border border-white/[0.06] bg-black/40 p-2.5 text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-5">
+          <pre className="overflow-x-auto rounded-[7px] border border-white/[0.06] bg-black/40 fx-code p-2.5 text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-5">
             {outputLines.join("\n")}
           </pre>
         </div>

@@ -103,8 +103,8 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center p-6">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-b from-[var(--surface-popover-gradient-from)] to-[var(--surface-popover-gradient-to)] shadow-2xl shadow-black/50 backdrop-blur-xl animate-glass-in">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm fx-scrim" />
+      <div className="relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-[20px] border border-blue-500/20 bg-gradient-to-b from-[var(--surface-popover-gradient-from)] to-[var(--surface-popover-gradient-to)] shadow-2xl shadow-black/50 backdrop-blur-xl animate-glass-in fx-dialog">
         <div className="flex items-center gap-2 border-b border-white/[0.06] px-5 py-3.5 text-blue-400">
           <HelpCircle size={16} />
           <span className="text-sm font-semibold">
@@ -120,7 +120,7 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
             return (
               <div key={i} className="space-y-2">
                 {q.header && (
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-400/70">
+                  <p className="ui-eyebrow font-semibold text-blue-400/70">
                     {q.header}
                   </p>
                 )}
@@ -138,7 +138,7 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
                     onChange={(e) => update(i, { otherText: e.target.value })}
                     placeholder="Type your answer..."
                     autoFocus={i === 0}
-                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-blue-400/60 focus:bg-white/[0.06]"
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-blue-400/60 focus:bg-white/[0.06] fx-input"
                   />
                 ) : (
                   <div className="space-y-1.5">
@@ -151,7 +151,7 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
                           onClick={() => toggleOption(i, opt.label, multi)}
                           className={`flex w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors ${
                             selected
-                              ? "border-blue-500/60 bg-blue-500/15"
+                              ? "border-blue-500/60 bg-blue-500/15 fx-press"
                               : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.08]"
                           }`}
                         >
@@ -190,7 +190,7 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
                       onClick={() => toggleOther(i, multi)}
                       className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors ${
                         s.otherOn
-                          ? "border-blue-500/60 bg-blue-500/15"
+                          ? "border-blue-500/60 bg-blue-500/15 fx-press"
                           : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.08]"
                       }`}
                     >
@@ -212,7 +212,7 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
                         onChange={(e) => update(i, { otherText: e.target.value })}
                         placeholder="Type your answer..."
                         autoFocus
-                        className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-blue-400/60 focus:bg-white/[0.06]"
+                        className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-blue-400/60 focus:bg-white/[0.06] fx-input"
                       />
                     )}
                   </div>
@@ -234,7 +234,7 @@ export function AskUserQuestionDialog({ questions, onSubmit, onCancel }: Props) 
             type="button"
             onClick={submit}
             disabled={!allAnswered}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50 fx-accent"
           >
             <Send size={12} />
             Submit

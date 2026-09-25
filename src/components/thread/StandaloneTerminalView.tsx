@@ -668,7 +668,7 @@ export function StandaloneTerminalView({
   return (
     <div
       ref={wrapperRef}
-      className={`relative h-full w-full min-w-0 overflow-hidden ${isLight ? "bg-white" : "bg-black"}`}
+      className={`relative h-full w-full min-w-0 overflow-hidden fx-term ${isLight ? "bg-white" : "bg-black"}`}
     >
       <div
         className="absolute inset-0 overflow-hidden pl-3 pr-0 pt-1"

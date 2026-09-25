@@ -57,21 +57,21 @@ export function SubagentActivityCards({ children }: { children: ReactNode }) {
     </button>;
   };
   return <>
-    <button type="button" className="subagent-overview-rail" aria-label={`Show tasks and ${active.length} active subagents`} onClick={() => inspector.setOverviewExpanded(true)}><Bot size={14} /><span>Subagents</span><span className="font-mono text-[10px]">{active.length} active</span></button>
+    <button type="button" className="subagent-overview-rail" aria-label={`Show tasks and ${active.length} active subagents`} onClick={() => inspector.setOverviewExpanded(true)}><Bot size={14} /><span>Subagents</span><span className="tabular-nums text-[10px]">{active.length} active</span></button>
     <div className="subagent-activity-stack flex min-h-0 flex-col gap-3">
       <button type="button" className="subagent-overview-close ml-auto text-[11px] text-[var(--text-tertiary)]" onClick={() => inspector.setOverviewExpanded(false)}>Collapse activity</button>
       {tasks}
       <aside className="chat-activity-card flex min-h-0 shrink-0 flex-col overflow-hidden rounded-[14px]" aria-label="Subagents">
         <header className="flex items-center gap-2 border-b border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
           <Bot size={14} className="text-violet-400" /><span className="text-[12.5px] font-medium text-[var(--text-primary)]">Subagents</span>
-          <span className="rounded-full border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] text-[var(--text-tertiary)]">{active.length} active</span>
+          <span className="rounded-full border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 tabular-nums text-[10px] text-[var(--text-tertiary)]">{active.length} active</span>
           <button type="button" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand subagents" : "Collapse subagents"} aria-expanded={!collapsed} className="ml-auto rounded p-1 text-[var(--text-muted)] hover:bg-white/5">{collapsed ? <PanelRightOpen size={13} /> : <PanelRightClose size={13} />}</button>
         </header>
         {!collapsed && <>
           <div className="max-h-[360px] overflow-y-auto p-2">
-            {active.length > 0 ? <><div className="flex justify-between px-2 py-1.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)]"><span>Active agents</span><span>{active.length}</span></div>{active.map(row)}</> : <p className="flex items-center justify-center gap-2 px-3 py-5 text-xs text-[var(--text-tertiary)]"><Check size={14} className="text-green-400" />All subagents finished</p>}
+            {active.length > 0 ? <><div className="flex justify-between px-2 py-1.5 ui-eyebrow text-[var(--text-muted)]"><span>Active agents</span><span>{active.length}</span></div>{active.map(row)}</> : <p className="flex items-center justify-center gap-2 px-3 py-5 text-xs text-[var(--text-tertiary)]"><Check size={14} className="text-green-400" />All subagents finished</p>}
             {finished.length > 0 && <div className="mt-1 border-t border-white/[0.05] pt-1">
-              <button type="button" onClick={() => setShowCompleted((value) => !value)} aria-expanded={showCompleted} className="flex w-full items-center gap-1.5 rounded px-2 py-2 text-[10.5px] text-[var(--text-tertiary)] hover:bg-white/[0.03]">{showCompleted ? <ChevronDown size={12} /> : <ChevronRight size={12} />}<span>{finished.some((entry) => statusOf(entry) === "failed") ? "Finished" : "Completed"}</span><span className="font-mono text-[10px] text-[var(--text-muted)]">{finished.length}</span></button>
+              <button type="button" onClick={() => setShowCompleted((value) => !value)} aria-expanded={showCompleted} className="flex w-full items-center gap-1.5 rounded px-2 py-2 text-[10.5px] text-[var(--text-tertiary)] hover:bg-white/[0.03]">{showCompleted ? <ChevronDown size={12} /> : <ChevronRight size={12} />}<span>{finished.some((entry) => statusOf(entry) === "failed") ? "Finished" : "Completed"}</span><span className="tabular-nums text-[10px] text-[var(--text-muted)]">{finished.length}</span></button>
               {showCompleted && finished.map(row)}
             </div>}
           </div>

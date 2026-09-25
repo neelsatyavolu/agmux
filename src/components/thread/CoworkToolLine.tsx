@@ -349,6 +349,25 @@ function coworkSubject(
   return truncate(name.replace(/_/g, " "), 40);
 }
 
+/**
+ * Whether the subject text is machine text (mono) or prose (sans).
+ * Mono: shell commands, search/glob patterns, fetch URLs, full file paths.
+ * Sans: web search queries, agent/subagent text, descriptions, questions.
+ */
+function coworkSubjectMono(name: string, input: Record<string, unknown>): boolean {
+  if (isBash(name)) {
+    // coworkSubject prefers the (prose) description when present, falling
+    // back to the raw command — mono only applies to the command fallback.
+    const desc = typeof input.description === "string" ? input.description : "";
+    const cmd = typeof input.command === "string" ? input.command : "";
+    return !desc && !!cmd;
+  }
+  if (isRead(name) || isWrite(name) || isEdit(name)) return true;
+  if (name === "Glob" || name === "glob" || name === "Grep" || name === "grep") return true;
+  if (isFetch(name)) return true;
+  return false;
+}
+
 function coworkIcon(name: string, pending: boolean): ReactNode {
   const cls = pending ? "text-amber-400" : "text-[var(--text-tertiary)]";
   if (isBash(name)) return <Terminal size={13} className={cls} />;
@@ -397,6 +416,7 @@ export const CoworkToolLine = memo(function CoworkToolLine({
 
   const lead = useMemo(() => coworkLead(name, pending, input), [name, pending, input]);
   const subject = useMemo(() => coworkSubject(name, input, workDir), [name, input, workDir]);
+  const subjectMono = useMemo(() => coworkSubjectMono(name, input), [name, input]);
   const icon = useMemo(() => coworkIcon(name, pending), [name, pending]);
 
   const status: CodexRowStatus = pending
@@ -444,7 +464,7 @@ export const CoworkToolLine = memo(function CoworkToolLine({
           // target ("University of Minnesota…") reads as the primary clause.
           leadClassName="text-[var(--text-muted)]"
           subject={subject}
-          subjectMono={false}
+          subjectMono={subjectMono}
           subjectClassName={
             result?.isError
               ? "text-red-400"

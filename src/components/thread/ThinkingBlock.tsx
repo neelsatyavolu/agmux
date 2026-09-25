@@ -35,7 +35,7 @@ export function ThinkingBlock({ thinking, onExpand, elapsed, streaming }: Thinki
       <div data-testid="thinking-block" data-streaming="true">
         <CodexThinkRow content="" streaming open={false} onToggle={() => {}} />
         {elapsed ? (
-          <div className="mb-1 ml-[23px] font-mono text-[10px] text-[var(--text-muted)]">{elapsed}</div>
+          <div className="mb-1 ml-[23px] text-[13px] text-[var(--text-muted)]">{elapsed}</div>
         ) : null}
       </div>
     );
@@ -55,7 +55,7 @@ export function ThinkingBlock({ thinking, onExpand, elapsed, streaming }: Thinki
       />
       {/* Collapsed: header only (no preview). Expanded body lives in CodexThinkRow. */}
       {elapsed && (
-        <div className="mb-1 ml-[23px] font-mono text-[10px] text-[var(--text-muted)]">{elapsed}</div>
+        <div className="mb-1 ml-[23px] text-[13px] text-[var(--text-muted)]">{elapsed}</div>
       )}
     </div>
   );

@@ -56,12 +56,12 @@ export function FilesChangedCard({ files, failed, userMessageId, sessionId }: Pr
       : `${chipBase} text-zinc-400 bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]`;
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
+    <div className="rounded-[14px] border border-white/[0.06] bg-white/[0.025] px-3 py-2.5 fx-card">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[11px] font-medium text-zinc-400">
+        <span className="text-[13.5px] font-semibold text-zinc-400 fx-ink">
           Files changed
         </span>
-        <span className="text-[10px] font-mono text-zinc-600">
+        <span className="text-[10px] text-zinc-600 tabular-nums">
           {files.length} file{files.length !== 1 ? "s" : ""}
           {failed.length > 0 ? ` · ${failed.length} failed` : ""}
         </span>

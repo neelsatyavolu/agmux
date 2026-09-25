@@ -155,7 +155,7 @@ function ToolDetail({
       const fileName = filePath.split("/").pop() ?? filePath;
       const dirPath = formatted.slice(0, formatted.lastIndexOf("/"));
       return (
-        <div className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
+        <div className="mt-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 fx-code fx-ring">
           <div className="flex items-start gap-2.5">
             <FileText size={14} className="mt-0.5 shrink-0 text-blue-400" />
             <div className="min-w-0">
@@ -176,7 +176,7 @@ function ToolDetail({
       const command = cmdMatch[1].replace(/\\"/g, '"');
       const truncated = command.length > 300 ? command.slice(0, 300) + "…" : command;
       return (
-        <div className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
+        <div className="mt-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 fx-code fx-ring">
           <div className="flex items-start gap-2.5">
             <Terminal size={14} className="mt-0.5 shrink-0 text-green-400" />
             <code className="text-xs text-zinc-200 break-all leading-relaxed">{truncated}</code>
@@ -186,7 +186,7 @@ function ToolDetail({
     }
 
     return (
-      <p className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-xs font-mono text-zinc-300 leading-relaxed break-all">
+      <p className="mt-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-xs font-mono text-zinc-300 leading-relaxed break-all fx-code fx-ring">
         {detail}
       </p>
     );
@@ -215,7 +215,7 @@ function ToolDetail({
   const prompt = typeof parsed.prompt === "string" ? parsed.prompt : null;
   const description = typeof parsed.description === "string" ? parsed.description : null;
 
-  const box = "mt-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2.5";
+  const box = "mt-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 fx-code fx-ring";
 
   // ── Edit: render real diff when we have old + new strings ──
   const lowerTool = (toolName ?? "").toLowerCase();
@@ -410,7 +410,7 @@ export function ApprovalBanner({
       }
       return (
         <div className="approval-card mx-3 my-2 flex items-center gap-3.5 rounded-[10px] border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3 animate-pulse-border">
-          <div className="approval-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
+          <div className="approval-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
             <AlertTriangle size={14} strokeWidth={2} />
           </div>
           <div className="min-w-0 flex-1">
@@ -437,8 +437,8 @@ export function ApprovalBanner({
             </span>
           )}
           <div className="flex shrink-0 items-center gap-1.5">
-            <GlassButton variant="primary" onClick={onReject}>
-              Deny <span className="font-mono text-[10px] opacity-70">⌘⌫</span>
+            <GlassButton variant="primary" size="lg" onClick={onReject}>
+              Deny <span className="ui-kbd opacity-70">⌘⌫</span>
             </GlassButton>
             {hasPatternMenu ? (
               <AllowPatternsMenu patterns={allowPatterns!} onPick={onAllowPattern!} />
@@ -447,14 +447,14 @@ export function ApprovalBanner({
                 <button
                   onClick={onAllowForSession}
                   title="Auto-approve this tool for all sessions in this project"
-                  className="inline-flex items-center gap-1.5 rounded-[7px] border border-blue-400/30 bg-blue-400/[0.08] px-3 py-[5px] text-xs font-medium text-blue-400 transition-colors duration-200 hover:bg-blue-400/[0.14] hover:border-blue-400/45"
+                  className="inline-flex items-center gap-1.5 rounded-[7px] border border-blue-400/30 bg-blue-400/[0.08] px-3 py-[5px] text-xs font-medium text-blue-400 transition-colors duration-200 hover:bg-blue-400/[0.14] hover:border-blue-400/45 fx-quiet"
                 >
                   Allow for Project
                 </button>
               )
             )}
-            <GlassButton variant="accent" className="approval-accept" onClick={onApprove}>
-              Accept <span className="font-mono text-[10px] opacity-70">⌘⏎</span>
+            <GlassButton variant="accent" size="lg" className="approval-accept" onClick={onApprove}>
+              Accept <span className="ui-kbd opacity-70">⌘⏎</span>
             </GlassButton>
           </div>
         </div>
@@ -464,11 +464,11 @@ export function ApprovalBanner({
     // ── Dialog variant — same visual language as the inline banner, wrapped as a modal ──
     return (
       <div className="absolute inset-0 z-40 flex items-center justify-center p-6">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm fx-scrim" />
         <div className="approval-card relative w-full max-w-2xl rounded-[10px] border border-amber-500/25 bg-amber-500/[0.08] shadow-2xl shadow-black/50 backdrop-blur-xl animate-glass-in">
           {/* Header row — mirrors the inline banner layout */}
           <div className="flex items-center gap-3.5 px-4 py-3.5">
-            <div className="approval-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
+            <div className="approval-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
               <AlertTriangle size={14} strokeWidth={2} />
             </div>
             <div className="min-w-0 flex-1">
@@ -496,8 +496,8 @@ export function ApprovalBanner({
             )}
             {!timedOut && (
               <div className="flex shrink-0 items-center gap-1.5">
-                <GlassButton variant="primary" onClick={onReject}>
-                  Deny <span className="font-mono text-[10px] opacity-70">⌘⌫</span>
+                <GlassButton variant="primary" size="lg" onClick={onReject}>
+                  Deny <span className="ui-kbd opacity-70">⌘⌫</span>
                 </GlassButton>
                 {hasPatternMenu ? (
                   <AllowPatternsMenu patterns={allowPatterns!} onPick={onAllowPattern!} />
@@ -506,14 +506,14 @@ export function ApprovalBanner({
                     <button
                       onClick={onAllowForSession}
                       title="Auto-approve this tool for all sessions in this project"
-                      className="inline-flex items-center gap-1.5 rounded-[7px] border border-blue-400/30 bg-blue-400/[0.08] px-3 py-[5px] text-xs font-medium text-blue-400 hover:bg-blue-400/[0.14] transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-[7px] border border-blue-400/30 bg-blue-400/[0.08] px-3 py-[5px] text-xs font-medium text-blue-400 hover:bg-blue-400/[0.14] transition-colors fx-quiet"
                     >
                       Allow for Project
                     </button>
                   )
                 )}
-                <GlassButton variant="accent" className="approval-accept" onClick={onApprove}>
-                  Accept <span className="font-mono text-[10px] opacity-70">⌘⏎</span>
+                <GlassButton variant="accent" size="lg" className="approval-accept" onClick={onApprove}>
+                  Accept <span className="ui-kbd opacity-70">⌘⏎</span>
                 </GlassButton>
               </div>
             )}
@@ -587,8 +587,8 @@ export function ApprovalBanner({
   if (variant === "dialog") {
     return (
       <div className="absolute inset-0 z-40 flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-        <div className="relative w-full max-w-md rounded-2xl border border-blue-500/20 bg-zinc-900/95 p-5 shadow-2xl shadow-black/50 backdrop-blur-xl animate-glass-in">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm fx-scrim" />
+        <div className="relative w-full max-w-md rounded-[20px] border border-blue-500/20 bg-zinc-900/95 p-5 shadow-2xl shadow-black/50 backdrop-blur-xl animate-glass-in fx-dialog">
           <div className="mb-3 flex items-center gap-2 text-blue-400">
             <Send size={16} />
             <span className="text-sm font-semibold">Input Required</span>

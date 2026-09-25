@@ -58,7 +58,7 @@ export function SlashCommandPopup({ commands, activeIndex, provider, onSelect }:
       <div className="flex items-center gap-1.5 border-b border-white/5 bg-white/[0.02] px-3 py-2">
         <Hash size={11} className="text-zinc-400" />
         <span className="text-xs text-zinc-400 font-medium">Slash commands</span>
-        <span className="ml-auto text-xs text-zinc-500">Esc to close</span>
+        <span className="ml-auto text-xs text-zinc-500"><span className="ui-kbd">Esc</span> to close</span>
       </div>
       <div className="flex">
         {/* Command list */}
@@ -74,7 +74,7 @@ export function SlashCommandPopup({ commands, activeIndex, provider, onSelect }:
                 aria-selected={isActive}
                 onClick={() => onSelect(cmd)}
                 className={`flex w-full items-start gap-3 px-3 py-2 text-left transition-colors ${
-                  isActive ? "bg-indigo-500/10" : "hover:bg-white/5"
+                  isActive ? "bg-indigo-500/10 fx-press" : "hover:bg-white/5"
                 }`}
               >
                 <Terminal

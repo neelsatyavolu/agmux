@@ -18,7 +18,7 @@ export function CodexUserInput({ questions, onSubmit }: {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
-    <form className="codex-glass max-h-[40vh] overflow-y-auto space-y-4 rounded-2xl border border-[var(--glass-border)] p-4 shadow-lg text-[var(--text-primary)] antialiased" onSubmit={async (event) => {
+    <form className="codex-glass max-h-[40vh] overflow-y-auto space-y-4 rounded-[20px] border border-[var(--glass-border)] p-4 shadow-lg text-[var(--text-primary)] antialiased fx-dialog" onSubmit={async (event) => {
       event.preventDefault();
       if (sending || questions.some((q) => !values[q.id]?.trim())) return;
       setSending(true);
@@ -37,20 +37,20 @@ export function CodexUserInput({ questions, onSubmit }: {
           <legend className="w-full text-sm leading-relaxed"><MarkdownContent content={q.question} /></legend>
           {q.options?.map((option) => (
             <button key={option.label} type="button" aria-pressed={values[q.id] === option.label}
-              className="flex w-full items-start gap-3 rounded-lg bg-[var(--surface-1)] text-left transition-colors hover:bg-[var(--surface-hover)] border border-[var(--glass-border)] px-3 py-2.5 text-sm aria-pressed:border-[var(--glass-border-strong)] aria-pressed:bg-[var(--surface-active)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--text-muted)]"
+              className={`flex w-full items-start gap-3 rounded-lg bg-[var(--surface-1)] text-left transition-colors hover:bg-[var(--surface-hover)] border border-[var(--glass-border)] px-3 py-2.5 text-sm aria-pressed:border-[var(--glass-border-strong)] aria-pressed:bg-[var(--surface-active)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--text-muted)]${values[q.id] === option.label ? " fx-press" : ""}`}
               onClick={() => setValues((prev) => ({ ...prev, [q.id]: option.label }))}>
               <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[var(--glass-border-strong)]" aria-hidden>{values[q.id] === option.label && <Check size={11} />}</span>
               <span>{option.label}{option.description && <span className="mt-0.5 block text-xs leading-relaxed text-[var(--text-muted)]">{option.description}</span>}</span>
             </button>
           ))}
           <input aria-label={q.question} value={values[q.id] ?? ""} placeholder="Type your answer…"
-            className="block w-full rounded-lg border border-[var(--glass-border)] bg-[var(--surface-1)] px-3 py-2 text-sm outline-none focus:border-[var(--text-muted)]"
+            className="block w-full rounded-lg border border-[var(--glass-border)] bg-[var(--surface-1)] px-3 py-2 text-sm outline-none focus:border-[var(--text-muted)] fx-input"
             onChange={(event) => setValues((prev) => ({ ...prev, [q.id]: event.target.value }))} />
         </fieldset>
       ))}
       {error && <p role="alert" className="text-sm">{error}</p>}
       <button type="submit" disabled={sending || questions.some((q) => !values[q.id]?.trim())}
-        className="rounded-lg bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--surface-popover)] transition-opacity hover:opacity-90 disabled:opacity-40">
+        className="rounded-lg bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--surface-popover)] transition-opacity hover:opacity-90 disabled:opacity-40 fx-accent">
         {sending ? "Sending…" : "Send answers"}
       </button>
     </form>

@@ -545,13 +545,14 @@ export function ThreadTopBar({
   const onToggleTerminal = sharedPanels?.onToggleTerminal ?? ownToggleTerminal;
   const terminalOpen = sharedPanels?.terminalOpen ?? ownTerminalOpen;
   const isLight = useResolvedColorMode();
+  const flat = (useSettingsStore((s) => s.settings.surfaceStyle) ?? "flat") === "flat";
   // Mode-aware palette. Dark values match the original design exactly so dark
   // mode is visually unchanged; light values use darker text and lighter
   // glass surfaces so the bar reads against a bright backdrop.
-  const textPrimary = isLight ? "#1a1a1a" : "#e4e4e7";
-  const textSecondary = isLight ? "#52525b" : "#a1a1aa";
-  const textMuted = isLight ? "#71717a" : "#71717a";
-  const textDivider = isLight ? "#a1a1aa" : "#3f3f46";
+  const textPrimary = flat ? "var(--text-primary)" : isLight ? "#1a1a1a" : "#e4e4e7";
+  const textSecondary = flat ? "var(--text-secondary)" : isLight ? "#52525b" : "#a1a1aa";
+  const textMuted = flat ? "var(--text-muted)" : isLight ? "#71717a" : "#71717a";
+  const textDivider = flat ? "var(--text-tertiary)" : isLight ? "#a1a1aa" : "#3f3f46";
   const chipBg = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
   const chipBgHover = isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)";
   const chipBorder = isLight ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.08)";
@@ -980,7 +981,6 @@ export function ThreadTopBar({
             className="flex items-center"
             style={{
               gap: 7,
-              fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
               fontSize: 12,
               minWidth: 0,
             }}
@@ -1019,7 +1019,12 @@ export function ThreadTopBar({
                   title={isWorktree ? `Worktree branch: ${branch}\nPath: ${workDir}` : branch}
                 >
                   <GitBranch size={11} style={{ flexShrink: 0 }} />
-                  <span className="truncate">{branch}</span>
+                  <span
+                    className="truncate"
+                    style={{ fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)" }}
+                  >
+                    {branch}
+                  </span>
                 </span>
               </>
             )}
@@ -1219,7 +1224,7 @@ export function ThreadTopBar({
                 />
               ) : (
                 <span
-                  className="flex shrink-0 items-center justify-center rounded-[4px] bg-zinc-800 font-mono text-[9px] font-bold text-zinc-200"
+                  className="flex shrink-0 items-center justify-center rounded-[4px] bg-zinc-800 font-mono text-[9px] font-bold text-zinc-200 fx-panel-2 fx-ink"
                   style={{ width: 16, height: 16 }}
                 >
                   C
@@ -1284,13 +1289,13 @@ export function ThreadTopBar({
               <span
                 style={{
                   marginLeft: 1,
-                  fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
                   fontSize: 10,
                   padding: "1px 5px",
                   borderRadius: 4,
                   background: "var(--accent-dim)",
                   color: "var(--accent)",
                   fontWeight: 500,
+                  fontVariantNumeric: "tabular-nums",
                 }}
               >
                 +{filesChanged}
@@ -1449,7 +1454,7 @@ export function ThreadTopBar({
             />
             {timelineToast && (
               <div
-                className="absolute right-0 top-full z-50 mt-10 whitespace-nowrap rounded-md border border-white/10 bg-zinc-900/95 px-2.5 py-1.5 text-[11px] text-zinc-300 shadow-lg"
+                className="absolute right-0 top-full z-50 mt-10 whitespace-nowrap rounded-md border border-white/10 bg-zinc-900/95 px-2.5 py-1.5 text-[11px] text-zinc-300 shadow-lg fx-dialog"
                 role="status"
               >
                 {timelineToast}

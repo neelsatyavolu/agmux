@@ -22,7 +22,7 @@ export function SubagentLaunchRow(props: SubagentReference & { flush?: boolean }
       aria-pressed={viewing}
       disabled={!inspector}
       onClick={() => inspector?.open(reference)}
-      className={`my-0.5 flex min-h-8 w-full min-w-0 items-center gap-[9px] rounded ${props.flush ? "px-0" : "px-1.5"} py-1 text-left font-mono text-[12.5px] leading-[1.6] transition-colors hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 ${viewing ? "bg-blue-400/[0.07] ring-1 ring-inset ring-blue-400/20" : ""}`}
+      className={`my-0.5 flex min-h-8 w-full min-w-0 items-center gap-[9px] rounded ${props.flush ? "px-0" : "px-1.5"} py-1 text-left text-[13.5px] font-semibold leading-[1.6] transition-colors hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 ${viewing ? "bg-blue-400/[0.07] ring-1 ring-inset ring-blue-400/20" : ""}`}
     >
       <Bot size={14} className="shrink-0 text-[var(--text-tertiary)]" />
       <span className="text-[var(--text-secondary)]">Launched</span>

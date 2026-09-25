@@ -44,7 +44,7 @@ export function FileMentionPopup({ entries, activeIndex, currentPath, isSearchMo
         <span className="text-xs text-zinc-400 font-medium">
           {isSearchMode ? "Search results" : currentPath ? `Files in ${currentPath}` : "Project files"}
         </span>
-        <span className="ml-auto text-xs text-zinc-500">Esc to close</span>
+        <span className="ml-auto text-xs text-zinc-500"><span className="ui-kbd">Esc</span> to close</span>
       </div>
       <div className="max-h-52 overflow-y-auto py-1">
         {entries.length === 0 ? (
@@ -61,7 +61,7 @@ export function FileMentionPopup({ entries, activeIndex, currentPath, isSearchMo
                 aria-selected={isActive}
                 onClick={() => onSelect(entry)}
                 className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
-                  isActive ? "bg-indigo-500/10" : "hover:bg-white/5"
+                  isActive ? "bg-indigo-500/10 fx-press" : "hover:bg-white/5"
                 }`}
               >
                 {entry.isDir ? (

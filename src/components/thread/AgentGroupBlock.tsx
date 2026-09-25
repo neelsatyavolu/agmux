@@ -49,7 +49,7 @@ export function AgentGroupBlock({ agents }: Props) {
 
   return (
     <div
-      className={`rounded-xl border transition-colors duration-200 ${
+      className={`rounded-[14px] border transition-colors duration-200 ${
         anyError
           ? "border-red-500/20 bg-red-500/[0.03]"
           : allDone
@@ -68,7 +68,7 @@ export function AgentGroupBlock({ agents }: Props) {
         <div className="flex-1 min-w-0 flex items-center gap-1.5 text-xs truncate">
           <span className="shrink-0 font-medium text-zinc-300">{headerLabel}</span>
           {commonType && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+            <span className="ui-chip sm border border-violet-500/20 bg-violet-500/10 text-violet-400 fx-soft-violet">
               <Bot size={10} />
               {commonType}
             </span>
@@ -76,11 +76,11 @@ export function AgentGroupBlock({ agents }: Props) {
         </div>
 
         <span
-          className={`shrink-0 flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium ${
+          className={`ui-chip sm shrink-0 border ${
             !allDone || bgRunningCount > 0
               ? bgRunningCount > 0
-                ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                ? "bg-blue-500/10 border-blue-500/20 text-blue-400 fx-soft-blue"
+                : "bg-amber-500/10 border-amber-500/20 text-amber-400 fx-soft-blue"
               : "bg-zinc-500/10 border-zinc-500/15 text-zinc-500"
           }`}
         >
@@ -163,7 +163,7 @@ function AgentMemberRow({
 
   return (
     <div
-      className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 ${
+      className={`flex items-center gap-2 rounded-[10px] border px-2.5 py-2 ${
         isError
           ? "border-red-500/20 bg-red-500/[0.03]"
           : pending
@@ -183,7 +183,7 @@ function AgentMemberRow({
         }
       />
       {agentType && (
-        <span className="inline-flex items-center rounded-full border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+        <span className="ui-chip sm border border-violet-500/20 bg-violet-500/10 text-violet-400 fx-soft-violet">
           {agentType}
         </span>
       )}
@@ -198,23 +198,23 @@ function AgentMemberRow({
             </span>
           )}
           {isBgRunning && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/25 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-400">
+            <span className="ui-chip sm border border-blue-500/25 bg-blue-500/10 text-blue-400 fx-soft-blue">
               <Loader2 size={9} className="animate-spin" />
               {backgroundTask?.lastToolName ?? "running"}
             </span>
           )}
           {bgStatus === "completed" && (
-            <span className="inline-flex items-center rounded-full border border-[color:var(--accent)]/25 bg-[var(--accent-dim)] px-1.5 py-0.5 text-[10px] font-medium text-[color:var(--accent)]">
+            <span className="ui-chip sm border border-[color:var(--accent)]/25 bg-[var(--accent-dim)] text-[color:var(--accent)] fx-soft-green">
               done
             </span>
           )}
           {bgStatus === "failed" && (
-            <span className="inline-flex items-center rounded-full border border-red-500/25 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+            <span className="ui-chip sm border border-red-500/25 bg-red-500/10 text-red-400 fx-soft-red">
               failed
             </span>
           )}
           {bgStatus === "stopped" && (
-            <span className="inline-flex items-center rounded-full border border-zinc-500/25 bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+            <span className="ui-chip sm border border-zinc-500/25 bg-zinc-500/10 text-zinc-400">
               stopped
             </span>
           )}
@@ -223,7 +223,7 @@ function AgentMemberRow({
 
       {/* Non-background: standard child tool count + status */}
       {!isBackground && childToolCount > 0 && (
-        <span className="shrink-0 text-[10px] text-zinc-500">
+        <span className="shrink-0 text-[10px] tabular-nums text-zinc-500">
           {childToolCount} tools
         </span>
       )}

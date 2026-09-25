@@ -58,9 +58,9 @@ export function TerminalTabBar() {
                 }
               }}
               className={[
-                "group flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors",
+                "group flex shrink-0 items-center gap-1.5 rounded-[7px] px-2.5 py-1 text-xs transition-colors",
                 isActive
-                  ? "bg-zinc-700/60 text-zinc-100"
+                  ? "bg-zinc-700/60 text-zinc-100 fx-panel fx-ring fx-ink"
                   : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-300",
               ].join(" ")}
               title={session.cwd}
@@ -98,7 +98,7 @@ export function TerminalTabBar() {
       </div>
       <button
         onClick={handleNew}
-        className="ml-auto flex shrink-0 items-center rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-700/60 hover:text-zinc-300"
+        className="ml-auto flex shrink-0 items-center rounded-[7px] p-1.5 text-zinc-500 transition-colors hover:bg-zinc-700/60 hover:text-zinc-300"
         title="New terminal"
       >
         <Plus size={13} />

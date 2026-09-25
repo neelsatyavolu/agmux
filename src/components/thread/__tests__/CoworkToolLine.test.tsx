@@ -27,8 +27,8 @@ describe("CoworkToolLine", () => {
     expect(lead.className).toMatch(/text-muted|text-\[var\(--text-muted\)\]/);
     const subject = screen.getByText(/notes\.md/);
     expect(subject.className).toMatch(/text-secondary|text-\[var\(--text-secondary\)\]/);
-    // Cowork renders the subject as the primary clause (sans), not mono.
-    expect(subject.className).not.toContain("font-mono");
+    // File paths are machine text — subject stays mono.
+    expect(subject.className).toContain("font-mono");
     expect(screen.queryByText("hide")).toBeNull();
     expect(screen.queryByText("output")).toBeNull();
 
@@ -109,6 +109,32 @@ describe("CoworkToolLine", () => {
     );
     expect(screen.getByText(/Updated Slack|Used Slack|Updating Slack/i)).toBeTruthy();
     expect(screen.queryByText(/"ok":\s*true/)).toBeNull();
+  });
+
+  it("subject mono follows tool kind: sans for prose, mono for commands/paths", () => {
+    // Prose kind — a web search query reads as a sentence, not machine text.
+    const { rerender } = render(
+      <CoworkToolLine
+        name="WebSearch"
+        toolId="ws1"
+        input={{ query: "best hiking trails near Boulder" }}
+        pending
+      />,
+    );
+    const querySubject = screen.getByText(/best hiking trails/);
+    expect(querySubject.className).not.toContain("font-mono");
+
+    // Command/path kind — a shell command (no description fallback) stays mono.
+    rerender(
+      <CoworkToolLine
+        name="Bash"
+        toolId="ws1"
+        input={{ command: "ls -la" }}
+        pending
+      />,
+    );
+    const commandSubject = screen.getByText("ls -la");
+    expect(commandSubject.className).toContain("font-mono");
   });
 
   it("humanizes ToolSearch select: queries and task tools", () => {

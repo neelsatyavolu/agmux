@@ -415,7 +415,7 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, toolId, input, re
         detail,
         detailMono: true,
         badges: count > 0 ? (
-          <span className="shrink-0 text-[10px] font-mono text-zinc-500">{count}</span>
+          <span className="shrink-0 text-[11px] ui-meta text-zinc-500">{count}</span>
         ) : null,
       };
     }
@@ -432,7 +432,7 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, toolId, input, re
         detailMono: true,
         filePath,
         badges: offset != null && limit != null ? (
-          <span className="shrink-0 text-[10px] font-mono text-zinc-500">{offset}–{offset + limit}</span>
+          <span className="shrink-0 text-[11px] ui-meta text-zinc-500">{offset}–{offset + limit}</span>
         ) : null,
       };
     }
@@ -467,7 +467,7 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, toolId, input, re
         detailMono: true,
         filePath: path === "." ? null : path,
         badges: includeHidden ? (
-          <span className="shrink-0 text-[10px] font-mono text-zinc-500">hidden</span>
+          <span className="shrink-0 text-[11px] ui-meta text-zinc-500">hidden</span>
         ) : null,
       };
     }
@@ -506,7 +506,7 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, toolId, input, re
         detail: shortenPath(path, workDir),
         detailMono: true,
         badges: staged ? (
-          <span className="shrink-0 text-[10px] font-mono text-zinc-500">staged</span>
+          <span className="shrink-0 text-[11px] ui-meta text-zinc-500">staged</span>
         ) : null,
       };
     }
@@ -550,7 +550,7 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, toolId, input, re
             ? inProgress.content
             : "Updated todo list";
         badges = (
-          <span className="shrink-0 text-[10px] font-mono text-zinc-500">
+          <span className="shrink-0 text-[11px] ui-meta text-zinc-500">
             {done}/{todos.length}
           </span>
         );
@@ -592,7 +592,7 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, toolId, input, re
         detail: truncate(pattern, 60),
         detailMono: true,
         badges: result && !result.isError ? (
-          <span className="shrink-0 font-mono text-[10px] text-zinc-500">{matchCount}</span>
+          <span className="shrink-0 ui-meta text-[11px] text-zinc-500">{matchCount}</span>
         ) : null,
       };
     }
@@ -915,7 +915,7 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, toolId, input, re
             deletions={fileDiffBlock.deletions}
           />
         ) : SpecializedRenderer ? (
-          <div className="ml-[23px] mb-2.5 mt-[3px] codex-panel overflow-hidden rounded-[9px]">
+          <div className="ml-[23px] mb-2.5 mt-[3px] codex-panel overflow-hidden rounded-[10px]">
             <SpecializedRenderer {...rendererProps} />
           </div>
         ) : (
