@@ -1130,3 +1130,6 @@ html[data-surface="flat"] .file-tree-row-active {
   border-left-color: transparent;
   color: var(--text-primary);
 }
+/* Context menu ring (mockup .menu: panel, rule-2 ring). Background already
+   resolves via the pre-existing --surface-popover -> --ui-panel indirection. */
+html[data-surface="flat"] .file-tree-context-menu { border-color: var(--ui-rule-2) !important; }

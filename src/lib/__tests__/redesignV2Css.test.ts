@@ -369,6 +369,7 @@ describe("Task 13: subagent cards, editor/file tree, settings sidebar", () => {
     [`${F} .file-tree-filter-input`, "border-color", "var(--ui-rule-2)"],
     [`${F} .file-tree-row-active`, "background", "var(--ui-press)"],
     [`${F} .file-tree-row-active`, "border-left-color", "transparent"],
+    [`${F} .file-tree-context-menu`, "border-color", "var(--ui-rule-2)"],
     [`${F} .settings-shell`, "background", "var(--ui-canvas)"],
     [`${F} .settings-sidebar`, "background", "var(--ui-sidebar)"],
     [`${F} .settings-sidebar`, "border-right-color", "var(--ui-rule)"],
