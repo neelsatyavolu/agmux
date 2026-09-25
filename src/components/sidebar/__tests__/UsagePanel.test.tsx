@@ -319,6 +319,27 @@ describe("UsagePanel managed account usage", () => {
       expect(screen.getByText(pct)).toBeTruthy();
   });
 
+  it("shows the real reset countdown for Codex epoch-second reset times", () => {
+    // Codex reports resetsAt as unix seconds; the backend passes it on as a numeric string.
+    const resetsAt = String(Math.floor(Date.now() / 1000) + 3 * 86_400 + 3_600);
+    vi.mocked(getPaceCell).mockImplementation((provider) => ({
+      data: {
+        session: null,
+        weekly: provider === "codex" ? {
+          utilization: 29, expectedUtilization: 0, delta: 0, paceStatus: "on_track",
+          resetsAt, windowMinutes: 10080, paceLabel: "On track",
+        } : null,
+      },
+      dataAt: Date.now(), error: null, errorAt: 0, rateLimited: false,
+    }));
+    accountUsage.data = null;
+    accountUsage.error = "Account service unavailable";
+    render(<UsagePanel />);
+    expect(screen.getByText("29%")).toBeTruthy();
+    expect(screen.getByText("· resets 3d")).toBeTruthy();
+    expect(screen.queryByText("· resets now")).toBeNull();
+  });
+
   it("opens agent account settings from the Accounts action", () => {
     render(<UsagePanel />);
     fireEvent.click(screen.getByRole("button", { name: "Accounts" }));

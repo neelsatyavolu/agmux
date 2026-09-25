@@ -254,7 +254,12 @@ function paceLabelWithDelta(w: PaceWindow): string {
 
 function formatCountdown(resetIso: string | null): string | null {
   if (!resetIso) return null;
-  const ms = new Date(resetIso).getTime() - Date.now();
+  // Codex/Grok report unix seconds (or ms) as a numeric string, not ISO.
+  const numeric = Number(resetIso);
+  const target = Number.isFinite(numeric) && numeric > 1_000_000_000
+    ? (numeric < 10_000_000_000 ? numeric * 1000 : numeric)
+    : new Date(resetIso).getTime();
+  const ms = target - Date.now();
   if (!Number.isFinite(ms) || ms <= 0) return "now";
   const hours = Math.floor(ms / 3_600_000);
   const mins = Math.floor((ms % 3_600_000) / 60_000);
