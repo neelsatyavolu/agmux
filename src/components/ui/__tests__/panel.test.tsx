@@ -21,11 +21,13 @@ describe("SectionEyebrow", () => {
     expect(screen.getByText("Durable memory")).toBeTruthy();
   });
 
-  it("uses the eyebrow type token", () => {
+  it("uses the eyebrow type token (M8: via the shared .ui-eyebrow class, not a duplicated inline size/tracking + color that could drift from it)", () => {
     const { container } = render(<SectionEyebrow label="X" />);
     const el = container.firstElementChild as HTMLElement;
-    expect(el.style.fontSize).toBe("var(--text-eyebrow)");
-    expect(el.style.letterSpacing).toBe("var(--panel-eyebrow-tracking)");
+    expect(el.className).toContain("ui-eyebrow");
+    expect(el.style.fontSize).toBe("");
+    expect(el.style.letterSpacing).toBe("");
+    expect(el.style.color).toBe("");
   });
 });
 

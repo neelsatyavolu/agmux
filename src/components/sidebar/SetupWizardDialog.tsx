@@ -129,10 +129,7 @@ function formatBytes(bytes: number): string {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p
-      className="mb-2 ui-eyebrow"
-      style={{ color: "var(--text-muted)" }}
-    >
+    <p className="mb-2 ui-eyebrow">
       {children}
     </p>
   );
@@ -434,10 +431,7 @@ function AppearanceStep({
                   </span>
                 </div>
                 {t.value === "midnight-glass" && (
-                  <span
-                    className="shrink-0 ui-eyebrow"
-                    style={{ color: "var(--text-muted)" }}
-                  >
+                  <span className="shrink-0 ui-eyebrow">
                     Default
                   </span>
                 )}

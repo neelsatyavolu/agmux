@@ -125,7 +125,7 @@ function Eyebrow({ children, right }: { children: React.ReactNode; right?: React
         padding: "14px 4px 8px",
       }}
     >
-      <div className="ui-eyebrow" style={{ color: TOK.fg.mut }}>
+      <div className="ui-eyebrow">
         {children}
       </div>
       {right}

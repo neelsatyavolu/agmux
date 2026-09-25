@@ -264,7 +264,7 @@ export function TeamsSyncSection() {
                     {["Hour (UTC)", "Provider", "Project", "Tokens", "Active", "Sessions"].map((h, i) => (
                       <th
                         key={h}
-                        className={`border-b border-white/[0.06] px-3 py-[7px] ui-eyebrow font-normal text-[var(--text-muted)] ${
+                        className={`border-b border-white/[0.06] px-3 py-[7px] ui-eyebrow ${
                           i < 3 ? "text-left" : "text-right"
                         }`}
                       >

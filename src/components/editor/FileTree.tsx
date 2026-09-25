@@ -732,10 +732,7 @@ function RenameDialog({
           }}
         >
           <Pencil size={13} style={{ color: "var(--status-blue)", flexShrink: 0 }} />
-          <div
-            className="ui-eyebrow"
-            style={{ color: "var(--status-blue)" }}
-          >
+          <div className="ui-eyebrow">
             Rename {isDirectory ? "Folder" : "File"}
           </div>
         </div>
@@ -834,10 +831,7 @@ function DeleteDialog({
         }}
       >
         <Trash2 size={13} style={{ color: "var(--status-red)", flexShrink: 0 }} />
-        <div
-          className="ui-eyebrow"
-          style={{ color: "var(--status-red)" }}
-        >
+        <div className="ui-eyebrow">
           Delete {isDirectory ? "Folder" : "File"}
         </div>
       </div>

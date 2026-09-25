@@ -1703,12 +1703,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
 
       {/* Layout switcher row */}
       <div className="hairline-b flex items-center gap-2 px-3 py-1.5">
-        <span
-          className="ui-eyebrow shrink-0"
-          style={{
-            color: "var(--text-muted)",
-          }}
-        >
+        <span className="ui-eyebrow shrink-0">
           Layout
         </span>
         <LayoutSwitcher value={diffLayout} onChange={setDiffLayout} />
@@ -1969,12 +1964,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
               background: "rgba(0,0,0,0.20)",
             }}
           >
-            <div
-              className="ui-eyebrow px-3 py-2"
-              style={{
-                color: "var(--text-muted)",
-              }}
-            >
+            <div className="ui-eyebrow px-3 py-2">
               Jump to
             </div>
             {allFiles.map((file, i) => {
