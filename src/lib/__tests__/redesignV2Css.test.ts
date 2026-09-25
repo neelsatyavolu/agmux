@@ -345,3 +345,70 @@ describe("final whole-branch review fixes", () => {
     );
   });
 });
+
+describe("Task 13: subagent cards, editor/file tree, settings sidebar", () => {
+  const F = 'html[data-surface="flat"]';
+
+  it.each([
+    [`${F} .chat-activity-card`, "background", "var(--ui-panel)"],
+    [`${F} .chat-activity-card`, "border-color", "transparent"],
+    [`${F} .chat-activity-card`, "box-shadow", "inset 0 0 0 1px var(--ui-rule), var(--ui-shadow-pop)"],
+    [`${F} .subagent-avatar-tile`, "background", "var(--ui-panel-2)"],
+    [`${F} .subagent-avatar-tile`, "color", "var(--text-secondary)"],
+    [`${F} .chat-tasks-rail-btn`, "background", "var(--ui-panel)"],
+    [`${F} .chat-tasks-rail-btn:hover`, "background", "var(--ui-hover)"],
+    [`${F} .subagent-launch-row[aria-pressed="true"]`, "background", "var(--ui-panel-2)"],
+    [`${F} .subagent-launch-row[aria-pressed="true"]`, "box-shadow", "inset 0 0 0 1px var(--ui-rule-2)"],
+    [`${F} .panel-bg`, "background", "var(--ui-canvas)"],
+    [`${F} .editor-panel-shell`, "border-color", "var(--ui-rule)"],
+    [`${F} .file-tree-panel`, "background", "var(--ui-canvas)"],
+    [`${F} .file-tree-header`, "background", "var(--ui-sidebar)"],
+    [`${F} .file-tree-header`, "border-bottom-color", "var(--ui-rule)"],
+    [`${F} .file-tree-filter-section`, "border-bottom-color", "var(--ui-rule)"],
+    [`${F} .file-tree-filter-input`, "background", "var(--ui-canvas)"],
+    [`${F} .file-tree-filter-input`, "border-color", "var(--ui-rule-2)"],
+    [`${F} .file-tree-row-active`, "background", "var(--ui-press)"],
+    [`${F} .file-tree-row-active`, "border-left-color", "transparent"],
+    [`${F} .settings-shell`, "background", "var(--ui-canvas)"],
+    [`${F} .settings-sidebar`, "background", "var(--ui-sidebar)"],
+    [`${F} .settings-sidebar`, "border-right-color", "var(--ui-rule)"],
+    [`${F} .settings-brand-divider`, "border-bottom-color", "var(--ui-rule)"],
+    [`${F} .settings-nav-item[data-active="true"] .settings-nav-icon`, "color", "var(--text-primary)"],
+  ])("%s %s -> %s", (sel, prop, value) => expect(decl(unified, sel, prop)).toBe(value));
+
+  it("chat-activity-card ties (later, equal specificity) the light-mode glass rule so Light + Flat resolves to the panel token", () => {
+    const lightDecls = declsFor(index, 'html[data-mode="light"] .chat-activity-card');
+    expect(lightDecls.length).toBeGreaterThan(0);
+    for (const d of lightDecls) expect(d.important).toBe(false);
+    const flatDecls = declsFor(unified, `${F} .chat-activity-card`);
+    for (const prop of ["background", "border-color", "box-shadow"]) {
+      expect(flatDecls.find((d) => d.prop === prop), `${F} .chat-activity-card missing "${prop}"`).toBeTruthy();
+    }
+  });
+
+  it("settings-shell ties the light-mode glass rule the same way", () => {
+    const lightDecls = declsFor(index, 'html[data-mode="light"] .settings-shell');
+    expect(lightDecls.length).toBeGreaterThan(0);
+    for (const d of lightDecls) expect(d.important).toBe(false);
+    expect(declsFor(unified, `${F} .settings-shell`).find((d) => d.prop === "background")).toBeTruthy();
+  });
+
+  it.each([
+    ['html[data-mode="light"] .file-tree-panel', `${F} .file-tree-panel`, ["background"]],
+    ['html[data-mode="light"] .file-tree-header', `${F} .file-tree-header`, ["background", "border-bottom-color"]],
+    ['html[data-mode="light"] .file-tree-filter-section', `${F} .file-tree-filter-section`, ["border-bottom-color"]],
+    ['html[data-mode="light"] .file-tree-filter-input', `${F} .file-tree-filter-input`, ["background", "border-color"]],
+    ['html[data-mode="light"] .settings-sidebar', `${F} .settings-sidebar`, ["background", "border-right-color"]],
+    ['html[data-mode="light"] .settings-brand-divider', `${F} .settings-brand-divider`, ["border-bottom-color"]],
+  ])("%s -> %s declares the same properties, all !important (light forces it)", (lightSel, flatSel, props) => {
+    const lightDecls = declsFor(index, lightSel);
+    expect(lightDecls.length, `expected ${lightSel} to exist in index.css`).toBeGreaterThan(0);
+    for (const d of lightDecls) expect(d.important, `${lightSel} "${d.prop}" expected !important`).toBe(true);
+    const flatDecls = declsFor(unified, flatSel);
+    for (const p of props) {
+      const d = flatDecls.find((x) => x.prop === p);
+      expect(d, `${flatSel} is missing declaration for "${p}"`).toBeTruthy();
+      expect(d!.important, `${flatSel} "${p}" must be !important to beat the light-mode !important rule`).toBe(true);
+    }
+  });
+});

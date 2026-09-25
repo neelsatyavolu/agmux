@@ -911,7 +911,7 @@ export function SettingsDialog() {
                       style={{ letterSpacing: "-0.015em" }}
                     >
                       <span
-                        className="inline-flex"
+                        className="settings-nav-icon inline-flex"
                         style={{ color: isActive ? "var(--accent)" : "var(--text-muted)" }}
                       >
                         {item.icon}

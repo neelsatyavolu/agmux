@@ -125,6 +125,17 @@ describe("SettingsDialog", () => {
     }
   });
 
+  it("Task 13: the active nav item is data-active, and its icon carries the settings-nav-icon hook (neutral in flat, never gold)", () => {
+    useSettingsStore.getState().openSettings("appearance");
+    render(<SettingsDialog />);
+    const active = screen.getByRole("button", { name: "Appearance" });
+    expect(active.getAttribute("data-active")).toBe("true");
+    const icon = active.querySelector(".settings-nav-icon");
+    expect(icon).toBeTruthy();
+    const inactive = screen.getByRole("button", { name: "General" });
+    expect(inactive.getAttribute("data-active")).toBe("false");
+  });
+
   it("shows a Local Models page in the settings nav", () => {
     useSettingsStore.getState().openSettings();
     render(<SettingsDialog />);

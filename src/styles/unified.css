@@ -953,6 +953,21 @@ html[data-surface="flat"] .settings-nav-item[data-active="true"] {
   border-color: transparent;
   box-shadow: inset 0 0 0 1px var(--ui-rule);
 }
+/* Task 13: the shell behind the whole dialog is still the old near-black
+   frosted wall (.settings-shell, blur+rgba(9,10,11,.42)) with a fully
+   transparent .settings-sidebar drawn over it — this is the main reason
+   Settings still reads as the old glass design in Flat. Give the sidebar its
+   own --ui-sidebar fill and let the shell resolve to plain canvas. */
+html[data-surface="flat"] .settings-shell { background: var(--ui-canvas); }
+html[data-surface="flat"] .settings-sidebar {
+  background: var(--ui-sidebar) !important;
+  border-right-color: var(--ui-rule) !important;
+}
+html[data-surface="flat"] .settings-brand-divider { border-bottom-color: var(--ui-rule) !important; }
+/* Active nav icon: neutral ink, never gold (controller ruling A1 — nav items
+   are neutral, not a choice group). Inline style={{}} on the icon needs
+   !important to beat the JS-computed accent color. */
+html[data-surface="flat"] .settings-nav-item[data-active="true"] .settings-nav-icon { color: var(--text-primary) !important; }
 html[data-surface="flat"] .settings-brand-icon { background: var(--ui-panel-2) !important; border-color: transparent !important; }
 html[data-surface="flat"] .settings-toggle-off { background: var(--ui-panel-2) !important; border-color: var(--ui-rule-2) !important; }
 html[data-surface="flat"] .settings-toggle-knob-off { background: var(--text-tertiary) !important; }
@@ -1054,3 +1069,64 @@ html[data-surface="flat"] .pane-tab-status { border-color: transparent !importan
 html[data-surface="flat"] .pane-tab-status[data-tone="processing"] { background: var(--ui-blue-soft) !important; color: var(--status-blue) !important; }
 html[data-surface="flat"] .pane-tab-status[data-tone="attention"] { background: var(--ui-gold-soft) !important; color: var(--status-amber) !important; }
 html[data-surface="flat"] .pane-tab-status[data-tone="done"] { background: var(--ui-green-soft) !important; color: var(--status-green) !important; }
+
+/* ── Task 13: Subagent + Tasks cards (mockup .card/.card-h/.list-card/.icon-tile) ──
+   .chat-activity-card is the floating "Subagents"/"Tasks" card: near-black glass
+   panel in Glass, flattened here for Flat. Equal specificity to index.css's
+   html[data-mode="light"] .chat-activity-card rule; unified.css loads after
+   index.css, so this wins Light + Flat too (see cascade note at file top). */
+html[data-surface="flat"] .chat-activity-card {
+  background: var(--ui-panel);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--ui-rule), var(--ui-shadow-pop);
+}
+/* Bot avatar tile in the subagent row (mockup .icon-tile, panel-2 fill). */
+html[data-surface="flat"] .subagent-avatar-tile {
+  background: var(--ui-panel-2);
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+/* Collapsed edge rail: its own literal Glass classes stay (sideways shadow,
+   mounted flush to the right edge), so it isn't routed through
+   .chat-activity-card. Flat only needs the panel fill (border-color already
+   comes from the generic border-white/[0.08] -> ui-rule-2 remap above). */
+html[data-surface="flat"] .chat-tasks-rail-btn {
+  background: var(--ui-panel);
+  box-shadow: var(--ui-shadow-pop);
+}
+html[data-surface="flat"] .chat-tasks-rail-btn:hover {
+  background: var(--ui-hover);
+}
+/* Launch row (inline "Launched <agent>" tool row): selected/viewing state is
+   neutral per controller ruling A1, not the blue glass tint. */
+html[data-surface="flat"] .subagent-launch-row[aria-pressed="true"] {
+  background: var(--ui-panel-2);
+  box-shadow: inset 0 0 0 1px var(--ui-rule-2);
+}
+
+/* ── Task 13: Editor + file tree (mockup .ptabs/.ptab, "FILES" bar, tree rows) ──
+   Elements below paint color via inline style={{}}, so their flat overrides
+   need !important (see cascade note at file top) to beat both the inline
+   glass values and index.css's equivalent html[data-mode="light"] !important
+   rules for the same classes. */
+html[data-surface="flat"] .panel-bg { background: var(--ui-canvas) !important; }
+html[data-surface="flat"] .editor-panel-shell { border-color: var(--ui-rule) !important; }
+html[data-surface="flat"] .file-tree-panel { background: var(--ui-canvas) !important; }
+html[data-surface="flat"] .file-tree-header {
+  background: var(--ui-sidebar) !important;
+  border-bottom-color: var(--ui-rule) !important;
+}
+html[data-surface="flat"] .file-tree-filter-section { border-bottom-color: var(--ui-rule) !important; }
+html[data-surface="flat"] .file-tree-filter-input {
+  background: var(--ui-canvas) !important;
+  border-color: var(--ui-rule-2) !important;
+}
+/* Selected tree row: neutral panel-2/press fill, not the accent-tinted glass
+   pick (controller ruling A1 — tree rows aren't a choice group). These two
+   classes are applied via className (not inline style), so no !important
+   is needed to beat the Tailwind utilities carrying the Glass look. */
+html[data-surface="flat"] .file-tree-row-active {
+  background: var(--ui-press);
+  border-left-color: transparent;
+  color: var(--text-primary);
+}
