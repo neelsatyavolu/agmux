@@ -1525,6 +1525,12 @@ mod tests {
         // Idempotent for paths with no slashes (defensive only — grok always
         // hands absolute paths to its session store).
         assert_eq!(crate::encode_grok_cwd(""), "");
+        // Grok percent-encodes spaces too (on disk: `...%2FPhoto%201%2F...`),
+        // while `-`, `.` and `_` stay literal.
+        assert_eq!(
+            crate::encode_grok_cwd("/Users/example/Photo 1/my-app_v2.0"),
+            "%2FUsers%2Fexample%2FPhoto%201%2Fmy-app_v2.0"
+        );
     }
 
     #[test]

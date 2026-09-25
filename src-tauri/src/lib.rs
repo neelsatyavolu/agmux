@@ -49,8 +49,18 @@ pub fn encode_claude_project_path(path: &str) -> String {
 /// Encode a cwd the way Grok stores it under `~/.grok/sessions/<encoded>/`.
 /// Trailing `/` is stripped first so list/usage/spawn agree with on-disk dirs
 /// (Grok never includes a trailing slash in the segment name).
+/// Grok percent-encodes every byte except ASCII alphanumerics and the RFC 3986
+/// unreserved marks (on disk: `/` → `%2F`, space → `%20`; `-`, `.`, `_` stay).
 pub fn encode_grok_cwd(path: &str) -> String {
-    path.trim_end_matches('/').replace('/', "%2F")
+    let mut out = String::new();
+    for b in path.trim_end_matches('/').bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
 }
 use std::sync::Arc;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
