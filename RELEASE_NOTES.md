@@ -68,6 +68,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Downloading a local model no longer interrupts other chats** — Installing a new local model used to cut off any chat that was answering at the time, and could leave other chats unable to continue. Chats now finish what they're doing and carry on as normal.
 - **Hiding and deleting sessions on long-used installs** — When agmux's saved sidebar data was full, choosing Hide on a session did nothing and deleting a thread could leave it in the list. They now leave the list right away.
 - **Claude terminal sessions missing from the sidebar** — If you use Claude Code plugins or startup hooks, many Claude sessions you started outside agmux never appeared in the sidebar. They now show up with their first message as the title.
+- **Droid listed agmux twice** — On Macs that used agmux before it was renamed, Droid ran agmux's status updates twice after every message and listed them twice. It now runs them once.
 
 ## v4.2.0 — 2026-09-23
 

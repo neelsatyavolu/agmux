@@ -53,6 +53,47 @@ fn entry_points_at_script(entry: &Value, script_path: &str) -> bool {
     })
 }
 
+/// Point `~/.xanom` relay hooks at `script_path`, dropping any that would then
+/// duplicate an existing relay entry. `~/.xanom` is a symlink to `~/.agmux`,
+/// so an install that kept the legacy entry and gained the current one ran
+/// the relay twice for every event. Returns true when `entries` changed.
+fn collapse_legacy_relay_hooks(entries: &mut Vec<Value>, script_path: &str) -> bool {
+    let mut has_current = entries
+        .iter()
+        .any(|entry| entry_points_at_script(entry, script_path));
+    let mut changed = false;
+    let mut emptied: Vec<usize> = Vec::new();
+    for (idx, entry) in entries.iter_mut().enumerate() {
+        let Some(hooks) = entry.get_mut("hooks").and_then(|h| h.as_array_mut()) else {
+            continue;
+        };
+        let before = hooks.len();
+        hooks.retain_mut(|hook| {
+            let Some(rewritten) = hook
+                .get("command")
+                .and_then(|c| c.as_str())
+                .and_then(|c| super::rewrite_legacy_hook_cmd(c, script_path))
+            else {
+                return true;
+            };
+            changed = true;
+            if has_current {
+                return false;
+            }
+            hook["command"] = Value::String(rewritten);
+            has_current = true;
+            true
+        });
+        if hooks.len() != before && hooks.is_empty() {
+            emptied.push(idx);
+        }
+    }
+    for idx in emptied.into_iter().rev() {
+        entries.remove(idx);
+    }
+    changed
+}
+
 /// Read ~/.factory/settings.json, ensure our hook relay is registered for the
 /// signal events (see `EVENTS`), and write back atomically. Idempotent:
 /// if our entries are already present, nothing is written.
@@ -129,6 +170,9 @@ pub fn ensure_droid_hooks_merged_at(path: &Path, script_path: &str) -> Result<()
         }
 
         let entries = arr.as_array_mut().unwrap();
+        if collapse_legacy_relay_hooks(entries, script_path) {
+            changed = true;
+        }
         let already_present = entries
             .iter()
             .any(|entry| entry_points_at_script(entry, script_path));
@@ -362,6 +406,55 @@ mod tests {
         );
         assert_eq!(parsed["hooks"]["Stop"].as_array().unwrap().len(), 2);
         assert_eq!(parsed["hooks"]["Notification"].as_array().unwrap().len(), 2);
+    }
+
+    fn relay_commands(parsed: &Value, event: &str) -> Vec<String> {
+        parsed["hooks"][event]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|e| e["hooks"].as_array().cloned().unwrap_or_default())
+            .filter_map(|h| h["command"].as_str().map(str::to_string))
+            .filter(|c| c.contains("droid-hook.sh"))
+            .collect()
+    }
+
+    #[test]
+    fn merge_drops_legacy_entry_next_to_current_one() {
+        let legacy = |ev: &str| json!({"matcher": "", "hooks": [{
+            "type": "command", "command": format!("/Users/me/.xanom/hooks/droid-hook.sh {ev}"), "timeout": 5
+        }]});
+        let current = |ev: &str| json!({"matcher": "", "hooks": [{
+            "type": "command", "command": format!("/Users/me/.agmux/hooks/droid-hook.sh {ev}"), "timeout": 5
+        }]});
+        let user = json!({"matcher": "", "hooks": [{"type": "command", "command": "/user/notify.sh"}]});
+        let (_dir, path) = settings_with(json!({"hooks": {
+            "Stop": [legacy("stop"), user.clone(), current("stop")],
+            "UserPromptSubmit": [legacy("prompt-submit"), current("prompt-submit")],
+        }}));
+
+        ensure_droid_hooks_merged_at(&path, "/Users/me/.agmux/hooks/droid-hook.sh").unwrap();
+
+        let parsed: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(relay_commands(&parsed, "Stop"), ["/Users/me/.agmux/hooks/droid-hook.sh stop"]);
+        assert_eq!(
+            relay_commands(&parsed, "UserPromptSubmit"),
+            ["/Users/me/.agmux/hooks/droid-hook.sh prompt-submit"]
+        );
+        assert_eq!(parsed["hooks"]["Stop"].as_array().unwrap().len(), 2);
+        assert_eq!(parsed["hooks"]["Stop"][0], user);
+    }
+
+    #[test]
+    fn merge_rewrites_legacy_only_entry_in_place() {
+        let (_dir, path) = settings_with(json!({"hooks": {"Stop": [{"matcher": "", "hooks": [{
+            "type": "command", "command": "/Users/me/.xanom/hooks/droid-hook.sh stop", "timeout": 5
+        }]}]}}));
+
+        ensure_droid_hooks_merged_at(&path, "/Users/me/.agmux/hooks/droid-hook.sh").unwrap();
+
+        let parsed: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(relay_commands(&parsed, "Stop"), ["/Users/me/.agmux/hooks/droid-hook.sh stop"]);
     }
 
     #[test]
