@@ -1164,6 +1164,39 @@ describe("NewTaskDialog — Maximum coverage", () => {
     createTask.mockRestore();
   });
 
+  it("Cmd+Enter does not submit a branch the dialog flagged as in use or invalid", async () => {
+    const createTask = vi.spyOn(taskCommandsMod, "createTask");
+    useTaskViewStore.setState({
+      tasks: {
+        p1: [
+          {
+            id: "t1",
+            project_id: "p1",
+            name: "existing",
+            branch_name: "feature-x",
+            base_branch: "main",
+            worktree_path: "/wt",
+            created_at: "x",
+          } as never,
+        ],
+      },
+    } as never);
+    const { baseElement } = render(
+      <NewTaskDialog projectId="p1" onClose={() => {}} />,
+    );
+    const branchInput = baseElement.querySelector(
+      "input[placeholder='task/feature-name']",
+    ) as HTMLInputElement;
+    const ta = baseElement.querySelector("textarea") as HTMLTextAreaElement;
+    fireEvent.change(branchInput, { target: { value: "feature-x" } });
+    fireEvent.keyDown(ta, { key: "Enter", metaKey: true });
+    fireEvent.change(branchInput, { target: { value: "feat:bad" } });
+    fireEvent.keyDown(ta, { key: "Enter", metaKey: true });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(createTask).not.toHaveBeenCalled();
+    createTask.mockRestore();
+  });
+
   it("plain Enter inside the dialog does not submit", async () => {
     const createTask = vi.spyOn(taskCommandsMod, "createTask");
     const { baseElement } = render(

@@ -1277,22 +1277,23 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
     multiRepo,
   ]);
 
+  const canCreate =
+    !!branchName && !isCreating && !branchValidationError && !isDuplicateBranch;
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        handleCreate();
+        // Same gate as the Create button — a flagged branch must not submit.
+        if (canCreate) handleCreate();
       }
       if (e.key === "Escape") {
         e.preventDefault();
         onClose();
       }
     },
-    [handleCreate, onClose],
+    [canCreate, handleCreate, onClose],
   );
-
-  const canCreate =
-    !!branchName && !isCreating && !branchValidationError && !isDuplicateBranch;
 
   return createPortal(
     <motion.div
