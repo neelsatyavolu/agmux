@@ -556,7 +556,7 @@ export function ToolActivityGroup({ tools }: Props) {
             <button
               type="button"
               onClick={() => setShowAll((v) => !v)}
-              className="ml-[23px] mt-1 mb-1 text-[11px] font-mono text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+              className="ml-[23px] mt-1 mb-1 text-[11px] ui-meta text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
             >
               {showAll ? "Show less" : `Show all ${tools.length} tool calls`}
             </button>

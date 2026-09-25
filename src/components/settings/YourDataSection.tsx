@@ -274,14 +274,14 @@ export function YourDataSection() {
                   <span className="truncate font-mono text-[11.5px] text-[var(--text-secondary)]">
                     {p.projectKey}
                   </span>
-                  <span className="font-mono text-[11.5px] text-[var(--text-tertiary)]">
+                  <span className="ui-meta text-[11.5px] text-[var(--text-tertiary)]">
                     {p.activeHours.toFixed(1)}h
                   </span>
-                  <span className="font-mono text-[11.5px] text-[var(--text-tertiary)]">
+                  <span className="ui-meta text-[11.5px] text-[var(--text-tertiary)]">
                     {tok.value}
                     {tok.unit}
                   </span>
-                  <span className="font-mono text-[11.5px] text-[var(--text-muted)]">
+                  <span className="ui-meta text-[11.5px] text-[var(--text-muted)]">
                     {p.sessions} sess
                   </span>
                 </div>

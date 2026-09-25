@@ -117,7 +117,7 @@ export function TaskToolRenderer({ input, result, childTools }: ToolRendererProp
         <button
           type="button"
           onClick={() => setShowAll((value) => !value)}
-          className="ml-[23px] mt-1 font-mono text-[11px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+          className="ml-[23px] mt-1 ui-meta text-[11px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
         >
           {showAll
             ? "Show less"

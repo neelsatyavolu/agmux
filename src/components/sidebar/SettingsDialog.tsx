@@ -2034,7 +2034,7 @@ function AppearancePage({
                   }`}
                 >
                   <span className="text-xs font-medium">{m.label}</span>
-                  <span className="font-mono text-[10px] opacity-70">{m.hint}</span>
+                  <span className="ui-meta text-[10px] opacity-70">{m.hint}</span>
                 </button>
               );
             })}

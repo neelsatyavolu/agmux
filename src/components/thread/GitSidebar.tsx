@@ -976,7 +976,7 @@ function WarpFileCard({
         {suspicious && <AlertTriangle size={11} className="shrink-0 text-amber-400/80" />}
 
         <span
-          className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] tabular-nums"
+          className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 ui-meta text-[10px]"
           style={{ background: "rgba(255,255,255,0.04)" }}
         >
           {file.additions > 0 && <span className="text-emerald-400/90 fx-green">+{file.additions}</span>}
@@ -1819,7 +1819,6 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
                   <button
                     onClick={() => toggleDir(dir)}
                     className="w-full flex items-center gap-1.5 px-2 py-1 text-[11px] text-zinc-400 hover:bg-white/[0.03] transition-colors"
-                    style={{ fontFamily: "var(--font-mono)" }}
                   >
                     {collapsed ? (
                       <ChevronRight size={11} className="text-zinc-600" />
@@ -1827,11 +1826,11 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
                       <ChevronDown size={11} className="text-zinc-600" />
                     )}
                     <FolderGit2 size={11} className="text-zinc-500" />
-                    <span className="flex-1 min-w-0 truncate text-left">
+                    <span className="flex-1 min-w-0 truncate text-left" style={{ fontFamily: "var(--font-mono)" }}>
                       {dir === "/" ? "(root)" : dir}
                     </span>
-                    <span className="text-zinc-600">{files.length}</span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10 }}>
+                    <span className="ui-meta text-zinc-600">{files.length}</span>
+                    <span className="ui-meta" style={{ fontSize: 10 }}>
                       {dirAdded > 0 && <span style={{ color: "var(--status-green)", opacity: 0.8 }}> +{dirAdded}</span>}
                       {dirRemoved > 0 && <span style={{ color: "var(--status-red)", opacity: 0.8 }}> −{dirRemoved}</span>}
                     </span>
@@ -1854,8 +1853,8 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
                             <PathCrumbs path={file.path.split("/").pop() ?? file.path} size={11.5} />
                           </span>
                           <span
-                            className="shrink-0 tabular-nums"
-                            style={{ fontFamily: "var(--font-mono)", fontSize: 10 }}
+                            className="shrink-0 ui-meta"
+                            style={{ fontSize: 10 }}
                           >
                             {file.additions > 0 && (
                               <span style={{ color: "var(--status-green)", opacity: 0.9 }}>+{file.additions}</span>
@@ -1929,10 +1928,10 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
                     >
                       {file.path.split("/").pop()}
                     </span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "var(--status-green)" }}>
+                    <span className="ui-meta" style={{ fontSize: 9.5, color: "var(--status-green)" }}>
                       +{file.additions}
                     </span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "var(--status-red)" }}>
+                    <span className="ui-meta" style={{ fontSize: 9.5, color: "var(--status-red)" }}>
                       −{file.deletions}
                     </span>
                   </button>
@@ -2046,8 +2045,8 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
                   </span>
                   <DiffStats additions={file.additions} deletions={file.deletions} />
                   <span
+                    className="ui-meta"
                     style={{
-                      fontFamily: "var(--font-mono)",
                       fontSize: 10,
                       color: "var(--text-muted)",
                       minWidth: 50,
@@ -2099,7 +2098,7 @@ function GitSidebarContent({ workDir, open, threadId, onPrCreated }: Props) {
               />
               <span>Include unstaged</span>
             </label>
-            <span className="font-mono">
+            <span className="ui-meta">
               {allFiles.length} file{allFiles.length !== 1 ? "s" : ""}
             </span>
           </div>

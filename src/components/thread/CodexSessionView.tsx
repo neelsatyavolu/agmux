@@ -3314,7 +3314,7 @@ function CodexFooter({ context }: { context?: CodexFooterContext }) {
           <AlertTriangle size={13} className="text-amber-400 shrink-0" />
           <span className="text-xs font-medium text-white/50 antialiased">
             May be unresponsive{" "}
-            <span className="font-mono text-white/30">
+            <span className="ui-meta text-white/30">
               {Math.floor(elapsedSeconds / 60)}:
               {String(elapsedSeconds % 60).padStart(2, "0")}
             </span>
