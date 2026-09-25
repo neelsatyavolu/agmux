@@ -1361,7 +1361,7 @@ function ProviderUsageSection({
   } else if (stale) {
     statusNode = (
       <span
-        className="ml-auto font-mono text-[10px] text-[var(--text-muted)]"
+        className="ml-auto ui-meta text-[10px] text-[var(--text-muted)]"
         title={state.error ?? undefined}
       >
         stale · {formatRelative(new Date(state.dataAt).toISOString())}
@@ -1369,7 +1369,7 @@ function ProviderUsageSection({
     );
   } else if (!hasData) {
     statusNode = (
-      <span className="ml-auto font-mono text-[10px] text-[var(--text-muted)]">
+      <span className="ml-auto ui-meta text-[10px] text-[var(--text-muted)]">
         {hasEverFetched ? "unavailable" : "loading…"}
       </span>
     );

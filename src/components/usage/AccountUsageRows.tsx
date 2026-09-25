@@ -59,7 +59,7 @@ export function AccountUsageRows({ accounts, teams, stale = false }: {
           <div className="flex flex-wrap items-center gap-1.5">
             {account.currentLogin && <span className="app-chip px-2 py-[2px] text-[9.5px]" data-tone="accent">Current login</span>}
             {(account.tier || account.plan) && <span className="app-chip px-2 py-[2px] text-[9.5px]">{account.tier || account.plan}</span>}
-            {status && <span className="font-mono text-[10px] text-[var(--text-muted)]">{status}</span>}
+            {status && <span className="ui-meta text-[10px] text-[var(--text-muted)]">{status}</span>}
           </div>
         </div>
         {accountLimits.map(limit => {
