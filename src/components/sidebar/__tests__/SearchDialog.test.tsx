@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 import { SearchDialog } from "../SearchDialog";
+import { searchThreads } from "../../../lib/commands";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockResolvedValue([]),
@@ -86,5 +87,30 @@ describe("SearchDialog", () => {
       fireEvent.keyDown(input, { key: "ArrowDown" });
       fireEvent.keyDown(input, { key: "ArrowUp" });
     }).not.toThrow();
+  });
+
+  it("keeps the newest query's results when an older search finishes last", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending: Array<(rows: unknown[]) => void> = [];
+      vi.mocked(searchThreads).mockImplementation(() => new Promise((resolve) => { pending.push(resolve as never); }));
+      const row = (id: string, name: string) => ({
+        thread_id: id, project_id: "p", thread_name: name, provider: "Codex", work_dir: "/w",
+        matched_content: null, relevance: 70, last_active: "2026-09-24 10:00:00",
+      });
+      render(<SearchDialog open onClose={() => {}} />);
+      const input = screen.getAllByRole("textbox")[0];
+      fireEvent.change(input, { target: { value: "auth" } });
+      await act(async () => { vi.advanceTimersByTime(250); });
+      fireEvent.change(input, { target: { value: "auth bug" } });
+      await act(async () => { vi.advanceTimersByTime(250); });
+      expect(pending).toHaveLength(2);
+      await act(async () => { pending[1]([row("t-new", "Fix the auth bug")]); });
+      await act(async () => { pending[0]([row("t-old", "Auth settings page")]); });
+      expect(screen.getByText("Fix the auth bug")).toBeTruthy();
+      expect(screen.queryByText("Auth settings page")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
