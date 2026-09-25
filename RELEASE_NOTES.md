@@ -67,6 +67,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Terminals stay in light or dark mode** — With Color mode set to System on a light Mac, terminal sessions briefly turned dark each time they were opened or switched to, and a Codex terminal that started during that moment could keep dark colors. Terminals now open in the right mode. Switching Color mode to System also follows your Mac's appearance again.
 - **Downloading a local model no longer interrupts other chats** — Installing a new local model used to cut off any chat that was answering at the time, and could leave other chats unable to continue. Chats now finish what they're doing and carry on as normal.
 - **Grok terminals in folders with spaces** — For projects whose folder path contains a space, reopening a Grok terminal now continues the earlier conversation instead of starting a new one, and past Grok sessions from those folders show up in the sidebar.
+- **OpenCode terminal context meter** — While an OpenCode terminal was working on a reply, its context meter could jump to a huge number (the whole session's token total) and then drop back. It now keeps showing the latest real reading.
 
 ## v4.2.0 — 2026-09-23
 
