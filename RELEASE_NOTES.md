@@ -50,6 +50,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Phone remote polish** — The phone shows when it's loading or your Mac is offline, shows errors instead of failing silently, keeps the current model visible on small screens, no longer zooms in while you type on iPhone, and signs out right away if you revoke it on your Mac. Pairing no longer hangs, and pairing links from the iPhone app now work.
 
 ### Fixed
+- **Committing files with spaces in their names** — Files whose names contain spaces or accented letters no longer appear twice (once in quotes) in the commit and Create PR lists, and committing them no longer fails. Renamed files show their correct new name.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
 - **Stopping from your phone** — Tapping Stop on a terminal session from your phone no longer risks closing Claude or Codex.
 - **Phone remote history for Claude Desktop Cowork** — Cowork sessions from Claude Desktop now show their full history on your phone.

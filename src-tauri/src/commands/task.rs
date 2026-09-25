@@ -1087,9 +1087,10 @@ pub async fn get_worktree_changes(worktree_path: String) -> Result<Vec<ChangedFi
     validate_path(&worktree_path)?;
     let augmented_path = build_augmented_path();
 
-    // git diff HEAD --numstat (tracked changes with line counts)
+    // git diff HEAD --numstat (tracked changes with line counts). `-z` keeps
+    // paths verbatim (no C-quoting, no `dir/{old => new}` rename shorthand).
     let numstat_output = Command::new("git")
-        .args(["diff", "HEAD", "--numstat"])
+        .args(["diff", "HEAD", "--numstat", "-z"])
         .current_dir(&worktree_path)
         .env("PATH", &augmented_path)
         .output()
@@ -1101,9 +1102,10 @@ pub async fn get_worktree_changes(worktree_path: String) -> Result<Vec<ChangedFi
         return Err(format!("git diff --numstat failed: {}", stderr.trim()));
     }
 
-    // git status --porcelain (for untracked files)
+    // git status --porcelain (for untracked files). Without `-z` git quotes
+    // any path containing spaces or non-ASCII bytes.
     let status_output = Command::new("git")
-        .args(["status", "--porcelain"])
+        .args(["status", "--porcelain", "-z"])
         .current_dir(&worktree_path)
         .env("PATH", &augmented_path)
         .output()
@@ -1120,28 +1122,23 @@ pub async fn get_worktree_changes(worktree_path: String) -> Result<Vec<ChangedFi
 
     // Build path → status map from porcelain output.
     //
-    // Format of a porcelain line: `XY <path>` (and for renames/copies:
-    // `XY <old> -> <new>`). The first two columns are the XY status codes,
-    // then a space, then the path. We split on the space AFTER index-1 using
-    // char_indices so multi-byte unicode paths don't panic on byte-indexed
-    // slicing. Rename / copy entries record ONLY the new path — the old path
-    // is irrelevant for review and is what `git diff HEAD --numstat` reports.
+    // Format of a `-z` porcelain record: `XY <path>\0`; renames/copies are
+    // `XY <new>\0<old>\0`. The first two columns are the XY status codes,
+    // then a space, then the path. Rename / copy entries record ONLY the new
+    // path — the old path is irrelevant for review.
     let mut status_map = std::collections::HashMap::<String, String>::new();
-    for line in status_str.lines() {
-        let bytes = line.as_bytes();
-        if bytes.len() < 4 {
+    let mut status_records = status_str.split('\0');
+    while let Some(record) = status_records.next() {
+        if record.len() < 4 || !record.is_char_boundary(3) {
             continue;
         }
-        let code = &line[..2];
-        // Path starts at byte 3 (space at byte 2). Safe to slice at ASCII
-        // byte 3 since it sits at an ASCII space boundary.
-        let rest = &line[3..];
-        let path = if let Some(idx) = rest.find(" -> ") {
-            // Renamed / copied: `<old> -> <new>` — keep only the new path.
-            rest[idx + 4..].trim().to_string()
-        } else {
-            rest.trim().to_string()
-        };
+        let code = &record[..2];
+        // Path starts at byte 3 (space at byte 2).
+        let path = record[3..].to_string();
+        if code.contains('R') || code.contains('C') {
+            // Skip the source path that follows a rename / copy record.
+            status_records.next();
+        }
         let trimmed_code = code.trim();
         let status = match trimmed_code {
             "A" | "AM" => "added",
@@ -1161,22 +1158,25 @@ pub async fn get_worktree_changes(worktree_path: String) -> Result<Vec<ChangedFi
     let mut numstat_entries = Vec::<(String, i64, i64)>::new();
     let mut untracked_paths = Vec::<String>::new();
 
-    // Parse numstat lines: "<added>\t<removed>\t<path>".
-    // For renames, git prints "<added>\t<removed>\t<old> => <new>" OR a two-
-    // line record depending on version; handle the arrow form by keeping
-    // only the new path.
-    for line in numstat_str.lines() {
-        let parts: Vec<&str> = line.splitn(3, '\t').collect();
+    // Parse `-z` numstat records: "<added>\t<removed>\t<path>\0". For renames
+    // the path field is empty and is followed by "<old>\0<new>\0"; keep only
+    // the new path.
+    let mut numstat_records = numstat_str.split('\0');
+    while let Some(record) = numstat_records.next() {
+        let parts: Vec<&str> = record.splitn(3, '\t').collect();
         if parts.len() != 3 {
             continue;
         }
         let added: i64 = parts[0].parse().unwrap_or(0);
         let removed: i64 = parts[1].parse().unwrap_or(0);
-        let raw_path = parts[2];
-        let path = if let Some(idx) = raw_path.find(" => ") {
-            raw_path[idx + 4..].trim().to_string()
+        let path = if parts[2].is_empty() {
+            numstat_records.next();
+            match numstat_records.next() {
+                Some(new_path) => new_path.to_string(),
+                None => continue,
+            }
         } else {
-            raw_path.to_string()
+            parts[2].to_string()
         };
         numstat_entries.push((path, added, removed));
     }
@@ -2047,6 +2047,35 @@ prunable gitdir file points to non-existent location
     async fn get_worktree_changes_validates_path() {
         let r = get_worktree_changes("relative".to_string()).await;
         assert!(r.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_worktree_changes_reports_real_paths_for_spaces_and_renames() {
+        // git status --porcelain quotes paths containing spaces and numstat
+        // prints renames as `dir/{old => new}`. Each change must come back
+        // exactly once under its real on-disk path so it can be staged.
+        let tmp = tempdir().unwrap();
+        init_repo(tmp.path()).await;
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        commit_file(tmp.path(), "tracked file.txt", "v1\n", "init").await;
+        commit_file(tmp.path(), "src/old.rs", "fn a() {}\n", "add old").await;
+        std::fs::write(tmp.path().join("tracked file.txt"), "v1\nv2\n").unwrap();
+        std::fs::write(tmp.path().join("new notes.md"), "a\nb\n").unwrap();
+        assert!(run_git(tmp.path(), &["mv", "src/old.rs", "src/new.rs"]).await.status.success());
+
+        let r = get_worktree_changes(tmp.path().to_string_lossy().to_string())
+            .await
+            .unwrap();
+        let mut paths: Vec<&str> = r.iter().map(|f| f.path.as_str()).collect();
+        paths.sort();
+        assert_eq!(paths, vec!["new notes.md", "src/new.rs", "tracked file.txt"]);
+
+        let tracked = r.iter().find(|f| f.path == "tracked file.txt").unwrap();
+        assert_eq!((tracked.status.as_str(), tracked.added), ("modified", 1));
+        let untracked = r.iter().find(|f| f.path == "new notes.md").unwrap();
+        assert_eq!((untracked.status.as_str(), untracked.added), ("untracked", 2));
+        let renamed = r.iter().find(|f| f.path == "src/new.rs").unwrap();
+        assert_eq!(renamed.status, "renamed");
     }
 
     // ── get_worktree_ahead_behind ─────────────────────────────────────────────
