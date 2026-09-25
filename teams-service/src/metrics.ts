@@ -165,14 +165,21 @@ export async function pruneStale(
     (n): n is number => n != null,
   );
   if (candidates.length === 0) return { deleted: 0 };
+  // Only teams this device's uploads currently write to were refreshed. A team
+  // the user left, or one uploads skip for billing (read-only after a trial),
+  // keeps its history: its rows are old because nothing is sent, not stale.
+  const memberships = await listActiveMemberships(env, userId);
+  const { allowed } = await filterUploadTeamIds(env, memberships.map((m) => m.team_id));
+  if (allowed.length === 0) return { deleted: 0 };
   const cutoff = new Date(Math.min(...candidates)).toISOString();
   const r = await env.DB.prepare(
     `DELETE FROM metric_hourly
       WHERE user_id = ? AND device_id = ?
         AND hour_utc >= ?
-        AND updated_at < ?`,
+        AND updated_at < ?
+        AND team_id IN (${allowed.map(() => "?").join(",")})`,
   )
-    .bind(userId, deviceId, payload.sinceHour, cutoff)
+    .bind(userId, deviceId, payload.sinceHour, cutoff, ...allowed)
     .run();
   return { deleted: Number(r.meta?.changes ?? 0) };
 }
