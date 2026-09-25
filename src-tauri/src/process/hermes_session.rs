@@ -65,9 +65,17 @@ pub fn read_usage(session_id: &str) -> PtyUsageSnapshot {
     if !db.is_file() {
         return PtyUsageSnapshot::default();
     }
+    read_usage_from_db(&db, session_id)
+}
+
+fn read_usage_from_db(db: &Path, session_id: &str) -> PtyUsageSnapshot {
     let escaped = session_id.replace('\'', "''");
+    // Session token columns are lifetime sums over every API call; they equal
+    // the context fill only while the session has made a single call.
     let sql = format!(
-        "SELECT ifnull(model,''), ifnull(input_tokens,0)+ifnull(cache_read_tokens,0), \
+        "SELECT ifnull(model,''), \
+         CASE WHEN ifnull(api_call_count,0) <= 1 \
+         THEN ifnull(input_tokens,0)+ifnull(cache_read_tokens,0) ELSE 0 END, \
          ifnull(model_config,'') \
          FROM sessions WHERE id = '{escaped}' LIMIT 1;"
     );
@@ -209,6 +217,43 @@ mod tests {
         assert!(!session_exists("../x"));
         assert!(!session_exists("a'b"));
         assert!(!session_exists(""));
+    }
+
+    fn state_db_with_session(api_calls: i64, input: i64, cache_read: i64) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let sql = format!(
+            "CREATE TABLE sessions (id TEXT PRIMARY KEY, model TEXT, model_config TEXT, \
+             input_tokens INTEGER, cache_read_tokens INTEGER, api_call_count INTEGER); \
+             CREATE TABLE messages (session_id TEXT, tool_name TEXT, content TEXT, \
+             tool_calls TEXT, active INTEGER); \
+             INSERT INTO sessions VALUES ('20260101_000000_abc123', 'gpt-5.5', NULL, \
+             {input}, {cache_read}, {api_calls});"
+        );
+        let status = Command::new("sqlite3")
+            .arg(dir.path().join("state.db"))
+            .arg(sql)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        dir
+    }
+
+    #[test]
+    fn single_call_totals_are_the_context_fill() {
+        let dir = state_db_with_session(1, 20_375, 0);
+        let snap = read_usage_from_db(&dir.path().join("state.db"), "20260101_000000_abc123");
+        assert_eq!(snap.model.as_deref(), Some("gpt-5.5"));
+        assert_eq!(snap.context_tokens_used, 20_375);
+    }
+
+    #[test]
+    fn lifetime_totals_across_calls_are_not_reported_as_context() {
+        // Session token columns accumulate over every API call (real rows reach
+        // millions of cached tokens), so they are not the current context fill.
+        let dir = state_db_with_session(31, 340_342, 2_513_920);
+        let snap = read_usage_from_db(&dir.path().join("state.db"), "20260101_000000_abc123");
+        assert_eq!(snap.model.as_deref(), Some("gpt-5.5"));
+        assert_eq!(snap.context_tokens_used, 0);
     }
 
     #[test]

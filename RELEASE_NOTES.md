@@ -68,6 +68,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Downloading a local model no longer interrupts other chats** — Installing a new local model used to cut off any chat that was answering at the time, and could leave other chats unable to continue. Chats now finish what they're doing and carry on as normal.
 - **Grok terminals in folders with spaces** — For projects whose folder path contains a space, reopening a Grok terminal now continues the earlier conversation instead of starting a new one, and past Grok sessions from those folders show up in the sidebar.
 - **OpenCode terminal context meter** — While an OpenCode terminal was working on a reply, its context meter could jump to a huge number (the whole session's token total) and then drop back. It now keeps showing the latest real reading.
+- **Hermes terminal context meter** — After a few turns, a Hermes terminal's context meter showed the total of every token the session had ever sent, often far past full. It no longer shows that misleading number.
 
 ## v4.2.0 — 2026-09-23
 
