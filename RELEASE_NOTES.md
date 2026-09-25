@@ -51,6 +51,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 - **Chat approvals no longer vanish** — When two permission requests are waiting in a chat and the first has waited over a minute, it stays on screen instead of disappearing and leaving the agent stuck.
+- **"Always allow" works in Codex chat** — Commands you chose to always allow in a Codex chat now run on their own instead of failing.
 - **Codex reset time in the top bar** — With the status line in the top bar, hovering a Codex usage limit now shows when it resets.
 - **Answered from your phone, gone on your Mac** — When you answer a Claude chat's permission request or question on your phone, the Mac chat now clears it instead of keeping it on screen and showing an error if you click it.
 - **Token counts in Claude chat** — The token line under each Claude chat reply now shows that reply's real numbers, instead of wrong or negative counts from the second reply on.
