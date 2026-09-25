@@ -226,24 +226,28 @@ pub async fn get_git_branch_diff(path: String) -> Result<GitDiffResult, String> 
     validate_path(&path)?;
     let augmented_path = build_augmented_path();
 
-    // Detect default branch: try main, master, develop in order
-    let mut default_branch: Option<String> = None;
-    for candidate in &["main", "master", "develop"] {
-        let check = Command::new("git")
-            .args(["rev-parse", "--verify", candidate])
-            .current_dir(&path)
-            .env("PATH", &augmented_path)
-            .output()
-            .await;
-        if let Ok(out) = check {
-            if out.status.success() {
-                default_branch = Some(candidate.to_string());
-                break;
+    // Detect default branch: try main, master, develop in order. Compare
+    // against origin/<b> when present — task worktrees branch off it, and a
+    // stale local <b> would pull upstream commits into the branch diff.
+    let mut default_branch: Option<(String, String)> = None;
+    'detect: for candidate in &["main", "master", "develop"] {
+        for base_ref in [format!("origin/{candidate}"), candidate.to_string()] {
+            let check = Command::new("git")
+                .args(["rev-parse", "--verify", "--quiet", &base_ref])
+                .current_dir(&path)
+                .env("PATH", &augmented_path)
+                .output()
+                .await;
+            if let Ok(out) = check {
+                if out.status.success() {
+                    default_branch = Some((candidate.to_string(), base_ref));
+                    break 'detect;
+                }
             }
         }
     }
 
-    let base = default_branch.ok_or_else(|| {
+    let (base, base_ref) = default_branch.ok_or_else(|| {
         "Could not detect default branch (tried main, master, develop)".to_string()
     })?;
 
@@ -264,7 +268,7 @@ pub async fn get_git_branch_diff(path: String) -> Result<GitDiffResult, String> 
 
     // git diff <default>...HEAD — changes on this branch since it diverged
     let diff_output = Command::new("git")
-        .args(["diff", &format!("{}...HEAD", base)])
+        .args(["diff", &format!("{}...HEAD", base_ref)])
         .current_dir(&path)
         .env("PATH", &augmented_path)
         .output()
@@ -3780,9 +3784,13 @@ mod tests {
         let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
         assert_eq!(paths, vec!["task.txt"]);
 
-        let diff = get_git_committed_diff(wt_path).await.unwrap();
+        let diff = get_git_committed_diff(wt_path.clone()).await.unwrap();
         assert!(diff.diff.contains("task.txt"));
         assert!(!diff.diff.contains("other.txt"), "{}", diff.diff);
+
+        let branch = get_git_branch_diff(wt_path).await.unwrap();
+        assert!(branch.diff.contains("task.txt"));
+        assert!(!branch.diff.contains("other.txt"), "{}", branch.diff);
     }
 
     // ── cc_limit_section ──────────────────────────────────────────────────────
