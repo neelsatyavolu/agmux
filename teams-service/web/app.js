@@ -163,6 +163,7 @@ export function navigate(to) {
 
 function renderChrome(route) {
   const showChrome = [
+    "root",
     "teams",
     "team",
     "team-settings",
