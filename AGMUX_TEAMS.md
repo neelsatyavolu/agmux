@@ -76,7 +76,12 @@ holder), and allocation ranks by other members active on the same login first, t
 gains one `SHARED`/`SHARED_SHORT` line in both copies, so the release uploads the reproduced production asset
 set with only `disclosure.js` changed.
 
-**Master + Restrictions (current production, 2026-09-25):** version `22cd77b6-b38d-4c06-b732-4a02d68185c4`,
+**Sign out on the no-teams page (current production, 2026-09-26):** version
+`bf63e175-6044-42a1-bd51-557b84582601`, a plain `wrangler deploy` of master `aeea470d`. Web-only (`app.js` shows the
+signed-in bar on the root route); no D1 change. Roll back with
+`wrangler versions deploy 22cd77b6-b38d-4c06-b732-4a02d68185c4@100%`.
+
+**Master + Restrictions (previous production, 2026-09-25):** version `22cd77b6-b38d-4c06-b732-4a02d68185c4`,
 a plain `wrangler deploy` of master `c7f79203` (includes the overnight Teams fixes). Production now deploys from
 master again. Before deploy: D1 bookmark `00004343-000007b2-000050f1-d39a7e1f0b1c3dbe55eafe416787ff74`; the only
 live policy row (a leftover `["Codex"]` provider allowlist from Restrictions testing) was cleared to NULL
