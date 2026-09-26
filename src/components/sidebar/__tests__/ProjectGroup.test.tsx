@@ -133,6 +133,7 @@ import * as mlx from "../../../lib/mlx";
 import type { Project, Thread, ClaudeSession, KimiSession, GrokSession } from "../../../lib/types";
 import type { CodexThread } from "../CodexSessionsList";
 import { requestFocusNewSession } from "../../../lib/focusView";
+import { useFocusRowsStore } from "../../../stores/focusRowsStore";
 
 const project: Project = {
   id: "p1",
@@ -2679,6 +2680,58 @@ describe("ProjectGroup — Final coverage gaps", () => {
       useUiStore.setState({ claudeProcessingById: { busy: true } } as Partial<ReturnType<typeof useUiStore.getState>>);
       const { focusEl } = renderWithFocus();
       expect(focusEl.textContent).toContain("Busy Thread");
+    });
+
+    it("drops idle rows that are only unread", () => {
+      useThreadStore.setState({
+        threads: { p1: [makeThread({ id: "done", name: "Done Thread", last_active: hoursAgo(72) })] },
+      });
+      useUiStore.setState({ unreadSessionIds: { done: true } } as Partial<ReturnType<typeof useUiStore.getState>>);
+      const { focusEl } = renderWithFocus();
+      expect(focusEl.textContent).not.toContain("Done Thread");
+    });
+
+    it("publishes its Focus row times so Focus can rank rows across projects", () => {
+      useThreadStore.setState({
+        threads: {
+          p1: [
+            makeThread({ id: "a", name: "A", last_active: hoursAgo(2) }),
+            makeThread({ id: "b", name: "B", last_active: hoursAgo(1) }),
+            makeThread({ id: "c", name: "C", last_active: hoursAgo(48) }),
+          ],
+        },
+      });
+      const { unmount } = renderWithFocus();
+      const times = useFocusRowsStore.getState().timestampsByProject.p1;
+      expect(times).toHaveLength(2);
+      expect(times[0]).toBeGreaterThan(times[1]);
+      unmount();
+      expect(useFocusRowsStore.getState().timestampsByProject.p1).toBeUndefined();
+    });
+
+    it("leaves rows older than the cutoff for Show more", () => {
+      useThreadStore.setState({
+        threads: {
+          p1: [
+            makeThread({ id: "a", name: "Older", last_active: hoursAgo(2) }),
+            makeThread({ id: "b", name: "Newer", last_active: hoursAgo(1) }),
+          ],
+        },
+      });
+      const focusEl = document.createElement("div");
+      document.body.appendChild(focusEl);
+      render(
+        <ProjectGroup
+          {...baseProps}
+          focusPortal={focusEl}
+          focusSince={Date.now() - 24 * HOUR}
+          focusCutoff={Date.now() - 1.5 * HOUR}
+        />,
+      );
+      expect(focusEl.textContent).toContain("Newer");
+      expect(focusEl.textContent).not.toContain("Older");
+      // The cutoff doesn't change what the store counts.
+      expect(useFocusRowsStore.getState().timestampsByProject.p1).toHaveLength(2);
     });
 
     it("orders Focus rows newest first across projects via CSS order", () => {

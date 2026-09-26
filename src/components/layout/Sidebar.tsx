@@ -5,7 +5,8 @@ import { listen } from "@tauri-apps/api/event";
 import { useProjectStore } from "../../stores/projectStore";
 import { ProjectGroup } from "../sidebar/ProjectGroup";
 import { FocusSection } from "../sidebar/FocusSection";
-import { focusSince, resolveFocusWindowHours } from "../../lib/focusView";
+import { focusCutoff, focusSince, resolveFocusThreadsVisible, resolveFocusWindowMinutes } from "../../lib/focusView";
+import { useFocusRowsStore } from "../../stores/focusRowsStore";
 import { NewProjectDialog } from "../sidebar/NewProjectDialog";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { handleWindowDragStart } from "../../lib/windowDrag";
@@ -120,7 +121,11 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
   const multiViewEnabled = useSettingsStore((s) => s.settings.multiViewEnabled);
   const projectOrder = useSettingsStore((s) => s.settings.projectOrder);
   const focusEnabled = useSettingsStore((s) => s.settings.focusEnabled ?? false);
-  const focusWindowHours = useSettingsStore((s) => resolveFocusWindowHours(s.settings.focusWindowHours));
+  const focusWindowMinutes = useSettingsStore((s) => resolveFocusWindowMinutes(s.settings.focusWindowMinutes));
+  const focusThreadsVisible = useSettingsStore((s) => resolveFocusThreadsVisible(s.settings.focusThreadsVisible));
+  // Oldest row time Focus shows, ranked across every project's published rows.
+  const focusCutoffMs = useFocusRowsStore((s) =>
+    focusCutoff(Object.values(s.timestampsByProject), focusThreadsVisible + s.extraShown));
   const updateSettings = useSettingsStore((s) => s.updateSettings);
   const sidebarWidth = useUiStore((s) => s.sidebarWidth);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -607,7 +612,7 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
     return () => clearInterval(timer);
   }, [showFocus]);
   const focusPortal = showFocus ? focusListEl : null;
-  const focusSinceMs = showFocus ? focusSince(focusNow, focusWindowHours) : null;
+  const focusSinceMs = showFocus ? focusSince(focusNow, focusWindowMinutes) : null;
 
   // Sort projects by saved order (unordered projects appear at the end)
   const sortedProjects = useMemo(() => {
@@ -820,7 +825,7 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
             {showFocus && (
               <FocusSection
                 projects={sortedProjects}
-                windowHours={focusWindowHours}
+                windowMinutes={focusWindowMinutes}
                 onListElement={setFocusListEl}
               />
             )}
@@ -909,6 +914,7 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
                       onDragHandlePointerDown={(e) => startProjectDrag(e, project.id)}
                       focusPortal={focusPortal}
                       focusSince={focusSinceMs}
+                      focusCutoff={showFocus ? focusCutoffMs : null}
                     />
                     {/* Drop indicator line — after */}
                     {showAfter && (

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { render, cleanup, screen, fireEvent, act } from "@testing-library/react";
+import { render, cleanup, screen, fireEvent } from "@testing-library/react";
 
 vi.mock("framer-motion", () => {
   const passthrough = (tag: string) => {
@@ -22,6 +22,8 @@ vi.mock("framer-motion", () => {
 
 import { FocusSection } from "../FocusSection";
 import { useUiStore } from "../../../stores/uiStore";
+import { useSettingsStore } from "../../../stores/settingsStore";
+import { useFocusRowsStore } from "../../../stores/focusRowsStore";
 import { resetAllStores } from "../../../test-helpers/resetStores";
 import { FOCUS_GROUP_EXPAND_KEY, onFocusNewSession, type FocusNewSessionDetail } from "../../../lib/focusView";
 import type { Project } from "../../../lib/types";
@@ -36,31 +38,54 @@ afterEach(() => cleanup());
 beforeEach(() => {
   localStorage.clear();
   resetAllStores();
+  // resetAllStores leaves settings as they are.
+  useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusThreadsVisible: 7 } }));
 });
 
 describe("FocusSection", () => {
   it("hands its list element to the caller and shows an empty state", () => {
     const onListElement = vi.fn();
-    render(<FocusSection projects={projects} windowHours={24} onListElement={onListElement} />);
+    render(<FocusSection projects={projects} windowMinutes={10} onListElement={onListElement} />);
     const el = onListElement.mock.calls[0][0] as HTMLElement;
     expect(el.hasAttribute("data-focus-list")).toBe(true);
-    expect(screen.getByText("Nothing active in the last 24 hours.")).toBeTruthy();
+    expect(screen.getByText("Nothing active in the last 10 minutes.")).toBeTruthy();
   });
 
-  it("counts rows that project groups portal into the list", async () => {
-    let listEl: HTMLElement | null = null;
-    render(<FocusSection projects={projects} windowHours={4} onListElement={(el) => { listEl = el; }} />);
-    await act(async () => {
-      listEl!.appendChild(document.createElement("div"));
-      listEl!.appendChild(document.createElement("div"));
-    });
-    expect(screen.getByText("2")).toBeTruthy();
+  it("counts every qualifying row, including ones behind Show more", () => {
+    useFocusRowsStore.setState({ timestampsByProject: { p1: [3, 2], p2: [1] } });
+    render(<FocusSection projects={projects} windowMinutes={30} onListElement={() => {}} />);
+    expect(screen.getByText("3")).toBeTruthy();
     expect(screen.queryByText(/Nothing active/)).toBeNull();
+  });
+
+  it("offers Show more past the limit and Show less once expanded", () => {
+    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusThreadsVisible: 2 } }));
+    useFocusRowsStore.setState({ timestampsByProject: { p1: [5, 4, 3], p2: [2, 1] } });
+    render(<FocusSection projects={projects} windowMinutes={10} onListElement={() => {}} />);
+    fireEvent.click(screen.getByText("Show more (2 of 3)"));
+    expect(useFocusRowsStore.getState().extraShown).toBe(2);
+    fireEvent.click(screen.getByText("Show more (1 of 1)"));
+    expect(screen.queryByText(/Show more/)).toBeNull();
+    fireEvent.click(screen.getByText("Show less"));
+    expect(useFocusRowsStore.getState().extraShown).toBe(0);
+  });
+
+  it("changes how many threads it shows from the header's right-click menu", () => {
+    render(<FocusSection projects={projects} windowMinutes={10} onListElement={() => {}} />);
+    fireEvent.contextMenu(screen.getByText("Focus"));
+    expect(screen.getByText("7")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Increase visible threads"));
+    expect(useSettingsStore.getState().settings.focusThreadsVisible).toBe(8);
+    fireEvent.click(screen.getByLabelText("Decrease visible threads"));
+    fireEvent.click(screen.getByLabelText("Decrease visible threads"));
+    expect(useSettingsStore.getState().settings.focusThreadsVisible).toBe(6);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByLabelText("Increase visible threads")).toBeNull();
   });
 
   it("collapses without unmounting the list", () => {
     let listEl: HTMLElement | null = null;
-    render(<FocusSection projects={projects} windowHours={24} onListElement={(el) => { listEl = el; }} />);
+    render(<FocusSection projects={projects} windowMinutes={10} onListElement={(el) => { listEl = el; }} />);
     fireEvent.click(screen.getByText("Focus"));
     expect(useUiStore.getState().projectExpandedById[FOCUS_GROUP_EXPAND_KEY]).toBe(false);
     expect(listEl!.isConnected).toBe(true);
@@ -70,7 +95,7 @@ describe("FocusSection", () => {
   it("asks for a project before starting a new session", () => {
     const requests: FocusNewSessionDetail[] = [];
     const off = onFocusNewSession((d) => requests.push(d));
-    render(<FocusSection projects={projects} windowHours={24} onListElement={() => {}} />);
+    render(<FocusSection projects={projects} windowMinutes={10} onListElement={() => {}} />);
     const plus = screen.getByLabelText("New session in a project");
     fireEvent.click(plus);
     expect(screen.getByText("New session in")).toBeTruthy();
@@ -84,7 +109,7 @@ describe("FocusSection", () => {
     const many = Array.from({ length: 8 }, (_, i) => makeProject(`p${i}`, `proj-${i}`));
     const requests: FocusNewSessionDetail[] = [];
     const off = onFocusNewSession((d) => requests.push(d));
-    render(<FocusSection projects={many} windowHours={24} onListElement={() => {}} />);
+    render(<FocusSection projects={many} windowMinutes={10} onListElement={() => {}} />);
     fireEvent.click(screen.getByLabelText("New session in a project"));
     const search = screen.getByLabelText("Search projects");
     fireEvent.change(search, { target: { value: "proj-5" } });

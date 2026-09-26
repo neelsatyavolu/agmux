@@ -2125,7 +2125,7 @@ fn overlay_prompts_match(entry_text: Option<&str>, prompt: &str) -> bool {
 /// Drop Claude compact summaries / system XML and strip ANSI so the phone
 /// never renders TUI plumbing as a chat bubble.
 fn clean_claude_timeline_text(text: &str) -> Option<String> {
-    let stripped = crate::db::queries::strip_ansi_for_search_pub(text);
+    let stripped = crate::db::queries::strip_ansi_keep_layout(text);
     let t = stripped.trim();
     if t.is_empty() {
         return None;
@@ -2474,6 +2474,23 @@ mod tests {
         assert_eq!(e[0].text.as_deref(), Some("real ask"));
         assert_eq!(e[1].kind, "assistant");
         assert_eq!(e[1].text.as_deref(), Some("ok"));
+    }
+
+    #[test]
+    fn claude_assistant_text_keeps_markdown_layout() {
+        use crate::commands::claude_chat::ClaudeChatItem;
+        // The phone renders tables, lists and code fences line by line, so
+        // newlines and indentation must survive the ANSI/system-tag cleanup.
+        let text = "Done.\n\n| Piece | State |\n|---|---|\n| cloud #2187 | merged |\n\n- item\n  - nested\n\n```sh\n  npm test\n```";
+        let items = vec![ClaudeChatItem::AssistantText {
+            text: format!("\x1b[1m{text}\x1b[0m\n"),
+            model: None,
+            timestamp: "2026-09-05T00:00:03.000Z".into(),
+            uuid: "a1".into(),
+        }];
+        let e = claude_items_to_entries(&items);
+        assert_eq!(e.len(), 1);
+        assert_eq!(e[0].text.as_deref(), Some(text));
     }
 
     #[test]

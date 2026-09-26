@@ -1,6 +1,6 @@
 # Release Notes
 
-User-facing delta since the **last public GitHub release** (currently v4.2.0). This is the source of truth for `/release` — not a session diary.
+User-facing delta since the **last public GitHub release** (currently v4.3.0). This is the source of truth for `/release` — not a session diary.
 
 **Audience (hard rule)**
 - Write for a **non-technical person who has never coded**. They only care what they **see or experience** in the app.
@@ -25,16 +25,25 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ## Unreleased
 
 ### New
-- **Focus** — An optional group at the top of the sidebar that gathers the threads you've been working on lately from every project, so you don't need to keep every project open. Threads leave it after a while without activity (you choose how long), and ones that are still working or have unread replies stay put. Starting a new session from Focus asks which project it belongs to. Turn it on in Settings → General.
 
 ### Improved
-- A cleaner look that matches agmux.dev and the phone app everywhere in the app: new type, flat panels and cards, clearer labels, and calmer status colors, plus a bolder new app icon that fills its tile on the Mac and on your phone. Prefer the old frosted look? Choose Settings → Appearance → Surfaces → Glass. The previous font, Geist, is still in Settings → Typography.
+
+### Fixed
+
+## v4.3.0 — 2026-09-26
+
+### New
+- **Focus** — An optional group at the top of the sidebar that gathers the threads you're actively working on from every project, so you don't need to keep every project open. It lists threads that are running, plus ones active in the last 10 minutes (you can pick up to 30 in Settings). It shows 7 threads before "Show more"; right-click Focus to show more or fewer. Starting a new session from Focus asks which project it belongs to. After updating you'll be asked once whether to turn it on, with a preview of how it looks. You can also turn it on in Settings → General.
+
+### Improved
+- **A cleaner look** — The app matches agmux.dev and the phone app: new type, flat panels and cards, clearer labels, and calmer status colors, plus a bolder app icon that fills its tile on the Mac and on your phone. Prefer the old frosted look? Choose Settings → Appearance → Surfaces → Glass. The previous font, Geist, is still in Settings → Typography.
+- **Teams matches the new look** — The Teams website uses the same type, flat panels and colors as the app.
 - **Redesigned phone remote** — The phone and browser remote has a cleaner new look that matches agmux.dev, with a light mode that follows your system. The session list is compact, with the time beside each title. Headers stay clear of the iPhone status bar and never crowd the session name. Replies are easier to read: headings, quotes and tables look right, code blocks have a Copy button, and tool activity is grouped into tidy cards. The message box stays on one line on small phones.
 - **Clearer account settings** — In Settings, Agent accounts is now just **Accounts**, and the old Accounts tab (Git identities and connected services) is now **Git & Connections**.
 - **Simpler Accounts** — Settings → Accounts now has a "Your accounts" section and a section for each of your teams, so it's clear which is which. Add a team account from the team's own section. Anyone on a team can see and use its accounts without signing in to them. When a usage check is rate limited, it now says so and keeps showing the last reading. Less-used actions sit behind each account's ⋯ menu, and "Add to switching" is gone because your current login is already used first when accounts switch automatically.
 - **Use this account** — Pick any Codex or Grok account and choose Use this account to sign your CLI into it, for agmux and your terminal alike. The login it replaces stays in your accounts. A team account stays checked out to you while your CLI uses it, so your team can see it's in use. Its usage stays up to date while your CLI uses it. If an account can't be switched to, the reason shows right on that account.
 - **See who's using a team account** — Team accounts show who is using them right now, and whether it's their CLI. If your CLI is signed into a team account, agmux recognizes it and lists it under that team, not as your own.
-- **Every usage limit** — Accounts show each limit separately, like the 5-hour and weekly limits, and team accounts show them too. Old readings show when they were taken instead of "Status unknown", and a Claude Team plan now reads "Team plan".
+- **Every usage limit** — Accounts show each limit separately, like the 5-hour and weekly limits, and team accounts show them too. A 30-day or monthly limit is labeled by its real length. Old readings show when they were taken instead of "Status unknown", and a Claude Team plan now reads "Team plan".
 - **See how busy each account is** — Accounts show how many people on your team are using them right now, and automatic switching picks the account fewer people are using. Team owners can turn on Shared Claude accounts to see how many people use each Claude login. A Claude account's email is only shown once two or more people are using it.
 - **Rename accounts** — Rename an account from its ⋯ menu. Sharing a login with a team again no longer replaces the team's name for it.
 - **Move accounts to a team** — Team owners and managers can move a Codex or Grok account from their personal accounts to a team from its ⋯ menu. Moving your current login shares it with the team and lists it under the team, and you stay signed in.
@@ -50,6 +59,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Phone remote polish** — The phone shows when it's loading or your Mac is offline, shows errors instead of failing silently, keeps the current model visible on small screens, no longer zooms in while you type on iPhone, and signs out right away if you revoke it on your Mac. Pairing no longer hangs, and pairing links from the iPhone app now work.
 
 ### Fixed
+- **Claude terminal replies on your phone** — Tables, lists, headings and code blocks in Claude terminal replies now show properly in remote control instead of running together as one long paragraph.
 - **Searching for file names** — Searching for something with a dot in it, like `main.rs` or `package.json`, now finds matching conversations instead of missing them.
 - **Renaming or deleting folders in the IDE** — Files you had open inside a folder now follow it when you rename the folder (so saving works), and close when you delete the folder.
 - **Codex reset time in Usage** — The Codex usage bars now show when your limit actually resets instead of saying "resets now".
@@ -70,10 +80,9 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Codex reset time in the top bar** — With the status line in the top bar, hovering a Codex usage limit now shows when it resets.
 - **Answered from your phone, gone on your Mac** — When you answer a Claude chat's permission request or question on your phone, the Mac chat now clears it instead of keeping it on screen and showing an error if you click it.
 - **Background agents finish in Claude chat** — A background agent in a Claude chat now shows as finished when it's done, with its tool count as it works, instead of looking like it's still running forever.
-- **One "finished" alert per OpenCode reply** — An OpenCode chat no longer sends two "Agent finished" notifications for each reply.
-- **OpenCode chat asks about every action** — When OpenCode wants to run several commands at once, each permission request now waits its turn on screen instead of the earlier ones disappearing and leaving OpenCode stuck.
+- **One "finished" alert per OpenCode reply** — An OpenCode chat sends one "Agent finished" notification per reply, including a reply you start from your phone.
+- **OpenCode chat asks about every action** — When OpenCode wants to run several commands at once, each permission request waits its turn on screen. A request you already answered, or one left over after you stop, no longer blocks the next one.
 - **Grok chat shows connected-tool results** — Tools from connected servers in a Grok chat now show their output, or the error when they fail, instead of an empty result. Folder listings and background command output show up too.
-- **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs.
 - **Phone shows sent messages as sent** — A command you typed into a Claude terminal while it was working no longer stays marked Queued on your phone after it runs, including when you pulled it back into the message box to edit it first.
 - **Codex access requests from your phone** — When a Codex chat asks for extra file or network access, the phone now shows what it wants, and tapping Allow actually grants it.
 - **Answering OpenCode questions from your phone** — When an OpenCode chat asks you a question, submitting or dismissing it on your phone now works instead of showing an error.
@@ -108,10 +117,11 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Hiding, pinning and deleting sessions on long-used installs** — When agmux's saved sidebar data was full, choosing Hide or Pin on a session did nothing, deleting a thread could leave it in the list, and moving threads to another project reported a failure even though they moved. These now work straight away.
 - **Claude terminal sessions missing from the sidebar** — If you use Claude Code plugins or startup hooks, many Claude sessions you started outside agmux never appeared in the sidebar. They now show up with their first message as the title.
 - **Droid listed agmux twice** — On Macs that used agmux before it was renamed, Droid ran agmux's status updates twice after every message and listed them twice. It now runs them once.
-- **Terminal session names** — Using the arrow keys while typing in a Codex terminal no longer puts stray characters like "[D" into the session's name, and text you clear with Ctrl+C in a Claude terminal no longer ends up in it.
+- **Terminal session names** — Using the arrow keys while typing in a Codex terminal no longer puts stray characters like "[D" into the session's name, and sending a prompt you recalled with the up arrow still shows that terminal as working. Text you clear with Ctrl+C in a Claude terminal no longer ends up in the name.
 - **Claude terminal stays "working" after you decline** — After using /clear or /resume in a Claude terminal, declining a permission request left the session showing as working. It now goes idle.
 - **Claude terminals on Home** — Claude terminals you started in agmux now show their name on Home (including names you gave them), and opening one from Home returns to that terminal instead of starting a second copy of the session.
 - **Kimi sessions sort by when you used them** — Kimi sessions in the sidebar and on Home showed no time and sank to the bottom of the list. They now show when they were last active and sort with everything else.
+- **Sign out before you join a team** — On the Teams website, Sign out is on the page you see when you are not on a team yet.
 
 ## v4.2.0 — 2026-09-23
 

@@ -1,18 +1,49 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { ChevronRight, Focus, FolderGit2, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Focus, FolderGit2, Plus } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { DropdownHeader, DropdownPopover, DropdownRow } from "../ui/ComposerDropdown";
 import { useUiStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
+import { useFocusRowsStore } from "../../stores/focusRowsStore";
 import type { Project } from "../../lib/types";
-import { FOCUS_GROUP_EXPAND_KEY, formatFocusWindow, requestFocusNewSession } from "../../lib/focusView";
+import {
+  FOCUS_GROUP_EXPAND_KEY,
+  MAX_FOCUS_THREADS_VISIBLE,
+  formatFocusWindow,
+  requestFocusNewSession,
+  resolveFocusThreadsVisible,
+} from "../../lib/focusView";
 
 const PICKER_WIDTH = 260;
 const PICKER_MARGIN = 8;
+const MENU_WIDTH = 240;
+
+/** Close a popover on Escape or a mousedown outside `refs`. */
+function useDismiss(open: boolean, refs: RefObject<HTMLElement | null>[], close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (refs.some((ref) => ref.current?.contains(target))) return;
+      close();
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+    // `refs` is a fresh array each render, but the ref objects in it are stable.
+  }, [open, close]);
+}
 
 interface Props {
   projects: Project[];
-  windowHours: number;
+  windowMinutes: number;
   /** Receives the list element that project groups portal their Focus rows into. */
   onListElement: (el: HTMLDivElement | null) => void;
 }
@@ -23,44 +54,35 @@ interface Props {
  * component owns the header, the list container and the project picker for
  * new sessions, since a new session always belongs to a real project.
  */
-export function FocusSection({ projects, windowHours, onListElement }: Props) {
+export function FocusSection({ projects, windowMinutes, onListElement }: Props) {
   const expanded = useUiStore((s) => s.projectExpandedById[FOCUS_GROUP_EXPAND_KEY] ?? true);
   const setProjectExpanded = useUiStore((s) => s.setProjectExpanded);
-  const [rowCount, setRowCount] = useState(0);
+  const limit = useSettingsStore((s) => resolveFocusThreadsVisible(s.settings.focusThreadsVisible));
+  const updateSettings = useSettingsStore((s) => s.updateSettings);
+  // Rows arrive through portals from every project; the store counts them all.
+  const rowCount = useFocusRowsStore((s) => {
+    let total = 0;
+    for (const times of Object.values(s.timestampsByProject)) total += times.length;
+    return total;
+  });
+  const extraShown = useFocusRowsStore((s) => s.extraShown);
+  const showMore = useFocusRowsStore((s) => s.showMore);
+  const showLess = useFocusRowsStore((s) => s.showLess);
   const [picker, setPicker] = useState<{ top: number; left: number } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [query, setQuery] = useState("");
-  const listRef = useRef<HTMLDivElement | null>(null);
   const plusRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Rows arrive through portals, so count them from the DOM.
-  useLayoutEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const update = () => setRowCount(el.childElementCount);
-    update();
-    const observer = new MutationObserver(update);
-    observer.observe(el, { childList: true });
-    return () => observer.disconnect();
-  }, []);
+  const closePicker = useCallback(() => setPicker(null), []);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  useDismiss(!!picker, [pickerRef, plusRef], closePicker);
+  useDismiss(!!menu, [menuRef], closeMenu);
 
-  useEffect(() => {
-    if (!picker) return;
-    const onMouseDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (pickerRef.current?.contains(target) || plusRef.current?.contains(target)) return;
-      setPicker(null);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPicker(null);
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [picker]);
+  const shown = limit + extraShown;
+  const remaining = rowCount - shown;
+  const setLimit = (next: number) => updateSettings({ focusThreadsVisible: resolveFocusThreadsVisible(next) });
 
   const filteredProjects = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -68,11 +90,6 @@ export function FocusSection({ projects, windowHours, onListElement }: Props) {
     return projects.filter((p) => p.name.toLowerCase().includes(q) || p.repo_path.toLowerCase().includes(q));
   }, [projects, query]);
 
-  // Stable so React doesn't detach/reattach the list (and re-render Sidebar) every render.
-  const setListRef = useCallback((el: HTMLDivElement | null) => {
-    listRef.current = el;
-    onListElement(el);
-  }, [onListElement]);
 
   const togglePicker = () => {
     if (picker) {
@@ -94,12 +111,22 @@ export function FocusSection({ projects, windowHours, onListElement }: Props) {
 
   return (
     <div className="pg" data-testid="focus-section">
-      <div className={`pg-h group relative ${expanded ? "open" : ""}`}>
+      <div
+        className={`pg-h group relative ${expanded ? "open" : ""}`}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setPicker(null);
+          setMenu({
+            x: Math.min(e.clientX, window.innerWidth - MENU_WIDTH - PICKER_MARGIN),
+            y: e.clientY,
+          });
+        }}
+      >
         <button
           type="button"
           onClick={() => setProjectExpanded(FOCUS_GROUP_EXPAND_KEY, !expanded)}
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left bg-transparent border-0 p-0 cursor-default"
-          title={`Threads active in the last ${formatFocusWindow(windowHours)}, from every project`}
+          title={`Threads running or active in the last ${formatFocusWindow(windowMinutes)}, from every project`}
         >
           <ChevronRight size={13} className="chev" />
           <Focus size={14} className="picn" />
@@ -123,15 +150,77 @@ export function FocusSection({ projects, windowHours, onListElement }: Props) {
 
       {/* Stays mounted while collapsed so project groups keep a portal target. */}
       <div
-        ref={setListRef}
+        ref={onListElement}
         className="pg-body"
         data-focus-list=""
         style={expanded ? undefined : { display: "none" }}
       />
+      {expanded && remaining > 0 && (
+        <button
+          type="button"
+          onClick={() => showMore(limit)}
+          className="flex w-full items-center gap-1.5 rounded px-3 py-1 text-left text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300"
+        >
+          <ChevronDown size={12} />
+          <span>Show more ({Math.min(remaining, limit)} of {remaining})</span>
+        </button>
+      )}
+      {expanded && remaining <= 0 && extraShown > 0 && rowCount > limit && (
+        <button
+          type="button"
+          onClick={showLess}
+          className="flex w-full items-center gap-1.5 rounded px-3 py-1 text-left text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300"
+        >
+          <ChevronUp size={12} />
+          <span>Show less</span>
+        </button>
+      )}
       {expanded && rowCount === 0 && (
         <p className="px-4 pb-2 text-xs text-zinc-500">
-          Nothing active in the last {formatFocusWindow(windowHours)}.
+          Nothing active in the last {formatFocusWindow(windowMinutes)}.
         </p>
+      )}
+
+      {menu && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-[9999]"
+          style={{ left: menu.x, top: menu.y, width: MENU_WIDTH }}
+        >
+          <DropdownPopover>
+            <DropdownHeader title="Focus" />
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-[13px] text-zinc-200">
+              <span className="flex items-center gap-2.5">
+                <ChevronDown size={13} className="shrink-0 text-zinc-400" />
+                Threads visible
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setLimit(limit - 1)}
+                  disabled={limit <= 1}
+                  className="flex h-5 w-5 items-center justify-center rounded border border-white/10 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-40"
+                  aria-label="Decrease visible threads"
+                >
+                  −
+                </button>
+                <span className="min-w-[1.5rem] text-center text-xs tabular-nums text-zinc-200">
+                  {limit}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLimit(limit + 1)}
+                  disabled={limit >= MAX_FOCUS_THREADS_VISIBLE}
+                  className="flex h-5 w-5 items-center justify-center rounded border border-white/10 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-40"
+                  aria-label="Increase visible threads"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </DropdownPopover>
+        </div>,
+        document.body,
       )}
 
       {createPortal(

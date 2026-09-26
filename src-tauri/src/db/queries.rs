@@ -796,6 +796,15 @@ pub fn strip_ansi_for_search_pub(input: &str) -> String {
 }
 
 fn strip_ansi_for_search(input: &str) -> String {
+    strip_ansi_keep_layout(input)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Strip ANSI escapes and control bytes but keep newlines, tabs and spacing,
+/// so markdown (tables, lists, code fences) still parses afterwards.
+pub fn strip_ansi_keep_layout(input: &str) -> String {
     let bytes = input.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -873,10 +882,7 @@ fn strip_ansi_for_search(input: &str) -> String {
         out.push(b);
         i += 1;
     }
-    String::from_utf8_lossy(&out)
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 /// True when cleaned text still has enough real letters to show as a snippet.

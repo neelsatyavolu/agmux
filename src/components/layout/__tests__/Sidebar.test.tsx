@@ -26,11 +26,12 @@ vi.mock("../../../lib/commands", () => ({
 
 // Avoid pulling in heavy children — they are tested separately.
 vi.mock("../../sidebar/ProjectGroup", () => ({
-  ProjectGroup: ({ project, focusPortal, focusSince }: { project: { name: string }; focusPortal?: HTMLElement | null; focusSince?: number | null }) => (
+  ProjectGroup: ({ project, focusPortal, focusSince, focusCutoff }: { project: { name: string }; focusPortal?: HTMLElement | null; focusSince?: number | null; focusCutoff?: number | null }) => (
     <div
       data-testid="project-group"
       data-focus-portal={focusPortal?.hasAttribute("data-focus-list") ? "list" : "none"}
       data-focus-since={focusSince ?? ""}
+      data-focus-cutoff={focusCutoff == null ? "" : String(focusCutoff)}
     >
       {project.name}
     </div>
@@ -563,6 +564,7 @@ describe("Sidebar — Even deeper coverage", () => {
 // ===================================================================
 import { fireEvent } from "@testing-library/react";
 import { useSettingsStore } from "../../../stores/settingsStore";
+import { useFocusRowsStore } from "../../../stores/focusRowsStore";
 
 function setupClean() {
   useProjectStore.setState({ projects: [], loading: false });
@@ -1140,7 +1142,8 @@ describe("Sidebar Focus", () => {
     useProjectStore.setState({ projects: [alpha], loading: false });
   });
   afterEach(() => {
-    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusEnabled: false, focusWindowHours: 24 } }));
+    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusEnabled: false, focusWindowMinutes: 10, focusThreadsVisible: 7 } }));
+    useFocusRowsStore.setState({ timestampsByProject: {}, extraShown: 0 });
   });
 
   it("is off by default", () => {
@@ -1151,7 +1154,7 @@ describe("Sidebar Focus", () => {
   });
 
   it("shows Focus above the projects and gives each group the list and window", () => {
-    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusEnabled: true, focusWindowHours: 4 } }));
+    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusEnabled: true, focusWindowMinutes: 30 } }));
     const before = Date.now();
     render(<Sidebar />);
     expect(screen.getByTestId("focus-section")).toBeTruthy();
@@ -1159,8 +1162,18 @@ describe("Sidebar Focus", () => {
     const group = screen.getByTestId("project-group");
     expect(group.dataset.focusPortal).toBe("list");
     const since = Number(group.dataset.focusSince);
-    expect(since).toBeGreaterThanOrEqual(before - 4 * 60 * 60 * 1000);
-    expect(since).toBeLessThanOrEqual(Date.now() - 4 * 60 * 60 * 1000);
+    expect(since).toBeGreaterThanOrEqual(before - 30 * 60 * 1000);
+    expect(since).toBeLessThanOrEqual(Date.now() - 30 * 60 * 1000);
+    expect(group.dataset.focusCutoff).toBe("-Infinity");
+  });
+
+  it("caps Focus at the saved limit across projects, plus Show more", () => {
+    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusEnabled: true, focusThreadsVisible: 2 } }));
+    useFocusRowsStore.setState({ timestampsByProject: { p1: [50, 10], p2: [40, 30] } });
+    render(<Sidebar />);
+    expect(screen.getByTestId("project-group").dataset.focusCutoff).toBe("40");
+    act(() => useFocusRowsStore.getState().showMore(2));
+    expect(screen.getByTestId("project-group").dataset.focusCutoff).toBe("-Infinity");
   });
 
   it("stays hidden in cowork mode", () => {

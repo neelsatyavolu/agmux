@@ -11,6 +11,7 @@ import { RetainedModePanel } from "./components/layout/RetainedModePanel";
 import { ResizeHandle } from "./components/layout/ResizeHandle";
 import { SetupWizardDialog } from "./components/sidebar/SetupWizardDialog";
 import { LocalModelSetupDialog } from "./components/sidebar/LocalModelSetupDialog";
+import { FocusIntroDialog } from "./components/sidebar/FocusIntroDialog";
 import { LocalModelUpgradeDialog } from "./components/sidebar/LocalModelUpgradeDialog";
 import { UpdateChecker } from "./components/UpdateChecker";
 import { WhatsNewDialog } from "./components/WhatsNewDialog";
@@ -539,6 +540,7 @@ function App() {
       <HookEventListener />
       <SetupWizardDialog />
       <LocalModelSetupDialog />
+      <FocusIntroDialog />
       <LocalModelUpgradeDialog />
       <UpdateChecker />
       <WhatsNewDialog />

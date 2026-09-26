@@ -1,6 +1,6 @@
 [package]
 name = "xanom"
-version = "4.2.0"
+version = "4.3.0"
 description = "AI Coding Agent Manager for macOS"
 authors = ["Neel"]
 edition = "2021"

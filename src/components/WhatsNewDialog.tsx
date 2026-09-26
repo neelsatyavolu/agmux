@@ -310,9 +310,13 @@ export function WhatsNewDialog() {
       ) {
         return;
       }
+      settingsState.setWhatsNewPending(true);
       const release = await fetchReleaseData(version);
       if (cancelled) return;
-      if (!release) return;
+      if (!release) {
+        settingsState.setWhatsNewPending(false);
+        return;
+      }
       setData(release);
       // Small delay so the app finishes loading first
       setTimeout(() => {
@@ -326,6 +330,7 @@ export function WhatsNewDialog() {
 
   const handleDismiss = useCallback(() => {
     setOpen(false);
+    useSettingsStore.getState().setWhatsNewPending(false);
     if (appVersion && dontShow) {
       localStorage.setItem(STORAGE_KEY, appVersion);
     }

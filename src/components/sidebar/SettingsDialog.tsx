@@ -63,7 +63,7 @@ import { DebugModeSection } from "../settings/DebugModeSection";
 import { CleanupSection } from "../settings/CleanupSection";
 import { useResolvedColorMode } from "../ThemeProvider";
 import { formatError } from "../../lib/formatError";
-import { FOCUS_WINDOW_HOURS_OPTIONS, resolveFocusWindowHours } from "../../lib/focusView";
+import { FOCUS_WINDOW_MINUTES_OPTIONS, resolveFocusWindowMinutes } from "../../lib/focusView";
 
 const EMPTY_GIT_ACCOUNTS: GitAccount[] = [];
 
@@ -1231,7 +1231,7 @@ function GeneralPage({
 
         <SettingsRow
           label="Focus"
-          description="Add a Focus group to the top of the sidebar with the threads you've worked on recently, from every project. A thread leaves Focus after it has been inactive for the time below. New sessions started from Focus ask which project they belong to."
+          description="Add a Focus group to the top of the sidebar with the threads you're actively working on, from every project: ones that are running, or were active within the time below. Shows 7 threads before 'Show more' — right-click Focus in the sidebar to change that. New sessions started from Focus ask which project they belong to."
         >
           <Toggle
             enabled={settings.focusEnabled ?? false}
@@ -1241,18 +1241,18 @@ function GeneralPage({
 
         {(settings.focusEnabled ?? false) && (
           <SettingsRow
-            label="Keep threads in Focus for"
-            description="Threads that are working, waiting for approval, or have unread replies stay in Focus regardless."
+            label="Keep idle threads in Focus for"
+            description="Threads that are running or waiting for approval stay in Focus regardless."
           >
             <div className="flex flex-wrap gap-1.5">
-              {FOCUS_WINDOW_HOURS_OPTIONS.map((h) => (
+              {FOCUS_WINDOW_MINUTES_OPTIONS.map((m) => (
                 <SegButton
-                  key={h}
-                  active={resolveFocusWindowHours(settings.focusWindowHours) === h}
+                  key={m}
+                  active={resolveFocusWindowMinutes(settings.focusWindowMinutes) === m}
                   color="indigo"
-                  onClick={() => updateSettings({ focusWindowHours: h })}
+                  onClick={() => updateSettings({ focusWindowMinutes: m })}
                 >
-                  {h < 24 ? `${h}h` : `${h / 24}d`}
+                  {`${m}m`}
                 </SegButton>
               ))}
             </div>

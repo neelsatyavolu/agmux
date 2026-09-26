@@ -14,3 +14,18 @@ Run on a disposable macOS user account/test Mac, with test projects and provider
 - Teams: verify new-session activity and coverage labels; missing provider history must remain partial and must not be advertised as complete cost/invoice reconciliation.
 
 Record failures and platform/provider coverage explicitly. Do not check off unperformed steps. Service changes (support schema and private attachment bucket) must be deployed before distributing a desktop that depends on them.
+
+## v4.3.0 — 2026-09-26
+
+Candidate recorded before a signed DMG existed. Machine: macOS 27.2, Apple Silicon. Previous public version: v4.2.0. Parent commit at the start of the bump: `02677c33`.
+
+Automated checks (pass):
+
+- `npx tsc --noEmit`
+- `npm test` — 7098 passed, 14 skipped
+- `cd sidecar && npm test`
+- `cd analytics-service && npm run typecheck && npm test` — 29 passed
+- `cd src-tauri && cargo test -p xanom -- --test-threads=1` — 2454 passed, 26 ignored
+- `cd src-tauri && python3 -m unittest discover -s tests -p 'test_codex_diff_hook.py'` — 126 tests, 1 skipped
+
+Not run on an installed app, so these are not accepted: fresh install of the signed DMG, first-run setup, a live conversation for each provider, approvals and stop, quit/relaunch persistence, load, upgrade from the installed v4.2.0, recovery, a real support submission, or Teams on the live site. Intel was not tested on this Mac. The release workflow repeats the automated checks and builds both Mac architectures.

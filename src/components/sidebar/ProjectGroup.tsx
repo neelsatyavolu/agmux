@@ -4,6 +4,7 @@ import type { DiffRecalculationTarget } from "../../lib/recalculateDiff";
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { onFocusNewSession } from "../../lib/focusView";
+import { useFocusRowsStore } from "../../stores/focusRowsStore";
 import { useShallow } from "zustand/react/shallow";
 import { ChevronRight, ChevronDown, Plus, Loader2, Archive, Trash2, GripVertical, X, XCircle, MoreHorizontal, Pencil, SquarePen, GitBranch, FolderGit2, FolderInput, FolderOpen, MessageSquarePlus, Pin, PinOff, Activity, Check, ArrowRightLeft, RefreshCw, Unplug } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -192,14 +193,14 @@ function isPtyTerminalProvider(provider: Provider, interactionMode: Thread["inte
 }
 
 // Unified sidebar status indicator. Priority: needs-attention (amber pulse) > working (spinner) > done-unread (green pulse) > idle (nothing).
-type StatusDotState = "needs_attention" | "working" | "done_unread" | "idle";
+export type StatusDotState = "needs_attention" | "working" | "done_unread" | "idle";
 function computeStatus(opts: { pending: boolean; processing: boolean; unread: boolean }): StatusDotState {
   if (opts.pending) return "needs_attention";
   if (opts.processing) return "working";
   if (opts.unread) return "done_unread";
   return "idle";
 }
-function StatusDot({ state, title }: { state: StatusDotState; title?: string }) {
+export function StatusDot({ state, title }: { state: StatusDotState; title?: string }) {
   if (state === "idle") return null;
   if (state === "working") {
     return (
@@ -275,6 +276,8 @@ interface Props {
   focusPortal?: HTMLElement | null;
   /** Rows active at or after this epoch-ms time are listed in Focus. */
   focusSince?: number | null;
+  /** Rows older than this epoch-ms time stay behind Focus's "Show more". */
+  focusCutoff?: number | null;
 }
 
 /** Collapse Claude model IDs / aliases to "Sonnet 4.6" / "Opus 4.7" / "Haiku 4.5". */
@@ -308,7 +311,7 @@ function relativeTime(ts: number): string {
   return `${months}mo`;
 }
 
-type SidebarProviderIcon = "claude" | "codex" | "droid" | "kimi" | "pi" | "opencode" | "mlx" | "grok" | "cursor" | "cline" | "gemini" | "hermes";
+export type SidebarProviderIcon = "claude" | "codex" | "droid" | "kimi" | "pi" | "opencode" | "mlx" | "grok" | "cursor" | "cline" | "gemini" | "hermes";
 
 const PROVIDER_ICONS: Record<SidebarProviderIcon, string> = {
   claude: claudeIcon,
@@ -325,7 +328,7 @@ const PROVIDER_ICONS: Record<SidebarProviderIcon, string> = {
   hermes: hermesIcon,
 };
 
-function ProviderIcon({
+export function ProviderIcon({
   provider,
   size = 14,
 }: {
@@ -346,7 +349,7 @@ function ProviderIcon({
   );
 }
 
-export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessions, piSessions, grokSessions, onSessionCreated, onDragHandlePointerDown, collapsed, variant = "list", desktopClaudeCowork = EMPTY_DESKTOP_CLAUDE, desktopCodexWork = EMPTY_DESKTOP_CODEX, focusPortal = null, focusSince = null }: Props) {
+export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessions, piSessions, grokSessions, onSessionCreated, onDragHandlePointerDown, collapsed, variant = "list", desktopClaudeCowork = EMPTY_DESKTOP_CLAUDE, desktopCodexWork = EMPTY_DESKTOP_CODEX, focusPortal = null, focusSince = null, focusCutoff = null }: Props) {
   const expanded = useUiStore((s) => s.projectExpandedById[project.id] ?? true);
   const setProjectExpanded = useUiStore((s) => s.setProjectExpanded);
   const setExpanded = (next: boolean) => setProjectExpanded(project.id, next);
@@ -882,24 +885,38 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     });
   }, [unified, showOnlyRunning, selectedThreadId, selectedCodexSessionId, selectedClaudeSessionId, pendingApprovalsBySession, claudeProcessingById, codexProcessingById, unreadSessionIds]);
 
-  // Focus: rows active since `focusSince`, plus any still working, waiting on
-  // approval, or finished-but-unread. Cowork desktop rows never qualify.
+  // Focus: rows active since `focusSince`, plus any still working or waiting
+  // on approval. Cowork desktop rows never qualify.
   const focusItems = useMemo(() => {
     if (!focusPortal || focusSince == null || appMode === "cowork") return [];
     return unified.filter((item) => {
       if (item.kind === "desktop-claude") return false;
       const id = item.data.id;
       if (item.timestamp >= focusSince) return true;
-      return !!pendingApprovalsBySession[id] || !!claudeProcessingById[id] || !!codexProcessingById[id] || !!unreadSessionIds[id];
+      return !!pendingApprovalsBySession[id] || !!claudeProcessingById[id] || !!codexProcessingById[id];
     });
-  }, [focusPortal, focusSince, appMode, unified, pendingApprovalsBySession, claudeProcessingById, codexProcessingById, unreadSessionIds]);
+  }, [focusPortal, focusSince, appMode, unified, pendingApprovalsBySession, claudeProcessingById, codexProcessingById]);
+
+  // Focus caps its rows across every project, so publish this group's row
+  // times for the Sidebar to rank. Layout effect: no frame with extra rows.
+  const setFocusTimestamps = useFocusRowsStore((s) => s.setProjectTimestamps);
+  const removeFocusProject = useFocusRowsStore((s) => s.removeProject);
+  useLayoutEffect(() => {
+    setFocusTimestamps(project.id, focusItems.map((item) => item.timestamp).sort((a, b) => b - a));
+  }, [setFocusTimestamps, project.id, focusItems]);
+  useLayoutEffect(() => () => removeFocusProject(project.id), [removeFocusProject, project.id]);
+
+  const focusRows = useMemo(
+    () => (focusCutoff == null ? focusItems : focusItems.filter((item) => item.timestamp >= focusCutoff)),
+    [focusItems, focusCutoff],
+  );
 
   // A Focus row that ages out mid-rename takes its input with it; end the rename.
   useEffect(() => {
-    if (renameInFocus && renamingItemId && !focusItems.some((item) => item.data.id === renamingItemId)) {
+    if (renameInFocus && renamingItemId && !focusRows.some((item) => item.data.id === renamingItemId)) {
       setRenamingItemId(null);
     }
-  }, [renameInFocus, renamingItemId, focusItems]);
+  }, [renameInFocus, renamingItemId, focusRows]);
 
   // Clamp visibleCount when the item count changes — but PRESERVE any
   // "Show more" expansion the user has explicitly opted into. Previously we
@@ -3641,8 +3658,8 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
 
       {itemContextMenuPortal}
 
-      {focusPortal && focusItems.length > 0 && createPortal(
-        focusItems.map((item) => (
+      {focusPortal && focusRows.length > 0 && createPortal(
+        focusRows.map((item) => (
           <div
             key={`focus-${item.kind}-${item.data.id}`}
             // Rows from every project share one flex column; order interleaves them newest first.

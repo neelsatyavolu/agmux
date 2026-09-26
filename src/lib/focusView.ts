@@ -4,9 +4,13 @@
  * list, so rows keep their normal selection, status and context menus.
  */
 
-/** Hour windows offered in Settings. A row drops out of Focus after this long without activity. */
-export const FOCUS_WINDOW_HOURS_OPTIONS = [1, 4, 12, 24, 72, 168] as const;
-export const DEFAULT_FOCUS_WINDOW_HOURS = 24;
+/** Idle windows (minutes) offered in Settings. A row leaves Focus after this long without activity. */
+export const FOCUS_WINDOW_MINUTES_OPTIONS = [5, 10, 15, 20, 30] as const;
+export const DEFAULT_FOCUS_WINDOW_MINUTES = 10;
+
+/** Rows Focus lists before "Show more". Right-click the Focus header to change. */
+export const DEFAULT_FOCUS_THREADS_VISIBLE = 7;
+export const MAX_FOCUS_THREADS_VISIBLE = 100;
 
 /** `uiStore.projectExpandedById` key for the Focus group's open/closed state. */
 export const FOCUS_GROUP_EXPAND_KEY = "agmux-focus";
@@ -20,23 +24,36 @@ export interface FocusNewSessionDetail {
 }
 
 /** Saved window, or the default when the stored value isn't one we offer. */
-export function resolveFocusWindowHours(value: unknown): number {
-  return (FOCUS_WINDOW_HOURS_OPTIONS as readonly unknown[]).includes(value)
+export function resolveFocusWindowMinutes(value: unknown): number {
+  return (FOCUS_WINDOW_MINUTES_OPTIONS as readonly unknown[]).includes(value)
     ? (value as number)
-    : DEFAULT_FOCUS_WINDOW_HOURS;
+    : DEFAULT_FOCUS_WINDOW_MINUTES;
+}
+
+/** Saved row limit clamped to 1..MAX, or the default when unset. */
+export function resolveFocusThreadsVisible(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_FOCUS_THREADS_VISIBLE;
+  return Math.min(MAX_FOCUS_THREADS_VISIBLE, Math.max(1, Math.round(value)));
 }
 
 /** Start of the Focus window: rows active at or after this time are listed. */
-export function focusSince(now: number, windowHours: number): number {
-  return now - windowHours * 60 * 60 * 1000;
+export function focusSince(now: number, windowMinutes: number): number {
+  return now - windowMinutes * 60 * 1000;
 }
 
-export function formatFocusWindow(hours: number): string {
-  if (hours % 24 === 0) {
-    const days = hours / 24;
-    return days === 1 ? "24 hours" : days === 7 ? "week" : `${days} days`;
-  }
-  return hours === 1 ? "hour" : `${hours} hours`;
+export function formatFocusWindow(minutes: number): string {
+  return minutes === 1 ? "minute" : `${minutes} minutes`;
+}
+
+/**
+ * Oldest row time still shown when Focus lists `shown` rows, newest first.
+ * `timestamps` holds each project's qualifying row times; rows older than the
+ * result stay behind "Show more".
+ */
+export function focusCutoff(timestamps: readonly (readonly number[])[], shown: number): number {
+  const all = timestamps.flat();
+  if (all.length <= shown) return -Infinity;
+  return all.sort((a, b) => b - a)[shown - 1];
 }
 
 /** Ask a project's group to open its "New in {project}" menu at `anchor`. */

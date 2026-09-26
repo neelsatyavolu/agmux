@@ -1,4 +1,4 @@
-import { DEFAULT_FOCUS_WINDOW_HOURS } from "../lib/focusView";
+import { DEFAULT_FOCUS_THREADS_VISIBLE, DEFAULT_FOCUS_WINDOW_MINUTES } from "../lib/focusView";
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { isQuickOpenAction, type QuickOpenAction } from "../lib/quickOpen";
@@ -338,8 +338,12 @@ export interface AppSettings {
   projectShowOnlyRunning: Record<string, boolean>;
   /** Opt-in "Focus" sidebar group: recently active threads from every project. */
   focusEnabled: boolean;
-  /** Hours without activity before a thread leaves Focus. */
-  focusWindowHours: number;
+  /** Minutes idle before a thread leaves Focus (running threads always stay). */
+  focusWindowMinutes: number;
+  /** Rows Focus lists before "Show more". */
+  focusThreadsVisible: number;
+  /** The one-time "Turn on Focus?" popup was answered. */
+  focusIntroSeen: boolean;
 
   // ── Providers (Usage panel) ──
   /** Extra providers shown in the Usage panel (alongside built-in Claude + Codex).
@@ -480,7 +484,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   projectThreadsVisible: {},
   projectShowOnlyRunning: {},
   focusEnabled: false,
-  focusWindowHours: DEFAULT_FOCUS_WINDOW_HOURS,
+  focusWindowMinutes: DEFAULT_FOCUS_WINDOW_MINUTES,
+  focusThreadsVisible: DEFAULT_FOCUS_THREADS_VISIBLE,
+  focusIntroSeen: false,
   usageProviders: {
     warp: { ...DEFAULT_USAGE_PROVIDER_CONFIG },
     gemini: { ...DEFAULT_USAGE_PROVIDER_CONFIG },
@@ -634,11 +640,14 @@ interface SettingsState {
   settings: AppSettings;
   isOpen: boolean;
   isSetupWizardOpen: boolean;
+  /** What's New is loading or open for this version; other one-time popups wait. */
+  isWhatsNewPending: boolean;
   initialTab: string | null;
   openSettings: (tab?: string) => void;
   closeSettings: () => void;
   openSetupWizard: () => void;
   closeSetupWizard: () => void;
+  setWhatsNewPending: (pending: boolean) => void;
   updateSettings: (patch: Partial<AppSettings>) => void;
   resetSettings: () => void;
 }
@@ -658,6 +667,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   isSetupWizardOpen: false,
   openSetupWizard: () => set({ isSetupWizardOpen: true }),
   closeSetupWizard: () => set({ isSetupWizardOpen: false }),
+  isWhatsNewPending: false,
+  setWhatsNewPending: (pending) => set({ isWhatsNewPending: pending }),
 
   updateSettings: (patch) =>
     set((s) => {
