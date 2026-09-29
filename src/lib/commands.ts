@@ -2302,6 +2302,12 @@ export async function sdkStopSession(threadId: string): Promise<void> {
   return invoke<void>("sdk_stop_session", { threadId });
 }
 
+/** True when stopping this session (terminal or chat) would kill work still
+ *  running after its turn: background agents, workflows or commands. */
+export async function sessionHasBackgroundWork(threadId: string): Promise<boolean> {
+  return invoke<boolean>("session_has_background_work", { threadId });
+}
+
 export async function sdkRewindFiles(
   threadId: string,
   userMessageId: string,

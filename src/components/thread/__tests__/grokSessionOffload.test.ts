@@ -7,9 +7,10 @@ vi.mock("../../../lib/commands", () => ({
   remoteSyncSessionNames: vi.fn().mockResolvedValue(undefined),
   stopThread: vi.fn().mockResolvedValue(undefined),
   grokSdkStopSession: vi.fn().mockResolvedValue(undefined),
+  sessionHasBackgroundWork: vi.fn().mockResolvedValue(false),
 }));
 
-import { stopThread, grokSdkStopSession } from "../../../lib/commands";
+import { stopThread, grokSdkStopSession, sessionHasBackgroundWork } from "../../../lib/commands";
 import {
   cancelGrokSessionOffload,
   GROK_OFFLOAD_DELAY_MS,
@@ -62,6 +63,7 @@ describe("scheduleGrokSessionOffload", () => {
     resetGrokSessionOffloadForTests();
     vi.mocked(stopThread).mockClear();
     vi.mocked(grokSdkStopSession).mockClear();
+    vi.mocked(sessionHasBackgroundWork).mockReset().mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -98,6 +100,21 @@ describe("scheduleGrokSessionOffload", () => {
     await vi.advanceTimersByTimeAsync(GROK_OFFLOAD_DELAY_MS + 1000);
     expect(stopThread).not.toHaveBeenCalled();
     expect(isGrokSessionOffloaded("t1")).toBe(false);
+  });
+
+  it("waits while background commands run and is not marked offloaded", async () => {
+    vi.mocked(sessionHasBackgroundWork).mockResolvedValueOnce(true);
+    scheduleGrokSessionOffload("t-bg", "pty");
+
+    await vi.advanceTimersByTimeAsync(GROK_OFFLOAD_DELAY_MS);
+    expect(sessionHasBackgroundWork).toHaveBeenCalledWith("t-bg");
+    expect(stopThread).not.toHaveBeenCalled();
+    expect(isGrokSessionOffloaded("t-bg")).toBe(false);
+    expect(pendingGrokOffloadCountForTests()).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(GROK_OFFLOAD_DELAY_MS);
+    expect(stopThread).toHaveBeenCalledWith("t-bg");
+    expect(isGrokSessionOffloaded("t-bg")).toBe(true);
   });
 
   it("re-schedule replaces the previous timer", async () => {

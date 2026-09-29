@@ -353,11 +353,15 @@ export function ThreadView({ thread, compact = false }: Props) {
           setTerminalUnloaded(false);
           suppressPtyExitRef.current = false;
           terminalAutoSpawnedRef.current = thread.id;
-          updateThreadStatus(thread.id, "Running");
+          // Offload waits while background commands run, so an unloaded
+          // screen no longer means the process is gone. The spawn below then
+          // only restarts one that exited on its own.
+          if (wasOffloaded) updateThreadStatus(thread.id, "Running");
           spawnThreadRaw(thread.id, {
             ...currentSpawnPreferences(),
             enableAutoMode: false,
           }).catch((err) => {
+            if (!wasOffloaded && String(err).includes("already running")) return;
             console.error("Grok resume after offload failed:", err);
             updateThreadStatus(thread.id, "Error");
             terminalAutoSpawnedRef.current = null;

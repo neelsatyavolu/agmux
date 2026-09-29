@@ -404,6 +404,13 @@ impl RemoteClientHandle {
         }
     }
 
+    /// One-shot claim of an open phone question (terminal menus answer by
+    /// keystroke, so a late second reply must not type again).
+    pub async fn take_pending_user_input(&self, thread_id: &str, request_id: &str) -> bool {
+        self.inner.pending_user_inputs.lock().await
+            .remove(&approval_key(thread_id, request_id)).is_some()
+    }
+
     pub async fn push_user_input_resolved(&self, request_id: &str, thread_id: Option<&str>) {
         let mut pending = self.inner.pending_user_inputs.lock().await;
         let matches: Vec<String> = pending.values().filter_map(|message| match message {
@@ -3076,6 +3083,15 @@ mod tests {
             !remote.take_pending_approval("t1", "a1").await,
             "Mac resolve must consume the pending slot"
         );
+    }
+
+    #[tokio::test]
+    async fn take_pending_user_input_is_one_shot() {
+        let remote = RemoteClientHandle::new();
+        remote.push_user_input_requested("t1", "term-q", serde_json::json!([])).await;
+        assert!(!remote.take_pending_user_input("t2", "term-q").await, "scoped to its thread");
+        assert!(remote.take_pending_user_input("t1", "term-q").await);
+        assert!(!remote.take_pending_user_input("t1", "term-q").await, "a second reply must not type again");
     }
 
     #[tokio::test]

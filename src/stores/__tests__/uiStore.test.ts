@@ -507,6 +507,23 @@ describe("uiStore — Maximum coverage", () => {
     expect(useUiStore.getState().claudeSessionMap["xanom-1"]).toEqual(["real-1", "real-2"]);
   });
 
+  it("promoteClaudeRealId makes a mapped real id the latest again", () => {
+    useUiStore.getState().setClaudeRealId("xanom-1", "real-1");
+    useUiStore.getState().setClaudeRealId("xanom-1", "real-2");
+    useUiStore.getState().promoteClaudeRealId("xanom-1", "real-1");
+    expect(useUiStore.getState().claudeSessionMap["xanom-1"]).toEqual(["real-2", "real-1"]);
+    expect(localStorage.getItem("agmux-claude-session-map")).toContain('["real-2","real-1"]');
+  });
+
+  it("promoteClaudeRealId leaves the map alone for unmapped or already-latest ids", () => {
+    useUiStore.getState().setClaudeRealId("xanom-1", "real-1");
+    const before = useUiStore.getState().claudeSessionMap;
+    useUiStore.getState().promoteClaudeRealId("xanom-1", "real-1");
+    useUiStore.getState().promoteClaudeRealId("xanom-1", "other");
+    useUiStore.getState().promoteClaudeRealId("xanom-2", "real-1");
+    expect(useUiStore.getState().claudeSessionMap).toBe(before);
+  });
+
   it("setClaudeRealId propagates cwd from xanom UUID to real id", () => {
     useUiStore.setState({ sessionCwdMap: { "xanom-1": "/repo" } } as never);
     useUiStore.getState().setClaudeRealId("xanom-1", "real-1");

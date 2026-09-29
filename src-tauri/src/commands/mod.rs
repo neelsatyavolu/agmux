@@ -2,6 +2,7 @@ pub mod ael;
 pub mod ai_ask;
 pub mod app_visibility;
 pub mod autocomplete;
+pub mod background_work;
 pub mod claude_chat;
 pub mod claude_sdk;
 pub mod cleanup;

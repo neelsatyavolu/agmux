@@ -1,3 +1,6 @@
+import { sessionHasBackgroundWork } from "../../lib/commands";
+import { useUiStore } from "../../stores/uiStore";
+
 /** Whether a terminal session must stay mounted rather than being offloaded to
  *  save memory. A session is kept loaded when it is the active tab, an agent
  *  launched from the input bar is running, or a foreground interactive program
@@ -39,9 +42,27 @@ export function cancelClaudeSessionOffload(sessionId: string): void {
   }
 }
 
-/** Kill the Claude PTY after `delayMs` if still not cancelled. Switching
- *  away used to call `stopClaudeSession` immediately, so coming back
- *  cold-started `claude` + MCP every time. */
+/** Whether stopping a hidden session now would kill work it is still doing.
+ *  Asked when an offload timer fires, not when it is armed: a turn can end
+ *  while background agents, workflows or commands keep running, and one of
+ *  them finishing starts a new turn while the tab is hidden. */
+export async function isOffloadBlocked(sessionId: string): Promise<boolean> {
+  const ui = useUiStore.getState();
+  if (ui.claudeProcessingById[sessionId] || ui.pendingApprovalsBySession[sessionId] != null) {
+    return true;
+  }
+  try {
+    return await sessionHasBackgroundWork(sessionId);
+  } catch (err) {
+    console.warn("Background work check failed; keeping the session running:", err);
+    return true;
+  }
+}
+
+/** Stop a hidden Claude session (terminal or chat) after `delayMs` if still
+ *  not cancelled and not busy. A busy session is checked again after
+ *  another `delayMs`. Switching away used to call `stopClaudeSession`
+ *  immediately, so coming back cold-started `claude` + MCP every time. */
 export function scheduleClaudeSessionOffload(
   sessionId: string,
   stop: (id: string) => Promise<void>,
@@ -49,7 +70,14 @@ export function scheduleClaudeSessionOffload(
 ): void {
   if (!sessionId) return;
   cancelClaudeSessionOffload(sessionId);
-  const handle = setTimeout(() => {
+  const handle = setTimeout(async () => {
+    const blocked = await isOffloadBlocked(sessionId);
+    // Cancelled (user came back) or rescheduled while we were checking.
+    if (pendingClaudeOffload.get(sessionId) !== handle) return;
+    if (blocked) {
+      scheduleClaudeSessionOffload(sessionId, stop, delayMs);
+      return;
+    }
     pendingClaudeOffload.delete(sessionId);
     stop(sessionId).catch(() => {
       // Best-effort — session may already be gone.

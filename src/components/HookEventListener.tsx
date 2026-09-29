@@ -258,6 +258,9 @@ export function HookEventListener() {
           const realSessionId = extractClaudeHookRealSessionId(payload, session_id);
           if (realSessionId) {
             useUiStore.getState().setClaudeRealId(session_id, realSessionId);
+            if (event === "prompt-submit") {
+              useUiStore.getState().promoteClaudeRealId(session_id, realSessionId);
+            }
           }
         }
       }

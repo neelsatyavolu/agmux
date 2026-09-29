@@ -79,8 +79,10 @@ pub async fn provider_accounts_use(id: String, team_id: Option<String>) -> Resul
     {
         let current = native::current(&provider).await.map(|(assignment, _)| assignment.account_id);
         let assigned = bindings().lock().await;
-        if assigned.values().any(|b| b.assignment.account_id == id || current.as_ref() == Some(&b.assignment.account_id)) {
-            return Err(format!("Close agmux {name} sessions using either account first."));
+        let blocking = assigned.values().filter(|b| b.assignment.account_id == id || current.as_ref() == Some(&b.assignment.account_id)).count();
+        if blocking > 0 {
+            let sessions = if blocking == 1 { format!("1 agmux {name} session") } else { format!("{blocking} agmux {name} sessions") };
+            return Err(format!("Close the {sessions} using either account first."));
         }
     }
     // Take the new login before letting go of the old one, so a failure changes nothing.

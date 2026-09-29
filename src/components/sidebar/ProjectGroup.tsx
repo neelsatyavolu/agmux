@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { onFocusNewSession } from "../../lib/focusView";
 import { useFocusRowsStore } from "../../stores/focusRowsStore";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronRight, ChevronDown, Plus, Loader2, Archive, Trash2, GripVertical, X, XCircle, MoreHorizontal, Pencil, SquarePen, GitBranch, FolderGit2, FolderInput, FolderOpen, MessageSquarePlus, Pin, PinOff, Activity, Check, ArrowRightLeft, RefreshCw, Unplug } from "lucide-react";
+import { ChevronRight, ChevronDown, Plus, Loader2, Archive, Trash2, GripVertical, X, XCircle, MoreHorizontal, Pencil, SquarePen, GitBranch, FolderGit2, FolderInput, FolderOpen, MessageSquarePlus, Pin, PinOff, Activity, Check, ArrowRightLeft, RefreshCw, Unplug, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { defaultThreadName, getClaudeModelDisplayName, prettifyOpenCodeSlug, prettifyCodexModelName, prettifyGrokModel, prettifyKimiModel, prettifyCursorModel, prettifyPiModel, prettifyClineModel, prettifyGeminiModel } from "../../lib/types";
 import { formatLocalModelLabel, isLocalModelSlug, mlxGatewayStatus, mlxCapability, mlxListModels, localModelSlug, resolveLocalModelId, mlxEjectModel } from "../../lib/mlx";
@@ -885,35 +885,48 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     });
   }, [unified, showOnlyRunning, selectedThreadId, selectedCodexSessionId, selectedClaudeSessionId, pendingApprovalsBySession, claudeProcessingById, codexProcessingById, unreadSessionIds]);
 
-  // Focus: rows active since `focusSince`, plus any still working or waiting
-  // on approval. Cowork desktop rows never qualify.
+  // Focus: rows active since `focusSince`, plus any still working, waiting on
+  // approval, or finished but not yet opened. "Active" is the later of the
+  // row time (usually the prompt) and when its last turn finished, so a long
+  // turn stays for the whole window after it ends. Cowork desktop rows never
+  // qualify. A row removed by hand stays out until the user sends it a new
+  // prompt (file activity keeps advancing while an agent works, so it can't
+  // bring the row back).
+  const focusDismissedAt = useFocusRowsStore((s) => s.dismissedAt);
+  const focusFinishedAt = useFocusRowsStore((s) => s.finishedAt);
+  const dismissFromFocus = useFocusRowsStore((s) => s.dismissFromFocus);
   const focusItems = useMemo(() => {
     if (!focusPortal || focusSince == null || appMode === "cowork") return [];
-    return unified.filter((item) => {
-      if (item.kind === "desktop-claude") return false;
+    const rows: { item: UnifiedItem; time: number }[] = [];
+    for (const item of unified) {
+      if (item.kind === "desktop-claude") continue;
       const id = item.data.id;
-      if (item.timestamp >= focusSince) return true;
-      return !!pendingApprovalsBySession[id] || !!claudeProcessingById[id] || !!codexProcessingById[id];
-    });
-  }, [focusPortal, focusSince, appMode, unified, pendingApprovalsBySession, claudeProcessingById, codexProcessingById]);
+      const dismissed = focusDismissedAt[id];
+      if (dismissed != null && !((lastPromptAt[id] ?? 0) > dismissed)) continue;
+      const time = Math.max(item.timestamp, focusFinishedAt[id] ?? 0);
+      const live = !!pendingApprovalsBySession[id] || !!claudeProcessingById[id] || !!codexProcessingById[id] || !!unreadSessionIds[id];
+      if (time >= focusSince || live) rows.push({ item, time });
+    }
+    return rows;
+  }, [focusPortal, focusSince, appMode, unified, focusDismissedAt, focusFinishedAt, lastPromptAt, pendingApprovalsBySession, claudeProcessingById, codexProcessingById, unreadSessionIds]);
 
   // Focus caps its rows across every project, so publish this group's row
   // times for the Sidebar to rank. Layout effect: no frame with extra rows.
   const setFocusTimestamps = useFocusRowsStore((s) => s.setProjectTimestamps);
   const removeFocusProject = useFocusRowsStore((s) => s.removeProject);
   useLayoutEffect(() => {
-    setFocusTimestamps(project.id, focusItems.map((item) => item.timestamp).sort((a, b) => b - a));
+    setFocusTimestamps(project.id, focusItems.map((row) => row.time).sort((a, b) => b - a));
   }, [setFocusTimestamps, project.id, focusItems]);
   useLayoutEffect(() => () => removeFocusProject(project.id), [removeFocusProject, project.id]);
 
   const focusRows = useMemo(
-    () => (focusCutoff == null ? focusItems : focusItems.filter((item) => item.timestamp >= focusCutoff)),
+    () => (focusCutoff == null ? focusItems : focusItems.filter((row) => row.time >= focusCutoff)),
     [focusItems, focusCutoff],
   );
 
   // A Focus row that ages out mid-rename takes its input with it; end the rename.
   useEffect(() => {
-    if (renameInFocus && renamingItemId && !focusRows.some((item) => item.data.id === renamingItemId)) {
+    if (renameInFocus && renamingItemId && !focusRows.some((row) => row.item.data.id === renamingItemId)) {
       setRenamingItemId(null);
     }
   }, [renameInFocus, renamingItemId, focusRows]);
@@ -1340,6 +1353,16 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           }
           title={pinnedSessionIdsRef.current.has(itemContextMenu.id) ? "Unpin" : "Pin to top"}
         />
+        {focusItems.some((row) => row.item.data.id === itemContextMenu.id) && (
+          <DropdownRow
+            onClick={() => {
+              dismissFromFocus(itemContextMenu.id);
+              setItemContextMenu(null);
+            }}
+            icon={<EyeOff size={14} className="text-zinc-400" />}
+            title="Remove from Focus"
+          />
+        )}
         <DropdownRow
           onClick={() => {
             if (itemContextMenu.kind === "thread") {
@@ -3659,11 +3682,11 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
       {itemContextMenuPortal}
 
       {focusPortal && focusRows.length > 0 && createPortal(
-        focusRows.map((item) => (
+        focusRows.map(({ item, time }) => (
           <div
             key={`focus-${item.kind}-${item.data.id}`}
             // Rows from every project share one flex column; order interleaves them newest first.
-            style={{ order: Math.floor(FOCUS_ORDER_BASE_S - item.timestamp / 1000) }}
+            style={{ order: Math.floor(FOCUS_ORDER_BASE_S - time / 1000) }}
             onClickCapture={markMenuOrigin(true)}
             onContextMenuCapture={markMenuOrigin(true)}
             onKeyDownCapture={markMenuOrigin(true)}

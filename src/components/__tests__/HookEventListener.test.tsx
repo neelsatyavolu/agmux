@@ -392,6 +392,49 @@ describe("HookEventListener — Deep coverage (event handling)", () => {
     expect(summarizeSpy).toHaveBeenCalled();
   });
 
+  it("does not map a nested Grok run's session onto the Claude terminal", async () => {
+    const cbs = captureListeners();
+    vi.spyOn(useSessionNameStore.getState(), "summarize").mockImplementation(() => {});
+    useUiStore.setState({ claudeSessionMap: { "claude-owner": ["real-claude"] } } as never);
+    render(<HookEventListener />);
+    await Promise.resolve();
+    cbs["claude-hook"]({
+      payload: {
+        event: "session-start",
+        session_id: "claude-owner",
+        payload: {
+          session_id: "nested-grok",
+          transcript_path: "/Users/me/.grok/sessions/%2Frepo/nested-grok/updates.jsonl",
+        },
+      },
+    });
+    expect(useUiStore.getState().claudeSessionMap["claude-owner"]).toEqual(["real-claude"]);
+  });
+
+  it("a prompt in an earlier mapped Claude session makes it the latest again", async () => {
+    const cbs = captureListeners();
+    vi.spyOn(useSessionNameStore.getState(), "summarize").mockImplementation(() => {});
+    useUiStore.setState({ claudeSessionMap: { "claude-owner": ["real-claude", "stray"] } } as never);
+    render(<HookEventListener />);
+    await Promise.resolve();
+    cbs["claude-hook"]({
+      payload: {
+        event: "pre-tool-use",
+        session_id: "claude-owner",
+        payload: { session_id: "real-claude", tool_name: "Bash" },
+      },
+    });
+    expect(useUiStore.getState().claudeSessionMap["claude-owner"]).toEqual(["real-claude", "stray"]);
+    cbs["claude-hook"]({
+      payload: {
+        event: "prompt-submit",
+        session_id: "claude-owner",
+        payload: { session_id: "real-claude", prompt: "next step" },
+      },
+    });
+    expect(useUiStore.getState().claudeSessionMap["claude-owner"]).toEqual(["stray", "real-claude"]);
+  });
+
   it("Grok: passes mode=sdk for <user_query>/slash skill invokes", async () => {
     // Regression: Grok wraps `/checkagentsdk` in <user_query>, so a raw
     // startsWith("/") check never set mode=sdk and summarize skipped bare slash.

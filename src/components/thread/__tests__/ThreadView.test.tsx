@@ -65,6 +65,7 @@ vi.mock("../../../lib/commands", async (importOriginal) => {
     sendPtyInput: vi.fn().mockResolvedValue(undefined),
     spawnThread: vi.fn().mockResolvedValue(undefined),
     stopThread: vi.fn().mockResolvedValue(undefined),
+    sessionHasBackgroundWork: vi.fn().mockResolvedValue(false),
     getGrokPtySessionUsage: vi.fn().mockResolvedValue(null),
     getKimiPtySessionUsage: vi.fn().mockResolvedValue(null),
     getHermesPtySessionUsage: vi.fn().mockResolvedValue(null),
@@ -82,6 +83,7 @@ import {
   getHermesPtySessionUsage,
   getKimiPtySessionUsage,
   sendPtyInput,
+  sessionHasBackgroundWork,
   spawnThread,
   stopThread,
 } from "../../../lib/commands";
@@ -412,8 +414,7 @@ describe("ThreadView", () => {
     expect(screen.getByTestId("terminal-view")).toBeTruthy();
 
     await act(async () => {
-      vi.advanceTimersByTime(2 * 60 * 1000);
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
     });
 
     expect(screen.queryByTestId("terminal-view")).toBeNull();
@@ -444,8 +445,7 @@ describe("ThreadView", () => {
     );
 
     await act(async () => {
-      vi.advanceTimersByTime(2 * 60 * 1000);
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
     });
     expect(stopThread).toHaveBeenCalledWith("t1");
     expect(screen.queryByTestId("terminal-view")).toBeNull();
@@ -473,6 +473,51 @@ describe("ThreadView", () => {
       "t1",
       expect.objectContaining({ enableAutoMode: false }),
     );
+  });
+
+  it("keeps a hidden Grok terminal running while a background command runs", async () => {
+    vi.useFakeTimers();
+    vi.mocked(sessionHasBackgroundWork).mockResolvedValue(true);
+    useUiStore.setState({
+      sidebarTab: "agents",
+      selectedThreadId: "other-thread",
+      claudeProcessingById: {},
+      pendingApprovalsBySession: {},
+    } as never);
+    const grok = (status: string) =>
+      makeThread({
+        provider: "Grok" as never,
+        interaction_mode: "pty" as never,
+        status: status as never,
+        work_dir: "/tmp/repo" as never,
+        sdk_session_id: "grok-sess-1" as never,
+      });
+
+    const originalUpdateStatus = useThreadStore.getState().updateThreadStatus;
+    const updateThreadStatus = vi.fn().mockResolvedValue(undefined);
+    useThreadStore.setState({ updateThreadStatus } as never);
+
+    const { rerender } = render(<ThreadView thread={grok("Idle")} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4 * 60 * 1000);
+    });
+    expect(sessionHasBackgroundWork).toHaveBeenCalledWith("t1");
+    expect(stopThread).not.toHaveBeenCalled();
+
+    // Coming back finds the process alive: remount the screen, no error.
+    updateThreadStatus.mockClear();
+    vi.mocked(spawnThread).mockClear().mockRejectedValueOnce("Thread is already running");
+    useUiStore.setState({ selectedThreadId: "t1" } as never);
+    rerender(<ThreadView thread={grok("Idle")} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByTestId("terminal-view")).toBeTruthy();
+    expect(spawnThread).toHaveBeenCalledWith("t1", expect.objectContaining({ enableAutoMode: false }));
+    expect(updateThreadStatus).not.toHaveBeenCalledWith("t1", "Error");
+    expect(updateThreadStatus).not.toHaveBeenCalledWith("t1", "Running");
+    useThreadStore.setState({ updateThreadStatus: originalUpdateStatus } as never);
+    vi.mocked(sessionHasBackgroundWork).mockResolvedValue(false);
   });
 
   it("does not kill Kimi PTY on terminal unload (xterm-only offload)", async () => {

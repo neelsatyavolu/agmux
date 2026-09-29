@@ -16,6 +16,18 @@ export function systemMessageToEvents(msg) {
     ];
   }
 
+  // Level signal: the full live set after every change. Rust keeps the count
+  // so a hidden session isn't offloaded while background work is running.
+  if (msg.subtype === "background_tasks_changed") {
+    const tasks = Array.isArray(msg.tasks) ? msg.tasks : [];
+    return [
+      {
+        event: "tasks.background",
+        count: tasks.filter((task) => task && !task.ambient).length,
+      },
+    ];
+  }
+
   if (msg.subtype === "init") {
     const cmds = msg.slash_commands ?? [];
     process.stderr.write(`[system-events] session.init: ${cmds.length} slash commands: ${cmds.join(", ")}\n`);

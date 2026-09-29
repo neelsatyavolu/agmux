@@ -29,11 +29,16 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ### Improved
 
 ### Fixed
+- **Answer Claude's questions from your phone** — When Claude asked you a question with choices in a terminal session, the phone only showed a spinner and you had to go back to your Mac to answer. The question now appears on your phone with its choices (or a box to write your own), and your answer goes straight to Claude.
+- **Background work keeps running when you switch away** — Leaving a Claude or Grok session while it was still working in the background (a helper agent, a longer job or a command) could stop the session and cancel that work partway through. A session you've moved away from now stays running until everything it started has finished, and only then closes to save memory.
+- **Change counts show for Claude sessions that ask another AI** — When a Claude terminal session ran Grok to get a second opinion, its sidebar row lost its lines-added/removed count. The count now stays, and a session already affected shows it again the next time you send it a message.
+- **Terminal text no longer goes missing** — After the app had been open for a long time, terminal text could turn into scattered letters with big gaps. Refreshing didn't help; only restarting agmux did. The terminals now repair themselves within a few seconds, and the refresh button fixes them too.
+- **"Use this account" works after you quit Grok or Codex** — Quitting Grok or Codex inside an agmux terminal (or the CLI crashing) kept that session counted as using its account, so "Use this account" kept asking you to close sessions until you restarted agmux. Quitting now frees the account right away, and the message says how many sessions are still using it.
 
 ## v4.3.0 — 2026-09-26
 
 ### New
-- **Focus** — An optional group at the top of the sidebar that gathers the threads you're actively working on from every project, so you don't need to keep every project open. It lists threads that are running, plus ones active in the last 10 minutes (you can pick up to 30 in Settings). It shows 7 threads before "Show more"; right-click Focus to show more or fewer. Starting a new session from Focus asks which project it belongs to. After updating you'll be asked once whether to turn it on, with a preview of how it looks. You can also turn it on in Settings → General.
+- **Focus** — An optional group at the top of the sidebar that gathers the threads you're actively working on from every project, so you don't need to keep every project open. It lists threads that are running or have a reply you haven't opened, plus ones that finished in the last 10 minutes (you can pick up to 30 in Settings). It shows 7 threads before "Show more"; right-click Focus to show more or fewer. Right-click a thread and choose "Remove from Focus" to take it out until you send it a new message. Starting a new session from Focus asks which project it belongs to. After updating you'll be asked once whether to turn it on, with a preview of how it looks. You can also turn it on in Settings → General.
 
 ### Improved
 - **A cleaner look** — The app matches agmux.dev and the phone app: new type, flat panels and cards, clearer labels, and calmer status colors, plus a bolder app icon that fills its tile on the Mac and on your phone. Prefer the old frosted look? Choose Settings → Appearance → Surfaces → Glass. The previous font, Geist, is still in Settings → Typography.

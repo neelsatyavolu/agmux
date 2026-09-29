@@ -11,6 +11,9 @@
 //! Esc denies. Grok's `approval_required` fires before its classifier decides
 //! whether a menu appears at all, agy has no permission hook, and Codex MCP
 //! forms are screen-scraped — none of those are answerable blind.
+//!
+//! Claude Code's AskUserQuestion menu is published as a phone question and
+//! answered by keystrokes (see `question_keys`); its plan-approval menu is not.
 
 use serde_json::Value;
 use std::collections::HashMap;
@@ -75,15 +78,124 @@ fn approval_detail(payload: &Value) -> String {
     cut
 }
 
+/// Claude Code draws AskUserQuestion as numbered menus; digits past 9 don't exist.
+const MAX_QUESTION_OPTIONS: usize = 8;
+const KEY_DOWN: &str = "\x1b[B";
+
+/// The questions of a Claude Code AskUserQuestion call, when its terminal
+/// menu can be answered by keystroke.
+fn answerable_questions(provider: &str, tool_name: &str, payload: &Value) -> Option<Value> {
+    if provider != "ClaudeCode" || tool_name != "AskUserQuestion" {
+        return None;
+    }
+    let questions = tool_input(payload).get("questions")?.as_array()?;
+    let answerable = !questions.is_empty() && questions.iter().all(|q| {
+        q.get("question").and_then(Value::as_str).is_some_and(|s| !s.is_empty())
+            && q.get("options").and_then(Value::as_array)
+                .is_some_and(|o| !o.is_empty() && o.len() <= MAX_QUESTION_OPTIONS)
+    });
+    answerable.then(|| Value::Array(questions.clone()))
+}
+
+fn option_labels(question: &Value) -> Vec<&str> {
+    question.get("options").and_then(Value::as_array).into_iter().flatten()
+        .map(|o| o.get("label").and_then(Value::as_str).unwrap_or(""))
+        .collect()
+}
+
+/// Typed answers go in as one chunk of printable text on a single line.
+fn typed_text(text: &str) -> String {
+    let line: String = text.chars().map(|c| if c.is_control() { ' ' } else { c }).collect();
+    line.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Split a phone multi-select answer (the chosen labels joined by ", ",
+/// custom text last) into option indexes plus leftover custom text.
+fn split_multi_answer(answer: &str, labels: &[&str]) -> (Vec<usize>, String) {
+    let mut picked = Vec::new();
+    let mut rest = answer.trim();
+    loop {
+        let next = labels.iter().enumerate()
+            .filter(|(i, l)| !l.is_empty() && !picked.contains(i))
+            .filter(|(_, l)| rest == **l || rest.starts_with(&format!("{l}, ")))
+            .max_by_key(|(_, l)| l.len());
+        let Some((i, label)) = next else { break };
+        picked.push(i);
+        rest = rest[label.len()..].trim_start_matches(", ").trim();
+    }
+    picked.sort_unstable();
+    (picked, rest.to_string())
+}
+
+/// Keystrokes that answer Claude Code's AskUserQuestion menu, one write each
+/// (Ink ignores several keys arriving in one read). Verified against Claude
+/// Code 2.1.283:
+/// - single choice: the option's digit picks it and moves on; custom text is
+///   the "Type something" digit, the text, then Enter;
+/// - multi choice: digits toggle without moving the cursor (row 1); custom
+///   text is typed on the "Type something" row; the "Submit" row under it
+///   (reached with Down) moves on when Enter is pressed;
+/// - several questions or any multi choice end on a review screen where `1`
+///   submits; a lone single-choice question submits immediately.
+/// `answers` is the phone reply: `{ answers: { [question]: "A, B" } }`, or
+/// `{ error }` when dismissed (Esc cancels the menu).
+pub(crate) fn question_keys(questions: &Value, answers: &Value) -> Result<Vec<String>, String> {
+    let questions = questions.as_array().ok_or("invalid question")?;
+    let Some(map) = answers.get("answers").and_then(Value::as_object) else {
+        return Ok(vec!["\x1b".into()]);
+    };
+    let mut keys = Vec::new();
+    let mut review = questions.len() > 1;
+    for question in questions {
+        let text = question.get("question").and_then(Value::as_str).unwrap_or("");
+        let answer = map.get(text)
+            .or_else(|| question.get("header").and_then(Value::as_str).and_then(|h| map.get(h)))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|a| !a.is_empty())
+            .ok_or_else(|| format!("missing answer for \"{text}\""))?;
+        let labels = option_labels(question);
+        let other = labels.len() + 1;
+        if question.get("multiSelect").and_then(Value::as_bool) == Some(true) {
+            review = true;
+            let (picked, custom) = split_multi_answer(answer, &labels);
+            keys.extend(picked.iter().map(|i| (i + 1).to_string()));
+            let custom = typed_text(&custom);
+            // Row 1 → "Type something" is one Down per option; Submit is one more.
+            let downs = if custom.is_empty() { labels.len() + 1 } else { labels.len() };
+            keys.extend(std::iter::repeat(KEY_DOWN.to_string()).take(downs));
+            if !custom.is_empty() {
+                keys.push(custom);
+                keys.push(KEY_DOWN.into());
+            }
+            keys.push("\r".into());
+        } else if let Some(i) = labels.iter().position(|l| *l == answer) {
+            keys.push((i + 1).to_string());
+        } else {
+            keys.push(other.to_string());
+            keys.push(typed_text(answer));
+            keys.push("\r".into());
+        }
+    }
+    if review {
+        keys.push("1".into());
+    }
+    Ok(keys)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Change {
     Publish { request_id: String, tool_name: String, detail: String },
     Resolve { request_id: String },
+    Ask { request_id: String, questions: Value },
+    ResolveQuestion { request_id: String },
 }
 
 struct Pending {
     request_id: String,
     signature: String,
+    /// Set for an AskUserQuestion menu (a phone question, not an approval).
+    questions: Option<Value>,
 }
 
 /// At most one open terminal dialog per thread (the CLI shows one at a time).
@@ -94,7 +206,16 @@ pub(crate) struct Tracker {
 
 impl Tracker {
     fn resolve(&mut self, thread_id: &str) -> Option<Change> {
-        self.pending.remove(thread_id).map(|p| Change::Resolve { request_id: p.request_id })
+        self.pending.remove(thread_id).map(|p| match p.questions {
+            Some(_) => Change::ResolveQuestion { request_id: p.request_id },
+            None => Change::Resolve { request_id: p.request_id },
+        })
+    }
+
+    fn pending_questions(&self, thread_id: &str, request_id: &str) -> Option<&Value> {
+        self.pending.get(thread_id)
+            .filter(|p| p.request_id == request_id)
+            .and_then(|p| p.questions.as_ref())
     }
 
     /// `live_provider` is the provider of the thread's live PTY, if any.
@@ -114,11 +235,22 @@ impl Tracker {
                 let answerable = live_provider.is_some_and(|p| {
                     approval_keys(p, true).is_some() && hook_matches_provider(p, hook_provider)
                 });
-                if answerable && !is_question_tool(name) {
+                let questions = live_provider.filter(|_| answerable)
+                    .and_then(|p| answerable_questions(p, name, payload));
+                if let Some(questions) = questions {
                     let request_id = format!("term-{}", uuid::Uuid::new_v4());
                     self.pending.insert(thread_id.to_string(), Pending {
                         request_id: request_id.clone(),
                         signature: call_signature(payload),
+                        questions: Some(questions.clone()),
+                    });
+                    changes.push(Change::Ask { request_id, questions });
+                } else if answerable && !is_question_tool(name) {
+                    let request_id = format!("term-{}", uuid::Uuid::new_v4());
+                    self.pending.insert(thread_id.to_string(), Pending {
+                        request_id: request_id.clone(),
+                        signature: call_signature(payload),
+                        questions: None,
                     });
                     changes.push(Change::Publish {
                         request_id,
@@ -171,6 +303,12 @@ fn apply(app: &AppHandle, thread_id: &str, changes: Vec<Change>) {
             Change::Resolve { request_id } => {
                 super::notify_approval_resolved(app, &request_id, Some(thread_id));
             }
+            Change::Ask { request_id, questions } => {
+                super::notify_user_input(app, thread_id, &request_id, questions);
+            }
+            Change::ResolveQuestion { request_id } => {
+                super::notify_user_input_resolved(app, &request_id, Some(thread_id));
+            }
         }
     }
 }
@@ -222,6 +360,22 @@ pub(crate) fn forget(app: &AppHandle, thread_id: &str) {
 /// Drop tracking without a resolve: the caller clears the phone cards itself.
 pub(crate) fn discard(thread_id: &str) {
     with_tracker(|t| t.forget(thread_id));
+}
+
+/// Keys answering the open AskUserQuestion menu `request_id` with the phone's
+/// reply, or an error when that menu is no longer open.
+pub(crate) fn pending_question_keys(thread_id: &str, request_id: &str, answers: &Value) -> Result<Vec<String>, String> {
+    with_tracker(|t| {
+        let questions = t.pending_questions(thread_id, request_id)
+            .ok_or("question already answered")?;
+        question_keys(questions, answers)
+    })
+}
+
+/// True while `request_id` is still the open dialog of `thread_id` (a desktop
+/// answer key, next tool, stop or exit settles it).
+pub(crate) fn is_pending(thread_id: &str, request_id: &str) -> bool {
+    with_tracker(|t| t.pending.get(thread_id).is_some_and(|p| p.request_id == request_id))
 }
 
 /// The phone answered `request_id`; its resolution is already sent.
@@ -317,6 +471,79 @@ mod tests {
         }
         assert_eq!(t.on_desktop_input("t1", "2"), Some(Change::Resolve { request_id: id }));
         assert!(t.on_desktop_input("t1", "\r").is_none());
+    }
+
+    fn ask(questions: Value) -> Value {
+        json!({ "tool_name": "AskUserQuestion", "tool_input": { "questions": questions } })
+    }
+
+    fn color() -> Value {
+        json!({ "question": "Which color?", "header": "Color", "multiSelect": false,
+            "options": [{ "label": "Red", "description": "r" }, { "label": "Blue", "description": "b" }] })
+    }
+
+    fn fruits() -> Value {
+        json!({ "question": "Which fruits?", "header": "Fruit", "multiSelect": true,
+            "options": [{ "label": "Apple" }, { "label": "Pear" }, { "label": "Plum" }] })
+    }
+
+    fn keys(questions: Value, answers: Value) -> Vec<String> {
+        question_keys(&questions, &json!({ "answers": answers })).unwrap()
+    }
+
+    const DOWN: &str = "\x1b[B";
+
+    #[test]
+    fn claude_terminal_questions_publish_as_phone_questions() {
+        let mut t = Tracker::default();
+        let changes = t.on_hook("t1", None, "permission-request", &ask(json!([color()])), Some("ClaudeCode"));
+        let [Change::Ask { request_id, questions }] = &changes[..] else { panic!("{changes:?}") };
+        assert_eq!(questions, &json!([color()]));
+        assert_eq!(pending_keys(&t, "t1", request_id), vec!["2"]);
+        assert!(t.pending_questions("t1", "term-other").is_none(), "only the open request answers");
+        assert_eq!(t.on_hook("t1", None, "stop", &json!({}), None),
+            vec![Change::ResolveQuestion { request_id: request_id.clone() }]);
+
+        assert!(t.on_hook("t2", Some("kimi"), "permission-request", &ask(json!([color()])), Some("Kimi")).is_empty(),
+            "only Claude's menu contract is verified");
+        let plan = json!({ "tool_name": "ExitPlanMode", "tool_input": { "plan": "x" } });
+        assert!(t.on_hook("t3", None, "permission-request", &plan, Some("ClaudeCode")).is_empty());
+        let too_many = json!({ "question": "Pick", "options": (0..9).map(|i| json!({ "label": i.to_string() })).collect::<Vec<_>>() });
+        assert!(t.on_hook("t4", None, "permission-request", &ask(json!([too_many])), Some("ClaudeCode")).is_empty());
+    }
+
+    fn pending_keys(t: &Tracker, thread_id: &str, request_id: &str) -> Vec<String> {
+        let questions = t.pending_questions(thread_id, request_id).unwrap();
+        question_keys(questions, &json!({ "answers": { "Which color?": "Blue" } })).unwrap()
+    }
+
+    #[test]
+    fn single_choice_keys_pick_or_type() {
+        assert_eq!(keys(json!([color()]), json!({ "Which color?": "Blue" })), vec!["2"]);
+        assert_eq!(keys(json!([color()]), json!({ "Which color?": "teal\nish" })), vec!["3", "teal ish", "\r"]);
+        let size = json!({ "question": "Which size?", "options": [{ "label": "Small" }, { "label": "Large" }] });
+        assert_eq!(keys(json!([color(), size]), json!({ "Which color?": "Blue", "Which size?": "Large" })),
+            vec!["2", "2", "1"], "several questions end on the review screen");
+    }
+
+    #[test]
+    fn multi_choice_keys_toggle_then_submit() {
+        assert_eq!(keys(json!([fruits()]), json!({ "Which fruits?": "Apple, Plum" })),
+            vec!["1", "3", DOWN, DOWN, DOWN, DOWN, "\r", "1"]);
+        assert_eq!(keys(json!([fruits()]), json!({ "Which fruits?": "Apple, kiwi" })),
+            vec!["1", DOWN, DOWN, DOWN, "kiwi", DOWN, "\r", "1"]);
+        let commas = json!({ "question": "Q", "multiSelect": true,
+            "options": [{ "label": "Red, dark" }, { "label": "Red" }] });
+        assert_eq!(keys(json!([commas]), json!({ "Q": "Red, Red, dark" })),
+            vec!["1", "2", DOWN, DOWN, DOWN, "\r", "1"]);
+    }
+
+    #[test]
+    fn dismissed_or_incomplete_answers() {
+        assert_eq!(question_keys(&json!([color()]), &json!({ "error": "User dismissed the question." })).unwrap(),
+            vec!["\x1b"]);
+        assert!(question_keys(&json!([color()]), &json!({ "answers": { "Other?": "Blue" } })).is_err());
+        assert_eq!(keys(json!([color()]), json!({ "Color": "Red" })), vec!["1"], "header works as the key too");
     }
 
     #[test]

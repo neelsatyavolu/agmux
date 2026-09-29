@@ -987,6 +987,61 @@ pub(crate) async fn send_pty_approval(
     Ok(())
 }
 
+/// Pause between menu keystrokes: Claude's Ink UI drops keys that arrive in
+/// the same read, so each one is its own write.
+const QUESTION_KEY_GAP: std::time::Duration = std::time::Duration::from_millis(150);
+
+/// Answer a terminal AskUserQuestion menu from the phone. The first write
+/// consumes the one-shot remote question (as `send_pty_approval` does); each
+/// later key first checks the menu is still this request's, so a desktop
+/// answer, Esc/Ctrl-C or exit stops the sequence instead of typing into
+/// whatever comes next. Never restores the question once writing started.
+pub(crate) async fn send_pty_question_answer(
+    state: &AppState,
+    thread_id: &str,
+    request_id: &str,
+    answers: &serde_json::Value,
+) -> Result<(), DispatchError> {
+    use crate::remote::terminal_approvals;
+    let keys = terminal_approvals::pending_question_keys(thread_id, request_id, answers)
+        .map_err(DispatchError::Message)?;
+    let cancel = keys.len() == 1 && keys[0] == "\x1b";
+    let input_ticket = {
+        let sessions = state.sessions.lock().await;
+        let session = sessions.get(thread_id)
+            .ok_or_else(|| DispatchError::Message("no active terminal session".into()))?;
+        session.input_ticket(cancel)
+    };
+    if !cancel {
+        crate::teams::policy::refresh_for_execution().await.map_err(DispatchError::Message)?;
+    }
+    for (index, key) in keys.iter().enumerate() {
+        if index > 0 {
+            tokio::time::sleep(QUESTION_KEY_GAP).await;
+            if !terminal_approvals::is_pending(thread_id, request_id) {
+                return Err(DispatchError::Message("the question was answered on the Mac".into()));
+            }
+        }
+        let sessions = state.sessions.lock().await;
+        let session = sessions.get(thread_id)
+            .ok_or_else(|| DispatchError::Message("no active terminal session".into()))?;
+        if !session.is_alive().await {
+            return Err(DispatchError::Message("terminal process is not running".into()));
+        }
+        let mut writer = session.writer.lock().await;
+        session.validate_input_ticket(&input_ticket).map_err(DispatchError::Message)?;
+        if index == 0 && !state.remote.take_pending_user_input(thread_id, request_id).await {
+            return Err(DispatchError::Message("question already resolved".into()));
+        }
+        use std::io::Write;
+        writer.write_all(key.as_bytes())
+            .and_then(|_| writer.flush())
+            .map_err(|e| DispatchError::Message(format!("pty write: {e}")))?;
+    }
+    terminal_approvals::answered(thread_id, request_id);
+    Ok(())
+}
+
 async fn send_pty_raw_checked(
     state: &AppState,
     thread_id: &str,

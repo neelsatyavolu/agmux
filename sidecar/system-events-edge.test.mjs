@@ -260,3 +260,30 @@ test("systemMessageToEvents: task_notification with empty payload uses defaults"
   assert.equal(ev.body, "");
   assert.equal(ev.taskId, null);
 });
+
+// --- Background task level (keeps hidden sessions from being offloaded) ---
+
+test("background_tasks_changed maps to a count that skips ambient tasks", () => {
+  const events = systemMessageToEvents({
+    type: "system",
+    subtype: "background_tasks_changed",
+    tasks: [
+      { task_id: "w1", task_type: "local_workflow", description: "privacy-audit" },
+      { task_id: "b1", task_type: "local_bash", description: "npm test" },
+      { task_id: "m1", task_type: "monitor_mcp", description: "watcher", ambient: true },
+      null,
+    ],
+  });
+  assert.deepEqual(events, [{ event: "tasks.background", count: 2 }]);
+});
+
+test("background_tasks_changed with no tasks or a malformed list is zero", () => {
+  assert.deepEqual(
+    systemMessageToEvents({ type: "system", subtype: "background_tasks_changed", tasks: [] }),
+    [{ event: "tasks.background", count: 0 }],
+  );
+  assert.deepEqual(
+    systemMessageToEvents({ type: "system", subtype: "background_tasks_changed", tasks: "bad" }),
+    [{ event: "tasks.background", count: 0 }],
+  );
+});

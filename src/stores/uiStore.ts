@@ -473,6 +473,10 @@ interface UiState {
   setClaudeToolStatus: (sessionId: string, status: string | null) => void;
   setPreSpawnSessionIds: (sessionId: string, ids: string[]) => void;
   setClaudeRealId: (xanomId: string, realId: string) => void;
+  /** Make an already-mapped real id the latest for its agmux session. Called
+   *  on a user prompt: the session being prompted is the terminal's current
+   *  one, even if another id was appended after it. */
+  promoteClaudeRealId: (xanomId: string, realId: string) => void;
   /** Record the live model for a Claude session (real Claude session ID or agmux UUID).
    *  Used by the sidebar to reflect the resolved model immediately, without waiting for
    *  the next listClaudeSessions cache refresh. */
@@ -1187,6 +1191,13 @@ export const useUiStore = create<UiState>((set, get) => ({
     const updated = get();
     persistMap(SESSION_MAP_KEY, updated.claudeSessionMap);
     persistMap(CWD_MAP_KEY, updated.sessionCwdMap);
+  },
+  promoteClaudeRealId: (xanomId, realId) => {
+    const existing = get().claudeSessionMap[xanomId];
+    if (!existing?.includes(realId) || existing[existing.length - 1] === realId) return;
+    const reordered = [...existing.filter((id) => id !== realId), realId];
+    set((s) => ({ claudeSessionMap: { ...s.claudeSessionMap, [xanomId]: reordered } }));
+    persistMap(SESSION_MAP_KEY, get().claudeSessionMap);
   },
   transitionSession: (sessionId, event, context) => {
     const state = get();

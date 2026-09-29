@@ -1242,7 +1242,7 @@ function GeneralPage({
         {(settings.focusEnabled ?? false) && (
           <SettingsRow
             label="Keep idle threads in Focus for"
-            description="Threads that are running or waiting for approval stay in Focus regardless."
+            description="Counted from when a thread last finished. Threads that are running, waiting for approval, or have a reply you haven't opened stay in Focus regardless."
           >
             <div className="flex flex-wrap gap-1.5">
               {FOCUS_WINDOW_MINUTES_OPTIONS.map((m) => (

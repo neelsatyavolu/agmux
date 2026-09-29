@@ -2682,13 +2682,27 @@ describe("ProjectGroup — Final coverage gaps", () => {
       expect(focusEl.textContent).toContain("Busy Thread");
     });
 
-    it("drops idle rows that are only unread", () => {
+    it("keeps finished rows you haven't opened (green pulse) in Focus", () => {
       useThreadStore.setState({
         threads: { p1: [makeThread({ id: "done", name: "Done Thread", last_active: hoursAgo(72) })] },
       });
       useUiStore.setState({ unreadSessionIds: { done: true } } as Partial<ReturnType<typeof useUiStore.getState>>);
       const { focusEl } = renderWithFocus();
-      expect(focusEl.textContent).not.toContain("Done Thread");
+      expect(focusEl.textContent).toContain("Done Thread");
+    });
+
+    it("starts the idle window when a long turn finishes, not when it was prompted", () => {
+      useThreadStore.setState({
+        threads: { p1: [makeThread({ id: "long", name: "Long Turn", last_active: hoursAgo(1) })] },
+      });
+      useFocusRowsStore.setState({ finishedAt: { long: Date.now() - 60_000 } });
+      const focusEl = document.createElement("div");
+      document.body.appendChild(focusEl);
+      render(<ProjectGroup {...baseProps} focusPortal={focusEl} focusSince={Date.now() - 10 * 60_000} />);
+      expect(focusEl.textContent).toContain("Long Turn");
+      // Ranked by when it finished too.
+      const [time] = useFocusRowsStore.getState().timestampsByProject.p1;
+      expect(time).toBeGreaterThan(Date.now() - 2 * 60_000);
     });
 
     it("publishes its Focus row times so Focus can rank rows across projects", () => {
@@ -2732,6 +2746,52 @@ describe("ProjectGroup — Final coverage gaps", () => {
       expect(focusEl.textContent).not.toContain("Older");
       // The cutoff doesn't change what the store counts.
       expect(useFocusRowsStore.getState().timestampsByProject.p1).toHaveLength(2);
+    });
+
+    it("removes a thread from Focus from its right-click menu until it gets a new prompt", () => {
+      useThreadStore.setState({
+        threads: {
+          p1: [
+            makeThread({ id: "keep", name: "Keep Me", last_active: hoursAgo(1) }),
+            makeThread({ id: "drop", name: "Drop Me", last_active: hoursAgo(1) }),
+          ],
+        },
+      });
+      const { focusEl } = renderWithFocus();
+      fireEvent.contextMenu(focusEl.querySelector("[data-session-nav='drop']") as HTMLElement);
+      fireEvent.click(screen.getByText("Remove from Focus"));
+      expect(focusEl.textContent).not.toContain("Drop Me");
+      expect(focusEl.textContent).toContain("Keep Me");
+      // Still listed under its project, where the menu no longer offers it.
+      fireEvent.contextMenu(screen.getByText("Drop Me"));
+      expect(screen.queryByText("Remove from Focus")).toBeNull();
+      fireEvent.keyDown(document, { key: "Escape" });
+      // A new prompt brings it back.
+      act(() => {
+        useUiStore.setState({ lastPromptAt: { drop: Date.now() + 1000 } } as Partial<ReturnType<typeof useUiStore.getState>>);
+      });
+      expect(focusEl.textContent).toContain("Drop Me");
+    });
+
+    it("keeps a removed thread out of Focus while it is still running", () => {
+      useThreadStore.setState({
+        threads: { p1: [makeThread({ id: "busy2", name: "Busy Two", last_active: hoursAgo(1) })] },
+      });
+      useUiStore.setState({ claudeProcessingById: { busy2: true } } as Partial<ReturnType<typeof useUiStore.getState>>);
+      const { focusEl } = renderWithFocus();
+      fireEvent.contextMenu(focusEl.querySelector("[data-session-nav='busy2']") as HTMLElement);
+      fireEvent.click(screen.getByText("Remove from Focus"));
+      expect(focusEl.textContent).not.toContain("Busy Two");
+    });
+
+    it("does not offer Remove from Focus for threads outside Focus", () => {
+      useThreadStore.setState({
+        threads: { p1: [makeThread({ id: "old2", name: "Old Two", last_active: hoursAgo(48) })] },
+      });
+      renderWithFocus();
+      fireEvent.contextMenu(screen.getByText("Old Two"));
+      expect(screen.getByText("Rename")).toBeTruthy();
+      expect(screen.queryByText("Remove from Focus")).toBeNull();
     });
 
     it("orders Focus rows newest first across projects via CSS order", () => {

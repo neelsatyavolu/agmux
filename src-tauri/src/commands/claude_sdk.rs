@@ -828,14 +828,19 @@ struct ClaudeProfileBoundary {
     completion_ids: HashSet<String>,
     ambiguous: bool,
     revision: u64,
+    /// Whether stopping the process now would kill work (see background_work).
+    activity: super::background_work::SdkActivity,
 }
 impl ClaudeProfileBoundary {
     fn started(&mut self) { self.revision += 1; self.boundary.started(); }
-    fn submitted(&mut self) {
+    /// Returns whether a turn was already open (see `SdkActivity::submitted`).
+    fn submitted(&mut self) -> bool {
         if !self.pending_turns.is_empty() { self.ambiguous = true; }
         self.submitted += 1;
         self.pending_turns.push_back(self.submitted);
+        let turn_was_open = self.activity.submitted();
         self.started();
+        turn_was_open
     }
     fn begin_completion(&mut self, event: &serde_json::Value) -> Option<u64> {
         if !event["parentToolUseId"].is_null() { return None; }
@@ -943,6 +948,11 @@ pub struct SdkSessionContext {
 }
 
 impl SdkSessionContext {
+    /// Mid-turn, waiting on the user, or running background tasks.
+    pub async fn has_live_work(&self) -> bool {
+        self.is_alive().await && self.profile_boundary.lock().await.activity.busy()
+    }
+
     /// Check if the Node sidecar process is still running.
     pub async fn is_alive(&self) -> bool {
         let mut child = self.child.lock().await;
@@ -1057,8 +1067,9 @@ impl SdkSessionContext {
             *startup = None;
             Some(next)
         } else { None };
+        let mut turn_was_open = None;
         if matches!(method, "sendMessage" | "sendSlashCommand") {
-            self.profile_boundary.lock().await.submitted();
+            turn_was_open = Some(self.profile_boundary.lock().await.submitted());
         } else if method == "interrupt" {
             self.profile_boundary.lock().await.started();
         }
@@ -1075,7 +1086,14 @@ impl SdkSessionContext {
         // Keep only the configuration guard, never the transport writer.
         drop(stdin);
         let result = match tokio::time::timeout(std::time::Duration::from_secs(15), rx).await {
-            Ok(Ok(response)) => response,
+            Ok(Ok(response)) => {
+                // An error reply means the bridge refused the message. A
+                // timeout or closed pipe is ambiguous, so the turn stays open.
+                if let (Err(_), Some(previous)) = (&response, turn_was_open) {
+                    self.profile_boundary.lock().await.activity.submit_rejected(previous);
+                }
+                response
+            }
             Ok(Err(_)) => Err(format!("SDK sidecar closed before responding to {}", method)),
             Err(_) => {
                 self.pending_responses.lock().await.remove(&id);
@@ -1086,7 +1104,9 @@ impl SdkSessionContext {
             if let Some(startup) = next_startup { *self.startup_params.lock().await = startup; }
             if matches!(method, "respondApproval" | "respondUserInput") {
                 if let Some(id) = params["requestId"].as_str() {
-                    self.profile_boundary.lock().await.boundary.tool_completed(&format!("approval:{id}"));
+                    let mut boundary = self.profile_boundary.lock().await;
+                    boundary.boundary.tool_completed(&format!("approval:{id}"));
+                    boundary.activity.request_resolved(id);
                 }
             }
             if self.personal_profiles {
@@ -1389,6 +1409,7 @@ fn start_sidecar_reader(
 
             let completion_ticket = {
                 let mut boundary = profile_boundary.lock().await;
+                boundary.activity.observe(&parsed);
                 if event_type == "turn.completed" { boundary.begin_completion(&parsed) }
                 else { boundary.observe(&parsed); None }
             };
@@ -2236,7 +2257,7 @@ fn monitor_claude_profile(app: AppHandle, mut ctx: SdkSessionContext, cwd: Strin
                 let sessions = state.sdk_sessions.lock().await;
                 let valid = same_settings && replacement_alive && quota_still_exhausted && policy_allowed && lifecycle.current(generation)
                     && !crate::provider_accounts::claude::uses_project_auth(Path::new(&cwd))
-                    && boundary.idle() && boundary.revision == boundary_revision
+                    && boundary.idle() && !boundary.activity.busy() && boundary.revision == boundary_revision
                     && !old.is_shutting_down.load(Ordering::SeqCst)
                     && sessions.get(&thread_id).is_some_and(|s| Arc::ptr_eq(&s.child, &old.child));
                 if valid { old.is_shutting_down.store(true, Ordering::SeqCst); }

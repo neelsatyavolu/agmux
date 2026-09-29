@@ -9,11 +9,12 @@
  * - SDK/ACP: `grok_sdk_stop_session` kills `grok agent stdio` + MCP.
  *
  * Keep loaded while the agent is processing or waiting on a permission prompt
- * (same policy as `shouldKeepClaudeTerminalLoaded`).
+ * (same policy as `shouldKeepClaudeTerminalLoaded`), re-checked when the timer
+ * fires along with Grok's background commands (`isOffloadBlocked`).
  */
 
 import { stopThread, grokSdkStopSession } from "../../lib/commands";
-import { shouldKeepClaudeTerminalLoaded } from "./terminalOffload";
+import { isOffloadBlocked, shouldKeepClaudeTerminalLoaded } from "./terminalOffload";
 
 /** Match Claude / prior Grok unload delay. */
 export const GROK_OFFLOAD_DELAY_MS = 2 * 60 * 1000;
@@ -62,7 +63,15 @@ export function scheduleGrokSessionOffload(
   if (existing != null) {
     clearTimeout(existing);
   }
-  const handle = setTimeout(() => {
+  const handle = setTimeout(async () => {
+    const blocked = await isOffloadBlocked(threadId);
+    // Cancelled (user came back) or rescheduled while we were checking.
+    if (pendingTimers.get(key) !== handle) return;
+    if (blocked) {
+      // Still working, or running background commands: check again later.
+      scheduleGrokSessionOffload(threadId, kind, delayMs);
+      return;
+    }
     pendingTimers.delete(key);
     offloadedIds.add(threadId);
     const stop =

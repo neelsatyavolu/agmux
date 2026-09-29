@@ -298,11 +298,18 @@ async fn ensure_grok_server(
     }
     crate::provider_accounts::remember_model("grok", thread_id, config.model.as_deref()).await?;
     let account = crate::provider_accounts::acquire("grok", thread_id).await?;
-    let spawned = Arc::new(
-        GrokAppServer::spawn_with_account(app.clone(), work_dir, &config, account.as_ref())
-            .await
-            .map_err(|e| e.to_string())?,
-    );
+    let spawned = match GrokAppServer::spawn_with_account(app.clone(), work_dir, &config, account.as_ref()).await {
+        Ok(server) => Arc::new(server),
+        Err(error) => {
+            // A failed start must not keep holding the account, unless a concurrent
+            // ensure already has a live server on this same binding.
+            let servers = state.grok_servers.lock().await;
+            if !servers.get(thread_id).is_some_and(|server| server.is_alive()) {
+                let _ = crate::provider_accounts::release(thread_id).await;
+            }
+            return Err(error.to_string());
+        }
+    };
     let canonical = {
         let mut servers = state.grok_servers.lock().await;
         servers.insert_or_keep(thread_id, spawned.clone(), config)

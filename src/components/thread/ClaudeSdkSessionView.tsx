@@ -48,6 +48,7 @@ import { EditorPanel } from "../layout/EditorPanel";
 import { isCoworkProfile } from "../../lib/claudeCoworkProfile";
 import { desktopFoldersForCli } from "../../lib/desktopCowork";
 import { listThreadTurns } from "../../lib/commands";
+import { cancelClaudeSessionOffload, scheduleClaudeSessionOffload } from "./terminalOffload";
 import {
   flashTurnAfterScroll,
   mapTurnIdsToUserKeys,
@@ -1017,18 +1018,19 @@ export function ClaudeSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBa
     };
   }, [sessionId]);
 
-  // Kill the SDK sidecar subtree on unmount (thread switch / multiview close)
-  // so the sidecar node → claude CLI → MCP servers → rust-analyzer chain
-  // stops leaking RAM. The backend `sdk_stop_session` is idempotent, and on
-  // the next mount the spawn useEffect below will call `sdkResumeSession`
-  // using the stored `sdk_session_id` from the DB — which passes --resume to
-  // the Claude SDK so the conversation transparently picks up where it left off.
+  // Stop the SDK sidecar subtree after unmount (thread switch / multiview
+  // close) so the sidecar node → claude CLI → MCP servers → rust-analyzer
+  // chain stops holding RAM. The stop is deferred and skipped while a turn,
+  // question or background agent/workflow/command is still running —
+  // stopping immediately killed that work. Coming back cancels it; if the
+  // process was stopped, the spawn useEffect below calls `sdkResumeSession`
+  // with the stored `sdk_session_id`, which passes --resume to the Claude SDK
+  // so the conversation picks up where it left off.
   useEffect(() => {
     if (externallyManaged) return;
+    cancelClaudeSessionOffload(sessionId);
     return () => {
-      sdkStopSession(sessionId).catch(() => {
-        // Best-effort cleanup — ignore errors (session may already be gone).
-      });
+      scheduleClaudeSessionOffload(sessionId, sdkStopSession);
     };
   }, [sessionId, externallyManaged]);
 

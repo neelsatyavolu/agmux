@@ -409,6 +409,10 @@ pub async fn respond_user_input(
         return Err(DispatchError::Message("thread not eligible for remote".into()));
     }
     match thread.provider.as_str() {
+        // Terminal AskUserQuestion menus (`terminal_approvals`) answer by keystroke.
+        "ClaudeCode" if request_id.starts_with("term-") => {
+            crate::dispatch::send_pty_question_answer(&state, thread_id, request_id, &answers).await?;
+        }
         "ClaudeCode" => {
             let ctx = state.sdk_sessions.lock().await.get(thread_id).cloned()
                 .ok_or_else(|| DispatchError::Message("no SDK session".into()))?;

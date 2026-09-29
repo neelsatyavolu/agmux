@@ -1,5 +1,5 @@
 //! Provider credentials are a separate plane from Teams analytics and never reach React.
-mod storage;
+pub(crate) mod storage;
 mod selection;
 mod compatibility;
 pub(crate) mod claude;

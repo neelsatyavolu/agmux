@@ -2181,6 +2181,21 @@ async fn release_pty_account(state: &AppState, session: &crate::process::session
     Ok(())
 }
 
+/// A terminal whose CLI exited on its own (/exit, Ctrl-C, crash) stops holding its account.
+/// Only while `child` is still this thread's session: a stop, archive or account handoff that
+/// already removed or replaced it keeps its own binding. The session lock is held through the
+/// release so a resume can't acquire the same key in between.
+pub(crate) async fn release_exited_pty_account(
+    state: &AppState,
+    thread_id: &str,
+    child: &std::sync::Arc<tokio::sync::Mutex<Box<dyn portable_pty::Child + Send + Sync>>>,
+) -> Result<(), String> {
+    let sessions = state.sessions.lock().await;
+    let Some(session) = sessions.get(thread_id) else { return Ok(()); };
+    if !std::sync::Arc::ptr_eq(&session.child, child) { return Ok(()); }
+    release_pty_account(state, session).await
+}
+
 /// Stop a running Codex CLI session (no DB update, just kill process)
 #[tauri::command]
 pub async fn stop_codex_session(

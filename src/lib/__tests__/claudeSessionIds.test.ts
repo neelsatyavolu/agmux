@@ -91,4 +91,49 @@ describe("extractClaudeHookRealSessionId", () => {
       extractClaudeHookRealSessionId({ session_id: "abc" }, "def"),
     ).toBe("abc");
   });
+
+  it("accepts a Claude transcript_path named after the session", () => {
+    expect(
+      extractClaudeHookRealSessionId(
+        {
+          session_id: "real-claude-session",
+          transcript_path: "/Users/me/.claude/projects/-Users-me-repo/real-claude-session.jsonl",
+        },
+        "xanom-session",
+      ),
+    ).toBe("real-claude-session");
+  });
+
+  it("rejects a Grok run nested in a Claude terminal (transcript is Grok's updates.jsonl)", () => {
+    expect(
+      extractClaudeHookRealSessionId(
+        {
+          session_id: "grok-session",
+          transcript_path: "/Users/me/.grok/sessions/%2FUsers%2Fme%2Frepo/grok-session/updates.jsonl",
+        },
+        "xanom-session",
+      ),
+    ).toBeNull();
+    expect(
+      extractClaudeHookRealSessionId(
+        {
+          session_id: "grok-session",
+          transcriptPath: "/Users/me/.grok/sessions/%2FUsers%2Fme%2Frepo/grok-session/updates.jsonl",
+        },
+        "xanom-session",
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects transcripts outside a Claude projects directory", () => {
+    expect(
+      extractClaudeHookRealSessionId(
+        {
+          session_id: "droid-session",
+          transcript_path: "/Users/me/.factory/sessions/-Users-me-repo/droid-session.jsonl",
+        },
+        "xanom-session",
+      ),
+    ).toBeNull();
+  });
 });

@@ -917,6 +917,7 @@ pub fn run() {
             commands::claude_sdk::sdk_interrupt,
             commands::claude_sdk::sdk_rewind_files,
             commands::claude_sdk::sdk_stop_session,
+            commands::background_work::session_has_background_work,
             commands::claude_sdk::sdk_resume_session,
             commands::claude_sdk::sdk_get_chat_history,
             commands::claude_sdk::sdk_get_chat_history_before,

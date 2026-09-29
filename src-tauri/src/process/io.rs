@@ -6,7 +6,7 @@ use std::io::Read;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Mutex;
 
 /// Payload sent to the frontend via Tauri events.
@@ -431,6 +431,13 @@ pub fn start_stdout_reader(
         let pool = db_pool;
         let tid = thread_id;
         tauri::async_runtime::spawn(async move {
+            // A CLI that quit on its own no longer holds its Codex/Grok/Claude account,
+            // so "Use this account" and automatic switching don't wait for it.
+            if let Some(state) = app_handle.try_state::<crate::state::AppState>() {
+                if let Err(error) = crate::commands::threads::release_exited_pty_account(state.inner(), &tid, &child).await {
+                    tracing::warn!("Could not release the account of exited terminal {}: {}", tid, error);
+                }
+            }
             // None (signal termination — SIGHUP/SIGTERM/PTY closed) is not a
             // crash, so record it as "Idle" instead of "Error". Otherwise a
             // benign PTY close (switching tabs, closing the terminal) leaves

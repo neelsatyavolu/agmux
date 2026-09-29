@@ -31,6 +31,7 @@ import {
   getAppVisibility,
   subscribeAppVisibility,
 } from "./appVisibility";
+import { checkCanvasLoss, registerCanvasRenderer } from "./canvasLossRecovery";
 
 /**
  * Disable the blinking cursor after this much idle time (no PTY output or
@@ -660,12 +661,49 @@ export async function prepareTerminalFont(
  * Falls back gracefully if Canvas is unavailable for any reason — xterm
  * continues to render via its built-in DOM fallback.
  *
- * Unlike the WebGL addon, the Canvas addon does not need a context-loss
- * recovery handler — Canvas 2D contexts on macOS WKWebView are stable.
+ * Canvas 2D pixels do NOT survive a WebKit GPU-process restart, and no
+ * context-loss event fires. The terminal is registered with
+ * `canvasLossRecovery`, which rebuilds every terminal's renderer together
+ * when that happens.
  */
 export function attachCanvas(bundle: XtermBundle): void {
   // SelectionService exists only after open(); Shift-force must run here.
   enableShiftForceSelection(bundle.term as unknown as { [key: string]: unknown });
+  loadCanvasAddon(bundle);
+  registerForCanvasLoss(bundle);
+}
+
+const canvasLossRegistered = new WeakSet<XtermBundle>();
+
+function registerForCanvasLoss(bundle: XtermBundle): void {
+  if (canvasLossRegistered.has(bundle)) return;
+  canvasLossRegistered.add(bundle);
+  const unregister = registerCanvasRenderer({
+    detach: () => detachCanvas(bundle),
+    attach: () => {
+      loadCanvasAddon(bundle);
+      bundle.term.refresh(0, Math.max(bundle.term.rows - 1, 0));
+    },
+  });
+  const baseDispose = bundle.dispose;
+  bundle.dispose = () => {
+    unregister();
+    canvasLossRegistered.delete(bundle);
+    baseDispose();
+  };
+}
+
+function detachCanvas(bundle: XtermBundle): void {
+  if (!bundle.canvas) return;
+  try {
+    bundle.canvas.dispose();
+  } catch {
+    /* ignore */
+  }
+  bundle.canvas = null;
+}
+
+function loadCanvasAddon(bundle: XtermBundle): void {
   try {
     const canvas = new CanvasAddon();
     bundle.term.loadAddon(canvas);
@@ -685,16 +723,13 @@ export function attachCanvas(bundle: XtermBundle): void {
  * it when `term.options.fontFamily` or `term.options.fontSize` change —
  * the result is wrong cell metrics on font change. Call this whenever the
  * live font changes.
+ *
+ * Also the manual-refresh path: if canvas pixels were lost, rebuild every
+ * terminal instead (one terminal alone would get the shared wiped atlas back).
  */
 export function reattachCanvas(bundle: XtermBundle): void {
-  if (bundle.canvas) {
-    try {
-      bundle.canvas.dispose();
-    } catch {
-      /* ignore */
-    }
-    bundle.canvas = null;
-  }
+  if (checkCanvasLoss()) return;
+  detachCanvas(bundle);
   attachCanvas(bundle);
 }
 

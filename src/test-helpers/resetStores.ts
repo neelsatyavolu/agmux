@@ -32,7 +32,7 @@ type StatePartial<S extends { getState: () => unknown }> = Partial<ReturnType<S[
 
 export function resetAllStores(): void {
   useDiffRecalculationStore.setState({ notices: {} });
-  useFocusRowsStore.setState({ timestampsByProject: {}, extraShown: 0 });
+  useFocusRowsStore.setState({ timestampsByProject: {}, extraShown: 0, dismissedAt: {}, finishedAt: {} });
   useThreadStore.setState({ threads: {} } satisfies StatePartial<typeof useThreadStore>);
   useProjectStore.setState({ projects: [], loading: false } satisfies StatePartial<typeof useProjectStore>);
   useUiStore.setState({

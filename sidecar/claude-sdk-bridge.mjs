@@ -411,6 +411,9 @@ async function consumeStream(queryRuntime) {
       streamEnded = true;
       runtime = null;
       promptResolve = null;
+      // Rust-only: the CLI process is gone, so its turn, questions and
+      // background tasks are too (keeps hidden-session offload accurate).
+      emit({ event: "query.ended" });
       // Only notify the frontend when the stream ended unexpectedly (likely
       // auto-compact or idle timeout). If we terminated it ourselves as part
       // of a slash-command intercept or shutdown, the next query is already
@@ -438,6 +441,7 @@ async function consumeStream(queryRuntime) {
       streamEnded = true;
       runtime = null;
       promptResolve = null;
+      emit({ event: "query.ended" });
     }
     if (wasIntentional || isDiagnostic) {
       // Treat as a clean shutdown — the user stopped the agent (or the
