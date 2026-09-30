@@ -13,6 +13,19 @@ import { navigateToSession } from "../lib/navigateToSession";
 
 const AUTO_DISMISS_MS = 5000;
 
+/** Flat toast buttons (mockup .btn.sm): 26px, radius 8, 12/600. Colors from fx-ghost / fx-quiet. */
+const FLAT_BTN: React.CSSProperties = {
+  height: 26,
+  padding: "0 10px",
+  borderRadius: 8,
+  background: "transparent",
+  border: "1px solid transparent",
+  fontSize: 12,
+  fontWeight: 600,
+  fontFamily: "var(--font-sans)",
+  cursor: "pointer",
+};
+
 /**
  * Track whether the agmux window currently has OS focus. Toasts that fire
  * while the user is in another app shouldn't start their auto-dismiss timer
@@ -216,10 +229,11 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
           ? "0 12px 32px -10px rgba(15,23,42,0.18), inset 0 0.5px 0 rgba(255,255,255,0.6)"
           : "0 20px 40px -12px rgba(0,0,0,0.45), inset 0 0.5px 0 rgba(255,255,255,0.04)",
         fontFamily: "var(--font-sans)",
-        letterSpacing: "-0.015em",
-        color: isLight ? "#0f172a" : "#fff",
-        backdropFilter: "blur(14px) saturate(140%)",
-        WebkitBackdropFilter: "blur(14px) saturate(140%)",
+        letterSpacing: flat ? "normal" : "-0.015em",
+        color: flat ? "var(--text-primary)" : isLight ? "#0f172a" : "#fff",
+        // Flat: an opaque card (fx-dialog) — no blur behind it.
+        backdropFilter: flat ? "none" : "blur(14px) saturate(140%)",
+        WebkitBackdropFilter: flat ? "none" : "blur(14px) saturate(140%)",
         pointerEvents: "auto",
       }}
     >
@@ -254,8 +268,8 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: 13,
-            fontWeight: 500,
+            fontSize: flat ? 13.5 : 13,
+            fontWeight: flat ? 650 : 500,
             color: flat ? "var(--text-primary)" : isLight ? "#0f172a" : "#fff",
             display: "flex",
             alignItems: "center",
@@ -292,7 +306,8 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
         <div
           style={{
             fontSize: 12,
-            color: flat ? "var(--text-secondary)" : isLight ? "#475569" : "#a1a1aa",
+            color: flat ? "var(--text-tertiary)" : isLight ? "#475569" : "#a1a1aa",
+            fontVariantNumeric: "tabular-nums",
             marginTop: 2,
             whiteSpace: "nowrap",
             overflow: "hidden",
@@ -309,7 +324,7 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
           <span style={{ opacity: 0.5, padding: "0 4px" }}>·</span>
           <span className="fx-red tabular-nums" style={{ color: isLight ? "#0f172a" : "#e4e4e7" }}>{finalLinesRemoved}</span> lines removed
           <span style={{ opacity: 0.5, padding: "0 4px" }}>·</span>
-          <span style={{ color: isLight ? "#0f172a" : "#e4e4e7" }}>{duration}</span>
+          <span style={{ color: flat ? "var(--text-secondary)" : isLight ? "#0f172a" : "#e4e4e7" }}>{duration}</span>
         </div>
       </div>
 
@@ -317,7 +332,8 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
         <button
           type="button"
           onClick={handleDismiss}
-          style={{
+          className={flat ? "fx-ghost" : undefined}
+          style={flat ? { ...FLAT_BTN, color: "var(--text-tertiary)" } : {
             padding: "6px 12px",
             borderRadius: 7,
             background: isLight ? "rgba(15,23,42,0.04)" : "rgba(255,255,255,0.03)",
@@ -335,7 +351,8 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
         <button
           type="button"
           onClick={handleView}
-          style={{
+          className={flat ? "fx-quiet" : undefined}
+          style={flat ? { ...FLAT_BTN, boxShadow: "inset 0 0 0 1px var(--ui-rule-2)", color: "var(--text-secondary)" } : {
             padding: "6px 14px",
             borderRadius: 7,
             background: isLight ? "rgba(217,119,6,0.16)" : "color-mix(in srgb, var(--accent) 12%, transparent)",
@@ -354,12 +371,16 @@ function ToastItem({ toast, windowFocused, isLight }: { toast: ToastModel; windo
 
       <div
         key={paused ? "paused" : "running"}
+        data-toast-drain=""
         style={{
           position: "absolute",
           left: 0,
           bottom: 0,
           height: 1.5,
-          background: isLight ? "rgba(217,119,6,0.65)" : "color-mix(in srgb, var(--accent) 55%, transparent)",
+          // Flat: a quiet graphite timer — gold is reserved for "needs you".
+          background: flat
+            ? "var(--text-muted)"
+            : isLight ? "rgba(217,119,6,0.65)" : "color-mix(in srgb, var(--accent) 55%, transparent)",
           width: "100%",
           transformOrigin: "left center",
           animation: paused

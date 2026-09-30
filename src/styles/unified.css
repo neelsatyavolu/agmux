@@ -463,6 +463,10 @@ html[data-surface="flat"] .fx-ghost {
   border-color: transparent !important;
   box-shadow: none !important;
 }
+html[data-surface="flat"] .fx-ghost:hover {
+  background: var(--ui-hover) !important;
+  color: var(--text-primary) !important;
+}
 html[data-surface="flat"] .fx-danger {
   background: var(--status-red) !important;
   color: #fff !important;

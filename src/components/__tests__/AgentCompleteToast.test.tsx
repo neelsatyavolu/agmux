@@ -6,6 +6,7 @@ import { useToastStore, type AgentCompleteToast } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore";
 import { useThreadStore } from "../../stores/threadStore";
 import type { Thread } from "../../lib/types";
+import { useSettingsStore } from "../../stores/settingsStore";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockResolvedValue(undefined),
@@ -517,5 +518,49 @@ describe("AgentCompleteToastLayer — Final coverage gaps", () => {
     useToastStore.setState({ toasts: [] });
     render(<AgentCompleteToastLayer />);
     expect(screen.queryByText("A1")).toBeNull();
+  });
+});
+
+describe("AgentCompleteToast unified (Flat) look", () => {
+  const setSurface = (surfaceStyle: "flat" | "glass") =>
+    useSettingsStore.setState((st) => ({ settings: { ...st.settings, surfaceStyle } }));
+  afterEach(() => setSurface("flat"));
+
+  function show(): void {
+    useToastStore.setState({
+      toasts: [{
+        id: "look", threadId: "thread-look", agentName: "Fix flaky test", projectPath: "/tmp/proj",
+        provider: "ClaudeCode", durationMs: 90_000, linesAddedAtStart: 0, linesRemovedAtStart: 0, createdAt: Date.now(),
+      }],
+    });
+    render(<AgentCompleteToastLayer />);
+  }
+
+  it("makes View a quiet button and Dismiss a ghost button, never gold", () => {
+    setSurface("flat");
+    show();
+    const view = screen.getByRole("button", { name: /^view$/i });
+    expect(view.className).toContain("fx-quiet");
+    expect(view.getAttribute("style") ?? "").not.toContain("var(--accent)");
+    expect(screen.getByRole("button", { name: /dismiss/i }).className).toContain("fx-ghost");
+  });
+
+  it("uses a bold title, graphite meta and a neutral countdown bar without blur", () => {
+    setSurface("flat");
+    show();
+    const title = screen.getByText("Fix flaky test").parentElement as HTMLElement;
+    expect(title.getAttribute("style") ?? "").toContain("font-weight: 650");
+    const card = document.querySelector(".agent-complete-toast") as HTMLElement;
+    expect(card.getAttribute("style") ?? "").not.toContain("blur(");
+    const drain = document.querySelector("[data-toast-drain]") as HTMLElement;
+    expect(drain.getAttribute("style") ?? "").toContain("var(--text-muted)");
+  });
+
+  it("keeps the gold Glass toast unchanged", () => {
+    setSurface("glass");
+    show();
+    const view = screen.getByRole("button", { name: /^view$/i });
+    expect(view.className).not.toContain("fx-quiet");
+    expect(view.getAttribute("style") ?? "").toContain("var(--accent)");
   });
 });

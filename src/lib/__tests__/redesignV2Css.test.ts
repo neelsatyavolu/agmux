@@ -655,3 +655,10 @@ describe("commit dialog tokens (Flat)", () => {
     expect(decl(unified, F, token)).toBe(value);
   });
 });
+
+describe("fx-ghost hover (Flat)", () => {
+  it("gives ghost buttons hover feedback", () => {
+    expect(decl(unified, 'html[data-surface="flat"] .fx-ghost:hover', "background")).toBe("var(--ui-hover)");
+    expect(decl(unified, 'html[data-surface="flat"] .fx-ghost:hover', "color")).toBe("var(--text-primary)");
+  });
+});
