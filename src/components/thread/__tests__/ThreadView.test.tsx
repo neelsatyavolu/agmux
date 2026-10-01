@@ -2,6 +2,19 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, cleanup, waitFor, screen, act } from "@testing-library/react";
 
+const tauriEvents = vi.hoisted(() => new Map<string, Set<(event: { payload: unknown }) => void>>());
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async (name: string, handler: (event: { payload: unknown }) => void) => {
+    const handlers = tauriEvents.get(name) ?? new Set();
+    handlers.add(handler);
+    tauriEvents.set(name, handlers);
+    return () => { handlers.delete(handler); };
+  }),
+}));
+function emitTauri(name: string, payload: unknown) {
+  for (const handler of tauriEvents.get(name) ?? []) handler({ payload });
+}
+
 // Mock terminal-importing children so the test runner avoids xterm.js.
 vi.mock("../TerminalView", () => ({
   TerminalView: ({ isActive }: { isActive?: boolean }) => <div data-testid="terminal-view" data-active={String(isActive)} />,
@@ -389,6 +402,27 @@ describe("ThreadView", () => {
         }),
       );
     });
+  });
+
+  it("starts a Grok terminal again after Use this account stopped it", async () => {
+    const thread = makeThread({ provider: "Grok" as never, interaction_mode: "pty" as never, status: "Idle" as never, work_dir: "/tmp/repo" as never });
+    const { rerender } = render(<ThreadView thread={thread} />);
+    await waitFor(() => expect(spawnThread).toHaveBeenCalledTimes(1));
+    rerender(<ThreadView thread={{ ...thread, status: "Running" }} />);
+    await waitFor(() => expect(tauriEvents.get("provider-account-runtime")?.size).toBeGreaterThan(0));
+    // Without the stop notice, going Idle again is not a reason to respawn.
+    rerender(<ThreadView thread={{ ...thread, status: "Idle" }} />);
+    expect(spawnThread).toHaveBeenCalledTimes(1);
+    act(() => {
+      emitTauri("provider-account-runtime", { provider: "grok", threadId: "other", status: "stopped" });
+    });
+    expect(spawnThread).toHaveBeenCalledTimes(1);
+    act(() => {
+      emitTauri("provider-account-runtime", { provider: "grok", threadId: "t1", status: "switching" });
+      emitTauri("provider-account-runtime", { provider: "grok", threadId: "t1", status: "stopped" });
+    });
+    await waitFor(() => expect(spawnThread).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(spawnThread).mock.calls[1][0]).toBe("t1");
   });
 
   it("unloads an inactive idle Grok terminal after 2 minutes and kills PTY+MCP", async () => {

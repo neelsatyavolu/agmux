@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { ClaudeSdkSessionView, type ChatTransport } from "./ClaudeSdkSessionView";
 import { OpenCodeThinkingIndicator } from "./OpenCodeThinkingIndicator";
 import {
@@ -73,6 +74,18 @@ export function GrokSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBar 
   // status stuck at "starting" ("Session not running...").
   const startedRef = useRef(false);
 
+  // "Use this account" stopped this chat's grok process so the CLI could switch
+  // logins; ensure it again (below) so the open chat continues on the new one.
+  const [accountStopEpoch, setAccountStopEpoch] = useState(0);
+  useEffect(() => {
+    const unlisten = listen<{ threadId?: string; status?: string }>("provider-account-runtime", ({ payload }) => {
+      if (payload?.threadId !== sessionId || payload.status !== "stopped") return;
+      startedRef.current = false;
+      setAccountStopEpoch((n) => n + 1);
+    });
+    return () => { unlisten.then((fn) => fn()).catch(() => {}); };
+  }, [sessionId]);
+
   // Ensure server + create session once per thread mount. Consumes any
   // pending grok config stashed by DraftChatView (permission mode / effort /
   // plan) — these become the initial spawn flags for this thread's grok
@@ -140,7 +153,7 @@ export function GrokSdkSessionView({ sessionId, cwd, isNew, compact, hideTopBar 
       startedRef.current = false;
       scheduleGrokSessionOffload(sessionId, "sdk", GROK_OFFLOAD_DELAY_MS);
     };
-  }, [sessionId, cwd]);
+  }, [sessionId, cwd, accountStopEpoch]);
 
   // Grok ACP does not currently surface live token usage through the event
   // stream we consume, but the CLI writes the authoritative snapshot to the

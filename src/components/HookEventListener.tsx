@@ -708,6 +708,18 @@ export function HookEventListener() {
       useUiStore.getState().setClaudeProcessing(threadId, processing);
     });
 
+    // "Use this account" stopped this Grok session so the CLI could switch logins.
+    // Idle (not Running) lets its view start it again on the new login when opened.
+    const accountStopPromise = listen<{ threadId?: string; status?: string }>(
+      "provider-account-runtime",
+      (e) => {
+        const threadId = e.payload?.threadId;
+        if (e.payload?.status !== "stopped" || !threadId) return;
+        useUiStore.getState().setClaudeProcessing(threadId, false);
+        useThreadStore.getState().updateThreadStatus(threadId, "Idle");
+      },
+    );
+
     // Per-real-session diff stats for Claude PTY threads. The Sidebar already
     // listens for this event but only mounts in agent mode — register globally
     // so the agent-complete toast (and any other consumer) can read live stats
@@ -754,6 +766,7 @@ export function HookEventListener() {
       claudeSdkBoundPromise.then((unlisten) => unlisten());
       titlePromptPromise.then((unlisten) => unlisten());
       sessionProcessingPromise.then((unlisten) => unlisten());
+      accountStopPromise.then((unlisten) => unlisten());
       sessionDiffPromise.then((unlisten) => unlisten());
       for (const timer of Object.values(timersRef.current)) {
         clearTimeout(timer);

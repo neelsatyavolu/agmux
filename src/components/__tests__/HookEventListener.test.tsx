@@ -174,6 +174,24 @@ describe("HookEventListener — Deep coverage (event handling)", () => {
     setClaudeProcessing.mockRestore();
   });
 
+  it("marks a Grok session stopped by Use this account as idle, and ignores other account events", async () => {
+    const setClaudeProcessing = vi.spyOn(useUiStore.getState(), "setClaudeProcessing");
+    const updateThreadStatus = vi.spyOn(useThreadStore.getState(), "updateThreadStatus");
+    const cbs = captureListeners();
+    render(<HookEventListener />);
+    await Promise.resolve();
+    for (const status of ["switching", "ready", "unavailable"]) {
+      cbs["provider-account-runtime"]({ payload: { provider: "grok", threadId: "g1", status } });
+    }
+    cbs["provider-account-runtime"]({ payload: { provider: "grok", status: "stopped" } });
+    expect(updateThreadStatus).not.toHaveBeenCalled();
+    cbs["provider-account-runtime"]({ payload: { provider: "grok", threadId: "g1", sessionKey: "g1", status: "stopped" } });
+    expect(setClaudeProcessing).toHaveBeenCalledExactlyOnceWith("g1", false);
+    expect(updateThreadStatus).toHaveBeenCalledExactlyOnceWith("g1", "Idle");
+    setClaudeProcessing.mockRestore();
+    updateThreadStatus.mockRestore();
+  });
+
   it("processes claude-session-diff-updated by writing diff stats to uiStore", async () => {
     const cbs = captureListeners();
     render(<HookEventListener />);

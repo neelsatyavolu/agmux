@@ -409,7 +409,10 @@ pub fn monitor(
             let marked = if provider == "ClaudeCode" {
                 super::mark_exhausted_for_session(&account_provider, &key, reset).await
             } else { super::mark_exhausted(&account_provider, &key, reset).await };
-            if marked.is_err() || super::release(&key).await.is_err() { break; }
+            // The old process is gone and no longer in the session map, so its exit can't
+            // release this binding; give it back even when the limit couldn't be recorded.
+            let released = super::release(&key).await;
+            if marked.is_err() || released.is_err() { break; }
             options.resume_session_id = Some(native);
             let next_key = if provider == "Codex" { options.resume_session_id.as_deref().unwrap_or(&thread_id) } else { &thread_id };
             // A first PTY handoff can move from an agmux key to its native ID.
@@ -417,10 +420,12 @@ pub fn monitor(
             // binding is released, so acquire cannot reuse the exhausted home.
             if super::bind(&account_provider, &key, next_key).await.is_err()
                 || super::remember_model(&account_provider, next_key, options.model.as_deref()).await.is_err() { break; }
-            match super::acquire(&account_provider, next_key).await {
-                Ok(Some(next)) if !switched.contains(&next.account_id) => {},
+            // A Codex native key can already be a live chat's binding; give back only one taken here.
+            let next_created = match super::acquire_tracked(&account_provider, next_key).await {
+                Ok((Some(next), created)) if !switched.contains(&next.account_id) => created,
+                Ok((Some(_), true)) => { let _ = super::release(next_key).await; break; }
                 _ => break,
-            }
+            };
             let replacement = crate::process::spawn::spawn_pty_session(&state.db, &thread_id, &provider, &work_dir, &options).await;
             match replacement {
                 Ok(replacement) => {
@@ -433,6 +438,9 @@ pub fn monitor(
                     let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": options.resume_session_id, "threadId": thread_id, "status": "ready", "continuationRequired": true}));
                 }
                 Err(_) => {
+                    // Nothing runs on the new account; holding it would keep a team lease
+                    // nobody renews and block "Use this account" until restart.
+                    if next_created { let _ = super::release(next_key).await; }
                     let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": key, "threadId": thread_id, "status": "unavailable"}));
                     break;
                 }

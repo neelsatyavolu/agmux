@@ -5,6 +5,7 @@
 //! working for everyone else. Claude keeps its login in the Keychain and is not switched.
 use super::*;
 use std::io::Write;
+use tauri::Emitter;
 
 struct CliLease { lease: team::TeamAssignment, identity_hash: String }
 static CLI_LEASES: OnceLock<Mutex<HashMap<String, CliLease>>> = OnceLock::new();
@@ -56,8 +57,48 @@ fn newer(provider: &str, candidate: &serde_json::Value, current: &serde_json::Va
     matches!((stamp(candidate), stamp(current)), (Some(a), Some(b)) if a > b)
 }
 
+/// agmux sessions holding the account `id` or the CLI's current login. Rewriting the
+/// login under them would let a running CLI write its old tokens back over the switch.
+async fn blocking_sessions(provider: &str, id: &str) -> Vec<String> {
+    let current = native::current(provider).await.map(|(assignment, _)| assignment.account_id);
+    blocking_keys(&*bindings().lock().await, id, current.as_deref())
+}
+
+fn blocking_keys(assigned: &HashMap<String, Binding>, id: &str, current: Option<&str>) -> Vec<String> {
+    let mut keys: Vec<String> = assigned.iter()
+        .filter(|(_, b)| b.assignment.account_id == id || current == Some(b.assignment.account_id.as_str()))
+        .map(|(key, _)| key.clone()).collect();
+    keys.sort();
+    keys
+}
+
+/// The sessions "Use this account" would stop (Grok) or wait for (Codex), as session keys:
+/// agmux thread IDs, or a Codex session ID.
 #[tauri::command]
-pub async fn provider_accounts_use(id: String, team_id: Option<String>) -> Result<(), String> {
+pub async fn provider_accounts_switch_blockers(provider: String, id: String) -> Result<Vec<String>, String> {
+    if !matches!(provider.as_str(), "codex" | "grok") { return Err("Only Codex and Grok logins can be switched".into()); }
+    Ok(blocking_sessions(&provider, &id).await)
+}
+
+/// `stop_sessions` (Grok only): the blocking sessions the person was shown and agreed to stop.
+/// Only those are stopped; anything else still holding either login makes the switch refuse.
+/// Stopped sessions continue on the new login when opened again.
+#[tauri::command]
+pub async fn provider_accounts_use(app: tauri::AppHandle, id: String, team_id: Option<String>, stop_sessions: Option<Vec<String>>) -> Result<(), String> {
+    let confirmed = stop_sessions.unwrap_or_default();
+    if confirmed.len() > 200 { return Err("Too many sessions to stop at once".into()); }
+    let mut stopped = Vec::new();
+    let result = switch_cli(&app, &id, team_id, &confirmed, &mut stopped).await;
+    // After the switch (or its failure), so a view that restarts lands on the login now in place.
+    for thread_id in stopped {
+        let _ = app.emit("provider-account-runtime", serde_json::json!({
+            "provider": "grok", "sessionKey": thread_id, "threadId": thread_id, "status": "stopped" }));
+    }
+    result
+}
+
+async fn switch_cli(app: &tauri::AppHandle, id: &str, team_id: Option<String>, confirmed: &[String], stopped: &mut Vec<String>) -> Result<(), String> {
+    let id = id.to_string();
     let _switch = SWITCH_LOCK.get_or_init(|| Mutex::new(())).lock().await;
     let provider = match &team_id {
         Some(team_id) => {
@@ -76,14 +117,23 @@ pub async fn provider_accounts_use(id: String, team_id: Option<String>) -> Resul
     if native::unmanaged_auth(&provider).await {
         return Err(format!("{name} is set up with an API key or Keychain login, so agmux can't switch it. Switch accounts in {name} itself."));
     }
-    {
-        let current = native::current(&provider).await.map(|(assignment, _)| assignment.account_id);
-        let assigned = bindings().lock().await;
-        let blocking = assigned.values().filter(|b| b.assignment.account_id == id || current.as_ref() == Some(&b.assignment.account_id)).count();
-        if blocking > 0 {
-            let sessions = if blocking == 1 { format!("1 agmux {name} session") } else { format!("{blocking} agmux {name} sessions") };
-            return Err(format!("Close the {sessions} using either account first."));
+    let mut blocking = blocking_sessions(&provider, &id).await;
+    if provider == "grok" && blocking.iter().any(|key| confirmed.contains(key)) {
+        // Before taking the new login: a session of ours may hold it, and the pool would refuse.
+        for key in blocking.iter().filter(|key| confirmed.contains(key)) {
+            // Reported as stopped even after an error: its view was already told `switching`
+            // and must not stay waiting; the re-check below still refuses if it holds on.
+            if let Err(error) = crate::commands::threads::stop_grok_session_for_account_switch(app, key).await {
+                tracing::warn!("Could not fully stop Grok session {key} to switch accounts: {error}");
+            }
+            stopped.push(key.clone());
         }
+        blocking = blocking_sessions(&provider, &id).await;
+    }
+    if !blocking.is_empty() {
+        let count = blocking.len();
+        let sessions = if count == 1 { format!("1 agmux {name} session") } else { format!("{count} agmux {name} sessions") };
+        return Err(format!("Close the {sessions} using either account first."));
     }
     // Take the new login before letting go of the old one, so a failure changes nothing.
     let (credentials, lease) = match &team_id {
@@ -315,6 +365,23 @@ mod live_tests {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn sessions_on_the_target_or_the_current_login_block_a_switch() {
+        let binding = |account: &str| Binding {
+            assignment: AccountAssignment { account_id: account.into(), home: PathBuf::from("/test/home"), label: "Test".into() },
+            provider: "grok".into(), team: None, remaining: None, reset: None, checked: None,
+        };
+        let assigned = HashMap::from([
+            ("on-current-b".to_string(), binding("native:grok:current")),
+            ("on-target".to_string(), binding("six")),
+            ("elsewhere".to_string(), binding("five")),
+            ("on-current-a".to_string(), binding("native:grok:current")),
+        ]);
+        assert_eq!(blocking_keys(&assigned, "six", Some("native:grok:current")), vec!["on-current-a", "on-current-b", "on-target"]);
+        assert_eq!(blocking_keys(&assigned, "six", None), vec!["on-target"]);
+        assert!(blocking_keys(&assigned, "four", Some("native:grok:other")).is_empty());
+    }
 
     #[test]
     fn only_a_known_later_refresh_replaces_the_cli_copy() {

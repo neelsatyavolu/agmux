@@ -3,9 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountsSection } from "../AccountsSection";
 import { providerAccounts, type ProviderAccountsState, type ProviderAccount } from "../../../lib/providerAccounts";
 import { useSettingsStore } from "../../../stores/settingsStore";
+import { useThreadStore } from "../../../stores/threadStore";
+import type { Thread } from "../../../lib/types";
 
 vi.mock("../../../lib/providerAccounts", () => ({ providerAccounts: {
-  list: vi.fn(), loginStart: vi.fn(), loginStatus: vi.fn(), loginCancel: vi.fn(), importCurrent: vi.fn(), update: vi.fn(), remove: vi.fn(), moveToTeam: vi.fn(), use: vi.fn(), setClaudeActivity: vi.fn(), refresh: vi.fn(), setAutoSwitch: vi.fn(),
+  list: vi.fn(), loginStart: vi.fn(), loginStatus: vi.fn(), loginCancel: vi.fn(), importCurrent: vi.fn(), update: vi.fn(), remove: vi.fn(), moveToTeam: vi.fn(), use: vi.fn(), switchBlockers: vi.fn(), setClaudeActivity: vi.fn(), refresh: vi.fn(), setAutoSwitch: vi.fn(),
 } }));
 const account: ProviderAccount = { id: "one", provider: "codex", label: "My Codex", enabled: true, priority: 0, teamId: null, status: "ready", remainingPercent: null, resetsAt: null, lastCheckedAt: null, error: null };
 let state: ProviderAccountsState;
@@ -16,6 +18,7 @@ beforeEach(() => {
   vi.mocked(providerAccounts.loginStart).mockResolvedValue({ id: "login-1", status: "pending" });
   vi.mocked(providerAccounts.loginStatus).mockResolvedValue({ status: "pending" });
   vi.mocked(providerAccounts.loginCancel).mockResolvedValue(undefined);
+  vi.mocked(providerAccounts.switchBlockers).mockResolvedValue([]);
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 function showAdd() { const add = screen.queryByRole("button", { name: "Add account" }); if (add) fireEvent.click(add); }
@@ -509,9 +512,12 @@ describe("AccountsSection", () => {
     expect(screen.getByText("Sign your Codex CLI into “My Codex”?")).toBeTruthy();
     expect(screen.getByText(/The login you’re replacing stays in Your accounts/)).toBeTruthy();
     expect(providerAccounts.use).not.toHaveBeenCalled();
-    fireEvent.click(within(screen.getByRole("article", { name: "My Codex" })).getByRole("button", { name: "Use this account" }));
+    const confirm = within(screen.getByRole("article", { name: "My Codex" })).getByRole("button", { name: "Use this account" }) as HTMLButtonElement;
+    await waitFor(() => expect(confirm.disabled).toBe(false));
+    expect(providerAccounts.switchBlockers).toHaveBeenCalledExactlyOnceWith("codex", "one");
+    fireEvent.click(confirm);
     await screen.findByText("Codex now uses “My Codex”.");
-    expect(providerAccounts.use).toHaveBeenCalledExactlyOnceWith("one", null);
+    expect(providerAccounts.use).toHaveBeenCalledExactlyOnceWith("one", null, []);
   });
   it("shows why a switch failed on the account's own row", async () => {
     state.accounts = [account];
@@ -521,9 +527,44 @@ describe("AccountsSection", () => {
     await ready();
     menu(); fireEvent.click(item("Use this account")!);
     const row = within(screen.getByRole("article", { name: "My Codex" }));
-    fireEvent.click(row.getByRole("button", { name: "Use this account" }));
+    const confirm = row.getByRole("button", { name: "Use this account" }) as HTMLButtonElement;
+    await waitFor(() => expect(confirm.disabled).toBe(false));
+    fireEvent.click(confirm);
     expect((await row.findByRole("alert")).textContent).toBe("Close agmux Codex sessions using either account first.");
     expect(screen.queryByText("Codex now uses “My Codex”.")).toBeNull();
+  });
+  it("offers to stop the Grok sessions holding either login, naming them", async () => {
+    useThreadStore.setState({ threads: { p: [{ id: "thread-a", name: "Fix login", sdk_session_id: null } as Thread] } });
+    vi.mocked(providerAccounts.switchBlockers).mockResolvedValue(["thread-a", "thread-gone"]);
+    state.accounts = [{ ...account, id: "six", provider: "grok", label: "Six", teamId: "t" }];
+    state.teams = [{ id: "t", name: "Studio", role: "employee", canManage: false }];
+    render(<AccountsSection />);
+    await screen.findByText("Six");
+    await ready();
+    menu("Six"); fireEvent.click(item("Use this account")!);
+    const row = within(screen.getByRole("article", { name: "Six" }));
+    const stop = await row.findByRole("button", { name: "Stop 2 sessions and switch" });
+    expect(row.getByText(/2 sessions use your current login or this account: Fix login, Grok session\./)).toBeTruthy();
+    expect(row.getByText(/they continue on “Six” when you open them again/)).toBeTruthy();
+    expect(providerAccounts.switchBlockers).toHaveBeenCalledExactlyOnceWith("grok", "six");
+    fireEvent.click(stop);
+    await screen.findByText("Grok now uses “Six”.");
+    expect(providerAccounts.use).toHaveBeenCalledExactlyOnceWith("six", "t", ["thread-a", "thread-gone"]);
+  });
+  it("asks to close Codex sessions instead of stopping them", async () => {
+    useThreadStore.setState({ threads: { p: [{ id: "thread-c", name: "Refactor", sdk_session_id: "native-c" } as Thread] } });
+    vi.mocked(providerAccounts.switchBlockers).mockResolvedValue(["native-c"]);
+    state.accounts = [account];
+    render(<AccountsSection />);
+    await screen.findByText("My Codex");
+    await ready();
+    menu(); fireEvent.click(item("Use this account")!);
+    const row = within(screen.getByRole("article", { name: "My Codex" }));
+    expect(await row.findByText("Close the Codex sessions using your current login or this account first: Refactor.")).toBeTruthy();
+    expect(row.queryByRole("button", { name: /^Stop/ })).toBeNull();
+    fireEvent.click(row.getByRole("button", { name: "Use this account" }));
+    await screen.findByText("Codex now uses “My Codex”.");
+    expect(providerAccounts.use).toHaveBeenCalledExactlyOnceWith("one", null, []);
   });
   it("never offers to switch Claude, a signed-out account, or one a teammate is using", async () => {
     state.teams = [{ id: "t", name: "Studio", role: "employee", canManage: true }];

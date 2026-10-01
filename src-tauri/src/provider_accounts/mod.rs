@@ -184,10 +184,24 @@ fn legacy_transport_fallback(personal_count: usize, observed: bool, error: &str)
 }
 
 pub async fn acquire(provider: &str, session_key: &str) -> Result<Option<AccountAssignment>, String> {
+    acquire_tracked(provider, session_key).await.map(|(assignment, _)| assignment)
+}
+
+/// Also says whether this call created the binding. A launch that fails gives back only a
+/// binding it created; an existing one belongs to a live chat or session for the same key.
+pub async fn acquire_tracked(provider: &str, session_key: &str) -> Result<(Option<AccountAssignment>, bool), String> {
+    let _acquire = ACQUIRE_LOCK.get_or_init(|| Mutex::new(())).lock().await;
+    let existed = bindings().lock().await.contains_key(session_key);
+    let assignment = acquire_locked(provider, session_key).await?;
+    let created = !existed && assignment.is_some();
+    Ok((assignment, created))
+}
+
+/// Caller holds `ACQUIRE_LOCK`.
+async fn acquire_locked(provider: &str, session_key: &str) -> Result<Option<AccountAssignment>, String> {
     let normalized = canonical_provider(provider);
     let provider = normalized.as_str();
     storage::valid_provider(provider)?;
-    let _acquire = ACQUIRE_LOCK.get_or_init(|| Mutex::new(())).lock().await;
     let assigned = bindings().lock().await;
     if let Some(binding) = assigned.get(session_key) {
         if binding.provider != provider { return Err("Session account provider mismatch".into()); }
@@ -778,6 +792,18 @@ mod tests {
         assert!(route.model_excluded.is_empty());
         assert!(route.excluded.contains("fully-exhausted"));
         release(&key).await.unwrap();
+    }
+    #[tokio::test]
+    async fn acquiring_a_key_that_already_has_a_binding_reports_it_was_not_created() {
+        let key = format!("test-existing:{}", uuid::Uuid::new_v4());
+        let mut existing = binding("chat-account", "lease-chat");
+        existing.provider = "grok".into();
+        bindings().lock().await.insert(key.clone(), existing);
+        let (assignment, created) = acquire_tracked("grok", &key).await.unwrap();
+        assert_eq!(assignment.unwrap().account_id, "chat-account");
+        assert!(!created, "a launch must not give back a binding another session made");
+        assert!(acquire_tracked("codex", &key).await.is_err(), "provider mismatch still refuses");
+        bindings().lock().await.remove(&key);
     }
     #[tokio::test]
     async fn model_context_survives_missing_model_and_native_identity_binding() {

@@ -1,5 +1,6 @@
-import { useState } from "react";
-import type { AccountTeam, ProviderAccount } from "../../../lib/providerAccounts";
+import { useEffect, useState } from "react";
+import { providerAccounts, type AccountTeam, type ProviderAccount } from "../../../lib/providerAccounts";
+import { useThreadStore } from "../../../stores/threadStore";
 import { AccountMenu, type MenuAction } from "./AccountMenu";
 import { ChoiceGroup } from "./ChoiceGroup";
 import { button, input } from "./styles";
@@ -31,7 +32,8 @@ export interface RowActions {
   reconnect: () => void;
   remove: () => void;
   move: (team: AccountTeam) => void;
-  use: () => void;
+  /** `stopSessions`: the Grok sessions holding either login that the person agreed to stop. */
+  use: (stopSessions: string[]) => void;
   rename: (label: string) => void;
 }
 
@@ -74,11 +76,7 @@ export function AccountRow({ account, canEdit, canUse, moveTeams, locked, panel,
       <UsageBars account={account} />
       {account.error && <p className="mt-2 break-words text-xs text-[var(--text-secondary)]">{account.error}</p>}
       {canEdit && (account.status === "needs_login" || account.error) && <button className="mt-1 min-h-8 text-xs font-medium text-[var(--accent)] disabled:opacity-50" disabled={locked} onClick={actions.reconnect}>Reconnect</button>}
-      {panel === "use" && canUse && <Confirm locked={locked} confirm="Use this account" onConfirm={actions.use} onCancel={() => setPanel(null)}
-        title={`Sign your ${providerNames[account.provider]} CLI into “${account.label}”?`}
-        detail={`Your terminal and agmux will both use it. ${account.teamId
-          ? "It stays checked out to you while your CLI uses it, so your team sees it’s in use."
-          : "It becomes your current login."} The login you’re replacing stays in Your accounts.`} />}
+      {panel === "use" && canUse && <UsePanel account={account} locked={locked} onConfirm={actions.use} onCancel={() => setPanel(null)} />}
       {panel === "rename" && canEdit && <RenamePanel account={account} locked={locked} onSave={actions.rename} onCancel={() => setPanel(null)} />}
       {panel === "remove" && <Confirm locked={locked} title={`Remove “${account.label}”?`} confirm="Confirm remove" cancel="Keep account" onConfirm={actions.remove} onCancel={() => setPanel(null)} />}
       {panel === "move" && moveTeams.length > 0 && <MovePanel account={account} teams={moveTeams} locked={locked} onCancel={() => setPanel(null)} onConfirm={actions.move} />}
@@ -95,6 +93,42 @@ function Confirm({ title, detail, confirm, cancel = "Cancel", locked, onConfirm,
     {detail && <p className="text-xs text-[var(--text-tertiary)]">{detail}</p>}
     <div className="flex gap-2"><button className={button} disabled={locked} onClick={onConfirm}>{confirm}</button><button className={button} disabled={locked} onClick={onCancel}>{cancel}</button></div>
   </div>;
+}
+
+/** Session names for the switch blockers; a Codex blocker may be keyed by its session ID. */
+function sessionNames(ids: string[], provider: string) {
+  const threads = Object.values(useThreadStore.getState().threads).flat();
+  return ids.map(id => threads.find(thread => thread.id === id || thread.sdk_session_id === id)?.name?.trim() || `${provider} session`);
+}
+
+const sessionCount = (count: number) => `${count} session${count === 1 ? "" : "s"}`;
+
+/** A running CLI on either login could write its old tokens back over the switch, so those
+ * sessions stop first: Grok ones here, with the person's agreement; Codex ones they close. */
+function UsePanel({ account, locked, onConfirm, onCancel }: {
+  account: ProviderAccount; locked: boolean; onConfirm: (stopSessions: string[]) => void; onCancel: () => void;
+}) {
+  const [blockers, setBlockers] = useState<string[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    // On failure the switch itself still refuses while sessions hold either login.
+    providerAccounts.switchBlockers(account.provider, account.id)
+      .then(ids => { if (live) setBlockers(ids); }, () => { if (live) setBlockers([]); });
+    return () => { live = false; };
+  }, [account.provider, account.id]);
+  const name = providerNames[account.provider];
+  const base = `Your terminal and agmux will both use it. ${account.teamId
+    ? "It stays checked out to you while your CLI uses it, so your team sees it’s in use."
+    : "It becomes your current login."} The login you’re replacing stays in Your accounts.`;
+  const count = blockers?.length ?? 0;
+  const names = blockers && count ? sessionNames(blockers, name).join(", ") : "";
+  const stoppable = account.provider === "grok" && count > 0;
+  const detail = !count ? base
+    : stoppable ? `${sessionCount(count)} use your current login or this account: ${names}. Switching stops them, and they continue on “${account.label}” when you open them again.`
+    : `Close the ${name} sessions using your current login or this account first: ${names}.`;
+  return <Confirm locked={locked || blockers === null} onCancel={onCancel} onConfirm={() => onConfirm(stoppable && blockers ? blockers : [])}
+    confirm={stoppable ? `Stop ${sessionCount(count)} and switch` : "Use this account"}
+    title={`Sign your ${name} CLI into “${account.label}”?`} detail={detail} />;
 }
 
 function RenamePanel({ account, locked, onSave, onCancel }: { account: ProviderAccount; locked: boolean; onSave: (label: string) => void; onCancel: () => void }) {

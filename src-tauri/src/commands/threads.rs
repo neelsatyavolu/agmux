@@ -2196,6 +2196,44 @@ pub(crate) async fn release_exited_pty_account(
     release_pty_account(state, session).await
 }
 
+/// "Use this account" stops a Grok session that holds either login, so the CLI can switch.
+/// Same teardown as Stop for a terminal and as offload for a chat. An open view is told
+/// first (`switching`) so the intended exit isn't shown as a failure. A binding with no
+/// process behind it may be a launch still starting, so it is left alone (the switch then
+/// refuses rather than rewriting the login under that launch).
+pub(crate) async fn stop_grok_session_for_account_switch(app: &AppHandle, thread_id: &str) -> Result<(), String> {
+    use tauri::Manager;
+    let state = app.try_state::<AppState>().ok_or("agmux is still starting")?;
+    let _ = app.emit("provider-account-runtime", serde_json::json!({
+        "provider": "grok", "sessionKey": thread_id, "threadId": thread_id, "status": "switching" }));
+    let terminal = {
+        let mut sessions = state.sessions.lock().await;
+        match sessions.remove(thread_id) {
+            Some(session) => {
+                session.kill().await;
+                Some(release_pty_account(state.inner(), &session).await)
+            }
+            None => None,
+        }
+    };
+    let chat = {
+        let mut servers = state.grok_servers.lock().await;
+        let running = servers.get(thread_id).is_some();
+        servers.stop(thread_id).await;
+        running
+    };
+    let had_terminal = terminal.is_some();
+    let mut result = terminal.unwrap_or(Ok(()));
+    if chat {
+        result = result.and(crate::provider_accounts::release(thread_id).await);
+    }
+    if had_terminal {
+        state.watchers.lock().await.remove(thread_id);
+        result = result.and(queries::update_thread_status(&state.db, thread_id, "Idle").await.map_err(|e| e.to_string()));
+    }
+    result
+}
+
 /// Stop a running Codex CLI session (no DB update, just kill process)
 #[tauri::command]
 pub async fn stop_codex_session(

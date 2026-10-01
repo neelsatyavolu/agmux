@@ -2,6 +2,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 
+const tauriEvents = vi.hoisted(() => new Map<string, Set<(event: { payload: unknown }) => void>>());
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async (name: string, handler: (event: { payload: unknown }) => void) => {
+    const handlers = tauriEvents.get(name) ?? new Set();
+    handlers.add(handler);
+    tauriEvents.set(name, handlers);
+    return () => { handlers.delete(handler); };
+  }),
+}));
+function emitTauri(name: string, payload: unknown) {
+  for (const handler of tauriEvents.get(name) ?? []) handler({ payload });
+}
+
 const claudeSdkSessionViewSpy = vi.fn();
 vi.mock("../ClaudeSdkSessionView", () => ({
   ClaudeSdkSessionView: (props: unknown) => {
@@ -69,6 +82,22 @@ describe("GrokSdkSessionView", () => {
       expect(grokSdkEnsureServer).toHaveBeenCalledWith("thread-1", "/tmp/repo", undefined);
       expect(setThreadProviderSessionId).toHaveBeenCalledWith("thread-1", "grok-session-1");
     });
+  });
+
+  it("starts the chat's grok process again after Use this account stopped it", async () => {
+    render(<GrokSdkSessionView sessionId="thread-1" cwd="/tmp/repo" />);
+    await waitFor(() => expect(grokSdkEnsureServer).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(tauriEvents.get("provider-account-runtime")?.size).toBeGreaterThan(0));
+    act(() => {
+      emitTauri("provider-account-runtime", { provider: "grok", threadId: "thread-2", status: "stopped" });
+      emitTauri("provider-account-runtime", { provider: "grok", threadId: "thread-1", status: "switching" });
+    });
+    expect(grokSdkEnsureServer).toHaveBeenCalledTimes(1);
+    act(() => {
+      emitTauri("provider-account-runtime", { provider: "grok", threadId: "thread-1", status: "stopped" });
+    });
+    await waitFor(() => expect(grokSdkEnsureServer).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(grokSdkEnsureServer).mock.calls[1].slice(0, 2)).toEqual(["thread-1", "/tmp/repo"]);
   });
 
   it("passes real Grok disk context usage into the shared SDK chrome", async () => {

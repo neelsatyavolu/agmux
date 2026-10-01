@@ -564,11 +564,13 @@ pub async fn spawn_pty_session(
         crate::provider_accounts::remember_model(if matches!(provider_enum, Provider::ClaudeCode) { "claude" } else { provider }, account_key, model.as_deref())
             .await.map_err(anyhow::Error::msg)?;
     }
-    let account = match provider_enum {
-        Provider::Codex => crate::provider_accounts::acquire("codex", account_key).await,
-        Provider::Grok => crate::provider_accounts::acquire("grok", account_key).await,
-        Provider::ClaudeCode if personal_claude => crate::provider_accounts::acquire("claude", account_key).await,
-        _ => Ok(None),
+    // A launch that fails gives back an account it took for itself. A binding that
+    // already existed belongs to a live chat or an account handoff, which releases it.
+    let (account, newly_bound) = match provider_enum {
+        Provider::Codex => crate::provider_accounts::acquire_tracked("codex", account_key).await,
+        Provider::Grok => crate::provider_accounts::acquire_tracked("grok", account_key).await,
+        Provider::ClaudeCode if personal_claude => crate::provider_accounts::acquire("claude", account_key).await.map(|a| (a, false)),
+        _ => Ok((None, false)),
     }.map_err(anyhow::Error::msg)?;
     let mut claude_config_dir = None;
     if let Some(account) = account.as_ref().filter(|a| !a.account_id.starts_with("native:")) {
@@ -1187,7 +1189,13 @@ pub async fn spawn_pty_session(
             if !resuming_grok {
                 // Grok rejects an existing ID with --session-id; unlike
                 // --resume this is its explicit new-conversation operation.
-                let native_id = allocate_native_session(pool, "Grok", thread_id).await?;
+                let native_id = match allocate_native_session(pool, "Grok", thread_id).await {
+                    Ok(id) => id,
+                    Err(error) => {
+                        if newly_bound { let _ = crate::provider_accounts::release(account_key).await; }
+                        return Err(error);
+                    }
+                };
                 cmd.arg("--session-id");
                 cmd.arg(&native_id);
                 cmd.env("AGMUX_INITIAL_CREATED_SESSION_ID", &native_id);
@@ -1290,7 +1298,7 @@ pub async fn spawn_pty_session(
     let (child, writer) = match launch {
         Ok(pair) => pair,
         Err(error) => {
-            if matches!(provider_enum, Provider::ClaudeCode) {
+            if matches!(provider_enum, Provider::ClaudeCode) || newly_bound {
                 let _ = crate::provider_accounts::release(account_key).await;
             }
             return Err(error);

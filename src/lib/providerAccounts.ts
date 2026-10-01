@@ -69,8 +69,11 @@ export const providerAccounts = {
   },
   update: (id: string, changes: Partial<Pick<ProviderAccount, "enabled" | "label" | "priority" | "teamId">>) => invoke<void>("provider_accounts_update", { id, ...changes }).then(changed),
   remove: (id: string, teamId: string | null) => invoke<void>("provider_accounts_remove", { id, teamId }).then(changed),
-  /** Signs the provider's CLI into this Codex/Grok account; the replaced login is kept. */
-  use: (id: string, teamId: string | null) => invoke<void>("provider_accounts_use", { id, teamId }).then(changed),
+  /** Signs the provider's CLI into this Codex/Grok account; the replaced login is kept.
+   * `stopSessions` (Grok): the blocking sessions the person agreed to stop first; any other blocker refuses. */
+  use: (id: string, teamId: string | null, stopSessions: string[] = []) => invoke<void>("provider_accounts_use", { id, teamId, stopSessions }).then(changed),
+  /** Sessions holding this account or the CLI's current login: agmux thread IDs, or a Codex session ID. */
+  switchBlockers: (provider: AccountProvider, id: string) => invoke<string[]>("provider_accounts_switch_blockers", { provider, id }),
   moveToTeam: (id: string, teamId: string) => invoke<void>("provider_accounts_move_to_team", { id, teamId }).then(changed),
   refresh: (id: string, teamId: string | null) => invoke<void>("provider_accounts_refresh", { id, teamId }),
   setClaudeActivity: (teamId: string, enabled: boolean) => invoke<void>("provider_accounts_set_claude_activity", { teamId, enabled }).then(changed),

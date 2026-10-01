@@ -152,11 +152,18 @@ export function ThreadView({ thread, compact = false }: Props) {
   );
 
   const [accountTerminalGeneration, setAccountTerminalGeneration] = useState(0);
+  // Bumped when "Use this account" stopped this terminal, so the auto-spawn below runs again.
+  const [accountStopEpoch, setAccountStopEpoch] = useState(0);
   useEffect(() => {
     const unlisten = listen<{ threadId?: string; status?: string }>("provider-account-runtime", ({ payload }) => {
       if (payload.threadId !== thread.id) return;
       if (payload.status === "switching") {
         suppressPtyExitRef.current = true;
+      } else if (payload.status === "stopped") {
+        // Stopped so the CLI could switch logins: start again on the new one (status goes Idle app-wide).
+        suppressPtyExitRef.current = false;
+        terminalAutoSpawnedRef.current = null;
+        setAccountStopEpoch(n => n + 1);
       } else if (payload.status === "ready") {
         suppressPtyExitRef.current = false;
         setSpawnError(null);
@@ -237,7 +244,7 @@ export function ThreadView({ thread, compact = false }: Props) {
       // spawn-retry loop. The user must manually retry by reopening the
       // thread, which remounts ThreadView and resets the ref.
     });
-  }, [thread.id, thread.provider, thread.interaction_mode, thread.status, updateThreadStatus]);
+  }, [thread.id, thread.provider, thread.interaction_mode, thread.status, updateThreadStatus, accountStopEpoch]);
 
   const providerLabel =
     thread.provider === "ClaudeCode"

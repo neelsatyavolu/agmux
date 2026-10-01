@@ -197,7 +197,7 @@ export function AccountsSection() {
         reconnect: () => void startSignIn({ provider: account.provider, label: account.label, teamId: account.teamId }),
         remove: () => act(async () => { await providerAccounts.remove(account.id, account.teamId); setPanel(null); }, "Account removed."),
         move: team => act(async () => { await providerAccounts.moveToTeam(account.id, team.id); setPanel(null); }, `Moved to ${team.name}.`),
-        use: () => act(async () => { await providerAccounts.use(account.id, account.teamId); setPanel(null); }, `${providerNames[account.provider]} now uses “${account.label}”.`),
+        use: stopSessions => act(async () => { await providerAccounts.use(account.id, account.teamId, stopSessions); setPanel(null); }, `${providerNames[account.provider]} now uses “${account.label}”.`),
         rename: label => act(async () => { await providerAccounts.update(account.id, { label, teamId: account.teamId }); setPanel(null); }, "Account renamed."),
       }} />;
   }

@@ -821,6 +821,7 @@ pub fn run() {
             provider_accounts::provider_accounts_remove,
             provider_accounts::transfer::provider_accounts_move_to_team,
             provider_accounts::cli::provider_accounts_use,
+            provider_accounts::cli::provider_accounts_switch_blockers,
             provider_accounts::activity::provider_accounts_set_claude_activity,
             provider_accounts::provider_accounts_refresh,
             provider_accounts::login::provider_accounts_login_start,
