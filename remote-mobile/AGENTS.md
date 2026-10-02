@@ -81,6 +81,21 @@ scripts/release-ios.sh --no-upload                     # signed build/agmux.ipa 
 - Apple processes uploads in about 5–15 minutes. The internal TestFlight group **"agmux team"** gets every build automatically, with no review.
 - Commit before uploading so the build matches `master`.
 
+## Submitting to the App Store
+
+```bash
+scripts/release-ios.sh                                  # upload the build first; wait for processing
+node scripts/asc-submit.mjs --dry-run                   # shows version ← build
+node scripts/asc-submit.mjs --whats-new "What changed"  # attach newest build + submit for review
+```
+
+- Before an update: bump `MARKETING_VERSION` (configure script) and create the next version in App Store Connect
+  (or with the API). The App Store version string must equal the build's `CFBundleShortVersionString` (e.g. `1.0.0`).
+- Listing, screenshots, review notes/contact, App Privacy, price and availability carry over; see `APP_STORE.md`.
+- New data collection or a new third-party destination means updating App Privacy (published answers need the
+  user's explicit attestation), the privacy policy (xanom-website `app/privacy/page.tsx`) and `APP_STORE.md`.
+- Keep demo mode working: App Review uses it (no Mac available to them).
+
 ## Apple account facts
 
 - Team `VTQW687WBQ` is an **individual** membership. Only the account holder can use the developer website's Certificates/Identifiers/Profiles/Keys.

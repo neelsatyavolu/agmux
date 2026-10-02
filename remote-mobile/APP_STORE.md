@@ -3,20 +3,28 @@
 Everything needed to put the iPhone app on TestFlight and the App Store, checked
 against the [App Store Review Guidelines](https://developer.apple.com/app-store/review/guidelines/).
 
+**Status (2026-10-02):** 1.0.0 (build 202610021808) submitted, Waiting for Review, releases automatically after approval.
+App Store Connect app ID 6818431146; listing, screenshots (6.9", demo mode), review notes and contact, age rating (9+),
+App Privacy (published), free price, all 175 territories and EU trader status (not a trader) are set.
+After approval: merge `app-store-badge` in xanom-website and deploy agmux.dev.
+
 ## Guideline checklist
 
 | Guideline | How the app meets it | Status |
 |---|---|---|
 | 1.5 Developer information | Support URL is the public issue tracker; the privacy policy has a contact section. | Done |
 | 2.1 App completeness | Reviewers can't pair a Mac, so the first screen has **Try a demo**: sample sessions answered on the phone (approve a tool, watch a reply stream, send messages, open Settings). Review notes point to it. | Done |
-| 2.3 Accurate metadata | Screenshots must show the real app. Capture them in demo mode (no personal project names). | **Before App Store review** |
+| 2.3 Accurate metadata | Screenshots show the real app in demo mode (fictional data, 2.3.9). | Done |
 | 2.5.1 Public APIs only | Capacitor and WebKit only. | Done |
 | 2.5.2 Self-contained | The UI ships inside the app (`www/`); the app never loads remote code. Updating the UI means a new build. | Done |
 | 2.5.6 Web content uses WebKit | WKWebView. Links open in Safari, never in an in-app browser. | Done |
 | 4.0 Design | iPhone only, portrait, dark appearance, safe areas, keyboard pushes the composer up. | Done |
 | 4.2 Minimum functionality | Native features beyond the website: Keychain-kept pairing, QR codes open the app (Universal Links), iOS notifications for approvals and finished runs with a Settings screen, camera and photo attachments, haptics, push notifications while the app is closed (relay → APNs), in-app QR scanning. | Done |
 | 4.2.3 Works on its own | It is a companion to the free agmux Mac app; say so in the description and Review notes. | Done (copy below) |
-| 5.1.1(i) Privacy policy | Linked in App Store Connect and inside the app (pairing screen and the More menu). The policy names the iPhone app. | Done once agmux.dev is deployed |
+| 5.1.1(i) Privacy policy | Linked in App Store Connect and inside the app (pairing screen, More menu, Settings). The policy names the iPhone app, push and third-party AI. | Done |
+| 5.1.2(i) Third-party AI | Before the first message a sheet explains messages go to the Mac's agents and their AI providers and asks to continue; Settings → Privacy withdraws it. | Done |
+| 4.2.7 Remote desktop | Not a screen mirror: a native client for agmux's own protocol. Said in the review notes. | Done |
+| 4.5.4 Push | Optional; carries only a session title and tool name. | Done |
 | 5.1.1(ii) Permissions | Camera and photos are asked for only when the user attaches an image; purpose strings explain why. Nothing is requested at launch. | Done |
 | 5.1.1(v) Account deletion | No accounts. "Forget this Mac" signs the phone out; revoking on the Mac removes access. | Done |
 | 5.1.2 Data use | No analytics, ads or tracking. | Done |
@@ -44,7 +52,7 @@ Internal testers (team members) need no review. External testers need Beta App R
 
 ## Listing
 
-- **Subtitle:** Your Mac's coding agents, anywhere
+- **Subtitle:** Your coding agents, anywhere
 - **Category:** Developer Tools · secondary Productivity
 - **Support URL:** https://github.com/neelsatyavolu/agmux/issues
 - **Marketing URL:** https://agmux.dev
