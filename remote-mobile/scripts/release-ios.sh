@@ -33,10 +33,19 @@ op account list >/dev/null 2>&1 || { echo "error: 1Password CLI is not signed in
 
 WORK="$(mktemp -d)"
 KEYCHAIN="$WORK/signing.keychain-db"
-ORIGINAL_KEYCHAINS="$(security list-keychains -d user | tr -d '"' | xargs)"
-cleanup() {
+# Other builds on this Mac (agents signing other apps) edit the same search list
+# concurrently, so only ever add or remove our own keychain — never restore a snapshot.
+use_keychain() {
+  local others
+  others="$(security list-keychains -d user | tr -d '"' | xargs -n1 | grep -vxF "$KEYCHAIN" | xargs)"
   # shellcheck disable=SC2086
-  security list-keychains -d user -s $ORIGINAL_KEYCHAINS
+  security list-keychains -d user -s "$KEYCHAIN" $others
+}
+cleanup() {
+  local others
+  others="$(security list-keychains -d user | tr -d '"' | xargs -n1 | grep -vxF "$KEYCHAIN" | xargs)"
+  # shellcheck disable=SC2086
+  [ -n "$others" ] && security list-keychains -d user -s $others
   security delete-keychain "$KEYCHAIN" 2>/dev/null || true
   rm -rf "$WORK"
 }
@@ -56,8 +65,7 @@ security import "$WORK/dist.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/c
 security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
 unset P12_PASSWORD
 # The .p12 carries Apple's intermediate; codesign only finds it on the search list.
-# shellcheck disable=SC2086
-security list-keychains -d user -s "$KEYCHAIN" $ORIGINAL_KEYCHAINS
+use_keychain
 
 echo "› Checking the App Store profile"
 PROFILE_UUID="$(node scripts/asc-profile.mjs "$WORK/profile.mobileprovision")"
@@ -96,6 +104,7 @@ ISSUER_ID="$(op item get "$KEY_ITEM" --vault "$VAULT" --fields 'label=issuer id'
 op read "op://$VAULT/$KEY_ITEM/AuthKey_${KEY_ID}.p8" --out-file "$WORK/AuthKey.p8" >/dev/null
 
 mkdir -p build
+use_keychain # in case another build replaced the search list while we archived
 if [ "$UPLOAD" = 1 ]; then echo "› Uploading to App Store Connect"; else echo "› Exporting build/agmux.ipa"; fi
 xcodebuild -exportArchive -archivePath "$WORK/App.xcarchive" \
   -exportOptionsPlist "$WORK/ExportOptions.plist" -exportPath "$WORK/export" \

@@ -42,7 +42,7 @@ Source: https://github.com/neelsatyavolu/agmux (MIT). Every commit pushed is pub
 | Teams (org analytics) — read before touching it | `AGMUX_TEAMS.md` |
 | Owner product analytics | `analytics-service/` (Worker + D1 at owner.agmux.dev); desktop `src-tauri/src/product_analytics/` |
 | Remote phone UI (PWA) | `remote.agmux.dev` (Worker assets); legacy mirror `agmux.dev/remote`; relay `remote-relay/` |
-| Remote iOS shell (Capacitor) | `remote-mobile/` — same PWA + relay; `npm run ios` |
+| iPhone app — change it, test it, ship to TestFlight | `remote-mobile/AGENTS.md` (read first) |
 | User-facing release notes — **update when shipping** | `RELEASE_NOTES.md` |
 | Living project memory (local generated view) | `.agmux/MEMORY.md` |
 | Session handoffs index (local generated view) | `.agmux/SESSIONS.md` |
