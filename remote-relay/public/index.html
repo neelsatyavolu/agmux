@@ -926,6 +926,25 @@ code.inl {
 .pair-demo { display: block; width: 100%; margin-top: 14px; padding: 10px; border: 0; background: transparent; color: var(--graphite); font-size: 14px; }
 .pair-demo b { color: var(--ink); font-weight: 600; }
 
+/* ── Third-party AI consent (before the first message) ─────────────────── */
+.consent-scrim {
+  position: fixed; inset: 0; z-index: 54; background: var(--scrim);
+  opacity: 0; pointer-events: none; transition: opacity 200ms ease;
+}
+#stage[data-consent="1"] .consent-scrim { opacity: 1; pointer-events: auto; }
+.consent {
+  position: fixed; z-index: 55; left: 50%; top: 50%; width: min(440px, calc(100% - 40px));
+  max-height: calc(100% - 40px); overflow-y: auto; padding: 22px; border-radius: 20px;
+  background: var(--panel); box-shadow: inset 0 0 0 1px var(--rule-2), var(--shadow-pop);
+  opacity: 0; pointer-events: none; transform: translate(-50%, -46%);
+  transition: opacity 200ms ease, transform 250ms var(--ease);
+}
+#stage[data-consent="1"] .consent { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
+.consent h2 { margin: 0 0 12px; font-size: 20px; font-weight: 800; font-stretch: 85%; letter-spacing: -0.01em; line-height: 1.15; }
+.consent p { margin: 0 0 10px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+.consent a { color: var(--ink); text-underline-offset: 2px; }
+.consent .appr-acts { margin-top: 18px; }
+
 /* ── Settings ─────────────────────────────────────────────────────────── */
 html:not([data-shell]) [data-native-only] { display: none !important; }
 .prefs [hidden] { display: none !important; }
@@ -1337,6 +1356,18 @@ html:not([data-shell]) [data-native-only] { display: none !important; }
     </div>
   </div></div>
 
+  <!-- Third-party AI consent -->
+  <div class="consent-scrim" id="consentScrim"></div>
+  <div class="consent" role="dialog" aria-modal="true" aria-labelledby="consentTitle">
+    <h2 id="consentTitle">Your messages go to your agents</h2>
+    <p>What you send from here, including photos you attach, goes to agmux on your Mac. The coding agents there (for example Claude Code, Codex or Gemini) send it to their AI providers, such as Anthropic, OpenAI or Google, using the accounts you set up on your Mac.</p>
+    <p>The agmux relay passes messages along and doesn’t keep them. You can change this anytime in Settings. <a href="https://agmux.dev/privacy" target="_blank" rel="noopener">Privacy policy</a></p>
+    <div class="appr-acts">
+      <button class="deny" id="consentCancel" type="button"><span class="lbl">Not now</span></button>
+      <button class="allow" id="consentContinue" type="button"><span class="lbl">Continue</span></button>
+    </div>
+  </div>
+
   <!-- Settings -->
   <div class="prefs-scrim" id="prefsScrim"></div>
   <div class="prefs" role="dialog" aria-modal="true" aria-labelledby="prefsTitle">
@@ -1370,6 +1401,15 @@ html:not([data-shell]) [data-native-only] { display: none !important; }
           <label class="prefs-row" for="prefHaptics">
             <div class="txt"><div>Haptics</div><div class="d">A light tap when you allow or deny a request.</div></div>
             <input class="switch" type="checkbox" role="switch" id="prefHaptics">
+          </label>
+        </div>
+      </section>
+      <section class="prefs-group">
+        <h3>Privacy</h3>
+        <div class="prefs-list">
+          <label class="prefs-row" for="prefAiConsent">
+            <div class="txt"><div>Send messages to my agents</div><div class="d">Messages go to your Mac’s agents and their AI providers. Turn off to be asked again before the next message.</div></div>
+            <input class="switch" type="checkbox" role="switch" id="prefAiConsent">
           </label>
         </div>
       </section>
@@ -4076,6 +4116,11 @@ function send() {
   }
   const imgs = attachedImages.slice();
   if (!v && !imgs.length) return;
+  // App Store 5.1.2(i): say where messages go (third-party AI) and ask once first.
+  if (!demoMode && !hasAiConsent()) {
+    askAiConsent(send);
+    return;
+  }
 
   // Draft new-chat → create thread then send first message (desktop DraftChatView).
   if (isDraftMode()) {
@@ -5851,6 +5896,38 @@ function setPref(key, value) {
   sendPushRegistration();
 }
 
+// ── Third-party AI consent ───────────────────────────────────────────────
+const AI_CONSENT_KEY = 'agmux-remote-ai-consent';
+let afterConsent = null;
+
+function hasAiConsent() {
+  try { return localStorage.getItem(AI_CONSENT_KEY) === '1'; } catch { return false; }
+}
+function setAiConsent(on) {
+  try {
+    if (on) localStorage.setItem(AI_CONSENT_KEY, '1');
+    else localStorage.removeItem(AI_CONSENT_KEY);
+  } catch { /* private mode: ask each session */ }
+}
+/** Shows the disclosure; `then` runs only after Continue. */
+function askAiConsent(then) {
+  afterConsent = then;
+  set('consent', '1');
+}
+function closeAiConsent() {
+  afterConsent = null;
+  set('consent', '0');
+}
+document.getElementById('consentContinue')?.addEventListener('click', () => {
+  const then = afterConsent;
+  setAiConsent(true);
+  closeAiConsent();
+  then?.();
+});
+document.getElementById('consentCancel')?.addEventListener('click', closeAiConsent);
+document.getElementById('consentScrim')?.addEventListener('click', closeAiConsent);
+document.getElementById('prefAiConsent')?.addEventListener('change', (e) => setAiConsent(e.target.checked));
+
 // ── Push (iPhone app) ────────────────────────────────────────────────────
 // native-bridge.js hands over the APNs token; the relay sends alerts while the
 // app is closed, honouring the Settings switches above.
@@ -5903,6 +5980,8 @@ function renderPrefs() {
     const el = document.getElementById(id);
     if (el) el.checked = !!prefs[key];
   }
+  const consent = document.getElementById('prefAiConsent');
+  if (consent) consent.checked = hasAiConsent();
   const native = document.documentElement.hasAttribute('data-shell');
   const state = notificationState();
   document.getElementById('prefsNotifState').textContent = NOTIF_STATE[state] || state;

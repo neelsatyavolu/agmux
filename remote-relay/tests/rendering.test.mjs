@@ -15,6 +15,8 @@ for (const file of ['app.html', 'index.html']) {
       url: 'https://remote.agmux.dev/', runScripts: 'dangerously', pretendToBeVisual: true,
       virtualConsole: console,
       beforeParse(window) {
+        // These sessions already agreed to send messages to their agents (App Store 5.1.2).
+        window.localStorage.setItem('agmux-remote-ai-consent', '1');
         window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
         window.ResizeObserver = class { observe() {} disconnect() {} };
         window.scrollTo = () => {};
@@ -49,6 +51,8 @@ function loadPhone() {
     url: 'https://remote.agmux.dev/', runScripts: 'dangerously', pretendToBeVisual: true,
     virtualConsole: new VirtualConsole(),
     beforeParse(window) {
+      // These sessions already agreed to send messages to their agents (App Store 5.1.2).
+      window.localStorage.setItem('agmux-remote-ai-consent', '1');
       window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
       window.ResizeObserver = class { observe() {} disconnect() {} };
       window.scrollTo = () => {};
@@ -116,6 +120,8 @@ test('older desktop catalogs and timelines still render', () => {
     url: 'https://agmux.dev/remote/app.html', runScripts: 'dangerously', pretendToBeVisual: true,
     virtualConsole: console,
     beforeParse(window) {
+      // These sessions already agreed to send messages to their agents (App Store 5.1.2).
+      window.localStorage.setItem('agmux-remote-ai-consent', '1');
       window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
       window.ResizeObserver = class { observe() {} disconnect() {} };
       window.scrollTo = () => {};

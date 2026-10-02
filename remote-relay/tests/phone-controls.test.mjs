@@ -32,6 +32,8 @@ function harness(names, extra = {}) {
     attachChatPermission: x => x, showToast() {},
     appendOptimisticSend() {}, shouldQueueMessage: t => !!t?.processing,
     draft: { projectId: 'p', provider: 'Grok', pending: false },
+    // Already agreed to send messages to their agents (App Store 5.1.2).
+    demoMode: false, hasAiConsent: () => true, askAiConsent() {},
     ...extra,
   });
   vm.runInContext(functions(...names), c);

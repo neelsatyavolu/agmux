@@ -8,6 +8,8 @@ function phone() {
     url: 'https://remote.agmux.dev/', runScripts: 'dangerously', pretendToBeVisual: true,
     virtualConsole: new VirtualConsole(),
     beforeParse(window) {
+      // These sessions already agreed to send messages to their agents (App Store 5.1.2).
+      window.localStorage.setItem('agmux-remote-ai-consent', '1');
       window.TextEncoder = TextEncoder;
       window.CSS = { escape: value => String(value) };
       window.matchMedia = () => ({matches: false, addEventListener() {}, removeEventListener() {}});
