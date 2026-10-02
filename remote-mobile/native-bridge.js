@@ -144,6 +144,33 @@
       console.warn('[native-bridge] StatusBar', e);
     }
 
+    // Push from the relay (APNs) so alerts arrive while the app is closed.
+    var Push = window.Capacitor.Plugins.PushNotifications;
+    var registerPush = function () {};
+    if (Push) {
+      Push.addListener('registration', function (t) {
+        if (t && t.value && typeof window.setPushToken === 'function') window.setPushToken(t.value);
+      });
+      Push.addListener('registrationError', function (e) { console.warn('[native-bridge] push registration', e); });
+      Push.addListener('pushNotificationActionPerformed', function (action) {
+        var data = action && action.notification && action.notification.data;
+        if (data && data.threadId && typeof window.openThreadWhenReady === 'function') window.openThreadWhenReady(data.threadId);
+      });
+      // Registering needs notification permission; it is asked from Settings or the first send.
+      registerPush = function () {
+        Push.checkPermissions().then(function (p) {
+          if (p.receive === 'granted') return Push.register();
+        }).catch(function (e) { console.warn('[native-bridge] push', e); });
+      };
+      registerPush();
+      if (window.Notification && window.Notification.requestPermission) {
+        var askPermission = window.Notification.requestPermission;
+        window.Notification.requestPermission = function () {
+          return askPermission().then(function (result) { registerPush(); return result; });
+        };
+      }
+    }
+
     try {
       var App = window.Capacitor.Plugins.App;
       if (App && App.addListener) {
@@ -153,7 +180,13 @@
         // iOS suspends the socket in the background. The PWA's resumeIfDead()
         // listens for pageshow, so reconnect the moment the app is back.
         // Notification permission is re-read first so an open Settings sheet shows it.
+        // The relay only pushes to phones that aren't looking at agmux.
+        App.addListener('pause', function () {
+          if (typeof window.setAppState === 'function') window.setAppState('background');
+        });
         App.addListener('resume', function () {
+          if (typeof window.setAppState === 'function') window.setAppState('foreground');
+          registerPush();
           refreshNotifications().then(function () {
             window.dispatchEvent(new Event('pageshow'));
           });

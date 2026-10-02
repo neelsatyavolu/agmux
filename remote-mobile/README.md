@@ -22,6 +22,9 @@ iPhone only, portrait, iOS 17+, dark appearance. Bundle ID `dev.agmux.remote`, t
   The `agmux-remote://pair?pair=…&desktopId=…` scheme works too.
 - **Notifications**: `native-bridge.js` backs `window.Notification` with `@capacitor/local-notifications`, so the PWA's
   approval / finished-run alerts and its Settings sheet (`agmux-remote-prefs`) work unchanged. Tapping one opens the session.
+- **Push while closed**: `@capacitor/push-notifications` registers once notifications are allowed; the PWA sends
+  `push.register` (token + Settings switches) and `app.state`. The relay (`src/push.ts`, `src/push-events.ts`) sends APNs
+  alerts for approvals/questions and finished runs to phones that aren't in the foreground. Secret: `APNS_KEY`.
 - **Demo mode** lives in the PWA (`startDemo()`): a fake socket answers like a Mac, for App Review and screenshots.
 - Reconnect on resume (`resume` → `pageshow` → `resumeIfDead()`), haptics on Allow/Deny (Settings switch),
   links open in Safari, the web view shrinks above the keyboard, "Pair this iPhone" wording.
@@ -73,5 +76,4 @@ node --test scripts/*.test.mjs                 # sync script + profile helpers
 
 ## Not yet
 
-- Push notifications while the app is closed (needs the team's APNs key and relay support)
 - Android (`npx cap add android` later)

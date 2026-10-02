@@ -5,13 +5,19 @@ import vm from 'node:vm';
 import test from 'node:test';
 import ts from 'typescript';
 
-const source = readFileSync(new URL('./src/desktop-hub.ts', import.meta.url), 'utf8');
-const compiled = ts.transpileModule(source, {
+const compile = (file) => ts.transpileModule(readFileSync(new URL(`./src/${file}`, import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const compiled = compile('desktop-hub.ts');
+const modules = { './push': compile('push.ts'), './push-events': compile('push-events.ts') };
 
 async function fixture() {
   const context = { exports: {}, crypto: webcrypto, TextEncoder, Date, Map, Set, Uint8Array, JSON };
+  context.require = (name) => {
+    const mod = { exports: {} };
+    vm.runInNewContext(modules[name], { ...context, exports: mod.exports, module: mod });
+    return mod.exports;
+  };
   vm.runInNewContext(compiled, context);
   let initialized;
   const sockets = [];

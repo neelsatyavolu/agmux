@@ -14,7 +14,7 @@ against the [App Store Review Guidelines](https://developer.apple.com/app-store/
 | 2.5.2 Self-contained | The UI ships inside the app (`www/`); the app never loads remote code. Updating the UI means a new build. | Done |
 | 2.5.6 Web content uses WebKit | WKWebView. Links open in Safari, never in an in-app browser. | Done |
 | 4.0 Design | iPhone only, portrait, dark appearance, safe areas, keyboard pushes the composer up. | Done |
-| 4.2 Minimum functionality | Native features beyond the website: Keychain-kept pairing, QR codes open the app (Universal Links), iOS notifications for approvals and finished runs with a Settings screen, camera and photo attachments, haptics. Push notifications (alerts while the app is closed) would make this much stronger. | Push: **recommended before App Store review** |
+| 4.2 Minimum functionality | Native features beyond the website: Keychain-kept pairing, QR codes open the app (Universal Links), iOS notifications for approvals and finished runs with a Settings screen, camera and photo attachments, haptics, push notifications while the app is closed (relay → APNs), in-app QR scanning. | Done |
 | 4.2.3 Works on its own | It is a companion to the free agmux Mac app; say so in the description and Review notes. | Done (copy below) |
 | 5.1.1(i) Privacy policy | Linked in App Store Connect and inside the app (pairing screen and the More menu). The policy names the iPhone app. | Done once agmux.dev is deployed |
 | 5.1.1(ii) Permissions | Camera and photos are asked for only when the user attaches an image; purpose strings explain why. Nothing is requested at launch. | Done |

@@ -1,6 +1,8 @@
 import type { PairedDevice, WireMessage } from "./protocol";
+import { ApnsClient, isDeviceToken, type PushEnv, type PushRegistration } from "./push";
+import { PushEvents, type PushEvent } from "./push-events";
 
-export interface Env {
+export interface Env extends PushEnv {
   DESKTOP_HUB: DurableObjectNamespace;
 }
 
@@ -10,6 +12,8 @@ interface SessionMeta {
   role: Role;
   /** Device id when role is phone. */
   deviceId?: string;
+  /** iPhone app reported it is in the background (pushes still go to it). */
+  background?: boolean;
 }
 
 /** Persisted on each hibernatable WebSocket so maps can rebuild after DO wake.
@@ -23,6 +27,8 @@ interface WsAttachment {
   /** Desktop feature flags from hello — survives DO hibernation with the socket. */
   capabilities?: string[];
   appVersion?: string | null;
+  /** Phone only: app is in the background. */
+  background?: boolean;
 }
 
 /** Durable paired phone — never stores the raw bearer token. */
@@ -34,6 +40,8 @@ interface StoredDevice {
   lastSeenAt: number;
   expiresAt: number;
   label: string;
+  /** iPhone app push registration (APNs device token + alert choices). */
+  push?: PushRegistration;
 }
 
 interface AuthStore {
@@ -86,9 +94,14 @@ export class DesktopHub {
   private pairCode: string | null = null;
   private pairExpiresAt = 0;
   private pairFailTimes: number[] = [];
+  private apns: ApnsClient;
+  private pushEvents = new PushEvents();
+  /** Pending push deliveries, chained so tests (and ordering) can await them. */
+  pushWork: Promise<void> = Promise.resolve();
 
-  constructor(state: DurableObjectState, _env: Env) {
+  constructor(state: DurableObjectState, env: Env) {
     this.state = state;
+    this.apns = new ApnsClient(env);
     // Restore durable secrets / devices across DO hibernation
     this.state.blockConcurrencyWhile(async () => {
       const stored = (await this.state.storage.get<AuthStore>("auth")) ?? {};
@@ -278,6 +291,7 @@ export class DesktopHub {
       const meta: SessionMeta = {
         role: "phone",
         deviceId: device.id,
+        background: att.background === true,
       };
       this.sessions.set(ws, meta);
       this.phones.set(ws, meta);
@@ -296,6 +310,7 @@ export class DesktopHub {
         deviceId: meta.deviceId,
         // Deliberately omit any token/secret fields.
       };
+      if (meta.role === "phone" && meta.background) att.background = true;
       // Persist desktop caps on the desktop socket so DO hibernation keeps them.
       if (meta.role === "desktop") {
         att.capabilities = this.desktopCapabilities.slice();
@@ -386,6 +401,7 @@ export class DesktopHub {
           lastSeenAt: d.lastSeenAt || d.createdAt || now,
           expiresAt: d.expiresAt || now + TOKEN_TTL_MS,
           label: d.label || "Phone",
+          ...(d.push && isDeviceToken(d.push.token) ? { push: d.push } : {}),
         });
       }
     }
@@ -790,6 +806,17 @@ export class DesktopHub {
       return;
     }
 
+    if (meta.role === "phone") {
+      if (msg.type === "push.register") return this.handlePushRegister(ws, meta, msg);
+      if (msg.type === "push.unregister") return this.handlePushUnregister(meta);
+      if (msg.type === "app.state") {
+        const next: SessionMeta = { ...meta, background: msg.state === "background" };
+        this.phones.set(ws, next);
+        this.attachSession(ws, next);
+        return;
+      }
+    }
+
     const phoneToDesktop = new Set([
       "threads.list",
       "thread.subscribe",
@@ -847,10 +874,65 @@ export class DesktopHub {
 
     if (meta.role === "desktop" && desktopToPhone.has(msg.type)) {
       this.broadcastPhones(msg);
+      const event = this.pushEvents.observe(msg);
+      if (event) this.pushWork = this.pushWork.then(() => this.deliverPush(event)).catch(() => {});
       return;
     }
 
     this.send(ws, { type: "error", message: `cannot forward ${msg.type}` });
+  }
+
+  private handlePushRegister(ws: WebSocket, meta: SessionMeta, msg: Extract<WireMessage, { type: "push.register" }>) {
+    const device = this.devices.find((d) => d.id === meta.deviceId);
+    if (!device || !isDeviceToken(msg.token)) {
+      this.send(ws, { type: "error", message: "invalid push token" });
+      return;
+    }
+    // Phones on TestFlight/App Store use production; the relay corrects it on first send.
+    const env = msg.environment === "sandbox" ? "sandbox" : device.push?.token === msg.token ? device.push.env : "production";
+    device.push = {
+      token: msg.token,
+      env,
+      approvals: msg.approvals !== false,
+      finished: msg.finished !== false,
+      updatedAt: Date.now(),
+    };
+    this.send(ws, { type: "push.registered", enabled: this.apns.configured });
+    return this.persistAuth();
+  }
+
+  private handlePushUnregister(meta: SessionMeta) {
+    const device = this.devices.find((d) => d.id === meta.deviceId);
+    if (!device?.push) return;
+    delete device.push;
+    return this.persistAuth();
+  }
+
+  /** A phone with agmux open in the foreground already sees the moment live. */
+  private phoneInForeground(deviceId: string): boolean {
+    for (const sock of this.state.getWebSockets()) {
+      const m = this.sessions.get(sock) ?? this.rehydrateSocket(sock);
+      if (m?.role === "phone" && m.deviceId === deviceId && sock.readyState === 1 && !m.background) return true;
+    }
+    return false;
+  }
+
+  private async deliverPush(event: PushEvent) {
+    if (!this.apns.configured) return;
+    let changed = false;
+    for (const device of this.devices) {
+      const reg = device.push;
+      if (!reg || !reg[event.kind] || this.isExpired(device) || this.phoneInForeground(device.id)) continue;
+      const outcome = await this.apns.send(reg, event.alert);
+      if (outcome.result === "gone") {
+        delete device.push;
+        changed = true;
+      } else if (outcome.result === "sent" && outcome.env !== reg.env) {
+        device.push = { ...reg, env: outcome.env };
+        changed = true;
+      }
+    }
+    if (changed) await this.persistAuth();
   }
 
   private broadcastPhones(msg: WireMessage) {

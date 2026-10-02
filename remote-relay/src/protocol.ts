@@ -208,5 +208,12 @@ export type WireMessage =
       capabilities?: string[];
     }
   /** Client → hub liveness; hub replies `pong` without involving the peer. */
+  /** iPhone app → relay only: push token and which alerts this phone wants. */
+  | { type: "push.register"; token: string; approvals?: boolean; finished?: boolean; environment?: "production" | "sandbox" }
+  | { type: "push.unregister" }
+  /** Relay → phone: whether the relay will send pushes (APNs configured). */
+  | { type: "push.registered"; enabled: boolean }
+  /** iPhone app → relay only: foreground phones get no push (they see it live). */
+  | { type: "app.state"; state: "foreground" | "background" }
   | { type: "ping"; id?: string }
   | { type: "pong"; id?: string };

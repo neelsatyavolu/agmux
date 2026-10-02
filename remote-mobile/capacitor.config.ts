@@ -34,6 +34,10 @@ const config: CapacitorConfig = {
       style: 'DARK',
       overlaysWebView: true,
     },
+    PushNotifications: {
+      // The relay skips phones in the foreground; this covers a race on resume.
+      presentationOptions: ['banner', 'list', 'sound'],
+    },
     Keyboard: {
       // Shrink the web view so the fixed #stage (and its composer) sits above the keyboard.
       resize: 'native',

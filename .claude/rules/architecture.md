@@ -103,6 +103,7 @@ Separate Cloudflare service — **not** `remote-relay`, no shared bindings, devi
 - Approval and question IDs are scoped to thread IDs. Reconnect replay is deduplicated in the PWA. Claude answers use question text; Codex uses question IDs with answer arrays; OpenCode uses ordered arrays of choices.
 - Regression commands and remaining provider coverage: `remote-relay/README.md`, `docs/remote-control-audit-2026-09-23.md`.
 - iPhone app (`remote-mobile/`, Capacitor 8 + SPM) bundles the PWA and serves it from `capacitor://localhost`, so `relayWsBase()` must keep non-http(s) pages on `wss://remote.agmux.dev/ws`. The pairing key `agmux-remote-auth` is mirrored to the Keychain (`PairingPersistence.swift`); renaming it unpairs every phone. Universal Links: `remote-relay/public/.well-known/apple-app-site-association` (fragment `pair=` only). Release: `remote-mobile/scripts/release-ios.sh`; App Store checklist: `remote-mobile/APP_STORE.md`.
+- iPhone push is relay-side, no desktop change: phones send `push.register` / `push.unregister` / `app.state` (never forwarded to the Mac); `PushEvents` turns `approval.requested`, `userInput.requested` and a `threads.upsert` processing true→false into alerts for phones not in the foreground (`src/push.ts` APNs client, production first, retries sandbox on BadDeviceToken, drops 410 tokens). Needs Worker secret `APNS_KEY`; ids are `[vars]` in `wrangler.toml`.
 
 ## Debugging
 

@@ -3197,6 +3197,11 @@ function handleMsg(msg) {
         if (activeThreadId) ws.send(JSON.stringify({ type: 'thread.subscribe', threadId: activeThreadId }));
       } catch { /* ignore */ }
       if (auth?.deviceName) setDeviceName(auth.deviceName);
+      sendPushRegistration();
+      break;
+    case 'push.registered':
+      pushActive = !!msg.enabled;
+      if (get('prefs') === '1') renderPrefs();
       break;
     case 'desktop.offline':
       setConn('desktop-offline');
@@ -3241,6 +3246,11 @@ function handleMsg(msg) {
       maybeFlushQueue();
       refreshRunningState();
       if (activeWasUnread) reassertActiveThreadRead();
+      if (pendingOpenThread && threads.some((t) => t.id === pendingOpenThread)) {
+        const id = pendingOpenThread;
+        pendingOpenThread = null;
+        openThread(id);
+      }
       break;
     }
     case 'threads.upsert': {
@@ -3309,6 +3319,7 @@ function handleMsg(msg) {
       break;
     case 'error': {
       const m = msg.message || '';
+      if (/^cannot forward (push\.|app\.state)|^invalid push token/.test(m)) break;
       if (msg.requestId) {
         if (/^models\.list:/i.test(m)) {
           for (const pid of Object.keys(modelsListRequestId)) {
@@ -3469,6 +3480,10 @@ function doPair() {
 function unlink() {
   if (!demoMode && !confirm('Forget your Mac on this phone? This only signs this phone out — to revoke its access, use agmux → Settings → Remote control on your Mac.')) return;
   if (demoMode) stopDemo();
+  else if (pushToken && relayOpen()) {
+    try { ws.send(JSON.stringify({ type: 'push.unregister' })); } catch { /* closed */ }
+  }
+  pushActive = false;
   clearReconnect();
   intentionalClose = true;
   everConnected = false;
@@ -5427,7 +5442,7 @@ let pendingQueue = [];
 /** Local OS notification when an agent is blocked on approval / user input. */
 function notifyBlocked(msg) {
   try {
-    if (typeof Notification === 'undefined' || !prefs.notifyApprovals) return;
+    if (typeof Notification === 'undefined' || !prefs.notifyApprovals || pushActive) return;
     // Only fire when the page is backgrounded or hidden — foreground has the sheet.
     if (document.visibilityState === 'visible' && document.hasFocus()) return;
     if (Notification.permission !== 'granted') return;
@@ -5834,6 +5849,41 @@ let prefs = loadPrefs();
 function setPref(key, value) {
   prefs = { ...prefs, [key]: value };
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* private mode */ }
+  sendPushRegistration();
+}
+
+// ── Push (iPhone app) ────────────────────────────────────────────────────
+// native-bridge.js hands over the APNs token; the relay sends alerts while the
+// app is closed, honouring the Settings switches above.
+const PUSH_KEY = 'agmux-remote-push';
+let pushToken = (() => { try { return localStorage.getItem(PUSH_KEY) || ''; } catch { return ''; } })();
+/** True once the relay confirms it sends pushes; local alerts then step aside. */
+let pushActive = false;
+let pendingOpenThread = null;
+
+function relayOpen() {
+  return !demoMode && ws && ws.readyState === 1 && get('conn') === 'connected';
+}
+function sendPushRegistration() {
+  if (!pushToken || !relayOpen()) return;
+  try {
+    ws.send(JSON.stringify({ type: 'push.register', token: pushToken, approvals: !!prefs.notifyApprovals, finished: !!prefs.notifyFinished }));
+  } catch { /* reconnect resends */ }
+}
+function setPushToken(token) {
+  pushToken = String(token || '');
+  try { localStorage.setItem(PUSH_KEY, pushToken); } catch { /* private mode */ }
+  sendPushRegistration();
+}
+function setAppState(state) {
+  if (!relayOpen()) return;
+  try { ws.send(JSON.stringify({ type: 'app.state', state })); } catch { /* closed */ }
+}
+/** Opens a session from a tapped notification, waiting for the session list if needed. */
+function openThreadWhenReady(id) {
+  if (!id) return;
+  if (catalogLoaded && relayOpen() && threads.some((t) => t.id === id)) openThread(id);
+  else pendingOpenThread = id;
 }
 
 function notificationState() {
@@ -5845,6 +5895,7 @@ function notificationNote(state, native) {
     return native ? 'Notifications are off for agmux in the Settings app.' : 'Notifications are blocked in this browser’s site settings.';
   }
   if (state === 'unsupported') return 'This browser can’t show notifications.';
+  if (pushActive) return 'agmux alerts you about these even when the app is closed.';
   return 'agmux alerts you about these while it’s running.';
 }
 
@@ -5897,7 +5948,7 @@ window.addEventListener('pageshow', () => { if (get('prefs') === '1') renderPref
 /** Local OS notification when a session stops working while the page is in the background. */
 function notifyFinished(thread) {
   try {
-    if (typeof Notification === 'undefined' || !prefs.notifyFinished) return;
+    if (typeof Notification === 'undefined' || !prefs.notifyFinished || pushActive) return;
     if (document.visibilityState === 'visible' && document.hasFocus()) return;
     if (Notification.permission !== 'granted') return;
     const n = new Notification('Agent finished', {

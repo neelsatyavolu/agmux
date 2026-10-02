@@ -8,6 +8,13 @@ workers_dev = true
 # custom_domain provisions DNS + cert on deploy (agmux.dev zone on this account).
 routes = [{ pattern = "remote.agmux.dev", custom_domain = true }]
 
+# iPhone app push (APNs). Ids are public; the .p8 key is a secret:
+#   op read "op://Private/Xanom Apple Dev Creds/AuthKey_4D2Q9WPRZG.p8" | npx wrangler secret put APNS_KEY
+[vars]
+APNS_KEY_ID = "4D2Q9WPRZG"
+APNS_TEAM_ID = "VTQW687WBQ"
+APNS_TOPIC = "dev.agmux.remote"
+
 [[durable_objects.bindings]]
 name = "DESKTOP_HUB"
 class_name = "DesktopHub"
