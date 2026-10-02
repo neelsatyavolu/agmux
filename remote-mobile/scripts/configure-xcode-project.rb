@@ -4,7 +4,7 @@
 require 'xcodeproj'
 
 PROJECT = File.expand_path('../ios/App/App.xcodeproj', __dir__)
-SOURCES = %w[KeychainStore.swift PairingPersistence.swift AgmuxBridgeViewController.swift].freeze
+SOURCES = %w[KeychainStore.swift PairingPersistence.swift AgmuxBridgeViewController.swift PairLink.swift QRScannerViewController.swift QRScannerPlugin.swift].freeze
 RESOURCES = %w[PrivacyInfo.xcprivacy].freeze
 
 COMMON = {

@@ -174,6 +174,30 @@
       console.warn('[native-bridge] App url', e);
     }
 
+    // In-app QR scanner (QRScannerPlugin.swift) on the pairing screen.
+    var Scanner = window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin('QRScanner') : null;
+    var scanBtn = document.getElementById('scanBtn');
+    var scanErr = document.getElementById('scanErr');
+    if (Scanner && scanBtn) {
+      var stage = document.getElementById('stage');
+      if (stage) stage.setAttribute('data-scan', '1');
+      var SCAN_ERRORS = {
+        DENIED: 'Camera access is off. Turn it on in Settings → agmux, or enter the desktop ID and pair code below.',
+        UNAVAILABLE: 'This iPhone can’t use the camera right now. Enter the desktop ID and pair code below.',
+      };
+      scanBtn.addEventListener('click', function () {
+        if (scanErr) scanErr.hidden = true;
+        Scanner.scan().then(function (result) {
+          applyPair(parsePairFromUrl(result && result.value));
+        }, function (e) {
+          var code = e && e.code;
+          if (code === 'CANCELLED' || !scanErr) return;
+          scanErr.textContent = SCAN_ERRORS[code] || SCAN_ERRORS.UNAVAILABLE;
+          scanErr.hidden = false;
+        });
+      });
+    }
+
     // A light tap confirms approval answers, like native iOS buttons.
     var Haptics = window.Capacitor.Plugins.Haptics;
     if (Haptics && Haptics.impact) {

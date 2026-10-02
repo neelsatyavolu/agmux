@@ -48,6 +48,18 @@ for (const file of ['app.html', 'index.html']) {
     }
   });
 
+  test(`${file}: Scan QR code is in the pairing screen but stays hidden until the app enables it`, () => {
+    const w = page(file);
+    const doc = w.document;
+    const scan = doc.querySelector('.pairview #scanBtn');
+    assert.ok(scan, 'scan button exists');
+    const box = scan.closest('.pair-scan');
+    assert.equal(w.getComputedStyle(box).display, 'none');
+    doc.getElementById('stage').setAttribute('data-scan', '1');
+    assert.equal(w.getComputedStyle(box).display, 'flex');
+    assert.ok(doc.querySelector('#scanErr[hidden]'), 'scan error line starts hidden');
+  });
+
   test(`${file}: web hosts keep their existing relay`, () => {
     const w = page(file);
     assert.equal(w.relayWsBase(loc('https://remote.agmux.dev/')), 'wss://remote.agmux.dev/ws');

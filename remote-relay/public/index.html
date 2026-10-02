@@ -913,7 +913,12 @@ code.inl {
   display: none; align-items: center; gap: 12px; margin: 0 0 16px;
   font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
 }
-#stage[data-easy-pair="1"] .pair-or { display: flex; }
+#stage[data-easy-pair="1"] .pair-or, #stage[data-scan="1"] .pair-or { display: flex; }
+/* iPhone app only: native-bridge.js sets data-scan="1" when the camera scanner is available. */
+.pair-scan { display: none; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+#stage[data-scan="1"] .pair-scan { display: flex; }
+.pair-scan-err { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--red); }
+.pair-scan-err[hidden] { display: none; }
 .pair-or::before, .pair-or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
 .pair-secure { display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; font-size: 13px; line-height: 1.5; color: var(--graphite); }
 .pair-secure svg { width: 16px; height: 16px; margin-top: 1px; color: var(--green); }
@@ -1132,6 +1137,11 @@ html:not([data-shell]) [data-native-only] { display: none !important; }
           <li><span>On your Mac, open <b>agmux → Settings → Remote control</b>.</span></li>
           <li><span>Scan the QR code, or enter the desktop ID and pair code below.</span></li>
         </ol>
+
+        <div class="pair-scan">
+          <button type="button" class="easy-pair-btn" id="scanBtn"><svg data-icon="scan-line"></svg><span>Scan QR code</span></button>
+          <p class="pair-scan-err" id="scanErr" role="alert" hidden></p>
+        </div>
 
         <div class="easy-pair" id="easyPair">
           <button type="button" class="easy-pair-btn" id="easyPairBtn">

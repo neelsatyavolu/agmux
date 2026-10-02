@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1D92FDEE0687343B946E8058 /* QRScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7387945592B6DC7E2B15ABD1 /* QRScannerViewController.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -15,14 +16,17 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		5F83DAB6A7E415E41CBA03BB /* PairLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F304C01632D77F62ADC938D /* PairLink.swift */; };
 		9254BDFA1806DE68F3364A5C /* PairingPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 568A1611ACE6733B353AB3C3 /* PairingPersistence.swift */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		B76F54041532C06384055076 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 988FE9CD4887960F0C4FC950 /* KeychainStore.swift */; };
+		F31C0E60AFB3D4099CDA21B3 /* QRScannerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C4E880A55C4B80D8B1D2C8 /* QRScannerPlugin.swift */; };
 		FBD2E1CF32B08C8E32B94CA7 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C8D027BDCAA5B8123F0636EC /* PrivacyInfo.xcprivacy */; };
 		FF5FF0BD9C7941D9EA7941DD /* AgmuxBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC8102AD4EEDED2C33623B73 /* AgmuxBridgeViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0F304C01632D77F62ADC938D /* PairLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairLink.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		2FF208517193679E6271D030 /* App.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
@@ -34,9 +38,11 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		568A1611ACE6733B353AB3C3 /* PairingPersistence.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairingPersistence.swift; sourceTree = "<group>"; };
+		7387945592B6DC7E2B15ABD1 /* QRScannerViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QRScannerViewController.swift; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		988FE9CD4887960F0C4FC950 /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		C3C4E880A55C4B80D8B1D2C8 /* QRScannerPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QRScannerPlugin.swift; sourceTree = "<group>"; };
 		C8D027BDCAA5B8123F0636EC /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		DC8102AD4EEDED2C33623B73 /* AgmuxBridgeViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgmuxBridgeViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -87,6 +93,9 @@
 				DC8102AD4EEDED2C33623B73 /* AgmuxBridgeViewController.swift */,
 				C8D027BDCAA5B8123F0636EC /* PrivacyInfo.xcprivacy */,
 				2FF208517193679E6271D030 /* App.entitlements */,
+				0F304C01632D77F62ADC938D /* PairLink.swift */,
+				7387945592B6DC7E2B15ABD1 /* QRScannerViewController.swift */,
+				C3C4E880A55C4B80D8B1D2C8 /* QRScannerPlugin.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -178,6 +187,9 @@
 				B76F54041532C06384055076 /* KeychainStore.swift in Sources */,
 				9254BDFA1806DE68F3364A5C /* PairingPersistence.swift in Sources */,
 				FF5FF0BD9C7941D9EA7941DD /* AgmuxBridgeViewController.swift in Sources */,
+				5F83DAB6A7E415E41CBA03BB /* PairLink.swift in Sources */,
+				1D92FDEE0687343B946E8058 /* QRScannerViewController.swift in Sources */,
+				F31C0E60AFB3D4099CDA21B3 /* QRScannerPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -38,7 +38,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>agmux uses the camera so you can take a photo and attach it to a message for your agent.</string>
+	<string>agmux uses the camera to scan the pairing QR code from your Mac and to take photos you attach to messages.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>agmux lets you choose photos to attach to a message for your agent.</string>
 	<key>UIApplicationSceneManifest</key>
