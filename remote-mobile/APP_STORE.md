@@ -8,13 +8,13 @@ against the [App Store Review Guidelines](https://developer.apple.com/app-store/
 | Guideline | How the app meets it | Status |
 |---|---|---|
 | 1.5 Developer information | Support URL is the public issue tracker; the privacy policy has a contact section. | Done |
-| 2.1 App completeness | Reviewers can't pair a Mac. Give them a demo video (see Review notes) or a demo mode. | **Before App Store review** |
-| 2.3 Accurate metadata | Screenshots must show the real app. Capture them from a paired session with no personal project names. | **Before App Store review** |
+| 2.1 App completeness | Reviewers can't pair a Mac, so the first screen has **Try a demo**: sample sessions answered on the phone (approve a tool, watch a reply stream, send messages, open Settings). Review notes point to it. | Done |
+| 2.3 Accurate metadata | Screenshots must show the real app. Capture them in demo mode (no personal project names). | **Before App Store review** |
 | 2.5.1 Public APIs only | Capacitor and WebKit only. | Done |
 | 2.5.2 Self-contained | The UI ships inside the app (`www/`); the app never loads remote code. Updating the UI means a new build. | Done |
 | 2.5.6 Web content uses WebKit | WKWebView. Links open in Safari, never in an in-app browser. | Done |
 | 4.0 Design | iPhone only, portrait, dark appearance, safe areas, keyboard pushes the composer up. | Done |
-| 4.2 Minimum functionality | Native features beyond the website: Keychain-kept pairing, QR codes open the app (Universal Links), camera and photo attachments, haptics. Push notifications would make this much stronger. | Push: **recommended before App Store review** |
+| 4.2 Minimum functionality | Native features beyond the website: Keychain-kept pairing, QR codes open the app (Universal Links), iOS notifications for approvals and finished runs with a Settings screen, camera and photo attachments, haptics. Push notifications (alerts while the app is closed) would make this much stronger. | Push: **recommended before App Store review** |
 | 4.2.3 Works on its own | It is a companion to the free agmux Mac app; say so in the description and Review notes. | Done (copy below) |
 | 5.1.1(i) Privacy policy | Linked in App Store Connect and inside the app (pairing screen and the More menu). The policy names the iPhone app. | Done once agmux.dev is deployed |
 | 5.1.1(ii) Permissions | Camera and photos are asked for only when the user attaches an image; purpose strings explain why. Nothing is requested at launch. | Done |
@@ -70,7 +70,7 @@ Internal testers (team members) need no review. External testers need Beta App R
 >
 > Requires agmux for macOS (free at agmux.dev) running on your Mac with Remote control turned on.
 
-**Screenshots:** 6.9" iPhone (1320 × 2868), at least 3: session list, a live session, an approval. Capture on the iPhone 17 Pro Max simulator.
+**Screenshots:** 6.9" iPhone (1320 × 2868), at least 3: session list, a live session, an approval. Capture in demo mode on the iPhone 17 Pro Max simulator.
 
 ## App Privacy answers
 
@@ -89,7 +89,7 @@ If asked about AI-generated content, answer Yes: the app shows output from AI mo
 >
 > It needs a Mac running agmux with Settings → Remote control turned on; the user pairs with the code or QR code shown there. No account or sign-in exists.
 >
-> Demo video of pairing and everyday use: <ADD LINK>
+> To try the app without a Mac, tap **Try a demo** on the first screen. It loads sample sessions on the phone: open "Fix the flaky checkout test" to approve a tool request, send a message in any session, and open Settings from the ••• menu. "Exit demo" in the same menu returns to pairing.
 
 ## TestFlight "What to test"
 

@@ -61,8 +61,76 @@
     }
   }
 
+  /** A switch from the PWA's Settings (localStorage "agmux-remote-prefs"); all default on. */
+  function prefOn(key) {
+    try {
+      return JSON.parse(localStorage.getItem('agmux-remote-prefs') || '{}')[key] !== false;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function notificationId(tag) {
+    var h = 0;
+    for (var i = 0; i < tag.length; i += 1) h = (h * 31 + tag.charCodeAt(i)) | 0;
+    return (Math.abs(h) % 2147483646) + 1;
+  }
+
+  /**
+   * WKWebView has no Web Notifications. Back window.Notification with iOS local
+   * notifications so the PWA's alerts (notifyBlocked / notifyFinished) work as-is.
+   * Returns a function that re-reads the permission (it can change in Settings).
+   */
+  function installNotifications(LocalNotifications) {
+    var permission = 'default';
+    var shown = {};
+    function fromDisplay(display) {
+      return display === 'granted' ? 'granted' : display === 'denied' ? 'denied' : 'default';
+    }
+    function refresh() {
+      return LocalNotifications.checkPermissions().then(
+        function (r) { permission = fromDisplay(r.display); },
+        function () {},
+      );
+    }
+    function NativeNotification(title, options) {
+      var opts = options || {};
+      var id = notificationId(String(opts.tag || title + Date.now()));
+      this.onclick = null;
+      this.close = function () {
+        LocalNotifications.cancel({ notifications: [{ id: id }] }).catch(function () {});
+      };
+      shown[id] = this;
+      LocalNotifications.schedule({
+        notifications: [{ id: id, title: String(title), body: String(opts.body || ''), extra: opts.data || null }],
+      }).catch(function (e) { console.warn('[native-bridge] notification', e); });
+    }
+    Object.defineProperty(NativeNotification, 'permission', { get: function () { return permission; } });
+    NativeNotification.requestPermission = function () {
+      return LocalNotifications.requestPermissions().then(
+        function (r) { permission = fromDisplay(r.display); return permission; },
+        function () { return permission; },
+      );
+    };
+    LocalNotifications.addListener('localNotificationActionPerformed', function (event) {
+      var n = event && event.notification;
+      var target = n && shown[n.id];
+      if (target && typeof target.onclick === 'function') target.onclick();
+      else if (n && n.extra && n.extra.threadId && typeof window.openThread === 'function') window.openThread(n.extra.threadId);
+    });
+    window.Notification = NativeNotification;
+    return refresh;
+  }
+
   whenCapacitorReady(async function () {
     document.documentElement.classList.add('capacitor-native');
+
+    var refreshNotifications = function () { return Promise.resolve(); };
+    var LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
+    if (LocalNotifications && typeof window.Notification === 'undefined') {
+      refreshNotifications = installNotifications(LocalNotifications);
+      refreshNotifications();
+    }
     try {
       var StatusBar = window.Capacitor.Plugins.StatusBar;
       if (StatusBar) {
@@ -84,9 +152,18 @@
         });
         // iOS suspends the socket in the background. The PWA's resumeIfDead()
         // listens for pageshow, so reconnect the moment the app is back.
+        // Notification permission is re-read first so an open Settings sheet shows it.
         App.addListener('resume', function () {
-          window.dispatchEvent(new Event('pageshow'));
+          refreshNotifications().then(function () {
+            window.dispatchEvent(new Event('pageshow'));
+          });
         });
+        if (App.getInfo) {
+          App.getInfo().then(function (info) {
+            var el = document.getElementById('prefsVersion');
+            if (el) el.textContent = info.version + ' (' + info.build + ')';
+          }).catch(function () {});
+        }
         // Cold start via custom scheme / universal link
         if (App.getLaunchUrl) {
           var launch = await App.getLaunchUrl();
@@ -102,7 +179,7 @@
     if (Haptics && Haptics.impact) {
       document.addEventListener('click', function (e) {
         var target = e.target && e.target.closest && e.target.closest('#allowBtn, #denyBtn');
-        if (target) Haptics.impact({ style: 'MEDIUM' }).catch(function () {});
+        if (target && prefOn('haptics')) Haptics.impact({ style: 'MEDIUM' }).catch(function () {});
       }, true);
     }
   });

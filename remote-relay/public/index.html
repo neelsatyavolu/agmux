@@ -918,6 +918,64 @@ code.inl {
 .pair-secure { display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; font-size: 13px; line-height: 1.5; color: var(--graphite); }
 .pair-secure svg { width: 16px; height: 16px; margin-top: 1px; color: var(--green); }
 .pair-secure a { color: var(--ink); text-underline-offset: 2px; }
+.pair-demo { display: block; width: 100%; margin-top: 14px; padding: 10px; border: 0; background: transparent; color: var(--graphite); font-size: 14px; }
+.pair-demo b { color: var(--ink); font-weight: 600; }
+
+/* ── Settings ─────────────────────────────────────────────────────────── */
+html:not([data-shell]) [data-native-only] { display: none !important; }
+.prefs [hidden] { display: none !important; }
+.prefs-scrim {
+  position: fixed; inset: 0; z-index: 52; background: var(--scrim);
+  opacity: 0; pointer-events: none; transition: opacity 200ms ease;
+}
+#stage[data-prefs="1"] .prefs-scrim { opacity: 1; pointer-events: auto; }
+.prefs {
+  position: fixed; z-index: 53; left: 50%; top: 50%; width: min(460px, calc(100% - 40px));
+  max-height: calc(100% - 40px); display: flex; flex-direction: column; border-radius: 20px;
+  background: var(--panel); box-shadow: inset 0 0 0 1px var(--rule-2), var(--shadow-pop);
+  opacity: 0; pointer-events: none; transform: translate(-50%, -46%);
+  transition: opacity 200ms ease, transform 250ms var(--ease);
+}
+#stage[data-prefs="1"] .prefs { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
+.prefs-head { display: flex; align-items: center; gap: 12px; padding: 18px 14px 12px 22px; }
+.prefs-head .h { flex: 1; font-size: 20px; font-weight: 800; font-stretch: 85%; letter-spacing: -0.01em; }
+.prefs-body { overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 22px; display: grid; gap: 22px; }
+.prefs-group h3 { margin: 0 6px 8px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--graphite); }
+.prefs-list { border-radius: 14px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--rule); overflow: hidden; }
+.prefs-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 10px 14px;
+  border: 0; background: transparent; color: var(--ink); font-size: 15px; text-align: left; text-decoration: none;
+}
+.prefs-row + .prefs-row { box-shadow: inset 0 1px 0 var(--rule); }
+.prefs-row .txt { flex: 1; min-width: 0; }
+.prefs-row .d { margin-top: 2px; font-size: 13px; line-height: 1.4; color: var(--graphite); }
+.prefs-row .val { color: var(--graphite); font-size: 14px; font-variant-numeric: tabular-nums; }
+.prefs-row > svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--graphite); }
+.prefs-row.danger { justify-content: center; color: var(--red); font-weight: 600; }
+.prefs-btn {
+  flex-shrink: 0; display: inline-flex; align-items: center; height: 32px; padding: 0 12px;
+  border: 0; border-radius: 9px; background: var(--gold); color: var(--on-gold); font-size: 14px; font-weight: 650; text-decoration: none;
+}
+.prefs-note { margin: 8px 6px 0; font-size: 12.5px; line-height: 1.45; color: var(--graphite); }
+.switch {
+  -webkit-appearance: none; appearance: none; flex-shrink: 0; position: relative; width: 51px; height: 31px; margin: 0;
+  border-radius: 16px; background: var(--rule-2); cursor: pointer; transition: background 200ms ease;
+}
+.switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); transition: transform 200ms var(--ease);
+}
+.switch:checked { background: var(--green); }
+.switch:checked::after { transform: translateX(20px); }
+.switch:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+@media (max-width: 799px) {
+  .prefs {
+    left: 0; right: 0; top: auto; bottom: 0; width: auto; border-radius: 20px 20px 0 0;
+    max-height: calc(100% - max(24px, env(safe-area-inset-top))); padding-bottom: env(safe-area-inset-bottom);
+    transform: translateY(100%);
+  }
+  #stage[data-prefs="1"] .prefs { transform: none; }
+}
 
 /* ── Approval / question sheet ────────────────────────────────────────── */
 .appr-scrim {
@@ -1095,6 +1153,8 @@ code.inl {
           </button>
         </div>
 
+        <button class="pair-demo" id="demoBtn" type="button">No Mac nearby? <b>Try a demo</b></button>
+
         <div class="pair-secure"><svg data-icon="shield-check"></svg><span>Messages pass through the agmux relay, encrypted in transit (wss). The pair code works once; this phone then stays paired for 90 days unless you revoke it on your Mac. <a href="https://agmux.dev/privacy" target="_blank" rel="noopener">Privacy policy</a></span></div>
       </div>
     </div>
@@ -1113,6 +1173,7 @@ code.inl {
               <div class="menu" id="ovMenuMobile">
                 <button type="button" data-act="reconnect"><svg data-icon="refresh-cw"></svg>Reconnect</button>
                 <button type="button" data-act="status"><svg data-icon="monitor"></svg>Desktop status</button>
+                <button type="button" data-act="settings"><svg data-icon="settings"></svg>Settings</button>
                 <a href="https://agmux.dev/privacy" target="_blank" rel="noopener" data-act="privacy"><svg data-icon="shield-check"></svg>Privacy policy</a>
                 <div class="sep"></div>
                 <button type="button" class="danger" data-act="unlink"><svg data-icon="link-2"></svg>Forget this Mac</button>
@@ -1156,6 +1217,7 @@ code.inl {
                 <div class="menu" id="ovMenu">
                   <button type="button" data-act="reconnect"><svg data-icon="refresh-cw"></svg>Reconnect</button>
                   <button type="button" data-act="status"><svg data-icon="monitor"></svg>Desktop status</button>
+                  <button type="button" data-act="settings"><svg data-icon="settings"></svg>Settings</button>
                   <a href="https://agmux.dev/privacy" target="_blank" rel="noopener" data-act="privacy"><svg data-icon="shield-check"></svg>Privacy policy</a>
                   <div class="sep"></div>
                   <button type="button" class="danger" data-act="unlink" id="unlinkMenu"><svg data-icon="link-2"></svg>Forget this Mac</button>
@@ -1264,6 +1326,60 @@ code.inl {
       <button class="allow" id="allowBtn" type="button"><span class="lbl">Allow</span> <kbd>⌘⏎</kbd></button>
     </div>
   </div></div>
+
+  <!-- Settings -->
+  <div class="prefs-scrim" id="prefsScrim"></div>
+  <div class="prefs" role="dialog" aria-modal="true" aria-labelledby="prefsTitle">
+    <div class="prefs-head">
+      <div class="h" id="prefsTitle">Settings</div>
+      <button class="icon-btn" id="prefsClose" type="button" aria-label="Close settings"><svg data-icon="x"></svg></button>
+    </div>
+    <div class="prefs-body">
+      <section class="prefs-group">
+        <h3>Notifications</h3>
+        <div class="prefs-list">
+          <div class="prefs-row">
+            <div class="txt"><div>Notifications</div><div class="d" id="prefsNotifState">Off</div></div>
+            <button class="prefs-btn" id="prefsNotifOn" type="button">Turn on</button>
+            <a class="prefs-btn" id="prefsNotifSettings" href="app-settings:" target="_blank" rel="noopener" hidden>Open Settings</a>
+          </div>
+          <label class="prefs-row" for="prefApprovals">
+            <div class="txt"><div>Approval requests</div><div class="d">An agent is waiting for you to allow a tool or answer a question.</div></div>
+            <input class="switch" type="checkbox" role="switch" id="prefApprovals">
+          </label>
+          <label class="prefs-row" for="prefFinished">
+            <div class="txt"><div>Finished runs</div><div class="d">An agent finished working on your request.</div></div>
+            <input class="switch" type="checkbox" role="switch" id="prefFinished">
+          </label>
+        </div>
+        <p class="prefs-note" id="prefsNotifNote"></p>
+      </section>
+      <section class="prefs-group" data-native-only>
+        <h3>General</h3>
+        <div class="prefs-list">
+          <label class="prefs-row" for="prefHaptics">
+            <div class="txt"><div>Haptics</div><div class="d">A light tap when you allow or deny a request.</div></div>
+            <input class="switch" type="checkbox" role="switch" id="prefHaptics">
+          </label>
+        </div>
+      </section>
+      <section class="prefs-group">
+        <h3>Mac</h3>
+        <div class="prefs-list">
+          <div class="prefs-row"><div class="txt"><div id="prefsMacName">Mac</div><div class="d" id="prefsMacState"></div></div></div>
+          <button class="prefs-row danger" id="prefsForget" type="button">Forget this Mac</button>
+        </div>
+      </section>
+      <section class="prefs-group">
+        <h3>About</h3>
+        <div class="prefs-list">
+          <a class="prefs-row" href="https://agmux.dev/privacy" target="_blank" rel="noopener"><span class="txt">Privacy policy</span><svg data-icon="external-link"></svg></a>
+          <a class="prefs-row" href="https://github.com/neelsatyavolu/agmux/issues" target="_blank" rel="noopener"><span class="txt">Get help</span><svg data-icon="external-link"></svg></a>
+          <div class="prefs-row" data-native-only><span class="txt">Version</span><span class="val" id="prefsVersion"></span></div>
+        </div>
+      </section>
+    </div>
+  </div>
 </div>
 
 
@@ -1312,7 +1428,9 @@ const ICONS={
  'shield-off':'<path d="m2 2 20 20"/><path d="M5 5a1 1 0 0 0-1 1v7c0 5 3.5 7.5 7.67 8.94a1 1 0 0 0 .67.01c2.35-.82 4.48-1.94 5.9-3.71"/><path d="M9.309 3.652A12.252 12.252 0 0 0 11.24 2.28a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1v7a9.78 9.78 0 0 1-.08 1.264"/>',
  folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
  list:'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
- 'message-square-plus':'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v6"/><path d="M9 10h6"/>'
+ 'message-square-plus':'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v6"/><path d="M9 10h6"/>',
+ settings:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+ 'external-link':'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
 };
 function renderIcons(root){
   (root||document).querySelectorAll('[data-icon]').forEach(el=>{
@@ -1393,6 +1511,8 @@ let catalogLoaded = false;
 let activeThreadId = null;
 let pendingApproval = null;
 let pendingUserInput = null;
+/** Demo mode answers the page locally instead of a Mac (see startDemo). */
+let demoMode = false;
 
 try { auth = JSON.parse(localStorage.getItem(STORAGE) || 'null'); } catch { auth = null; }
 
@@ -1453,7 +1573,7 @@ function setConn(v) {
     const extra = p.id === 'connPill' || p.classList.contains('conn-pill') ? ' conn-pill' : '';
     p.className = 'conn ' + v + extra;
     const ct = p.querySelector('.ct');
-    if (ct) ct.textContent = CONN[v] || v;
+    if (ct) ct.textContent = demoMode && v === 'connected' ? 'Demo' : (CONN[v] || v);
   });
   const st = document.getElementById('devSt');
   if (st) {
@@ -2961,6 +3081,7 @@ function forceUnpair(reason, keepDesktopId) {
 }
 
 function connectPhone() {
+  if (demoMode) return;
   if (!auth?.phoneToken || !auth?.desktopId) {
     set('paired', '0');
     setConn('offline');
@@ -3116,6 +3237,7 @@ function handleMsg(msg) {
       const next = applyViewedAsRead(msg.thread);
       hydrateSessionUiFromThread(next);
       const i = threads.findIndex(t => t.id === next.id);
+      if (i >= 0 && threads[i].processing && !next.processing) notifyFinished(next);
       if (i >= 0) threads[i] = next; else threads.unshift(next);
       renderList();
       if (next?.id === activeThreadId) {
@@ -3279,6 +3401,7 @@ function handleMsg(msg) {
 }
 
 function doPair() {
+  if (demoMode) unlink();
   const desktopId = document.getElementById('fDesk').value.trim();
   const code = document.getElementById('fCode').value.trim().toUpperCase();
   const field = document.getElementById('fCode').closest('.field');
@@ -3333,7 +3456,8 @@ function doPair() {
 }
 
 function unlink() {
-  if (!confirm('Forget your Mac on this phone? This only signs this phone out — to revoke its access, use agmux → Settings → Remote control on your Mac.')) return;
+  if (!demoMode && !confirm('Forget your Mac on this phone? This only signs this phone out — to revoke its access, use agmux → Settings → Remote control on your Mac.')) return;
+  if (demoMode) stopDemo();
   clearReconnect();
   intentionalClose = true;
   everConnected = false;
@@ -5292,7 +5416,7 @@ let pendingQueue = [];
 /** Local OS notification when an agent is blocked on approval / user input. */
 function notifyBlocked(msg) {
   try {
-    if (typeof Notification === 'undefined') return;
+    if (typeof Notification === 'undefined' || !prefs.notifyApprovals) return;
     // Only fire when the page is backgrounded or hidden — foreground has the sheet.
     if (document.visibilityState === 'visible' && document.hasFocus()) return;
     if (Notification.permission !== 'granted') return;
@@ -5583,6 +5707,7 @@ function bindOverflowMenus() {
       if (!act) return;
       closeAllMenus();
       if (act === 'reconnect') connectPhone();
+      else if (act === 'settings') openPrefs();
       else if (act === 'status') {
         const name = auth?.deviceName || document.getElementById('devName')?.textContent || 'Mac';
         const st = document.getElementById('devSt')?.textContent || '—';
@@ -5682,6 +5807,334 @@ try {
   const macDesktop = !phoneLike && /Macintosh|Mac OS X/i.test(ua) && !(navigator.maxTouchPoints > 1);
   set('easy-pair', macDesktop ? '1' : '0');
 } catch { /* ignore */ }
+
+// ── Settings ─────────────────────────────────────────────────────────────
+const PREFS_KEY = 'agmux-remote-prefs';
+const PREF_DEFAULTS = Object.freeze({ notifyApprovals: true, notifyFinished: true, haptics: true });
+const PREF_SWITCHES = { prefApprovals: 'notifyApprovals', prefFinished: 'notifyFinished', prefHaptics: 'haptics' };
+const NOTIF_STATE = { granted: 'On', default: 'Off', denied: 'Blocked', unsupported: 'Not available here' };
+
+function loadPrefs() {
+  try { return { ...PREF_DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; }
+  catch { return { ...PREF_DEFAULTS }; }
+}
+let prefs = loadPrefs();
+
+function setPref(key, value) {
+  prefs = { ...prefs, [key]: value };
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* private mode */ }
+}
+
+function notificationState() {
+  return typeof Notification === 'undefined' ? 'unsupported' : Notification.permission;
+}
+
+function notificationNote(state, native) {
+  if (state === 'denied') {
+    return native ? 'Notifications are off for agmux in the Settings app.' : 'Notifications are blocked in this browser’s site settings.';
+  }
+  if (state === 'unsupported') return 'This browser can’t show notifications.';
+  return 'agmux alerts you about these while it’s running.';
+}
+
+function renderPrefs() {
+  for (const [id, key] of Object.entries(PREF_SWITCHES)) {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!prefs[key];
+  }
+  const native = document.documentElement.hasAttribute('data-shell');
+  const state = notificationState();
+  document.getElementById('prefsNotifState').textContent = NOTIF_STATE[state] || state;
+  document.getElementById('prefsNotifOn').hidden = state !== 'default';
+  document.getElementById('prefsNotifSettings').hidden = !(state === 'denied' && native);
+  document.getElementById('prefsNotifNote').textContent = notificationNote(state, native);
+  document.getElementById('prefsMacName').textContent = demoMode
+    ? 'Demo Mac'
+    : (auth?.deviceName || document.getElementById('devName')?.textContent || 'Mac');
+  document.getElementById('prefsMacState').textContent = demoMode
+    ? 'Sample sessions on this phone'
+    : (get('conn') === 'connected' ? 'Connected' : 'Not connected');
+  document.getElementById('prefsForget').textContent = demoMode ? 'Exit demo' : 'Forget this Mac';
+}
+
+function openPrefs() {
+  closeAllMenus();
+  renderPrefs();
+  set('prefs', '1');
+}
+function closePrefs() { set('prefs', '0'); }
+
+document.getElementById('prefsClose')?.addEventListener('click', closePrefs);
+document.getElementById('prefsScrim')?.addEventListener('click', closePrefs);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && get('prefs') === '1') closePrefs();
+});
+for (const [id, key] of Object.entries(PREF_SWITCHES)) {
+  document.getElementById(id)?.addEventListener('change', (e) => setPref(key, e.target.checked));
+}
+document.getElementById('prefsNotifOn')?.addEventListener('click', async () => {
+  try { await Notification.requestPermission(); } catch { /* unsupported */ }
+  renderPrefs();
+});
+document.getElementById('prefsForget')?.addEventListener('click', () => {
+  closePrefs();
+  unlink();
+});
+// The iPhone app re-checks permission on resume (the user may have changed it in Settings).
+window.addEventListener('pageshow', () => { if (get('prefs') === '1') renderPrefs(); });
+
+/** Local OS notification when a session stops working while the page is in the background. */
+function notifyFinished(thread) {
+  try {
+    if (typeof Notification === 'undefined' || !prefs.notifyFinished) return;
+    if (document.visibilityState === 'visible' && document.hasFocus()) return;
+    if (Notification.permission !== 'granted') return;
+    const n = new Notification('Agent finished', {
+      body: thread.title || 'Your session is ready.',
+      tag: 'agmux-done-' + thread.id,
+      data: { threadId: thread.id },
+    });
+    n.onclick = () => {
+      try { window.focus(); } catch {}
+      try { openThread(thread.id); } catch {}
+      n.close();
+    };
+  } catch { /* ignore */ }
+}
+
+// ── Demo mode ────────────────────────────────────────────────────────────
+// Sample sessions answered on the phone, so anyone (App Review included) can
+// try the app without a Mac. It never saves a pairing and sends nothing.
+let demoPace = 1; // tests shorten the delays
+let demoTimers = [];
+let demo = null;
+const DEMO_PROJECTS = { 'p-store': 'storefront', 'p-mobile': 'mobile-app' };
+const DEMO_REPLY = 'This is a demo, so nothing ran on a Mac. With agmux paired, your agent would start on this right away and you would see every step here. To connect your own Mac, open the menu and choose Exit demo.';
+const minutesAgo = (m) => new Date(Date.now() - m * 60000).toISOString();
+const nowIso = () => new Date().toISOString();
+
+function demoSeed() {
+  const thread = (id, title, provider, projectId, minutes, extra = {}) => ({
+    id, title, provider, projectId, projectName: DEMO_PROJECTS[projectId], surface: 'chat',
+    processing: false, needsApproval: false, unread: false, lastActive: minutesAgo(minutes), ...extra,
+  });
+  return {
+    threads: [
+      thread('demo-dark', 'Add a dark mode switch', 'Codex', 'p-mobile', 0, { processing: true }),
+      thread('demo-tests', 'Fix the flaky checkout test', 'ClaudeCode', 'p-store', 3, { needsApproval: true }),
+      thread('demo-notes', 'Draft release notes for 2.4', 'Gemini', 'p-store', 64),
+      thread('demo-orders', 'Why is GET /orders slow?', 'OpenCode', 'p-store', 60 * 26),
+    ],
+    timelines: {
+      'demo-dark': [
+        { id: 'd1', kind: 'user', text: 'Add a dark mode switch to Settings. Follow the system setting by default.', ts: minutesAgo(2) },
+        { id: 'd2', kind: 'tool', toolName: 'Read', lead: 'Read', subject: 'src/settings/SettingsScreen.tsx', status: 'ok', ts: minutesAgo(2) },
+        { id: 'd3', kind: 'tool', toolName: 'Edit', lead: 'Edited', subject: 'src/theme/useTheme.ts', additions: 5, deletions: 1, status: 'ok', ts: minutesAgo(1),
+          body: "@@ -4,3 +4,7 @@\n-export const theme = light;\n+export function useTheme() {\n+  const system = useColorScheme();\n+  const [choice] = useSetting('theme', 'system');\n+  return choice === 'system' ? system : choice;\n+}" },
+      ],
+      'demo-tests': [
+        { id: 't1', kind: 'user', text: 'The checkout test fails about one run in five. Find out why and fix it.', ts: minutesAgo(6) },
+        { id: 't2', kind: 'thinking', text: 'The failure mentions a stale total. Checking how the test waits for the cart.', ts: minutesAgo(6) },
+        { id: 't3', kind: 'tool', toolName: 'Read', lead: 'Read', subject: 'tests/checkout.spec.ts', status: 'ok', ts: minutesAgo(5) },
+        { id: 't4', kind: 'tool', toolName: 'Grep', lead: 'Searched', subject: 'waitForTotal', status: 'ok', ts: minutesAgo(5) },
+        { id: 't5', kind: 'assistant', text: 'The test taps **Pay** before the cart total finishes updating, so now and then it pays the old price. I changed it to wait for the total, and I want to run the checkout suite to confirm.', ts: minutesAgo(4) },
+        { id: 't6', kind: 'tool', toolName: 'Edit', lead: 'Edited', subject: 'tests/checkout.spec.ts', additions: 2, deletions: 1, status: 'ok', ts: minutesAgo(3),
+          body: "@@ -18,2 +18,3 @@\n-  await page.tap('Pay');\n+  await expect(page.total).toHaveText(cart.total);\n+  await page.tap('Pay');" },
+      ],
+      'demo-notes': [
+        { id: 'n1', kind: 'user', text: 'Write release notes for 2.4 from the merged pull requests.', ts: minutesAgo(70) },
+        { id: 'n2', kind: 'tool', toolName: 'Bash', lead: 'Ran', subject: 'git log v2.3.0..HEAD --oneline', status: 'ok', ts: minutesAgo(69),
+          body: '9f1c2ab Faster payment sheet\n41d0e7c Sync saved carts\nb7a33f1 Fix expired coupon crash' },
+        { id: 'n3', kind: 'assistant', text: '## 2.4\n\n- **Faster checkout.** The payment sheet opens instantly.\n- **Saved carts sync** across your devices.\n- Fixed a crash when a coupon expired during checkout.', ts: minutesAgo(64) },
+      ],
+      'demo-orders': [
+        { id: 'o1', kind: 'user', text: 'Why does GET /orders take two seconds?', ts: minutesAgo(60 * 26 + 5) },
+        { id: 'o2', kind: 'tool', toolName: 'Grep', lead: 'Searched', subject: 'order.items', status: 'ok', ts: minutesAgo(60 * 26 + 4) },
+        { id: 'o3', kind: 'tool', toolName: 'Read', lead: 'Read', subject: 'src/api/orders.ts', status: 'ok', ts: minutesAgo(60 * 26 + 4) },
+        { id: 'o4', kind: 'assistant', text: 'Each order loads its items with a separate query, so a page of 50 orders makes 51 queries. Loading the items in one query brings the request down to about 80 ms. Want me to make that change?', ts: minutesAgo(60 * 26) },
+      ],
+    },
+    // Text that streams in the first time a running session is opened.
+    scripts: { 'demo-dark': 'Added a **Theme** row to Settings with System, Light and Dark. The choice is saved and applied when the app starts, and System follows the phone.' },
+    streamed: {},
+    approval: { threadId: 'demo-tests', requestId: 'demo-approval-1', toolName: 'Bash', detail: 'npm test -- checkout.spec.ts' },
+    approvalAsked: false,
+    seq: 0,
+  };
+}
+
+function demoLater(fn, ms) {
+  demoTimers.push(setTimeout(() => { if (demo) fn(); }, ms * demoPace));
+}
+function demoThread(id) { return demo?.threads.find((t) => t.id === id); }
+function demoNextId(prefix) { demo.seq += 1; return `${prefix}-${demo.seq}`; }
+function demoUpsert(id, patch) {
+  if (!demoThread(id)) return;
+  demo.threads = demo.threads.map((t) => (t.id === id ? { ...t, ...patch } : t));
+  handleMsg({ type: 'threads.upsert', thread: { ...demoThread(id) } });
+}
+function demoPush(id, entry) {
+  demo.timelines = { ...demo.timelines, [id]: [...(demo.timelines[id] || []), entry] };
+}
+function demoReplace(id, entryId, patch) {
+  demo.timelines = { ...demo.timelines, [id]: demo.timelines[id].map((e) => (e.id === entryId ? { ...e, ...patch } : e)) };
+}
+function demoTimeline(id) {
+  handleMsg({ type: 'timeline.snapshot', threadId: id, entries: (demo.timelines[id] || []).map((e) => ({ ...e })) });
+}
+
+/** Streams an assistant reply a few words at a time, then marks the session idle. */
+function demoReply(id, text, done) {
+  const entryId = demoNextId('demo-reply');
+  const words = text.match(/\S+\s*/g) || [];
+  demoPush(id, { id: entryId, kind: 'assistant', text: '', ts: nowIso() });
+  let shown = 0;
+  const step = () => {
+    shown = Math.min(words.length, shown + 3);
+    demoReplace(id, entryId, { text: words.slice(0, shown).join('') });
+    demoTimeline(id);
+    if (shown < words.length && demoThread(id)?.processing) {
+      demoLater(step, 90);
+      return;
+    }
+    demoUpsert(id, { processing: false, lastActive: nowIso() });
+    done?.();
+  };
+  demoLater(step, 250);
+}
+
+/** Plays a running session's scripted reply once (on open, or shortly after the demo starts). */
+function demoPlay(id) {
+  const script = demo.scripts[id];
+  if (!script || demo.streamed[id]) return;
+  demo.streamed = { ...demo.streamed, [id]: true };
+  demoReply(id, script);
+}
+
+function demoOpen(id) {
+  demoTimeline(id);
+  demoPlay(id);
+  const ask = demo.approval;
+  if (ask.threadId === id && !demo.approvalAsked) {
+    demo.approvalAsked = true;
+    demoLater(() => handleMsg({ type: 'approval.requested', ...ask }), 900);
+  }
+}
+
+function demoMessage(msg) {
+  const id = msg.threadId;
+  if (!demoThread(id)) return;
+  demoLater(() => {
+    const text = String(msg.text || '');
+    handleMsg({ type: 'message.accepted', threadId: id, requestId: msg.requestId });
+    demoPush(id, { id: demoNextId('demo-user'), kind: 'user', text, ts: nowIso() });
+    const titled = demoThread(id).title === 'New chat' && text ? { title: text.slice(0, 48) } : {};
+    demoUpsert(id, { processing: true, lastActive: nowIso(), ...titled });
+    demoTimeline(id);
+    demoReply(id, DEMO_REPLY);
+  }, 150);
+}
+
+function demoCreate(msg) {
+  const projectId = DEMO_PROJECTS[msg.projectId] ? msg.projectId : 'p-store';
+  const thread = {
+    id: demoNextId('demo-chat'), title: 'New chat', provider: msg.provider || 'ClaudeCode',
+    projectId, projectName: DEMO_PROJECTS[projectId], surface: 'chat', processing: false,
+    needsApproval: false, unread: false, lastActive: nowIso(), ...(msg.model ? { model: msg.model } : {}),
+  };
+  demo.threads = [thread, ...demo.threads];
+  demo.timelines = { ...demo.timelines, [thread.id]: [] };
+  demoLater(() => handleMsg({ type: 'thread.created', requestId: msg.requestId, thread: { ...thread } }), 200);
+}
+
+function demoApproval(msg) {
+  const id = msg.threadId;
+  demoLater(() => {
+    handleMsg({ type: 'approval.resolved', threadId: id, requestId: msg.requestId });
+    demoUpsert(id, { needsApproval: false, processing: true });
+    if (msg.decision !== 'allow') {
+      demoReply(id, 'Okay, I didn’t run the tests. The fix is in place; run `npm test -- checkout.spec.ts` when you’re ready.');
+      return;
+    }
+    const runId = demoNextId('demo-run');
+    demoPush(id, { id: runId, kind: 'tool', toolName: 'Bash', lead: 'Ran', subject: 'npm test -- checkout.spec.ts', status: 'running', ts: nowIso() });
+    demoTimeline(id);
+    demoLater(() => {
+      demoReplace(id, runId, { status: 'ok', body: '✓ 24 passed (3.1s)' });
+      demoTimeline(id);
+      demoReply(id, 'All 24 checkout tests pass. I ran the suite 20 times in a row with no failures.');
+    }, 1400);
+  }, 200);
+}
+
+/** The fake socket's send(): answers what a Mac would. */
+function demoSend(raw) {
+  let msg;
+  try { msg = JSON.parse(raw); } catch { return; }
+  if (!demo) return;
+  switch (msg.type) {
+    case 'threads.list':
+      demoLater(() => handleMsg({ type: 'threads.snapshot', threads: demo.threads.map((t) => ({ ...t })) }), 120);
+      break;
+    case 'thread.subscribe': demoLater(() => demoOpen(msg.threadId), 150); break;
+    case 'message.send': demoMessage(msg); break;
+    case 'thread.create': demoCreate(msg); break;
+    case 'turn.interrupt': demoUpsert(msg.threadId, { processing: false }); break;
+    case 'approval.respond': demoApproval(msg); break;
+    case 'userInput.respond':
+      demoLater(() => handleMsg({ type: 'userInput.resolved', threadId: msg.threadId, requestId: msg.requestId }), 150);
+      break;
+    case 'thread.setConfig': {
+      const { type: _type, threadId, ...config } = msg;
+      demoUpsert(threadId, config);
+      break;
+    }
+    case 'models.list':
+      // An empty list keeps the built-in model menu.
+      demoLater(() => handleMsg({ type: 'models.snapshot', provider: msg.provider, requestId: msg.requestId, models: [] }), 100);
+      break;
+    default: break; // ping, thread.read
+  }
+}
+
+function setForgetLabels(demoOn) {
+  document.querySelectorAll('[data-act="unlink"], #unlinkFoot').forEach((el) => {
+    const label = [...el.childNodes].reverse().find((n) => n.nodeType === 3 && n.textContent.trim());
+    if (!label) return;
+    if (demoOn) {
+      el.dataset.label = label.textContent;
+      label.textContent = 'Exit demo';
+    } else if (el.dataset.label) {
+      label.textContent = el.dataset.label;
+    }
+  });
+}
+
+function startDemo() {
+  if (auth?.phoneToken) return;
+  demo = demoSeed();
+  demoMode = true;
+  set('demo', '1');
+  setForgetLabels(true);
+  ws = { readyState: 1, send: demoSend, close() { this.readyState = 3; } };
+  set('paired', '1');
+  set('route', 'list');
+  handleMsg({ type: 'hello.ok', role: 'phone' });
+  handleMsg({ type: 'desktop.online', deviceName: 'Demo Mac', capabilities: ['message-ack'] });
+  // The running session finishes on its own, so the list shows work completing live.
+  demoLater(() => Object.keys(demo.scripts).forEach(demoPlay), 2500);
+}
+
+function stopDemo() {
+  demoTimers.forEach(clearTimeout);
+  demoTimers = [];
+  demo = null;
+  demoMode = false;
+  set('demo', '0');
+  setForgetLabels(false);
+}
+
+document.getElementById('demoBtn')?.addEventListener('click', startDemo);
 
 if (auth?.phoneToken && auth?.desktopId) {
   connectPhone();
