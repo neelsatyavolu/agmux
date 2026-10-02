@@ -11,15 +11,15 @@
     "ios": "npm run cap:sync && npx cap open ios"
   },
   "dependencies": {
-    "@capacitor/app": "^7.0.1",
-    "@capacitor/core": "^7.2.0",
-    "@capacitor/haptics": "^7.0.1",
-    "@capacitor/ios": "^7.2.0",
-    "@capacitor/keyboard": "^7.0.1",
-    "@capacitor/splash-screen": "^7.0.1",
-    "@capacitor/status-bar": "^7.0.1"
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor/keyboard": "^8.0.5",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.2.0"
+    "@capacitor/cli": "^8.5.2"
   }
 }

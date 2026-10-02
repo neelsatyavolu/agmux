@@ -9,3 +9,4 @@ ios/capacitor-cordova-ios-plugins/
 ios/DerivedData/
 *.xcuserstate
 xcuserdata/
+build/

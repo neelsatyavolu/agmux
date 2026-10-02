@@ -28,10 +28,13 @@ if (!src) {
 
 mkdirSync(www, { recursive: true });
 
+// Website-only files: the design preview, Universal Links metadata and Worker headers.
+const SKIP = new Set(['design.html', '.well-known', '_headers']);
+
 function copyTree(from, to) {
   mkdirSync(to, { recursive: true });
   for (const name of readdirSync(from)) {
-    if (name === 'design.html') continue; // design preview only
+    if (SKIP.has(name)) continue;
     const a = join(from, name);
     const b = join(to, name);
     const st = statSync(a);
@@ -55,6 +58,8 @@ function prepareHtml(html) {
   if (!html.includes('<script src="native-bridge.js"')) {
     html = html.replace('</head>', '<script src="native-bridge.js" defer></script>\n</head>');
   }
+  // The app is installed on an iPhone, not opened in a browser.
+  html = html.replace('Pair this browser with agmux', 'Pair this iPhone with agmux');
   // Mark shell so CSS can tweak safe-area if needed later
   if (!html.includes('data-shell=')) {
     html = html.replace('<html', '<html data-shell="capacitor"');

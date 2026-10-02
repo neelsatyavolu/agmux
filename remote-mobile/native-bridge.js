@@ -82,6 +82,11 @@
         App.addListener('appUrlOpen', function (data) {
           if (data && data.url) applyPair(parsePairFromUrl(data.url));
         });
+        // iOS suspends the socket in the background. The PWA's resumeIfDead()
+        // listens for pageshow, so reconnect the moment the app is back.
+        App.addListener('resume', function () {
+          window.dispatchEvent(new Event('pageshow'));
+        });
         // Cold start via custom scheme / universal link
         if (App.getLaunchUrl) {
           var launch = await App.getLaunchUrl();
@@ -90,6 +95,15 @@
       }
     } catch (e) {
       console.warn('[native-bridge] App url', e);
+    }
+
+    // A light tap confirms approval answers, like native iOS buttons.
+    var Haptics = window.Capacitor.Plugins.Haptics;
+    if (Haptics && Haptics.impact) {
+      document.addEventListener('click', function (e) {
+        var target = e.target && e.target.closest && e.target.closest('#allowBtn, #denyBtn');
+        if (target) Haptics.impact({ style: 'MEDIUM' }).catch(function () {});
+      }, true);
     }
   });
 })();

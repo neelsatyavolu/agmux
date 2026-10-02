@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["VTQW687WBQ.dev.agmux.remote"],
+        "components": [
+          { "/": "/*", "#": "*pair=*", "comment": "Pair links and QR codes from agmux on the Mac open the iPhone app" }
+        ]
+      }
+    ]
+  }
+}

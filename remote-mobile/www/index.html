@@ -252,12 +252,13 @@ svg[data-icon] {
   background: var(--panel); box-shadow: inset 0 0 0 1px var(--rule-2), var(--shadow-pop);
 }
 .menu.open { display: block; }
-.menu button {
+.menu button, .menu a {
   display: flex; align-items: center; gap: 10px; width: 100%; height: 38px; padding: 0 10px;
   border: 0; border-radius: 8px; background: transparent; color: var(--ink); font-size: 14px; text-align: left;
+  text-decoration: none;
 }
-.menu button svg { color: var(--graphite); }
-.menu button:hover { background: var(--hover); }
+.menu button svg, .menu a svg { color: var(--graphite); }
+.menu button:hover, .menu a:hover { background: var(--hover); }
 .menu button.danger, .menu button.danger svg { color: var(--red); }
 .menu .sep { height: 1px; background: var(--rule); margin: 5px 4px; }
 
@@ -916,6 +917,7 @@ code.inl {
 .pair-or::before, .pair-or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
 .pair-secure { display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; font-size: 13px; line-height: 1.5; color: var(--graphite); }
 .pair-secure svg { width: 16px; height: 16px; margin-top: 1px; color: var(--green); }
+.pair-secure a { color: var(--ink); text-underline-offset: 2px; }
 
 /* ── Approval / question sheet ────────────────────────────────────────── */
 .appr-scrim {
@@ -1068,7 +1070,7 @@ code.inl {
       <div class="pair-card">
         <div class="pair-brand"><img class="logo" src="icons/agmux.png" width="36" height="36" alt=""><span class="wm">agmux</span><span class="rm">Remote</span></div>
         <h1 class="display">Pair with your Mac</h1>
-        <p class="pair-sub" id="pairSub">Pair this browser with agmux on your Mac to read sessions, reply, and approve requests.</p>
+        <p class="pair-sub" id="pairSub">Pair this iPhone with agmux on your Mac to read sessions, reply, and approve requests.</p>
         <ol class="pair-steps">
           <li><span>On your Mac, open <b>agmux → Settings → Remote control</b>.</span></li>
           <li><span>Scan the QR code, or enter the desktop ID and pair code below.</span></li>
@@ -1085,7 +1087,7 @@ code.inl {
 
         <div class="pair-form">
           <div class="field"><label for="fDesk">Desktop ID</label><input id="fDesk" value="" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Shown on your Mac"></div>
-          <div class="field code"><label for="fCode">Pair code</label><input id="fCode" maxlength="8" value="" spellcheck="false" autocomplete="one-time-code" autocapitalize="characters" placeholder="••••••"></div>
+          <div class="field code"><label for="fCode">Pair code</label><input id="fCode" enterkeyhint="go" maxlength="8" value="" spellcheck="false" autocomplete="one-time-code" autocapitalize="characters" placeholder="••••••"></div>
           <div class="pair-err"><svg data-icon="circle-alert"></svg><span id="errText">That code is invalid or expired. Generate a new one on your Mac.</span></div>
           <button class="pair-btn" id="pairBtn" type="button">
             <span class="lbl-idle">Pair<svg data-icon="arrow-right"></svg></span>
@@ -1094,7 +1096,7 @@ code.inl {
           </button>
         </div>
 
-        <div class="pair-secure"><svg data-icon="shield-check"></svg><span>Messages pass through the agmux relay, encrypted in transit (wss). The pair code works once; this phone then stays paired for 90 days unless you revoke it on your Mac.</span></div>
+        <div class="pair-secure"><svg data-icon="shield-check"></svg><span>Messages pass through the agmux relay, encrypted in transit (wss). The pair code works once; this phone then stays paired for 90 days unless you revoke it on your Mac. <a href="https://agmux.dev/privacy" target="_blank" rel="noopener">Privacy policy</a></span></div>
       </div>
     </div>
 
@@ -1112,6 +1114,7 @@ code.inl {
               <div class="menu" id="ovMenuMobile">
                 <button type="button" data-act="reconnect"><svg data-icon="refresh-cw"></svg>Reconnect</button>
                 <button type="button" data-act="status"><svg data-icon="monitor"></svg>Desktop status</button>
+                <a href="https://agmux.dev/privacy" target="_blank" rel="noopener" data-act="privacy"><svg data-icon="shield-check"></svg>Privacy policy</a>
                 <div class="sep"></div>
                 <button type="button" class="danger" data-act="unlink"><svg data-icon="link-2"></svg>Forget this Mac</button>
               </div>
@@ -1154,6 +1157,7 @@ code.inl {
                 <div class="menu" id="ovMenu">
                   <button type="button" data-act="reconnect"><svg data-icon="refresh-cw"></svg>Reconnect</button>
                   <button type="button" data-act="status"><svg data-icon="monitor"></svg>Desktop status</button>
+                  <a href="https://agmux.dev/privacy" target="_blank" rel="noopener" data-act="privacy"><svg data-icon="shield-check"></svg>Privacy policy</a>
                   <div class="sep"></div>
                   <button type="button" class="danger" data-act="unlink" id="unlinkMenu"><svg data-icon="link-2"></svg>Forget this Mac</button>
                 </div>
@@ -1325,14 +1329,19 @@ function renderIcons(root){
 const STORAGE = 'agmux-remote-auth';
 // Same-origin WS when hosted on the relay (remote.agmux.dev or workers.dev).
 // Marketing mirror (agmux.dev/remote) still dials the public workers.dev hub so
-// older installs keep working without a desktop update.
-const RELAY_WS_BASE =
-  (location.hostname === 'remote.agmux.dev' ||
-    location.hostname === 'localhost' ||
-    location.hostname === '127.0.0.1' ||
-    location.hostname.endsWith('.workers.dev'))
-    ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
+// older installs keep working without a desktop update. The iPhone app serves
+// this page from capacitor://localhost, so only http(s) pages dial their own host.
+function relayWsBase(loc) {
+  if (!/^https?:$/.test(loc.protocol)) return 'wss://remote.agmux.dev/ws';
+  const sameHost = loc.hostname === 'remote.agmux.dev' ||
+    loc.hostname === 'localhost' ||
+    loc.hostname === '127.0.0.1' ||
+    loc.hostname.endsWith('.workers.dev');
+  return sameHost
+    ? `${loc.protocol === 'https:' ? 'wss' : 'ws'}://${loc.host}/ws`
     : 'wss://agmux-remote-relay.xanom.workers.dev/ws';
+}
+const RELAY_WS_BASE = relayWsBase(location);
 const stage = document.getElementById('stage');
 const set = (k,v) => stage.setAttribute('data-'+k, v);
 const get = (k) => stage.getAttribute('data-'+k);

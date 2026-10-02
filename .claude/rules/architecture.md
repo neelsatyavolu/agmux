@@ -102,6 +102,7 @@ Separate Cloudflare service — **not** `remote-relay`, no shared bindings, devi
 - Phone sends/creates carry `requestId`; desktop advertises `message-ack` and responds with `message.accepted` or a scoped error. Acceptance is dispatch completion, which is turn completion for blocking ACP/OpenCode calls but enqueue/start for Claude/Codex. Queue drain also checks processing/history; a dropped acknowledgment must not trigger automatic duplicate delivery.
 - Approval and question IDs are scoped to thread IDs. Reconnect replay is deduplicated in the PWA. Claude answers use question text; Codex uses question IDs with answer arrays; OpenCode uses ordered arrays of choices.
 - Regression commands and remaining provider coverage: `remote-relay/README.md`, `docs/remote-control-audit-2026-09-23.md`.
+- iPhone app (`remote-mobile/`, Capacitor 8 + SPM) bundles the PWA and serves it from `capacitor://localhost`, so `relayWsBase()` must keep non-http(s) pages on `wss://remote.agmux.dev/ws`. The pairing key `agmux-remote-auth` is mirrored to the Keychain (`PairingPersistence.swift`); renaming it unpairs every phone. Universal Links: `remote-relay/public/.well-known/apple-app-site-association` (fragment `pair=` only). Release: `remote-mobile/scripts/release-ios.sh`; App Store checklist: `remote-mobile/APP_STORE.md`.
 
 ## Debugging
 

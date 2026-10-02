@@ -46,3 +46,21 @@ test('shell-only bridge is injected into www once, never shipped in the canonica
     assert.equal(readFileSync(join(shell, 'www/native-bridge.js'), 'utf8'), '// bridge');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('the app bundle says iPhone and leaves out files only the website serves', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agmux-remote-sync-'));
+  try {
+    const shell = join(dir, 'repo/remote-mobile');
+    const canonical = join(dir, 'repo/remote-relay/public');
+    mkdirSync(join(shell, 'scripts'), { recursive: true });
+    mkdirSync(join(canonical, '.well-known'), { recursive: true });
+    copyFileSync(new URL('./sync-web.mjs', import.meta.url), join(shell, 'scripts/sync-web.mjs'));
+    writeFileSync(join(canonical, 'app.html'), '<html><head></head><body><p id="pairSub">Pair this browser with agmux on your Mac.</p></body></html>');
+    writeFileSync(join(canonical, '.well-known/apple-app-site-association'), '{}');
+    writeFileSync(join(canonical, '_headers'), '/x\n  A: b\n');
+    execFileSync(process.execPath, [join(shell, 'scripts/sync-web.mjs')]);
+    assert.match(readFileSync(join(shell, 'www/index.html'), 'utf8'), /Pair this iPhone with agmux on your Mac\./);
+    assert.equal(existsSync(join(shell, 'www/.well-known')), false);
+    assert.equal(existsSync(join(shell, 'www/_headers')), false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

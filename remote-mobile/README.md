@@ -1,74 +1,74 @@
-# agmux Remote — iOS (Capacitor)
+# agmux Remote — iPhone app (Capacitor)
 
-Native **iOS shell** around the existing remote PWA. Same design and same backend:
+Native iPhone app around the existing remote PWA. Same design and same backend:
 
 | Layer | Source |
 |-------|--------|
-| UI | Bundled from canonical `remote-relay/public` |
-| Relay | `wss://agmux-remote-relay.xanom.workers.dev/ws` (unchanged) |
-| Desktop | agmux Mac app Remote control (unchanged) |
+| UI | Bundled from canonical `remote-relay/public` into `www/` |
+| Relay | `wss://remote.agmux.dev/ws` (the PWA picks it when not served over http(s)) |
+| Desktop | agmux Mac app → Settings → Remote control (unchanged) |
 
-This is **not** a SwiftUI rewrite. Capacitor loads the same HTML/CSS/JS in a WKWebView with a real app icon, splash, status bar, and keyboard handling.
+This is **not** a SwiftUI rewrite. Capacitor 8 (Swift Package Manager) loads the same HTML/CSS/JS in a WKWebView.
+iPhone only, portrait, iOS 17+, dark appearance. Bundle ID `dev.agmux.remote`, team `VTQW687WBQ`.
+
+## What the native shell adds
+
+- **Pairing kept in the Keychain** (`PairingPersistence.swift`). The PWA stores its pairing in
+  `localStorage["agmux-remote-auth"]`; a document-start script restores it from the Keychain before
+  any page script runs and reports every change back, so iOS clearing web storage can't unpair the phone.
+  "Forget this Mac" deletes it.
+- **QR codes open the app.** `applinks:remote.agmux.dev` + `remote-relay/public/.well-known/apple-app-site-association`
+  (only URLs whose fragment contains `pair=`). `native-bridge.js` turns the link into the PWA's `#pair=` boot path.
+  The `agmux-remote://pair?pair=…&desktopId=…` scheme works too.
+- Reconnect on resume (`resume` → `pageshow` → `resumeIfDead()`), haptics on Allow/Deny,
+  links open in Safari, the web view shrinks above the keyboard, "Pair this iPhone" wording.
 
 ## Prerequisites
 
-- macOS + **Xcode** (with iOS Simulator or a device)
-- Node 20+
-- Apple Developer account only when shipping to TestFlight/App Store
+- The **release** Xcode at `/Applications/Xcode.app` (scripts set `DEVELOPER_DIR`; beta Xcode builds are rejected by App Store Connect)
+- Node 20+, CocoaPods' Ruby (only for `scripts/configure-xcode-project.rb`)
+- For releases: 1Password CLI signed in (see `scripts/release-ios.sh` header)
 
-## Setup
+## Develop
 
 ```bash
 cd remote-mobile
 npm install
-npm run sync-web          # copy latest PWA into www/
-npx cap add ios           # first time only
-npm run cap:sync          # re-copy web + sync native project
-npm run cap:open          # open Xcode
+npm run ios               # sync the PWA into www/, sync native, open Xcode
 ```
 
-In Xcode: select a simulator or your iPhone → **Run**.
+Run on a simulator from Xcode. After editing `remote-relay/public/app.html`, copy it to `index.html`
+and run `npm run cap:sync`. `www/` is committed; re-sync before committing.
 
-## Updating the UI
+## Regenerating `ios/`
 
-Edit `remote-relay/public/app.html`, copy it to `remote-relay/public/index.html`, then:
+`npx cap add ios --packagemanager SPM` wipes the project. Re-apply agmux's settings afterwards:
 
 ```bash
-npm run cap:sync
+GEM_HOME="$(brew --prefix cocoapods)/libexec" ruby scripts/configure-xcode-project.rb
+git checkout -- ios/App/App/Info.plist ios/App/App/Assets.xcassets ios/App/App/SceneDelegate.swift
 ```
 
-## Pairing
+## Release to TestFlight
 
-Same as the web app:
-
-1. Mac: **Settings → Remote control** → enable → show code/QR  
-2. Phone app: enter desktop ID + code (or open a pair link if deep-linked)
-
-Deep link form (web / future universal links):
-
-`https://remote.agmux.dev#pair=…&desktopId=…`
-
-Custom scheme registered: `agmux-remote://` (for future pair-link handling).
-
-## Dev: live site instead of bundle
-
-In `capacitor.config.ts`, uncomment:
-
-```ts
-server: { url: 'https://remote.agmux.dev/', cleartext: false },
+```bash
+scripts/release-ios.sh              # archive, sign, upload
+scripts/release-ios.sh --no-upload  # archive, sign, export build/agmux.ipa
 ```
 
-Then `npm run cap:sync`. Useful while iterating on the PWA without rebundling.
+Signing needs no account holder: the Apple Distribution certificate lives in 1Password, and
+`scripts/asc-profile.mjs` turns on the App ID's capabilities and creates/refreshes the App Store profile
+through the team's App Store Connect API key. App record, listing, privacy answers and review notes:
+[`APP_STORE.md`](APP_STORE.md).
 
-## App Store notes
+## Tests
 
-- Bundle ID: `dev.agmux.remote`
-- Privacy: remote control of the user’s own Mac over TLS; no chat content stored on agmux servers
-- Push notifications / Face ID: not in this shell yet (add Capacitor plugins when needed)
+```bash
+node --test scripts/*.test.mjs                 # sync script + profile helpers
+(cd ../remote-relay && npm test)               # PWA, incl. tests/native-shell.test.mjs
+```
 
-## Out of scope (for now)
+## Not yet
 
-- Android (same Capacitor project can add `npx cap add android` later)
-- Push when a turn finishes
-- Universal Links / QR auto-pair into the app
-- Offline UI beyond the last bundled assets
+- Push notifications (needs the team's APNs key and relay support)
+- Android (`npx cap add android` later)
