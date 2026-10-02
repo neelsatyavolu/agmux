@@ -9,6 +9,7 @@ import {
   contextTokensUsed,
   mergeClaudeModelOptions,
   mergeCodexModelOptions,
+  parseCodexModelList,
   prettifyCodexModelName,
   prettifyCursorModel,
   prettifyGrokModel,
@@ -396,6 +397,52 @@ describe("GPT-5.6 Sol / Terra / Luna model wiring", () => {
     expect(normalizeCodexEffort("max")).toBe("max");
     expect(normalizeCodexEffort("ultra")).toBe("ultra");
     expect(normalizeCodexEffort("bogus")).toBeNull();
+  });
+});
+
+describe("Codex efforts from the live model/list catalog", () => {
+  const response = {
+    data: [
+      {
+        model: "gpt-6.1-sol",
+        displayName: "GPT-6.1-Sol",
+        supportedReasoningEfforts: [
+          { reasoningEffort: "low" }, { reasoningEffort: "medium" }, { reasoningEffort: "high" },
+          { reasoningEffort: "xhigh" }, { reasoningEffort: "max" }, { reasoningEffort: "ultra" },
+        ],
+      },
+      { model: "gpt-9-future", supportedReasoningEfforts: ["low", "high", "bogus"] },
+      { model: "gpt-5.5" },
+      { id: "" },
+    ],
+  };
+
+  it("parses slugs, prettified names and advertised efforts", () => {
+    expect(parseCodexModelList(response)).toEqual([
+      { slug: "gpt-6.1-sol", name: "GPT 6.1 Sol", efforts: ["low", "medium", "high", "xhigh", "max", "ultra"] },
+      { slug: "gpt-9-future", name: "GPT 9 Future", efforts: ["low", "high"] },
+      { slug: "gpt-5.5", name: "GPT 5.5" },
+    ]);
+    expect(parseCodexModelList(null)).toEqual([]);
+  });
+
+  it("uses the catalog's efforts for the picker and clamping", () => {
+    const catalog = mergeCodexModelOptions(parseCodexModelList(response));
+    expect(codexEffortsForModel("gpt-9-future", catalog).map((e) => e.value)).toEqual(["low", "high"]);
+    expect(clampCodexEffort("gpt-9-future", "medium", catalog)).toBe("high");
+    expect(clampCodexEffort("gpt-6.1-sol", "ultra", catalog)).toBe("ultra");
+    // A model without advertised efforts falls back to the family rules.
+    expect(supportsCodexEffort("gpt-5.5", "max", catalog)).toBe(false);
+  });
+
+  it("covers GPT-6.1 Sol, GPT-6 Astra and Daybreak Blue before the catalog loads", () => {
+    for (const slug of ["gpt-6.1-sol", "gpt-6-astra", "gpt-daybreak-blue-latest"]) {
+      expect(supportsCodexEffort(slug, "max")).toBe(true);
+      expect(supportsCodexEffort(slug, "ultra")).toBe(true);
+    }
+    expect(supportsCodexEffort("gpt-6-luna", "max")).toBe(true);
+    expect(supportsCodexEffort("gpt-6-luna", "ultra")).toBe(false);
+    expect(prettifyOpenCodeSlug("openai/gpt-6.1-sol")).toBe("GPT 6.1 Sol");
   });
 });
 

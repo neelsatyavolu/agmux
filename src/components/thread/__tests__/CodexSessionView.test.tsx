@@ -5983,6 +5983,30 @@ describe("CodexSessionView — renderer coverage via history items", () => {
     });
   });
 
+  it("restores a thread's saved Ultra effort from history", async () => {
+    const cmd = await import("../../../lib/commands");
+    const session = { ...baseSession, id: "cx-ultra-restore" };
+    useSettingsStore.getState().updateSettings({ codexEffort: "high" });
+    vi.mocked(cmd.codexReadConfig).mockReset();
+    vi.mocked(cmd.codexReadConfig).mockResolvedValue({ config: {} } as never);
+    vi.mocked(cmd.codexReadSessionHistory).mockReset();
+    vi.mocked(cmd.codexReadSessionHistory).mockResolvedValue({
+      items: [],
+      cwd: "/tmp/repo",
+      model: "gpt-6-sol",
+      effort: "ultra",
+      model_context_window: null,
+      input_tokens: null,
+      output_tokens: null,
+    });
+
+    const { container } = render(<CodexSessionView session={session} />);
+    await waitFor(() => {
+      const btn = container.querySelector('[data-testid="effort-selector"] button');
+      expect(btn?.getAttribute("title")).toMatch(/Ultra/i);
+    });
+  });
+
   it("keeps pending DraftChat Codex Extra High effort when saved effort is high", async () => {
     const cmd = await import("../../../lib/commands");
     const session = { ...baseSession, id: "cx-extra-high-2" };

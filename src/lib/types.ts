@@ -356,6 +356,8 @@ export interface SdkFilesPersisted {
 export interface CodexModelOption {
   slug: string;
   name: string;
+  /** `supportedReasoningEfforts` from `model/list`; absent for the curated fallback. */
+  efforts?: readonly CodexReasoningEffort[];
 }
 
 /** Convert a raw Codex model slug into a human-friendly display name.
@@ -388,6 +390,7 @@ export function prettifyOpenCodeSlug(slug: string | null | undefined): string {
   if (!slug) return "";
   const part = slug.includes("/") ? (slug.split("/")[1] ?? slug) : slug;
   const SPECIAL: Record<string, string> = {
+    "gpt-6.1-sol": "GPT 6.1 Sol",
     "gpt-6-sol": "GPT 6 Sol",
     "gpt-6-luna": "GPT 6 Luna",
     "minimax-2.7": "MiniMax 2.7",
@@ -452,7 +455,7 @@ const CODEX_RETIRED_SLUGS = new Set([
  * display names are often hyphenated ("GPT-5.6-Sol").
  */
 export function mergeCodexModelOptions(
-  dynamic: readonly { slug: string; name: string }[] | null | undefined,
+  dynamic: readonly CodexModelOption[] | null | undefined,
 ): CodexModelOption[] {
   const dyn = (dynamic ?? []).filter((m) => !CODEX_RETIRED_SLUGS.has(m.slug));
   if (dyn.length === 0) {
@@ -464,7 +467,33 @@ export function mergeCodexModelOptions(
   for (const m of dyn) {
     if (seen.has(m.slug)) continue;
     seen.add(m.slug);
-    out.push({ slug: m.slug, name: prettifyCodexModelName(m.slug) });
+    const name = prettifyCodexModelName(m.slug);
+    out.push(m.efforts ? { slug: m.slug, name, efforts: m.efforts } : { slug: m.slug, name });
+  }
+  return out;
+}
+
+/** Parse a `model/list` response (`{ data: [...] }` or a bare array) into
+ *  picker options, keeping each model's advertised reasoning efforts. */
+export function parseCodexModelList(response: unknown): CodexModelOption[] {
+  if (!response || typeof response !== "object") return [];
+  const rec = response as Record<string, unknown>;
+  const items: unknown[] = Array.isArray(rec.data) ? rec.data : Array.isArray(response) ? response : [];
+  const out: CodexModelOption[] = [];
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as Record<string, unknown>;
+    const slug = String(r.model ?? r.id ?? "");
+    if (!slug) continue;
+    // Ignore server displayName — often "GPT-5.6-Sol"; prettify from slug.
+    const name = prettifyCodexModelName(slug);
+    const raw = Array.isArray(r.supportedReasoningEfforts) ? r.supportedReasoningEfforts : null;
+    const efforts = raw
+      ?.map((e) => normalizeCodexEffort(
+        e && typeof e === "object" ? (e as Record<string, unknown>).reasoningEffort : e,
+      ))
+      .filter((e): e is CodexReasoningEffort => e !== null);
+    out.push(efforts && efforts.length > 0 ? { slug, name, efforts } : { slug, name });
   }
   return out;
 }
@@ -498,51 +527,46 @@ export function normalizeCodexEffort(value: unknown): CodexReasoningEffort | nul
 
 /**
  * Whether a Codex model supports a given reasoning effort.
- * Source: Codex `model/list` supportedReasoningEfforts.
+ * Source of truth: the model's `supportedReasoningEfforts` in the live
+ * `model/list` catalog. Before the catalog loads (or for a model it doesn't
+ * describe), family rules mirror what `model/list` reported on 2026-09-29:
  * - All models: low / medium / high / xhigh
- * - GPT-5.6 family and GPT-6 Sol / Luna: + max
- * - GPT-5.6 Sol / Terra and GPT-6 Sol: + ultra (Luna does not)
+ * - GPT-5.6 and GPT-6 families, Daybreak Blue: + max
+ * - The same models except Luna: + ultra
  */
 export function supportsCodexEffort(
   model: string | null | undefined,
   effort: string,
+  catalog?: readonly CodexModelOption[],
 ): boolean {
+  const advertised = catalog?.find((m) => m.slug === model)?.efforts;
+  if (advertised) return advertised.includes(effort as CodexReasoningEffort);
   if (CODEX_BASE_EFFORTS.includes(effort as CodexReasoningEffort)) return true;
   const slug = (model ?? "").toLowerCase();
-  const is56 =
-    slug.includes("gpt-5.6") ||
-    slug.includes("5.6-sol") ||
-    slug.includes("5.6-terra") ||
-    slug.includes("5.6-luna");
-  if (effort === "max") return is56 || slug.includes("gpt-6-sol") || slug.includes("gpt-6-luna");
-  if (effort === "ultra") {
-    return (
-      slug.includes("gpt-5.6-sol") ||
-      slug.includes("gpt-5.6-terra") ||
-      slug.includes("gpt-6-sol") ||
-      slug.includes("5.6-sol") ||
-      slug.includes("5.6-terra")
-    );
-  }
+  const frontier = /gpt-(5\.6|6)([.-]|$)/.test(slug) || slug.includes("daybreak-blue");
+  if (effort === "max") return frontier;
+  if (effort === "ultra") return frontier && !slug.includes("luna");
   return false;
 }
 
 /** Effort options to show in the picker for the active Codex model. */
 export function codexEffortsForModel(
   model: string | null | undefined,
+  catalog?: readonly CodexModelOption[],
 ): typeof CODEX_REASONING_EFFORTS {
-  return CODEX_REASONING_EFFORTS.filter((e) => supportsCodexEffort(model, e.value));
+  return CODEX_REASONING_EFFORTS.filter((e) => supportsCodexEffort(model, e.value, catalog));
 }
 
 /** Clamp an effort to one the given model supports (prefer current, else high). */
 export function clampCodexEffort(
   model: string | null | undefined,
   effort: string | null | undefined,
+  catalog?: readonly CodexModelOption[],
 ): CodexReasoningEffort {
   const normalized = normalizeCodexEffort(effort);
-  if (normalized && supportsCodexEffort(model, normalized)) return normalized;
+  if (normalized && supportsCodexEffort(model, normalized, catalog)) return normalized;
   for (const fallback of ["high", "medium", "low", "xhigh"] as const) {
-    if (supportsCodexEffort(model, fallback)) return fallback;
+    if (supportsCodexEffort(model, fallback, catalog)) return fallback;
   }
   return "medium";
 }

@@ -832,7 +832,10 @@ async fn send_pty_line(
     } else {
         (thread, synthetic)
     };
-    let thread_id = thread.id.as_str();
+    // Phones name a Claude terminal started in agmux by its transcript id:
+    // write to the terminal running it, never resume a second copy.
+    let live_id = crate::remote::claude_terminals::terminal_id(state, &thread.id).await;
+    let thread_id = live_id.as_str();
     // Grok PTY MCP is project-scoped (shared config.toml) and resolves the
     // session via AGMUX_ACTIVE_THREAD_FILE — refresh on each send so handoffs
     // land on the thread that is currently talking.
@@ -971,9 +974,11 @@ pub async fn send_pty_raw(state: &AppState, thread_id: &str, data: &str) -> Resu
 /// the request automatically after a write/flush error.
 /// Keys come from the live PTY's provider (Claude/Kimi numbered dialog:
 /// `1` allows once, Esc denies — `n` would be ignored and Enter would allow).
+/// `remote_id` is the thread id the phone card was published under.
 pub(crate) async fn send_pty_approval(
     state: &AppState,
     thread_id: &str,
+    remote_id: &str,
     request_id: &str,
     approve: bool,
 ) -> Result<(), DispatchError> {
@@ -982,8 +987,10 @@ pub(crate) async fn send_pty_approval(
         .ok_or_else(|| DispatchError::Message("no active terminal session".into()))?;
     let data = crate::remote::terminal_approvals::approval_keys(&provider, approve)
         .ok_or_else(|| DispatchError::Message("terminal approvals are not supported for this agent".into()))?;
-    send_pty_raw_checked(state, thread_id, data, Some(request_id)).await?;
+    send_pty_raw_checked(state, thread_id, data, Some((remote_id, request_id))).await?;
     crate::remote::terminal_approvals::answered(thread_id, request_id);
+    // `answered` sends no resolve, so close the Teams wait sample here.
+    let _ = crate::teams::approval_wait::note_resolved(&state.db, request_id).await;
     Ok(())
 }
 
@@ -999,6 +1006,7 @@ const QUESTION_KEY_GAP: std::time::Duration = std::time::Duration::from_millis(1
 pub(crate) async fn send_pty_question_answer(
     state: &AppState,
     thread_id: &str,
+    remote_id: &str,
     request_id: &str,
     answers: &serde_json::Value,
 ) -> Result<(), DispatchError> {
@@ -1030,7 +1038,7 @@ pub(crate) async fn send_pty_question_answer(
         }
         let mut writer = session.writer.lock().await;
         session.validate_input_ticket(&input_ticket).map_err(DispatchError::Message)?;
-        if index == 0 && !state.remote.take_pending_user_input(thread_id, request_id).await {
+        if index == 0 && !state.remote.take_pending_user_input(remote_id, request_id).await {
             return Err(DispatchError::Message("question already resolved".into()));
         }
         use std::io::Write;
@@ -1042,11 +1050,12 @@ pub(crate) async fn send_pty_question_answer(
     Ok(())
 }
 
+/// `approval` is the phone card being answered: (published thread id, request id).
 async fn send_pty_raw_checked(
     state: &AppState,
     thread_id: &str,
     data: &str,
-    approval_request_id: Option<&str>,
+    approval: Option<(&str, &str)>,
 ) -> Result<(), DispatchError> {
     let input_ticket = {
         let sessions = state.sessions.lock().await;
@@ -1070,8 +1079,8 @@ async fn send_pty_raw_checked(
     }
     let mut writer = session.writer.lock().await;
     session.validate_input_ticket(&input_ticket).map_err(DispatchError::Message)?;
-    if let Some(request_id) = approval_request_id {
-        if !state.remote.take_pending_approval(thread_id, request_id).await {
+    if let Some((remote_id, request_id)) = approval {
+        if !state.remote.take_pending_approval(remote_id, request_id).await {
             return Err(DispatchError::Message("approval already resolved".into()));
         }
     }
@@ -1086,7 +1095,7 @@ async fn send_pty_raw_checked(
     // user Input — phones would show a blank/garbage bubble and Ctrl-U `\x15`
     // was appearing as a user turn after remote path-inject.
     // An approval key (`1`) is a dialog answer, not a user message.
-    if approval_request_id.is_none() && !data.is_empty() && !data.chars().all(|c| c.is_control()) {
+    if approval.is_none() && !data.is_empty() && !data.chars().all(|c| c.is_control()) {
         let pool = state.db.clone();
         let tid = thread_id.to_string();
         let content = data.to_string();

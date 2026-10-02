@@ -1,6 +1,6 @@
 # Release Notes
 
-User-facing delta since the **last public GitHub release** (currently v4.3.0). This is the source of truth for `/release` — not a session diary.
+User-facing delta since the **last public GitHub release** (currently v4.3.1). This is the source of truth for `/release` — not a session diary.
 
 **Audience (hard rule)**
 - Write for a **non-technical person who has never coded**. They only care what they **see or experience** in the app.
@@ -29,12 +29,27 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ### Improved
 
 ### Fixed
+
+## v4.3.1 — 2026-10-01
+
+### New
+- **GPT-6.1 Sol** — Codex sessions can use OpenAI's new GPT-6.1 Sol, including its Max and Ultra reasoning levels, and the Usage tab shows what it costs. It appears in the model picker once your Codex CLI is version 0.159 or newer.
+- **Claude Sonnet 5.5 costs** — The Usage tab and Teams now show costs for Claude Sonnet 5.5. Teams usage already sent for Sonnet 5.5 or GPT-6.1 Sol gets its cost filled in automatically after the update.
+- **ChatGPT Pro 500** — Accounts now recognize OpenAI's new Pro 500 plan and show its name.
+
+### Improved
+- **Reasoning levels follow each Codex model** — The reasoning slider now offers exactly the levels each Codex model supports, so newer models like GPT-6 Astra show Max and Ultra, and future models work without an update.
+
+### Fixed
+- **Codex remembers Max and Ultra** — Reopening a Codex chat that used Max or Ultra reasoning showed High instead. It now shows the level the chat actually used.
 - **Answer Claude's questions from your phone** — When Claude asked you a question with choices in a terminal session, the phone only showed a spinner and you had to go back to your Mac to answer. The question now appears on your phone with its choices (or a box to write your own), and your answer goes straight to Claude.
+- **Your phone controls Claude terminals you started in agmux** — For a Claude terminal session started in agmux, the phone's permission card showed a long code instead of the session name and Allow or Deny only said "thread not found", Stop said no terminal was running, and a message could start a hidden second copy of the conversation instead of appearing in the terminal on your Mac. Approvals, messages, Stop and model changes from your phone now reach that terminal.
 - **Background work keeps running when you switch away** — Leaving a Claude or Grok session while it was still working in the background (a helper agent, a longer job or a command) could stop the session and cancel that work partway through. A session you've moved away from now stays running until everything it started has finished, and only then closes to save memory.
 - **Change counts show for Claude sessions that ask another AI** — When a Claude terminal session ran Grok to get a second opinion, its sidebar row lost its lines-added/removed count. The count now stays, and a session already affected shows it again the next time you send it a message.
 - **Terminal text no longer goes missing** — After the app had been open for a long time, terminal text could turn into scattered letters with big gaps. Refreshing didn't help; only restarting agmux did. The terminals now repair themselves within a few seconds, and the refresh button fixes them too.
 - **"Use this account" no longer gets stuck on sessions** — It kept asking you to close sessions, even ones where you had quit Grok or Codex (or it had crashed), until you restarted agmux. Quitting now frees the account right away. If Grok sessions are still open on either account, it names them and offers to stop them and switch; they pick up on the new account when you open them again. For Codex, it names the sessions to close first.
 - **Account switching no longer leaves an account stuck** — When a terminal couldn't start, or couldn't start on the account agmux had just moved it to, agmux kept holding that account until you restarted. "Use this account" then refused it, and reopening the session could close it again. The account is now freed right away.
+- **The "finished" pop-up matches the new look** — The pop-up that tells you a session finished still had the old gold style. It now matches the rest of the flat look; the frosted Glass look keeps the original.
 
 ## v4.3.0 — 2026-09-26
 

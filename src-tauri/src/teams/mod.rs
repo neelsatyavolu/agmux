@@ -260,8 +260,10 @@ pub fn spawn_auto_uploader(pool: SqlitePool) {
 
 // Persist the scanner revision in the existing integer repair marker. Revision
 // 1 was the original agmux-only filter; 2 adds provider coverage and complete
-// absolute snapshots. Bump whenever ownership/parser coverage needs backfill.
-const SCAN_REPAIR_REVISION: i64 = 5;
+// absolute snapshots. Bump whenever ownership/parser coverage needs backfill,
+// or static prices change for models already in uploaded buckets (6: GPT-6.1
+// Sol and Claude Sonnet 5.5 were uploaded with unknown cost).
+const SCAN_REPAIR_REVISION: i64 = 6;
 
 // Prevent an older manual/automatic snapshot from uploading after a newer one,
 // or pruning while another sync still has batches in flight.

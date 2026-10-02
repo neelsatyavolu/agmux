@@ -88,7 +88,7 @@ import {
 } from "../../lib/providers/initialPermissions";
 import { useSessionNameStore } from "../../stores/sessionNameStore";
 import { PromptDiffView } from "./PromptDiffView";
-import type { CodexReasoningEffort } from "../../lib/types";
+import type { CodexModelOption, CodexReasoningEffort } from "../../lib/types";
 import {
   CODEX_MODELS,
   clampCodexEffort,
@@ -96,7 +96,7 @@ import {
   getModelContextWindow,
   mergeCodexModelOptions,
   normalizeCodexEffort,
-  prettifyCodexModelName,
+  parseCodexModelList,
 } from "../../lib/types";
 import { ThreadTopBar } from "./ThreadTopBar";
 import { GitSidebar } from "./GitSidebar";
@@ -484,10 +484,7 @@ function normalizeChangeKind(raw: unknown): FileChangeKind | undefined {
 const EMPTY_FILE_CHANGES: FileChange[] = [];
 
 /** A model option returned by `codex_list_models` (model/list RPC). */
-interface DynamicModel {
-  slug: string;
-  name: string;
-}
+type DynamicModel = CodexModelOption;
 
 const EMPTY_DYNAMIC_MODELS: DynamicModel[] = [];
 
@@ -2732,24 +2729,6 @@ function createObjectUrlFromBase64Image(data: string, mediaType: string): string
   }
 }
 
-/** Parse the model/list response into a flat list of {slug, name}. */
-function parseDynamicModels(response: unknown): DynamicModel[] {
-  if (!response || typeof response !== "object") return [];
-  const rec = response as Record<string, unknown>;
-  // Response may be { data: [...] } directly (our invoke strips "result" wrapper)
-  const items = Array.isArray(rec.data) ? rec.data : Array.isArray(rec) ? rec : [];
-  return items
-    .map((item: unknown) => {
-      if (!item || typeof item !== "object") return null;
-      const r = item as Record<string, unknown>;
-      const slug = String(r.model ?? r.id ?? "");
-      // Ignore server displayName — often "GPT-5.6-Sol"; prettify from slug.
-      const name = prettifyCodexModelName(slug);
-      return slug ? { slug, name } : null;
-    })
-    .filter((m): m is DynamicModel => m !== null);
-}
-
 function extractCodexConfigRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object") return null;
   const rec = value as Record<string, unknown>;
@@ -2995,7 +2974,7 @@ const ModelEffortSelector = memo(function ModelEffortSelector({
   const [showModelMenu, setShowModelMenu] = useState(false);
 
   const selectedModelLabel = modelOptions.find((m) => m.slug === model)?.name ?? model;
-  const effortOptions = codexEffortsForModel(model);
+  const effortOptions = codexEffortsForModel(model, modelOptions);
 
   return (
     <>
@@ -5446,13 +5425,13 @@ export function CodexSessionView({ session, embedded, compact = false, initialVi
     setModel(slug);
     // GPT-5.6 Max/Ultra only apply to some models — clamp if unsupported.
     setEffortRaw((curr) => {
-      const next = clampCodexEffort(slug, curr);
+      const next = clampCodexEffort(slug, curr, dynamicModels);
       if (next !== curr) {
         useSettingsStore.getState().updateSettings({ codexEffort: next, codexEffortExplicit: true });
       }
       return next;
     });
-  }, [setModel]);
+  }, [setModel, dynamicModels]);
   const setEffortFromUser = useCallback((val: CodexReasoningEffort) => {
     setEffortOverride(true);
     setEffort(val);
@@ -5686,7 +5665,7 @@ export function CodexSessionView({ session, embedded, compact = false, initialVi
     if (!connected) return;
     codexListModels(workDir)
       .then((resp) => {
-        const models = parseDynamicModels(resp);
+        const models = parseCodexModelList(resp);
         if (models.length > 0) setDynamicModels(models);
       })
       .catch((err) => console.warn("Failed to fetch Codex models:", err));
@@ -5996,14 +5975,9 @@ export function CodexSessionView({ session, embedded, compact = false, initialVi
         if (result.model) {
           setModel(result.model);
         }
-        if (
-          !effortOverrideRef.current &&
-          (result.effort === "low" ||
-            result.effort === "medium" ||
-            result.effort === "high" ||
-            result.effort === "xhigh")
-        ) {
-          setEffort(result.effort);
+        const historyEffort = normalizeCodexEffort(result.effort);
+        if (!effortOverrideRef.current && historyEffort) {
+          setEffort(historyEffort);
         }
         // Populate API token data from history if available (nested
         // last_token_usage / total_token_usage parsed on the Rust side).
@@ -6096,8 +6070,9 @@ export function CodexSessionView({ session, embedded, compact = false, initialVi
         // Sync model/effort from the thread's actual metadata
         const meta = extractThreadMetadata(thread);
         if (meta.model) setModel(meta.model);
-        if (meta.effort === "low" || meta.effort === "medium" || meta.effort === "high" || meta.effort === "xhigh") {
-          setEffort(meta.effort);
+        const metaEffort = normalizeCodexEffort(meta.effort);
+        if (metaEffort) {
+          setEffort(metaEffort);
         }
       })
       .catch((_resumeErr) => {
@@ -6467,8 +6442,9 @@ export function CodexSessionView({ session, embedded, compact = false, initialVi
           if (threadData) {
             const meta = extractThreadMetadata(threadData);
             if (meta.model) setModel(meta.model);
-            if (meta.effort === "low" || meta.effort === "medium" || meta.effort === "high" || meta.effort === "xhigh") {
-              setEffort(meta.effort);
+            const metaEffort = normalizeCodexEffort(meta.effort);
+            if (metaEffort) {
+              setEffort(metaEffort);
             }
             // Sync plan mode from thread collaborationMode
             const threadCollabMode = threadData.collaborationMode as { mode?: string; id?: string } | string | undefined;
@@ -7701,8 +7677,9 @@ export function CodexSessionView({ session, embedded, compact = false, initialVi
           if (!thread) return;
           const meta = extractThreadMetadata(thread);
           if (meta.model) setModel(meta.model);
-          if (meta.effort === "low" || meta.effort === "medium" || meta.effort === "high" || meta.effort === "xhigh") {
-            setEffort(meta.effort);
+          const metaEffort = normalizeCodexEffort(meta.effort);
+          if (metaEffort) {
+            setEffort(metaEffort);
           }
           // Sync plan mode
           const collabMode = thread.collaborationMode as { mode?: string; id?: string } | string | undefined;

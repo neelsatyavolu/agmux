@@ -41,6 +41,7 @@ import {
   type InteractionMode,
   mergeClaudeModelOptions,
   mergeCodexModelOptions,
+  parseCodexModelList,
   prettifyCodexModelName,
   prettifyOpenCodeSlug,
   type ClaudePickerModel,
@@ -1023,19 +1024,7 @@ export function NewTaskDialog({ projectId: initialProjectId, onClose }: NewTaskD
         if (cancelled) return;
         const resp = await codexListModels(project.repo_path);
         if (cancelled) return;
-        const rec = resp as Record<string, unknown>;
-        const items = Array.isArray(rec.data) ? rec.data : Array.isArray(rec) ? rec : [];
-        const models: CodexModelOption[] = items
-          .map((item: unknown) => {
-            if (!item || typeof item !== "object") return null;
-            const r = item as Record<string, unknown>;
-            const slug = String(r.model ?? r.id ?? "");
-            // Ignore server displayName — often "GPT-5.6-Sol"; prettify from slug.
-            const name = prettifyCodexModelName(slug);
-            return slug ? { slug, name } : null;
-          })
-          .filter((m): m is CodexModelOption => m !== null);
-        if (!cancelled) setCodexDynamicModels(mergeCodexModelOptions(models));
+        setCodexDynamicModels(mergeCodexModelOptions(parseCodexModelList(resp)));
       } catch {
         /* silent — picker falls back to static CODEX_MODELS */
       }

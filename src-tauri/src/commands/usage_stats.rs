@@ -88,7 +88,7 @@ fn grok_event_timestamp(value: &Value, meta: &Value) -> Option<DateTime<Utc>> {
         })
 }
 
-/// Standard direct-API USD per million tokens, verified through 2026-09-22.
+/// Standard direct-API USD per million tokens, verified through 2026-09-29.
 /// Sources and limitations: docs/teams-pricing-verification-2026-09-08.md.
 /// These are API-equivalent estimates, not subscription charges or invoices.
 struct ModelPricing {
@@ -135,14 +135,16 @@ fn model_pricing(model: &str) -> ModelPricing {
         "claude-opus-5" | "claude-opus-4-8" | "claude-opus-4-7" |
         "claude-opus-4-6" | "claude-opus-4-5" => Some((5.0, 25.0, 0.50, 6.25)),
         "claude-opus-4-1" | "claude-opus-4" => Some((15.0, 75.0, 1.50, 18.75)),
-        // Anthropic made Sonnet 5's introductory price permanent.
-        "claude-sonnet-5" => Some((2.0, 10.0, 0.20, 2.50)),
+        // Anthropic made Sonnet 5's introductory price permanent; 5.5 kept it.
+        "claude-sonnet-5-5" | "claude-sonnet-5" => Some((2.0, 10.0, 0.20, 2.50)),
         "claude-sonnet-4-6" | "claude-sonnet-4-5" | "claude-sonnet-4" =>
             Some((3.0, 15.0, 0.30, 3.75)),
         "claude-haiku-4-5" => Some((1.0, 5.0, 0.10, 1.25)),
         "claude-3-5-haiku" => Some((0.80, 4.0, 0.08, 1.0)),
         // OpenAI documents explicit cache writes only for GPT-5.6 and later.
         "gpt-6-astra" => Some((10.0, 50.0, 1.0, 12.50)),
+        // 6.1 Sol halves 6 Sol's cache-read rate; everything else matches.
+        "gpt-6.1-sol" => Some((2.0, 10.0, 0.10, 2.50)),
         "gpt-6-sol" => Some((2.0, 10.0, 0.20, 2.50)),
         "gpt-6-luna" => Some((0.10, 0.50, 0.01, 0.125)),
         "gpt-5.6" | "gpt-5.6-sol" | "gpt-daybreak-blue-latest" =>
@@ -244,7 +246,7 @@ fn long_context_step(model: &str) -> Option<(i64, f64, f64)> {
     match pricing_model_key(model).as_str() {
         "gpt-5.4" | "gpt-5.4-2026-03-05" | "gpt-5.5" | "gpt-5.6" |
         "gpt-5.6-sol" | "gpt-daybreak-blue-latest" | "gpt-5.6-terra" |
-        "gpt-5.6-luna" | "gpt-6-astra" | "gpt-6-sol" | "gpt-6-luna" =>
+        "gpt-5.6-luna" | "gpt-6-astra" | "gpt-6.1-sol" | "gpt-6-sol" | "gpt-6-luna" =>
             Some((272_000, 2.0, 1.5)),
         "grok-4.7" | "grok-4.6" | "grok-4.5" | "grok-build-0.1" | "grok-4.3" |
         "grok-4.20-multi-agent-0309" | "grok-4.20-0309-reasoning" |
@@ -948,7 +950,7 @@ const GROK_USAGE_REPAIR_KEY: &str = "usage-stats:grok:prompt-accounting-v2";
 
 // Bump when static pricing or catalog semantics change. This seals a retained
 // file walk only, never certifies missing logs or reprices lifetime aggregates.
-const USAGE_PRICING_REVISION: i64 = 5;
+const USAGE_PRICING_REVISION: i64 = 6;
 
 fn usage_scan_is_cached(last: Option<&Instant>, force: bool) -> bool {
     !force && last.is_some_and(|last| last.elapsed() < SCAN_CACHE_TTL)
@@ -1999,10 +2001,14 @@ mod tests {
         // Independent official rate checks; tuple is input/output/cache read/cache write.
         for (model, expected) in [
             ("gpt-6-astra", (10.0, 50.0, 1.0, 12.5)),
+            ("gpt-6.1-sol", (2.0, 10.0, 0.1, 2.5)),
+            ("openai/gpt-6.1-sol", (2.0, 10.0, 0.1, 2.5)),
             ("gpt-6-sol", (2.0, 10.0, 0.2, 2.5)),
             ("gpt-6-luna", (0.1, 0.5, 0.01, 0.125)),
             ("openai/gpt-6-sol", (2.0, 10.0, 0.2, 2.5)),
             ("openai/gpt-6-luna", (0.1, 0.5, 0.01, 0.125)),
+            ("claude-sonnet-5-5", (2.0, 10.0, 0.2, 2.5)),
+            ("anthropic/claude-sonnet-5.5", (2.0, 10.0, 0.2, 2.5)),
             ("claude-opus-5-5", (4.0, 20.0, 0.2, 5.0)),
             ("anthropic/claude-opus-5-5-20260922", (4.0, 20.0, 0.2, 5.0)),
             ("gpt-5.6-sol", (4.0, 20.0, 0.4, 5.0)),
@@ -2039,6 +2045,7 @@ mod tests {
         assert!((claude - (0.1 + 1.0 + 0.0075 + 0.5 + 1.0)).abs() < 1e-9);
         for (model, input_rate, cache_read_rate, cache_write_rate) in [
             ("gpt-6-astra", 10.0, 1.0, 12.5),
+            ("gpt-6.1-sol", 2.0, 0.1, 2.5),
             ("gpt-6-sol", 2.0, 0.2, 2.5),
             ("gpt-6-luna", 0.1, 0.01, 0.125),
         ] {
@@ -2082,7 +2089,7 @@ mod tests {
         use super::model_requires_cache_write_usage;
         crate::pricing_catalog::test_clear_catalog();
         for model in ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
-            "openai/gpt-5.6", "claude-sonnet-5"] {
+            "openai/gpt-5.6", "claude-sonnet-5", "gpt-6.1-sol", "claude-sonnet-5-5"] {
             assert!(model_requires_cache_write_usage(model), "{model}");
         }
         for model in ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex", "grok-4.6",

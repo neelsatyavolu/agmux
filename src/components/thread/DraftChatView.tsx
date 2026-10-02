@@ -37,7 +37,7 @@ import {
 } from "../ui/ComposerDropdown";
 import { EffortSelector } from "../ui/EffortSelector";
 import { SlashCommandPopup } from "./SlashCommandPopup";
-import { CLAUDE_EFFORTS, CODEX_MODELS, CURSOR_MODELS, defaultThreadName, supportsXHighEffort, supportsGrokEffort, isEffortOptionDisabled, mergeCodexModelOptions, prettifyCodexModelName, codexEffortsForModel, clampCodexEffort, normalizeCodexEffort, geminiEffortFromSlug, applyGeminiEffort } from "../../lib/types";
+import { CLAUDE_EFFORTS, CODEX_MODELS, CURSOR_MODELS, defaultThreadName, supportsXHighEffort, supportsGrokEffort, isEffortOptionDisabled, mergeCodexModelOptions, parseCodexModelList, codexEffortsForModel, clampCodexEffort, normalizeCodexEffort, geminiEffortFromSlug, applyGeminiEffort } from "../../lib/types";
 import type { Provider, DraftProvider, ClaudeEffort, CodexReasoningEffort, CodexModelOption } from "../../lib/types";
 import type { OpenCodeAgent } from "../../lib/opencodeSdkCommands";
 import { mlxListModels, mlxGatewayStatus, mlxCapability, localModelSlug, resolveLocalModelId, type MlxModel } from "../../lib/mlx";
@@ -491,20 +491,7 @@ export function DraftChatView({ draft }: Props) {
         }
         const resp = await codexListModels(draft.repoPath);
         if (cancelled) return;
-        // Parse response into model options
-        const rec = resp as Record<string, unknown>;
-        const items = Array.isArray(rec.data) ? rec.data : Array.isArray(rec) ? rec : [];
-        const models: CodexModelOption[] = items
-          .map((item: unknown) => {
-            if (!item || typeof item !== "object") return null;
-            const r = item as Record<string, unknown>;
-            const slug = String(r.model ?? r.id ?? "");
-            // Ignore server displayName — often "GPT-5.6-Sol"; prettify from slug.
-            const name = prettifyCodexModelName(slug);
-            return slug ? { slug, name } : null;
-          })
-          .filter((m): m is CodexModelOption => m !== null);
-        setCodexDynamicModels(mergeCodexModelOptions(models));
+        setCodexDynamicModels(mergeCodexModelOptions(parseCodexModelList(resp)));
       } catch {
         // Fall back to static models — no-op
       }
@@ -606,7 +593,7 @@ export function DraftChatView({ draft }: Props) {
     setCodexModelOverride(p === "Codex" && !!m);
     if (p === "Codex") {
       // GPT-5.6 Max/Ultra only apply to some models — clamp if unsupported.
-      setCodexEffort((curr) => clampCodexEffort(m, curr));
+      setCodexEffort((curr) => clampCodexEffort(m, curr, codexDynamicModels));
     }
     if (p === "ClaudeCode" && m) {
       setSelectedModel(m);
@@ -642,7 +629,7 @@ export function DraftChatView({ draft }: Props) {
       setWorkMode(saved === "local" ? "local" : "worktree");
       if (m) updateSettings({ lastUsedModel: m, defaultProvider: "Cursor" });
     }
-  }, [updateSettings, isCoworkDraft, selectedEffort]);
+  }, [updateSettings, isCoworkDraft, selectedEffort, codexDynamicModels]);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -1629,7 +1616,7 @@ export function DraftChatView({ draft }: Props) {
                       {/* Codex effort — selector opens popover with slider */}
                       {(() => {
                         const codexModelForEfforts = model;
-                        const effortOptions = codexEffortsForModel(codexModelForEfforts).map(
+                        const effortOptions = codexEffortsForModel(codexModelForEfforts, codexDynamicModels).map(
                           (e) => ({
                             value: e.value,
                             label: e.label,

@@ -3183,13 +3183,13 @@ mod tests {
         let (remote, mut rx) = connected_remote().await;
         let mut tracker = Tracker::default();
         let payload = serde_json::json!({ "tool_name": "Bash", "tool_input": { "command": "cargo test" } });
-        let changes = tracker.on_hook("t1", None, "permission-request", &payload, Some("ClaudeCode"));
-        let [Change::Publish { request_id, tool_name, detail }] = &changes[..] else { panic!("{changes:?}") };
+        let changes = tracker.on_hook("t1", None, "permission-request", &payload, Some(("ClaudeCode", "t1")));
+        let [Change::Publish { request_id, tool_name, detail, .. }] = &changes[..] else { panic!("{changes:?}") };
         remote.push_approval_requested("t1", request_id, tool_name, detail).await;
         assert!(matches!(drain(&mut rx)[..], [WireMessage::ApprovalRequested { request_id: ref rid, .. }] if rid == request_id));
 
         let changes = tracker.on_hook("t1", None, "stop", &serde_json::json!({}), None);
-        let [Change::Resolve { request_id: resolved }] = &changes[..] else { panic!("{changes:?}") };
+        let [Change::Resolve { request_id: resolved, .. }] = &changes[..] else { panic!("{changes:?}") };
         assert_eq!(resolved, request_id);
         remote.push_approval_resolved(resolved, Some("t1")).await;
         assert!(!remote.take_pending_approval("t1", request_id).await);

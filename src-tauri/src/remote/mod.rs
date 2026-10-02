@@ -1,6 +1,7 @@
 //! Mobile remote control: outbound bridge to Cloudflare Durable Object relay.
 
 pub mod auth;
+pub(crate) mod claude_terminals;
 pub mod client;
 mod frames;
 pub mod deeplink;

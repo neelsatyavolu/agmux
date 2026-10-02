@@ -117,11 +117,17 @@ fn record_hook_activity(session_id: &str, event: &str, payload: &serde_json::Val
 /// `stop` hook fires, which left the remote catalog showing Running forever
 /// (the desktop sidebar clears its spinner client-side on the same keys).
 pub fn hook_clear_running(ids: &[&str]) {
+    // A Claude terminal started in agmux is also marked under its transcript
+    // id (the id phones check), which differs from its terminal id.
+    let transcripts: Vec<String> = ids
+        .iter()
+        .filter_map(|id| crate::remote::claude_terminals::transcript_of(id))
+        .collect();
     let mut guard = HOOK_ACTIVITY.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(map) = guard.as_mut() {
-        for id in ids {
+        for id in ids.iter().copied().chain(transcripts.iter().map(String::as_str)) {
             if !id.is_empty() {
-                map.remove(*id);
+                map.remove(id);
             }
         }
     }
@@ -1245,6 +1251,19 @@ async fn handle_connection(
                 // keep the map truthful.
                 record_hook_activity(&event.session_id, &event.event, &event.payload);
 
+                // Phones name a Claude terminal by its transcript id; remember
+                // which terminal runs it (startup, resume, /clear, each prompt).
+                if matches!(event.event.as_str(), "session-start" | "prompt-submit")
+                    && event.provider.as_deref().unwrap_or("claude") == "claude"
+                {
+                    if let (Some(state), Some(sid)) = (
+                        app.try_state::<crate::state::AppState>(),
+                        event.payload.get("session_id").and_then(|v| v.as_str()),
+                    ) {
+                        crate::remote::claude_terminals::note_hook(&state, &event.session_id, sid).await;
+                    }
+                }
+
                 // Server-side dedup: skip redundant state transitions
                 let should_emit = {
                     let mut guard = dedup.lock().unwrap_or_else(|e| e.into_inner());
@@ -1342,6 +1361,17 @@ mod tests {
     };
     use serde_json::json;
     use std::collections::HashMap;
+
+    #[test]
+    fn interrupting_a_claude_terminal_clears_its_transcript_too() {
+        crate::remote::claude_terminals::note("clear-test-pty", "clear-test-native");
+        super::record_hook_activity("clear-test-pty", "prompt-submit", &json!({ "session_id": "clear-test-native" }));
+        assert!(super::hook_running_session_ids().contains("clear-test-native"));
+        super::hook_clear_running(&["clear-test-pty", ""]);
+        let running = super::hook_running_session_ids();
+        assert!(!running.contains("clear-test-pty"));
+        assert!(!running.contains("clear-test-native"), "phones check the transcript id");
+    }
 
     #[test]
     fn hook_log_preview_keeps_utf8_boundaries() {

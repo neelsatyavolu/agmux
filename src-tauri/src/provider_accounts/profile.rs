@@ -76,6 +76,9 @@ pub(super) fn plan_from_value(value: &str) -> Option<String> {
         "plus" => "Plus",
         "prolite" => "Pro 5x",
         "pro" => "Pro 20x",
+        // No multiplier label ships for this tier; ChatGPT 26.928 billing
+        // strings and help.openai.com/articles/9793128 both name it "Pro 500".
+        "promax" => "Pro 500",
         "team" | "self_serve_business_usage_based" => "Business",
         "self_serve_business_prolite" => "Business Premium",
         "business" | "ent26" | "enterprise_cbp_usage_based" | "enterprise" | "hc" => "Enterprise",
@@ -153,7 +156,7 @@ mod tests {
 
     #[test]
     fn native_tiers_map_from_explicit_claims_and_rpc_values() {
-        for (raw, label) in [("free", "Free"), ("plus", "Plus"), ("prolite", "Pro 5x"), ("pro", "Pro 20x"),
+        for (raw, label) in [("free", "Free"), ("plus", "Plus"), ("prolite", "Pro 5x"), ("pro", "Pro 20x"), ("promax", "Pro 500"),
             ("go", "Go"), ("team", "Business"), ("self_serve_business_prolite", "Business Premium"),
             ("self_serve_business_usage_based", "Business"), ("business", "Enterprise"), ("ent26", "Enterprise"),
             ("enterprise_cbp_usage_based", "Enterprise"), ("enterprise_cbp_automation", "Enterprise (Automation)"),

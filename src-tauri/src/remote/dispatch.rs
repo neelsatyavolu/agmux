@@ -218,7 +218,8 @@ pub async fn interrupt_turn(app: &AppHandle, thread_id: &str) -> Result<(), Disp
         _ => {
             // PTY (only if live — don't spawn just to interrupt). Same stop key
             // as the desktop terminal: a second Ctrl-C quits Claude/Codex.
-            send_pty_raw(&state, thread_id, terminal_stop_key(&thread.provider)).await
+            let pty_id = super::claude_terminals::terminal_id(&state, thread_id).await;
+            send_pty_raw(&state, &pty_id, terminal_stop_key(&thread.provider)).await
         }
     }
 }
@@ -279,6 +280,16 @@ pub async fn respond_approval(
     let tid = thread_id
         .map(|s| s.to_string())
         .ok_or_else(|| DispatchError::Message("threadId required for approval".into()))?;
+
+    // Terminal dialogs answer the live PTY that raised them. Route by the open
+    // request: a Claude terminal started in agmux has no threads row.
+    if request_id.starts_with("term-") {
+        let (pty_id, remote_id) = super::terminal_approvals::pending_terminal(&tid, request_id)
+            .ok_or_else(|| DispatchError::Message("approval already resolved".into()))?;
+        let approve = terminal_decision_approves(decision)
+            .ok_or_else(|| DispatchError::Message(format!("unknown approval decision: {decision}")))?;
+        return crate::dispatch::send_pty_approval(&state, &pty_id, &remote_id, request_id, approve).await;
+    }
 
     // resolve_thread (not get_thread) so a discovered/synthetic Codex chat with
     // no DB row still resolves to its provider + work_dir for app-server routing.
@@ -390,7 +401,7 @@ pub async fn respond_approval(
             // as raw keystrokes in whatever is running now.
             let approve = terminal_decision_approves(decision)
                 .ok_or_else(|| DispatchError::Message(format!("unknown approval decision: {decision}")))?;
-            crate::dispatch::send_pty_approval(&state, &tid, request_id, approve).await
+            crate::dispatch::send_pty_approval(&state, &tid, &tid, request_id, approve).await
         }
     }
 }
@@ -404,15 +415,18 @@ pub async fn respond_user_input(
     let state = app
         .try_state::<AppState>()
         .ok_or_else(|| DispatchError::Message("app state unavailable".into()))?;
+    // Terminal AskUserQuestion menus (`terminal_approvals`) answer the live PTY
+    // by keystroke, routed by the open request like terminal approvals.
+    if request_id.starts_with("term-") {
+        let (pty_id, remote_id) = super::terminal_approvals::pending_terminal(thread_id, request_id)
+            .ok_or_else(|| DispatchError::Message("question already answered".into()))?;
+        return crate::dispatch::send_pty_question_answer(&state, &pty_id, &remote_id, request_id, &answers).await;
+    }
     let (thread, _) = resolve_thread(&state.db, thread_id).await?;
     if !super::protocol::is_remote_eligible_provider(&thread.provider) {
         return Err(DispatchError::Message("thread not eligible for remote".into()));
     }
     match thread.provider.as_str() {
-        // Terminal AskUserQuestion menus (`terminal_approvals`) answer by keystroke.
-        "ClaudeCode" if request_id.starts_with("term-") => {
-            crate::dispatch::send_pty_question_answer(&state, thread_id, request_id, &answers).await?;
-        }
         "ClaudeCode" => {
             let ctx = state.sdk_sessions.lock().await.get(thread_id).cloned()
                 .ok_or_else(|| DispatchError::Message("no SDK session".into()))?;
@@ -681,15 +695,16 @@ pub async fn set_thread_config(
                 // value never reaches a resume — the real switch is `/model`,
                 // exactly what a user would type. The mid-turn guard above
                 // already ensured the TUI is idle.
+                let pty_id = super::claude_terminals::terminal_id(&state, thread_id).await;
                 let alive = {
                     let sessions = state.sessions.lock().await;
-                    match sessions.get(thread_id) {
+                    match sessions.get(&pty_id) {
                         Some(s) => s.is_alive().await,
                         None => false,
                     }
                 };
                 if alive {
-                    send_pty_raw(&state, thread_id, &format!("/model {m}\r")).await?;
+                    send_pty_raw(&state, &pty_id, &format!("/model {m}\r")).await?;
                 } else if synthetic {
                     return Err(DispatchError::Message(
                         "session isn't running — open it or send a message first, then set the model".into(),

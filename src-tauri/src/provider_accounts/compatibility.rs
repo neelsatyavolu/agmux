@@ -17,7 +17,8 @@ fn codex_compatible(model: Option<&str>, minimum_plan: Option<&str>, plan: Optio
     // Catalogs may be cached/bundled, so presence is necessary but insufficient.
     // These consumer groups are a conservative floor, not a model entitlement map.
     fn consumer_group(plan: &str) -> Option<u8> {
-        match plan { "Free" => Some(0), "Go" => Some(1), "Plus" => Some(2), "Pro 5x" | "Pro 20x" => Some(3), _ => None }
+        match plan { "Free" => Some(0), "Go" => Some(1), "Plus" => Some(2), "Pro 5x" | "Pro 20x" => Some(3),
+            "Pro 500" => Some(4), _ => None }
     }
     match (consumer_group(minimum), consumer_group(candidate)) {
         (Some(required), Some(actual)) => actual >= required,
@@ -81,6 +82,14 @@ mod tests {
     fn pro_tiers_share_model_access() {
         assert!(compatible(Some("gpt-5.4"), Some("Pro 20x"), Some("Pro 5x")));
         assert!(compatible(Some("gpt-5.4"), Some("Pro 5x"), Some("Pro 20x")));
+    }
+
+    #[test]
+    fn pro_500_covers_lower_pro_tiers_but_not_the_reverse() {
+        // Pro 500 alone includes Ultrafast, so lower tiers cannot stand in for it.
+        assert!(compatible(Some("gpt-5.4"), Some("Pro 20x"), Some("Pro 500")));
+        assert!(compatible(Some("gpt-5.4"), Some("Plus"), Some("Pro 500")));
+        assert!(!compatible(Some("gpt-5.4"), Some("Pro 500"), Some("Pro 20x")));
     }
 
     #[test]

@@ -183,16 +183,19 @@ pub(crate) fn question_keys(questions: &Value, answers: &Value) -> Result<Vec<St
     Ok(keys)
 }
 
+/// `remote_id` is the id phones list the session under (see `phone_thread_id`).
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Change {
-    Publish { request_id: String, tool_name: String, detail: String },
-    Resolve { request_id: String },
-    Ask { request_id: String, questions: Value },
-    ResolveQuestion { request_id: String },
+    Publish { request_id: String, remote_id: String, tool_name: String, detail: String },
+    Resolve { request_id: String, remote_id: String },
+    Ask { request_id: String, remote_id: String, questions: Value },
+    ResolveQuestion { request_id: String, remote_id: String },
 }
 
 struct Pending {
     request_id: String,
+    /// Where the card was published, so it resolves there too.
+    remote_id: String,
     signature: String,
     /// Set for an AskUserQuestion menu (a phone question, not an approval).
     questions: Option<Value>,
@@ -207,9 +210,18 @@ pub(crate) struct Tracker {
 impl Tracker {
     fn resolve(&mut self, thread_id: &str) -> Option<Change> {
         self.pending.remove(thread_id).map(|p| match p.questions {
-            Some(_) => Change::ResolveQuestion { request_id: p.request_id },
-            None => Change::Resolve { request_id: p.request_id },
+            Some(_) => Change::ResolveQuestion { request_id: p.request_id, remote_id: p.remote_id },
+            None => Change::Resolve { request_id: p.request_id, remote_id: p.remote_id },
         })
+    }
+
+    /// The terminal holding the open request `request_id`, as (PTY id, phone
+    /// id), when `phone_thread_id` names it by either id.
+    fn find(&self, phone_thread_id: &str, request_id: &str) -> Option<(String, String)> {
+        self.pending.iter()
+            .find(|(id, p)| p.request_id == request_id
+                && (id.as_str() == phone_thread_id || p.remote_id == phone_thread_id))
+            .map(|(id, p)| (id.clone(), p.remote_id.clone()))
     }
 
     fn pending_questions(&self, thread_id: &str, request_id: &str) -> Option<&Value> {
@@ -218,42 +230,47 @@ impl Tracker {
             .and_then(|p| p.questions.as_ref())
     }
 
-    /// `live_provider` is the provider of the thread's live PTY, if any.
+    /// `live` is the thread's live PTY, if any: its provider and the id phones
+    /// list it under.
     pub(crate) fn on_hook(
         &mut self,
         thread_id: &str,
         hook_provider: Option<&str>,
         event: &str,
         payload: &Value,
-        live_provider: Option<&str>,
+        live: Option<(&str, &str)>,
     ) -> Vec<Change> {
         match event {
             "permission-request" => {
                 // A new dialog replaces whatever the previous one was.
                 let mut changes: Vec<Change> = self.resolve(thread_id).into_iter().collect();
                 let name = tool_name(payload);
-                let answerable = live_provider.is_some_and(|p| {
+                let Some((provider, remote_id)) = live.filter(|(p, _)| {
                     approval_keys(p, true).is_some() && hook_matches_provider(p, hook_provider)
-                });
-                let questions = live_provider.filter(|_| answerable)
-                    .and_then(|p| answerable_questions(p, name, payload));
-                if let Some(questions) = questions {
+                }) else {
+                    return changes;
+                };
+                let remote_id = remote_id.to_string();
+                if let Some(questions) = answerable_questions(provider, name, payload) {
                     let request_id = format!("term-{}", uuid::Uuid::new_v4());
                     self.pending.insert(thread_id.to_string(), Pending {
                         request_id: request_id.clone(),
+                        remote_id: remote_id.clone(),
                         signature: call_signature(payload),
                         questions: Some(questions.clone()),
                     });
-                    changes.push(Change::Ask { request_id, questions });
-                } else if answerable && !is_question_tool(name) {
+                    changes.push(Change::Ask { request_id, remote_id, questions });
+                } else if !is_question_tool(name) {
                     let request_id = format!("term-{}", uuid::Uuid::new_v4());
                     self.pending.insert(thread_id.to_string(), Pending {
                         request_id: request_id.clone(),
+                        remote_id: remote_id.clone(),
                         signature: call_signature(payload),
                         questions: None,
                     });
                     changes.push(Change::Publish {
                         request_id,
+                        remote_id,
                         tool_name: if name.is_empty() { "Tool".into() } else { name.to_string() },
                         detail: approval_detail(payload),
                     });
@@ -294,23 +311,38 @@ fn with_tracker<T>(f: impl FnOnce(&mut Tracker) -> T) -> T {
     f(guard.get_or_insert_with(Tracker::default))
 }
 
-fn apply(app: &AppHandle, thread_id: &str, changes: Vec<Change>) {
+fn apply(app: &AppHandle, changes: Vec<Change>) {
     for change in changes {
         match change {
-            Change::Publish { request_id, tool_name, detail } => {
-                super::notify_approval(app, thread_id, &request_id, &tool_name, &detail);
+            Change::Publish { request_id, remote_id, tool_name, detail } => {
+                super::notify_approval(app, &remote_id, &request_id, &tool_name, &detail);
             }
-            Change::Resolve { request_id } => {
-                super::notify_approval_resolved(app, &request_id, Some(thread_id));
+            Change::Resolve { request_id, remote_id } => {
+                super::notify_approval_resolved(app, &request_id, Some(&remote_id));
             }
-            Change::Ask { request_id, questions } => {
-                super::notify_user_input(app, thread_id, &request_id, questions);
+            Change::Ask { request_id, remote_id, questions } => {
+                super::notify_user_input(app, &remote_id, &request_id, questions);
             }
-            Change::ResolveQuestion { request_id } => {
-                super::notify_user_input_resolved(app, &request_id, Some(thread_id));
+            Change::ResolveQuestion { request_id, remote_id } => {
+                super::notify_user_input_resolved(app, &request_id, Some(&remote_id));
             }
         }
     }
+}
+
+/// The id phones list a live Claude terminal under. One started in agmux has
+/// no threads row: its PTY and hooks carry agmux's own id, while the phone
+/// lists the transcript by Claude's session id (`payload.session_id`).
+async fn phone_thread_id(pool: &sqlx::SqlitePool, thread_id: &str, payload: &Value) -> String {
+    let Some(native) = hook_str(payload, &["session_id"]).filter(|sid| *sid != thread_id) else {
+        return thread_id.to_string();
+    };
+    let has_row = sqlx::query_scalar::<_, i64>("SELECT 1 FROM threads WHERE id = ? LIMIT 1")
+        .bind(thread_id)
+        .fetch_optional(pool)
+        .await
+        .map_or(true, |row| row.is_some());
+    if has_row { thread_id.to_string() } else { native.to_string() }
 }
 
 /// Hook events after parsing (never alters the hook socket protocol).
@@ -327,13 +359,20 @@ pub(crate) async fn on_hook_event(
     ) {
         return;
     }
-    let live_provider = if event == "permission-request" {
+    let live = if event == "permission-request" {
         match app.try_state::<crate::state::AppState>() {
             Some(state) => {
-                let sessions = state.sessions.lock().await;
-                match sessions.get(thread_id) {
-                    Some(session) if session.is_alive().await => Some(session.provider.clone()),
-                    _ => None,
+                let provider = {
+                    let sessions = state.sessions.lock().await;
+                    match sessions.get(thread_id) {
+                        Some(session) if session.is_alive().await => Some(session.provider.clone()),
+                        _ => None,
+                    }
+                };
+                match provider {
+                    Some(p) if p == "ClaudeCode" => Some((p, phone_thread_id(&state.db, thread_id, payload).await)),
+                    Some(p) => Some((p, thread_id.to_string())),
+                    None => None,
                 }
             }
             None => None,
@@ -341,20 +380,28 @@ pub(crate) async fn on_hook_event(
     } else {
         None
     };
-    let changes = with_tracker(|t| t.on_hook(thread_id, hook_provider, event, payload, live_provider.as_deref()));
-    apply(app, thread_id, changes);
+    let live = live.as_ref().map(|(p, id)| (p.as_str(), id.as_str()));
+    let changes = with_tracker(|t| t.on_hook(thread_id, hook_provider, event, payload, live));
+    apply(app, changes);
 }
 
 /// Desktop typed into the terminal (see `send_pty_input`).
 pub(crate) fn on_desktop_input(app: &AppHandle, thread_id: &str, data: &str) {
     let change = with_tracker(|t| t.on_desktop_input(thread_id, data));
-    apply(app, thread_id, change.into_iter().collect());
+    apply(app, change.into_iter().collect());
 }
 
 /// The thread's terminal process exited.
 pub(crate) fn forget(app: &AppHandle, thread_id: &str) {
     let change = with_tracker(|t| t.forget(thread_id));
-    apply(app, thread_id, change.into_iter().collect());
+    apply(app, change.into_iter().collect());
+}
+
+/// The live terminal whose open dialog is `request_id`, as (PTY id, phone id),
+/// when the phone's `thread_id` names it. Phone replies route through this, not
+/// a thread lookup: a Claude terminal started in agmux has no threads row.
+pub(crate) fn pending_terminal(thread_id: &str, request_id: &str) -> Option<(String, String)> {
+    with_tracker(|t| t.find(thread_id, request_id))
 }
 
 /// Drop tracking without a resolve: the caller clears the phone cards itself.
@@ -417,28 +464,28 @@ mod tests {
     #[test]
     fn permission_request_publishes_only_for_answerable_live_terminals() {
         let mut t = Tracker::default();
-        let changes = t.on_hook("t1", None, "permission-request", &permission("ls -la"), Some("ClaudeCode"));
+        let changes = t.on_hook("t1", None, "permission-request", &permission("ls -la"), Some(("ClaudeCode", "t1")));
         assert!(matches!(&changes[..], [Change::Publish { tool_name, detail, .. }]
             if tool_name == "Bash" && detail == "ls -la"));
 
         assert!(t.on_hook("t2", None, "permission-request", &permission("ls"), None).is_empty(), "no live PTY");
-        assert!(t.on_hook("t3", Some("grok"), "permission-request", &permission("ls"), Some("Grok")).is_empty());
-        assert!(t.on_hook("t4", Some("kimi"), "permission-request", &permission("ls"), Some("ClaudeCode")).is_empty(),
+        assert!(t.on_hook("t3", Some("grok"), "permission-request", &permission("ls"), Some(("Grok", "t3"))).is_empty());
+        assert!(t.on_hook("t4", Some("kimi"), "permission-request", &permission("ls"), Some(("ClaudeCode", "t4"))).is_empty(),
             "a hook from another provider must not drive this PTY");
-        assert!(published(&t.on_hook("t5", Some("kimi"), "permission-request", &permission("ls"), Some("Kimi"))).is_some());
+        assert!(published(&t.on_hook("t5", Some("kimi"), "permission-request", &permission("ls"), Some(("Kimi", "t5")))).is_some());
         let question = json!({ "tool_name": "AskUserQuestion", "tool_input": {} });
-        assert!(t.on_hook("t6", None, "permission-request", &question, Some("ClaudeCode")).is_empty());
+        assert!(t.on_hook("t6", None, "permission-request", &question, Some(("ClaudeCode", "t6"))).is_empty());
     }
 
     #[test]
     fn same_call_pre_tool_use_keeps_the_card_but_the_next_call_resolves_it() {
         let mut t = Tracker::default();
-        let id = published(&t.on_hook("t1", None, "permission-request", &permission("make"), Some("ClaudeCode"))).unwrap();
+        let id = published(&t.on_hook("t1", None, "permission-request", &permission("make"), Some(("ClaudeCode", "t1")))).unwrap();
         // Async PreToolUse for the same call arriving after the dialog.
         assert!(t.on_hook("t1", None, "pre-tool-use", &permission("make"), None).is_empty());
         assert_eq!(
             t.on_hook("t1", None, "pre-tool-use", &permission("make test"), None),
-            vec![Change::Resolve { request_id: id }],
+            vec![Change::Resolve { request_id: id, remote_id: "t1".into() }],
         );
         assert!(t.on_hook("t1", None, "stop", &json!({}), None).is_empty(), "already resolved");
     }
@@ -447,30 +494,60 @@ mod tests {
     fn stop_prompt_and_session_end_resolve_the_open_dialog() {
         for event in ["stop", "prompt-submit", "session-end", "post-tool-use"] {
             let mut t = Tracker::default();
-            let id = published(&t.on_hook("t1", None, "permission-request", &permission("ls"), Some("ClaudeCode"))).unwrap();
+            let id = published(&t.on_hook("t1", None, "permission-request", &permission("ls"), Some(("ClaudeCode", "t1")))).unwrap();
             assert!(t.on_hook("t2", None, event, &json!({}), None).is_empty(), "other threads are untouched");
-            assert_eq!(t.on_hook("t1", None, event, &json!({}), None), vec![Change::Resolve { request_id: id }]);
+            assert_eq!(t.on_hook("t1", None, event, &json!({}), None), vec![Change::Resolve { request_id: id, remote_id: "t1".into() }]);
         }
     }
 
     #[test]
     fn a_new_dialog_replaces_the_previous_request() {
         let mut t = Tracker::default();
-        let first = published(&t.on_hook("t1", None, "permission-request", &permission("a"), Some("ClaudeCode"))).unwrap();
-        let changes = t.on_hook("t1", None, "permission-request", &permission("b"), Some("ClaudeCode"));
-        assert_eq!(changes[0], Change::Resolve { request_id: first.clone() });
+        let first = published(&t.on_hook("t1", None, "permission-request", &permission("a"), Some(("ClaudeCode", "t1")))).unwrap();
+        let changes = t.on_hook("t1", None, "permission-request", &permission("b"), Some(("ClaudeCode", "t1")));
+        assert_eq!(changes[0], Change::Resolve { request_id: first.clone(), remote_id: "t1".into() });
         assert_ne!(published(&changes).unwrap(), first);
     }
 
     #[test]
     fn desktop_answer_keys_resolve_but_terminal_reports_do_not() {
         let mut t = Tracker::default();
-        let id = published(&t.on_hook("t1", None, "permission-request", &permission("ls"), Some("ClaudeCode"))).unwrap();
+        let id = published(&t.on_hook("t1", None, "permission-request", &permission("ls"), Some(("ClaudeCode", "t1")))).unwrap();
         for noise in ["\x1b[I", "\x1b[A", "\x1b]11;rgb:0/0/0\x07", "abc", "12"] {
             assert!(t.on_desktop_input("t1", noise).is_none(), "{noise:?}");
         }
-        assert_eq!(t.on_desktop_input("t1", "2"), Some(Change::Resolve { request_id: id }));
+        assert_eq!(t.on_desktop_input("t1", "2"), Some(Change::Resolve { request_id: id, remote_id: "t1".into() }));
         assert!(t.on_desktop_input("t1", "\r").is_none());
+    }
+
+    #[test]
+    fn cards_use_the_phone_id_and_replies_find_the_terminal_by_request() {
+        // A Claude terminal started in agmux: PTY "pty", listed on phones as "native".
+        let mut t = Tracker::default();
+        let changes = t.on_hook("pty", None, "permission-request", &permission("ls"), Some(("ClaudeCode", "native")));
+        let [Change::Publish { request_id, remote_id, .. }] = &changes[..] else { panic!("{changes:?}") };
+        assert_eq!(remote_id, "native");
+        let found = Some(("pty".to_string(), "native".to_string()));
+        assert_eq!(t.find("native", request_id), found);
+        assert_eq!(t.find("pty", request_id), found);
+        assert_eq!(t.find("other", request_id), None, "another session's id never answers it");
+        assert_eq!(t.find("native", "term-other"), None);
+        assert_eq!(t.on_hook("pty", None, "stop", &json!({}), None),
+            vec![Change::Resolve { request_id: request_id.clone(), remote_id: "native".into() }],
+            "resolves where it was published");
+        assert_eq!(t.find("native", request_id), None);
+    }
+
+    #[tokio::test]
+    async fn claude_terminals_without_a_thread_row_are_listed_by_transcript_id() {
+        let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
+        sqlx::query("CREATE TABLE threads (id TEXT PRIMARY KEY)").execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO threads VALUES ('row')").execute(&pool).await.unwrap();
+        let payload = json!({ "session_id": "native" });
+        assert_eq!(phone_thread_id(&pool, "placeholder", &payload).await, "native");
+        assert_eq!(phone_thread_id(&pool, "row", &payload).await, "row", "rows are listed by their own id");
+        assert_eq!(phone_thread_id(&pool, "native", &payload).await, "native");
+        assert_eq!(phone_thread_id(&pool, "placeholder", &json!({})).await, "placeholder");
     }
 
     fn ask(questions: Value) -> Value {
@@ -496,20 +573,20 @@ mod tests {
     #[test]
     fn claude_terminal_questions_publish_as_phone_questions() {
         let mut t = Tracker::default();
-        let changes = t.on_hook("t1", None, "permission-request", &ask(json!([color()])), Some("ClaudeCode"));
-        let [Change::Ask { request_id, questions }] = &changes[..] else { panic!("{changes:?}") };
+        let changes = t.on_hook("t1", None, "permission-request", &ask(json!([color()])), Some(("ClaudeCode", "t1")));
+        let [Change::Ask { request_id, questions, .. }] = &changes[..] else { panic!("{changes:?}") };
         assert_eq!(questions, &json!([color()]));
         assert_eq!(pending_keys(&t, "t1", request_id), vec!["2"]);
         assert!(t.pending_questions("t1", "term-other").is_none(), "only the open request answers");
         assert_eq!(t.on_hook("t1", None, "stop", &json!({}), None),
-            vec![Change::ResolveQuestion { request_id: request_id.clone() }]);
+            vec![Change::ResolveQuestion { request_id: request_id.clone(), remote_id: "t1".into() }]);
 
-        assert!(t.on_hook("t2", Some("kimi"), "permission-request", &ask(json!([color()])), Some("Kimi")).is_empty(),
+        assert!(t.on_hook("t2", Some("kimi"), "permission-request", &ask(json!([color()])), Some(("Kimi", "t2"))).is_empty(),
             "only Claude's menu contract is verified");
         let plan = json!({ "tool_name": "ExitPlanMode", "tool_input": { "plan": "x" } });
-        assert!(t.on_hook("t3", None, "permission-request", &plan, Some("ClaudeCode")).is_empty());
+        assert!(t.on_hook("t3", None, "permission-request", &plan, Some(("ClaudeCode", "t3"))).is_empty());
         let too_many = json!({ "question": "Pick", "options": (0..9).map(|i| json!({ "label": i.to_string() })).collect::<Vec<_>>() });
-        assert!(t.on_hook("t4", None, "permission-request", &ask(json!([too_many])), Some("ClaudeCode")).is_empty());
+        assert!(t.on_hook("t4", None, "permission-request", &ask(json!([too_many])), Some(("ClaudeCode", "t4"))).is_empty());
     }
 
     fn pending_keys(t: &Tracker, thread_id: &str, request_id: &str) -> Vec<String> {
