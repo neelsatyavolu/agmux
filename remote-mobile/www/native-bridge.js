@@ -208,7 +208,9 @@
     }
 
     // In-app QR scanner (QRScannerPlugin.swift) on the pairing screen.
-    var Scanner = window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin('QRScanner') : null;
+    // Registered natively in AgmuxBridgeViewController.capacitorDidLoad; Capacitor exports it here.
+    // (registerPlugin only exists in the npm @capacitor/core bundle, which this page doesn't load.)
+    var Scanner = (window.Capacitor.Plugins && window.Capacitor.Plugins.QRScanner) || null;
     var scanBtn = document.getElementById('scanBtn');
     var scanErr = document.getElementById('scanErr');
     if (Scanner && scanBtn) {
@@ -224,9 +226,12 @@
           applyPair(parsePairFromUrl(result && result.value));
         }, function (e) {
           var code = e && e.code;
-          if (code === 'CANCELLED' || !scanErr) return;
-          scanErr.textContent = SCAN_ERRORS[code] || SCAN_ERRORS.UNAVAILABLE;
-          scanErr.hidden = false;
+          if (code === 'CANCELLED') return;
+          if (code !== 'MANUAL' && scanErr) {
+            scanErr.textContent = SCAN_ERRORS[code] || SCAN_ERRORS.UNAVAILABLE;
+            scanErr.hidden = false;
+          }
+          if (typeof window.showManualPair === 'function') window.showManualPair();
         });
       });
     }

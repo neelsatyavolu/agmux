@@ -3,7 +3,8 @@ import Capacitor
 import UIKit
 
 /// `QRScanner.scan()` for the PWA: resolves `{ value }` with a scanned agmux
-/// pairing link, or rejects with CANCELLED, DENIED or UNAVAILABLE.
+/// pairing link, or rejects with CANCELLED, MANUAL ("Enter code instead"),
+/// DENIED or UNAVAILABLE.
 @objc(QRScannerPlugin)
 public class QRScannerPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "QRScannerPlugin"
@@ -40,8 +41,12 @@ public class QRScannerPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         let scanner = QRScannerViewController()
         scanner.modalPresentationStyle = .fullScreen
-        scanner.onFinish = { value in
-            if let value { call.resolve(["value": value]) } else { call.reject("Scan cancelled.", "CANCELLED") }
+        scanner.onFinish = { outcome in
+            switch outcome {
+            case .scanned(let value): call.resolve(["value": value])
+            case .manual: call.reject("Enter the code instead.", "MANUAL")
+            case .cancelled: call.reject("Scan cancelled.", "CANCELLED")
+            }
         }
         host.present(scanner, animated: true)
     }

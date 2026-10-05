@@ -2,9 +2,15 @@ import AVFoundation
 import UIKit
 
 /// Full-screen camera that scans for an agmux pairing QR code.
-/// Calls `onFinish` once: the scanned text, or nil when the user cancels.
+/// Calls `onFinish` once with what the person did.
 final class QRScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
-    var onFinish: ((String?) -> Void)?
+    enum Outcome {
+        case scanned(String)
+        case manual
+        case cancelled
+    }
+
+    var onFinish: ((Outcome) -> Void)?
 
     private let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "dev.agmux.remote.qr-session")
@@ -78,10 +84,16 @@ final class QRScannerViewController: UIViewController, AVCaptureMetadataOutputOb
         config.baseBackgroundColor = UIColor.white.withAlphaComponent(0.18)
         config.baseForegroundColor = .white
         config.cornerStyle = .capsule
-        let cancel = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in self?.finish(nil) })
+        let cancel = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in self?.finish(.cancelled) })
         cancel.translatesAutoresizingMaskIntoConstraints = false
 
-        [frame, hint, cancel].forEach(view.addSubview)
+        var manualConfig = UIButton.Configuration.plain()
+        manualConfig.title = "Enter code instead"
+        manualConfig.baseForegroundColor = .white
+        let manual = UIButton(configuration: manualConfig, primaryAction: UIAction { [weak self] _ in self?.finish(.manual) })
+        manual.translatesAutoresizingMaskIntoConstraints = false
+
+        [frame, hint, manual, cancel].forEach(view.addSubview)
         let guide = view.safeAreaLayoutGuide
         NSLayoutConstraint.activate([
             frame.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -91,6 +103,8 @@ final class QRScannerViewController: UIViewController, AVCaptureMetadataOutputOb
             hint.topAnchor.constraint(equalTo: frame.bottomAnchor, constant: 28),
             hint.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 32),
             hint.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -32),
+            manual.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            manual.bottomAnchor.constraint(equalTo: cancel.topAnchor, constant: -10),
             cancel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             cancel.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -24),
             cancel.heightAnchor.constraint(greaterThanOrEqualToConstant: 50),
@@ -108,7 +122,7 @@ final class QRScannerViewController: UIViewController, AVCaptureMetadataOutputOb
               let text = (objects.first as? AVMetadataMachineReadableCodeObject)?.stringValue else { return }
         if PairLink.isPairLink(text) {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
-            finish(text)
+            finish(.scanned(text))
         } else if text != lastRejected {
             lastRejected = text
             UINotificationFeedbackGenerator().notificationOccurred(.warning)
@@ -116,7 +130,7 @@ final class QRScannerViewController: UIViewController, AVCaptureMetadataOutputOb
         }
     }
 
-    private func finish(_ result: String?) {
+    private func finish(_ result: Outcome) {
         guard !finished else { return }
         finished = true
         sessionQueue.async { [session] in session.stopRunning() }

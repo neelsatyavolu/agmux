@@ -913,10 +913,20 @@ code.inl {
   display: none; align-items: center; gap: 12px; margin: 0 0 16px;
   font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
 }
-#stage[data-easy-pair="1"] .pair-or, #stage[data-scan="1"] .pair-or { display: flex; }
+#stage[data-easy-pair="1"] .pair-or, #stage[data-scan="1"][data-manual="1"] .pair-or { display: flex; }
 /* iPhone app only: native-bridge.js sets data-scan="1" when the camera scanner is available. */
 .pair-scan { display: none; flex-direction: column; gap: 10px; margin-bottom: 18px; }
 #stage[data-scan="1"] .pair-scan { display: flex; }
+.app-only, .pair-manual { display: none; }
+#stage[data-scan="1"] .app-only { display: inline; }
+#stage[data-scan="1"] .web-only { display: none; }
+/* In the iPhone app the camera is the way in; the code form is the fallback. */
+#stage[data-scan="1"]:not([data-manual="1"]):not([data-pair="pairing"]):not([data-pair="error"]):not([data-pair="success"]) .pair-form,
+#stage[data-scan="1"]:not([data-manual="1"]) .pair-or { display: none; }
+#stage[data-scan="1"]:not([data-manual="1"]) .pair-manual {
+  display: block; width: 100%; padding: 10px; border: 0; background: transparent;
+  color: var(--graphite); font-size: 14px; text-decoration: underline; text-underline-offset: 3px;
+}
 .pair-scan-err { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--red); }
 .pair-scan-err[hidden] { display: none; }
 .pair-or::before, .pair-or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
@@ -1154,12 +1164,13 @@ html:not([data-shell]) [data-native-only] { display: none !important; }
         <p class="pair-sub" id="pairSub">Pair this browser with agmux on your Mac to read sessions, reply, and approve requests.</p>
         <ol class="pair-steps">
           <li><span>On your Mac, open <b>agmux → Settings → Remote control</b>.</span></li>
-          <li><span>Scan the QR code, or enter the desktop ID and pair code below.</span></li>
+          <li><span class="web-only">Scan the QR code, or enter the desktop ID and pair code below.</span><span class="app-only">Tap <b>Scan QR code</b> and point your iPhone at the code on your Mac.</span></li>
         </ol>
 
         <div class="pair-scan">
           <button type="button" class="easy-pair-btn" id="scanBtn"><svg data-icon="scan-line"></svg><span>Scan QR code</span></button>
           <p class="pair-scan-err" id="scanErr" role="alert" hidden></p>
+          <button type="button" class="pair-manual" id="manualBtn">Enter details manually</button>
         </div>
 
         <div class="easy-pair" id="easyPair">
@@ -6275,6 +6286,13 @@ function stopDemo() {
 }
 
 document.getElementById('demoBtn')?.addEventListener('click', startDemo);
+
+/** iPhone app: reveal the desktop ID / pair code form (fallback to scanning). */
+function showManualPair() {
+  set('manual', '1');
+  try { document.getElementById('fDesk')?.focus(); } catch { /* not focusable yet */ }
+}
+document.getElementById('manualBtn')?.addEventListener('click', showManualPair);
 
 if (auth?.phoneToken && auth?.desktopId) {
   connectPhone();
