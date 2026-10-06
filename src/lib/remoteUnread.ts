@@ -46,14 +46,22 @@ export function startRemoteUnreadBridge(): void {
       useUiStore.setState((s) => {
         let next = s.unreadSessionIds;
         let changed = false;
-        const clear = (id: string | undefined) => {
-          if (!id || !(next[id] ?? false)) return;
+        const clear = (id: string) => {
+          if (!(next[id] ?? false)) return;
           if (!changed) next = { ...next };
           next[id] = false;
           changed = true;
         };
-        clear(threadId);
-        clear(sdkSessionId ?? undefined);
+        // A Claude terminal started in agmux has two ids: the sidebar row is
+        // the agmux id, the phone row is the Claude session id. Clear both.
+        const read = [threadId, sdkSessionId].filter((id): id is string => !!id);
+        for (const id of read) {
+          clear(id);
+          for (const [agmuxId, realIds] of Object.entries(s.claudeSessionMap)) {
+            if (agmuxId === id) realIds.forEach(clear);
+            else if (realIds.includes(id)) clear(agmuxId);
+          }
+        }
         return changed ? { unreadSessionIds: next } : s;
       });
     },
