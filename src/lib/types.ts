@@ -393,6 +393,7 @@ export function prettifyOpenCodeSlug(slug: string | null | undefined): string {
     "gpt-6.1-sol": "GPT 6.1 Sol",
     "gpt-6-sol": "GPT 6 Sol",
     "gpt-6-luna": "GPT 6 Luna",
+    "gpt-6-astra": "GPT 6 Astra",
     "minimax-2.7": "MiniMax 2.7",
     "minimax-m2.7": "MiniMax 2.7",
     "minimax-2.6": "MiniMax 2.6",
@@ -429,6 +430,8 @@ export function prettifyOpenCodeSlug(slug: string | null | undefined): string {
 
 export const CODEX_MODELS: CodexModelOption[] = [
   { slug: "gpt-5.6-sol", name: "GPT 5.6 Sol" },
+  { slug: "gpt-6.1-sol", name: "GPT 6.1 Sol" },
+  { slug: "gpt-6-astra", name: "GPT 6 Astra" },
   { slug: "gpt-6-sol", name: "GPT 6 Sol" },
   { slug: "gpt-6-luna", name: "GPT 6 Luna" },
   { slug: "gpt-5.6-terra", name: "GPT 5.6 Terra" },
@@ -577,10 +580,12 @@ export interface ClaudeModelOption {
 }
 
 export const CLAUDE_MODELS: ClaudeModelOption[] = [
+  { slug: "claude-fable-5-1", name: "Fable 5.1" },
   { slug: "claude-fable-5", name: "Fable 5" },
   { slug: "claude-opus-5-5", name: "Opus 5.5" },
   { slug: "claude-opus-5[1m]", name: "Opus 5 (1M)" },
   { slug: "claude-opus-4-8[1m]", name: "Opus 4.8 (1M)" },
+  { slug: "claude-sonnet-5-5", name: "Sonnet 5.5" },
   { slug: "claude-sonnet-5", name: "Sonnet 5" },
   { slug: "sonnet", name: "Sonnet 4.6" },
   { slug: "haiku", name: "Haiku 4.5" },
@@ -1034,6 +1039,8 @@ const BASE_CONTEXT_WINDOWS: Record<string, number> = {
   "gemini-2.0-flash": 1_000_000,
   "gemini-1.5-pro": 2_000_000,
   // Codex / OpenAI models (context_window from Codex model catalog)
+  "gpt-6.1-sol": 272_000,
+  "gpt-6-astra": 272_000,
   "gpt-6-sol": 272_000,
   "gpt-6-luna": 272_000,
   "gpt-5.6-sol": 372_000,
@@ -1049,6 +1056,7 @@ const BASE_CONTEXT_WINDOWS: Record<string, number> = {
   // Grok models — real usage snapshots come from signals.json when available,
   // but these keep the fallback denominator truthful before that file exists.
   "grok-4.7": 500_000,
+  "grok-4.7-build-fast": 500_000,
   "grok-4.6": 500_000,
   "grok-4.5": 500_000,
   "grok-composer-2.5-fast": 200_000,

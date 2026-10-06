@@ -124,6 +124,8 @@ fn model_pricing(model: &str) -> ModelPricing {
     let rates = match key.as_str() {
         // 4.7 matches 4.6: $2 / $0.50 / $6 below 200k (docs.x.ai, 2026-09-21).
         "grok-4.7" | "grok-4.6" => Some((2.0, 6.0, 0.50, 2.0)),
+        // Grok Build only; xAI and the CLI catalog price it at 2x grok-4.7 (2026-10-05).
+        "grok-4.7-build-fast" => Some((4.0, 12.0, 1.0, 4.0)),
         "grok-4.5" => Some((2.0, 6.0, 0.30, 2.0)),
         "grok-build-0.1" => Some((1.0, 2.0, 0.20, 1.0)),
         "grok-4.3" | "grok-4.20-multi-agent-0309" |
@@ -1976,6 +1978,8 @@ mod tests {
         assert_eq!((p46.input_per_mtok, p46.output_per_mtok), (2.0, 6.0));
         let p47 = model_pricing("grok-4.7");
         assert_eq!((p47.input_per_mtok, p47.output_per_mtok, p47.cache_read_per_mtok), (2.0, 6.0, 0.50));
+        let fast = model_pricing("grok-4.7-build-fast");
+        assert_eq!((fast.input_per_mtok, fast.output_per_mtok, fast.cache_read_per_mtok), (4.0, 12.0, 1.0));
 
         let build = model_pricing("grok-build-0.1");
         assert_eq!((build.input_per_mtok, build.output_per_mtok), (1.0, 2.0));

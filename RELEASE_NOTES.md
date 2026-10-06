@@ -25,10 +25,15 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ## Unreleased
 
 ### New
+- **Newest models in more pickers** — Claude Fable 5.1, Claude Sonnet 5.5, GPT-6.1 Sol and GPT-6 Astra now show up in the New Task menu and in the phone app's model picker. On the phone, GPT-6.1 Sol and GPT-6 Astra also get the Max and Ultra reasoning levels.
+- **Grok 4.7 Fast costs** — The Usage tab now shows costs for Grok 4.7 Fast, at twice Grok 4.7's price.
 
 ### Improved
+- **Context meter for new models** — The context ring shows the right size for GPT-6.1 Sol, GPT-6 Astra and Grok 4.7 Fast instead of a smaller default.
 
 ### Fixed
+- **Pin threads in Focus** — Pinning a thread from Focus now keeps it there, at the top, even after it goes quiet, and it never goes behind "Show more". Before, it dropped out of Focus like any other thread. Pins in your project list stay separate and don't affect Focus. Unpin a thread in Focus to let it leave again.
+- **Read on your phone stays read on your Mac** — A Claude terminal you started in agmux and followed on your phone no longer shows as unread on your Mac when it finishes.
 
 ## v4.3.1 — 2026-10-01
 

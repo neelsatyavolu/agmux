@@ -226,11 +226,11 @@ describe("mergeClaudeModelOptions", () => {
       "claude-haiku-4-5",
     ]).map((m) => m.slug);
     expect(slugs).toEqual([
-      "claude-fable-5",
+      "claude-fable-5-1",
       "claude-opus-5-5",
       "claude-opus-5[1m]",
+      "claude-sonnet-5-5",
       "claude-sonnet-5",
-      "claude-sonnet-4-6[1m]",
       "claude-haiku-4-5",
     ]);
   });
@@ -250,8 +250,8 @@ describe("mergeClaudeModelOptions", () => {
       "claude-fable-6",
       "claude-opus-5-5",
       "claude-opus-5-1",
+      "claude-sonnet-5-5",
       "claude-sonnet-5",
-      "claude-sonnet-4-6[1m]",
       "claude-haiku-4-5",
     ]);
   });
@@ -290,6 +290,30 @@ describe("Sonnet 5 model wiring", () => {
     expect(supportsXHighEffort("claude-sonnet-5[1m]")).toBe(true);
     expect(supportsXHighEffort("sonnet-5")).toBe(true);
     expect(isEffortOptionDisabled("xhigh", { provider: "ClaudeCode", model: "claude-sonnet-5" })).toBe(false);
+  });
+});
+
+describe("October 2026 model catalog", () => {
+  it("offers GPT-6.1 Sol and GPT-6 Astra without changing the Codex default", () => {
+    expect(CODEX_MODELS[0]?.slug).toBe("gpt-5.6-sol");
+    const slugs = CODEX_MODELS.map((m) => m.slug);
+    expect(slugs).toContain("gpt-6.1-sol");
+    expect(slugs).toContain("gpt-6-astra");
+    expect(prettifyOpenCodeSlug("openai/gpt-6-astra")).toBe("GPT 6 Astra");
+    expect(codexEffortsForModel("gpt-6-astra").map((e) => e.value)).toContain("ultra");
+  });
+
+  it("offers Claude Fable 5.1 and Sonnet 5.5", () => {
+    const slugs = CLAUDE_MODELS.map((m) => m.slug);
+    expect(slugs).toContain("claude-fable-5-1");
+    expect(slugs).toContain("claude-sonnet-5-5");
+  });
+
+  it("uses the providers' context windows for the new models", () => {
+    // Codex runs these at its catalog's 272K window, not the API's 1.05M.
+    expect(getModelContextWindow("gpt-6.1-sol")).toBe(272_000);
+    expect(getModelContextWindow("gpt-6-astra")).toBe(272_000);
+    expect(getModelContextWindow("grok-4.7-build-fast")).toBe(500_000);
   });
 });
 
