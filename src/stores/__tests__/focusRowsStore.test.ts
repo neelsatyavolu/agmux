@@ -1,11 +1,40 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, beforeEach } from "vitest";
 import { useUiStore } from "../uiStore";
-import { FOCUS_DISMISSED_KEY, FOCUS_DISMISS_TTL_MS, loadFocusDismissals, useFocusRowsStore } from "../focusRowsStore";
+import { FOCUS_DISMISSED_KEY, FOCUS_DISMISS_TTL_MS, FOCUS_PINNED_KEY, loadFocusDismissals, loadFocusPins, useFocusRowsStore } from "../focusRowsStore";
 
 beforeEach(() => {
   localStorage.clear();
-  useFocusRowsStore.setState({ timestampsByProject: {}, extraShown: 0, dismissedAt: {} });
+  useFocusRowsStore.setState({ timestampsByProject: {}, pinnedByProject: {}, pinnedIds: {}, extraShown: 0, dismissedAt: {} });
+});
+
+describe("focusRowsStore pins", () => {
+  it("toggles and saves a Focus pin", () => {
+    useFocusRowsStore.getState().toggleFocusPin("t1");
+    expect(useFocusRowsStore.getState().pinnedIds).toEqual({ t1: true });
+    expect(loadFocusPins()).toEqual({ t1: true });
+    useFocusRowsStore.getState().toggleFocusPin("t1");
+    expect(useFocusRowsStore.getState().pinnedIds).toEqual({});
+    expect(loadFocusPins()).toEqual({});
+  });
+
+  it("ignores malformed saved pins", () => {
+    localStorage.setItem(FOCUS_PINNED_KEY, JSON.stringify(["ok", 3, null]));
+    expect(loadFocusPins()).toEqual({ ok: true });
+    localStorage.setItem(FOCUS_PINNED_KEY, "{bad");
+    expect(loadFocusPins()).toEqual({});
+  });
+});
+
+describe("focusRowsStore rows", () => {
+  it("keeps pinned counts apart from ranked times and drops both with the project", () => {
+    useFocusRowsStore.getState().setProjectTimestamps("p1", [3, 2], 1);
+    expect(useFocusRowsStore.getState().timestampsByProject).toEqual({ p1: [3, 2] });
+    expect(useFocusRowsStore.getState().pinnedByProject).toEqual({ p1: 1 });
+    useFocusRowsStore.getState().removeProject("p1");
+    expect(useFocusRowsStore.getState().timestampsByProject).toEqual({});
+    expect(useFocusRowsStore.getState().pinnedByProject).toEqual({});
+  });
 });
 
 describe("focusRowsStore dismissals", () => {

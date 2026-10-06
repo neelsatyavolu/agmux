@@ -1143,7 +1143,7 @@ describe("Sidebar Focus", () => {
   });
   afterEach(() => {
     useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusEnabled: false, focusWindowMinutes: 10, focusThreadsVisible: 7 } }));
-    useFocusRowsStore.setState({ timestampsByProject: {}, extraShown: 0, dismissedAt: {}, finishedAt: {} });
+    useFocusRowsStore.setState({ timestampsByProject: {}, pinnedByProject: {}, pinnedIds: {}, extraShown: 0, dismissedAt: {}, finishedAt: {} });
   });
 
   it("is off by default", () => {

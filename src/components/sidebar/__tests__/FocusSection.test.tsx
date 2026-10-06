@@ -70,6 +70,21 @@ describe("FocusSection", () => {
     expect(useFocusRowsStore.getState().extraShown).toBe(0);
   });
 
+  it("counts pinned rows but keeps them out of Show more", () => {
+    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusThreadsVisible: 2 } }));
+    useFocusRowsStore.setState({ timestampsByProject: { p1: [5, 4, 3] }, pinnedByProject: { p1: 2, p2: 1 } });
+    render(<FocusSection projects={projects} windowMinutes={10} onListElement={() => {}} />);
+    expect(screen.getByText("6")).toBeTruthy();
+    expect(screen.getByText("Show more (1 of 1)")).toBeTruthy();
+  });
+
+  it("shows no empty state when only pinned rows qualify", () => {
+    useFocusRowsStore.setState({ timestampsByProject: {}, pinnedByProject: { p1: 1 } });
+    render(<FocusSection projects={projects} windowMinutes={10} onListElement={() => {}} />);
+    expect(screen.getByText("1")).toBeTruthy();
+    expect(screen.queryByText(/Nothing active/)).toBeNull();
+  });
+
   it("changes how many threads it shows from the header's right-click menu", () => {
     render(<FocusSection projects={projects} windowMinutes={10} onListElement={() => {}} />);
     fireEvent.contextMenu(screen.getByText("Focus"));

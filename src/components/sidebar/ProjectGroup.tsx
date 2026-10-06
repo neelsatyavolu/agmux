@@ -3,7 +3,7 @@ import { RecalculateDiffAction } from "./RecalculateDiffAction";
 import type { DiffRecalculationTarget } from "../../lib/recalculateDiff";
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { onFocusNewSession } from "../../lib/focusView";
+import { focusRowOrder, onFocusNewSession } from "../../lib/focusView";
 import { useFocusRowsStore } from "../../stores/focusRowsStore";
 import { useShallow } from "zustand/react/shallow";
 import { ChevronRight, ChevronDown, Plus, Loader2, Archive, Trash2, GripVertical, X, XCircle, MoreHorizontal, Pencil, SquarePen, GitBranch, FolderGit2, FolderInput, FolderOpen, MessageSquarePlus, Pin, PinOff, Activity, Check, ArrowRightLeft, RefreshCw, Unplug, EyeOff } from "lucide-react";
@@ -155,8 +155,6 @@ const EMPTY_DESKTOP_CODEX: CodexWorkDesktopSession[] = [];
 const EMPTY_PROJECT_OVERRIDES: Record<string, number> = {};
 const EMPTY_SHOW_ONLY_RUNNING: Record<string, boolean> = {};
 const PAGE_SIZE_FALLBACK = 5;
-/** Epoch seconds subtracted from row times so Focus CSS `order` values fit in 32 bits. */
-const FOCUS_ORDER_BASE_S = 1_700_000_000;
 
 /** Terminal agent tiles under the "New" menu. Two rows of five.
  *  Row 2's "local" tile (Pi CLI pointed at an on-device model) is hidden
@@ -362,6 +360,8 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     y: number;
     kind: "thread" | "codex" | "claude" | "kimi" | "pi" | "grok" | "desktop-claude";
     id: string;
+    /** Opened on the row's Focus copy, whose pin is the Focus pin. */
+    fromFocus: boolean;
   } | null>(null);
   const [newMenu, setNewMenu] = useState(false);
   const [isGitRepo, setIsGitRepo] = useState(false);
@@ -885,42 +885,54 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     });
   }, [unified, showOnlyRunning, selectedThreadId, selectedCodexSessionId, selectedClaudeSessionId, pendingApprovalsBySession, claudeProcessingById, codexProcessingById, unreadSessionIds]);
 
-  // Focus: rows active since `focusSince`, plus any still working, waiting on
-  // approval, or finished but not yet opened. "Active" is the later of the
-  // row time (usually the prompt) and when its last turn finished, so a long
-  // turn stays for the whole window after it ends. Cowork desktop rows never
-  // qualify. A row removed by hand stays out until the user sends it a new
-  // prompt (file activity keeps advancing while an agent works, so it can't
-  // bring the row back).
+  // Focus: rows pinned from Focus always, plus rows active since `focusSince` and any
+  // still working, waiting on approval, or finished but not yet opened.
+  // "Active" is the later of the row time (usually the prompt) and when its
+  // last turn finished, so a long turn stays for the whole window after it
+  // ends. Cowork desktop rows never qualify. A row removed by hand stays out
+  // until the user sends it a new prompt (file activity keeps advancing while
+  // an agent works, so it can't bring the row back) or pins it.
   const focusDismissedAt = useFocusRowsStore((s) => s.dismissedAt);
   const focusFinishedAt = useFocusRowsStore((s) => s.finishedAt);
   const dismissFromFocus = useFocusRowsStore((s) => s.dismissFromFocus);
+  const focusPinnedIds = useFocusRowsStore((s) => s.pinnedIds);
+  const toggleFocusPin = useFocusRowsStore((s) => s.toggleFocusPin);
   const focusItems = useMemo(() => {
     if (!focusPortal || focusSince == null || appMode === "cowork") return [];
-    const rows: { item: UnifiedItem; time: number }[] = [];
+    const rows: { item: UnifiedItem; time: number; pinned: boolean }[] = [];
     for (const item of unified) {
       if (item.kind === "desktop-claude") continue;
       const id = item.data.id;
+      const time = Math.max(item.timestamp, focusFinishedAt[id] ?? 0);
+      if (focusPinnedIds[id]) {
+        rows.push({ item, time, pinned: true });
+        continue;
+      }
       const dismissed = focusDismissedAt[id];
       if (dismissed != null && !((lastPromptAt[id] ?? 0) > dismissed)) continue;
-      const time = Math.max(item.timestamp, focusFinishedAt[id] ?? 0);
       const live = !!pendingApprovalsBySession[id] || !!claudeProcessingById[id] || !!codexProcessingById[id] || !!unreadSessionIds[id];
-      if (time >= focusSince || live) rows.push({ item, time });
+      if (time >= focusSince || live) rows.push({ item, time, pinned: false });
     }
     return rows;
-  }, [focusPortal, focusSince, appMode, unified, focusDismissedAt, focusFinishedAt, lastPromptAt, pendingApprovalsBySession, claudeProcessingById, codexProcessingById, unreadSessionIds]);
+  }, [focusPortal, focusSince, appMode, unified, focusPinnedIds, focusDismissedAt, focusFinishedAt, lastPromptAt, pendingApprovalsBySession, claudeProcessingById, codexProcessingById, unreadSessionIds]);
 
   // Focus caps its rows across every project, so publish this group's row
-  // times for the Sidebar to rank. Layout effect: no frame with extra rows.
+  // times for the Sidebar to rank. Pinned rows sit above the cap and are only
+  // counted. Layout effect: no frame with extra rows.
   const setFocusTimestamps = useFocusRowsStore((s) => s.setProjectTimestamps);
   const removeFocusProject = useFocusRowsStore((s) => s.removeProject);
   useLayoutEffect(() => {
-    setFocusTimestamps(project.id, focusItems.map((row) => row.time).sort((a, b) => b - a));
+    const ranked = focusItems.filter((row) => !row.pinned);
+    setFocusTimestamps(
+      project.id,
+      ranked.map((row) => row.time).sort((a, b) => b - a),
+      focusItems.length - ranked.length,
+    );
   }, [setFocusTimestamps, project.id, focusItems]);
   useLayoutEffect(() => () => removeFocusProject(project.id), [removeFocusProject, project.id]);
 
   const focusRows = useMemo(
-    () => (focusCutoff == null ? focusItems : focusItems.filter((row) => row.time >= focusCutoff)),
+    () => (focusCutoff == null ? focusItems : focusItems.filter((row) => row.pinned || row.time >= focusCutoff)),
     [focusItems, focusCutoff],
   );
 
@@ -1283,8 +1295,13 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     }
   }, [project.id, project.repo_path, removeThread]);
 
-  const handleTogglePin = (id: string) => {
+  const handleTogglePin = (id: string, fromFocus: boolean) => {
     setItemContextMenu(null);
+    // Focus and the project list keep separate pins, like renames.
+    if (fromFocus) {
+      toggleFocusPin(id);
+      return;
+    }
     if (pinnedSessionIdsRef.current.has(id)) {
       pinnedSessionIdsRef.current.delete(id);
       removePinnedSession(project.id, id);
@@ -1295,10 +1312,13 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
     setPinnedVersion((n) => n + 1);
   };
 
+  const isRowPinned = (id: string, inFocus: boolean) =>
+    inFocus ? !!focusPinnedIds[id] : pinnedSessionIdsRef.current.has(id);
+
   const openMenuForItem = (e: React.MouseEvent, kind: "thread" | "codex" | "claude" | "kimi" | "pi" | "grok" | "desktop-claude", id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setItemContextMenu({ x: e.clientX, y: e.clientY, kind, id });
+    setItemContextMenu({ x: e.clientX, y: e.clientY, kind, id, fromFocus: menuFromFocusRef.current });
   };
 
   // Local-model CLI / chat rows get an extra "Eject model" action so users can
@@ -1343,17 +1363,17 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
       <DropdownPopover>
         <DropdownHeader title="Session" />
         <DropdownRow
-          onClick={() => handleTogglePin(itemContextMenu.id)}
+          onClick={() => handleTogglePin(itemContextMenu.id, itemContextMenu.fromFocus)}
           icon={
-            pinnedSessionIdsRef.current.has(itemContextMenu.id) ? (
+            isRowPinned(itemContextMenu.id, itemContextMenu.fromFocus) ? (
               <PinOff size={14} className="text-zinc-400" />
             ) : (
               <Pin size={14} className="text-amber-400" />
             )
           }
-          title={pinnedSessionIdsRef.current.has(itemContextMenu.id) ? "Unpin" : "Pin to top"}
+          title={isRowPinned(itemContextMenu.id, itemContextMenu.fromFocus) ? "Unpin" : "Pin to top"}
         />
-        {focusItems.some((row) => row.item.data.id === itemContextMenu.id) && (
+        {focusItems.some((row) => row.item.data.id === itemContextMenu.id && !row.pinned) && (
           <DropdownRow
             onClick={() => {
               dismissFromFocus(itemContextMenu.id);
@@ -2698,7 +2718,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "thread", id: t.id });
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "thread", id: t.id, fromFocus: inFocus });
           }}
           data-active={isSelected ? "true" : "false"}
           className={`sb-row group/item ${isSelected ? "on" : ""}`}
@@ -2744,7 +2764,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           ) : (
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                {pinnedSessionIdsRef.current.has(t.id) && (
+                {isRowPinned(t.id, inFocus) && (
                   <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
                 )}
                 <span className="sb-ttl">
@@ -2828,7 +2848,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "codex", id: c.id });
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "codex", id: c.id, fromFocus: inFocus });
           }}
           data-active={isSelected ? "true" : "false"}
           className={`sb-row group/item ${isSelected ? "on" : ""}`}
@@ -2847,7 +2867,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           ) : (
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                {pinnedSessionIdsRef.current.has(c.id) && (
+                {isRowPinned(c.id, inFocus) && (
                   <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
                 )}
                 <span className="sb-ttl">
@@ -2898,7 +2918,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "pi", id: d.id });
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "pi", id: d.id, fromFocus: inFocus });
           }}
           className="group/item flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-zinc-400 transition-colors duration-150 hover:bg-white/[0.03] hover:text-zinc-300"
         >
@@ -2955,7 +2975,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "kimi", id: d.id });
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "kimi", id: d.id, fromFocus: inFocus });
           }}
           className="group/item flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-zinc-400 transition-colors duration-150 hover:bg-white/[0.03] hover:text-zinc-300"
         >
@@ -2973,7 +2993,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           ) : (
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                {pinnedSessionIdsRef.current.has(d.id) && (
+                {isRowPinned(d.id, inFocus) && (
                   <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
                 )}
                 <span className="flex-1 truncate text-zinc-200 leading-tight tracking-[-0.015em]">{displayName}</span>
@@ -3017,7 +3037,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "grok", id: g.id });
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "grok", id: g.id, fromFocus: inFocus });
           }}
           className="sb-row group/item"
         >
@@ -3035,7 +3055,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           ) : (
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                {pinnedSessionIdsRef.current.has(g.id) && (
+                {isRowPinned(g.id, inFocus) && (
                   <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
                 )}
                 <span className="sb-ttl">
@@ -3082,7 +3102,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "desktop-claude", id: s.id });
+            setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "desktop-claude", id: s.id, fromFocus: inFocus });
           }}
           data-active={isSelected ? "true" : "false"}
           className={`sb-row group/item ${isSelected ? "on" : ""}`}
@@ -3129,7 +3149,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "claude", id: s.id });
+          setItemContextMenu({ x: e.clientX, y: e.clientY, kind: "claude", id: s.id, fromFocus: inFocus });
         }}
         data-active={isSelected ? "true" : "false"}
         className={`sb-row group/item ${isSelected ? "on" : ""}`}
@@ -3148,7 +3168,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
         ) : (
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              {pinnedSessionIdsRef.current.has(s.id) && (
+              {isRowPinned(s.id, inFocus) && (
                 <Pin size={10} className="shrink-0 text-amber-400/70 -rotate-45" />
               )}
               <span className="sb-ttl">
@@ -3682,11 +3702,11 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
       {itemContextMenuPortal}
 
       {focusPortal && focusRows.length > 0 && createPortal(
-        focusRows.map(({ item, time }) => (
+        focusRows.map(({ item, time, pinned }) => (
           <div
             key={`focus-${item.kind}-${item.data.id}`}
-            // Rows from every project share one flex column; order interleaves them newest first.
-            style={{ order: Math.floor(FOCUS_ORDER_BASE_S - time / 1000) }}
+            // Rows from every project share one flex column; order interleaves them, pinned first.
+            style={{ order: focusRowOrder(time, pinned) }}
             onClickCapture={markMenuOrigin(true)}
             onContextMenuCapture={markMenuOrigin(true)}
             onKeyDownCapture={markMenuOrigin(true)}

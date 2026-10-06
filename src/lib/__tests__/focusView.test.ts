@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   focusCutoff,
+  focusRowOrder,
   focusSince,
   formatFocusWindow,
   resolveFocusThreadsVisible,
@@ -42,6 +43,29 @@ describe("focusView", () => {
     expect(resolveFocusThreadsVisible(0)).toBe(1);
     expect(resolveFocusThreadsVisible(500)).toBe(100);
     expect(resolveFocusThreadsVisible("4")).toBe(7);
+  });
+
+  describe("focusRowOrder", () => {
+    const now = Date.UTC(2026, 9, 1);
+
+    it("puts newer rows first within pinned and unpinned rows", () => {
+      expect(focusRowOrder(now, false)).toBeLessThan(focusRowOrder(now - 60_000, false));
+      expect(focusRowOrder(now, true)).toBeLessThan(focusRowOrder(now - 60_000, true));
+    });
+
+    it("puts every pinned row above every unpinned row", () => {
+      expect(focusRowOrder(0, true)).toBeLessThan(focusRowOrder(Date.UTC(2050, 0, 1), false));
+    });
+
+    it("stays a 32-bit integer", () => {
+      for (const time of [0, now, Date.UTC(2100, 0, 1)]) {
+        for (const pinned of [false, true]) {
+          const order = focusRowOrder(time, pinned);
+          expect(Number.isInteger(order)).toBe(true);
+          expect(Math.abs(order)).toBeLessThan(2 ** 31);
+        }
+      }
+    });
   });
 
   describe("focusCutoff", () => {

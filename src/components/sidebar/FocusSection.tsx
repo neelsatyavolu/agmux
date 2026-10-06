@@ -60,11 +60,18 @@ export function FocusSection({ projects, windowMinutes, onListElement }: Props) 
   const limit = useSettingsStore((s) => resolveFocusThreadsVisible(s.settings.focusThreadsVisible));
   const updateSettings = useSettingsStore((s) => s.updateSettings);
   // Rows arrive through portals from every project; the store counts them all.
-  const rowCount = useFocusRowsStore((s) => {
+  // Pinned rows are always shown, so only the ranked rows go behind Show more.
+  const rankedCount = useFocusRowsStore((s) => {
     let total = 0;
     for (const times of Object.values(s.timestampsByProject)) total += times.length;
     return total;
   });
+  const pinnedCount = useFocusRowsStore((s) => {
+    let total = 0;
+    for (const count of Object.values(s.pinnedByProject)) total += count;
+    return total;
+  });
+  const rowCount = rankedCount + pinnedCount;
   const extraShown = useFocusRowsStore((s) => s.extraShown);
   const showMore = useFocusRowsStore((s) => s.showMore);
   const showLess = useFocusRowsStore((s) => s.showLess);
@@ -81,7 +88,7 @@ export function FocusSection({ projects, windowMinutes, onListElement }: Props) 
   useDismiss(!!menu, [menuRef], closeMenu);
 
   const shown = limit + extraShown;
-  const remaining = rowCount - shown;
+  const remaining = rankedCount - shown;
   const setLimit = (next: number) => updateSettings({ focusThreadsVisible: resolveFocusThreadsVisible(next) });
 
   const filteredProjects = useMemo(() => {
@@ -126,7 +133,7 @@ export function FocusSection({ projects, windowMinutes, onListElement }: Props) 
           type="button"
           onClick={() => setProjectExpanded(FOCUS_GROUP_EXPAND_KEY, !expanded)}
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left bg-transparent border-0 p-0 cursor-default"
-          title={`Threads running or active in the last ${formatFocusWindow(windowMinutes)}, from every project`}
+          title={`Pinned threads, plus threads running or active in the last ${formatFocusWindow(windowMinutes)}, from every project`}
         >
           <ChevronRight size={13} className="chev" />
           <Focus size={14} className="picn" />
@@ -165,7 +172,7 @@ export function FocusSection({ projects, windowMinutes, onListElement }: Props) 
           <span>Show more ({Math.min(remaining, limit)} of {remaining})</span>
         </button>
       )}
-      {expanded && remaining <= 0 && extraShown > 0 && rowCount > limit && (
+      {expanded && remaining <= 0 && extraShown > 0 && rankedCount > limit && (
         <button
           type="button"
           onClick={showLess}

@@ -56,6 +56,20 @@ export function focusCutoff(timestamps: readonly (readonly number[])[], shown: n
   return all.sort((a, b) => b - a)[shown - 1];
 }
 
+/** Epoch seconds subtracted from row times so CSS `order` values fit in 32 bits. */
+const FOCUS_ORDER_BASE_S = 1_700_000_000;
+/** Seconds each band (pinned, then the rest) spans; later times share the newest slot. */
+const FOCUS_ORDER_BAND_S = 2 ** 30;
+
+/**
+ * CSS `order` for a Focus row. Rows from every project share one flex column:
+ * pinned rows come first, then the rest, each newest first.
+ */
+export function focusRowOrder(time: number, pinned: boolean): number {
+  const seconds = Math.min(FOCUS_ORDER_BAND_S - 1, Math.max(0, Math.floor(time / 1000) - FOCUS_ORDER_BASE_S));
+  return pinned ? -seconds - FOCUS_ORDER_BAND_S : -seconds;
+}
+
 /** Ask a project's group to open its "New in {project}" menu at `anchor`. */
 export function requestFocusNewSession(detail: FocusNewSessionDetail): void {
   window.dispatchEvent(new CustomEvent<FocusNewSessionDetail>(NEW_SESSION_EVENT, { detail }));

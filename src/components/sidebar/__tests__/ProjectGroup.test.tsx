@@ -2811,6 +2811,109 @@ describe("ProjectGroup — Final coverage gaps", () => {
       expect(orderOf("Newer")).toBeLessThan(orderOf("Older"));
     });
 
+    describe("pinned threads", () => {
+      const pin = (...ids: string[]) =>
+        useFocusRowsStore.setState({ pinnedIds: Object.fromEntries(ids.map((id) => [id, true as const])) });
+      const orderIn = (focusEl: HTMLElement, name: string) => {
+        const row = Array.from(focusEl.children).find((c) => c.textContent?.includes(name)) as HTMLElement;
+        return Number(row.style.order);
+      };
+
+      it("stay in Focus past the window, above newer rows", () => {
+        pin("old");
+        useThreadStore.setState({
+          threads: {
+            p1: [
+              makeThread({ id: "old", name: "Pinned Old", last_active: hoursAgo(48) }),
+              makeThread({ id: "new", name: "Fresh", last_active: hoursAgo(1) }),
+            ],
+          },
+        });
+        const { focusEl } = renderWithFocus();
+        expect(focusEl.textContent).toContain("Pinned Old");
+        expect(orderIn(focusEl, "Pinned Old")).toBeLessThan(orderIn(focusEl, "Fresh"));
+      });
+
+      it("are never cut by Show more and are counted apart from ranked rows", () => {
+        pin("old");
+        useThreadStore.setState({
+          threads: {
+            p1: [
+              makeThread({ id: "old", name: "Pinned Old", last_active: hoursAgo(48) }),
+              makeThread({ id: "new", name: "Fresh", last_active: hoursAgo(1) }),
+            ],
+          },
+        });
+        const focusEl = document.createElement("div");
+        document.body.appendChild(focusEl);
+        render(
+          <ProjectGroup {...baseProps} focusPortal={focusEl} focusSince={Date.now() - 24 * HOUR} focusCutoff={Date.now()} />,
+        );
+        expect(focusEl.textContent).toContain("Pinned Old");
+        expect(focusEl.textContent).not.toContain("Fresh");
+        expect(useFocusRowsStore.getState().timestampsByProject.p1).toHaveLength(1);
+        expect(useFocusRowsStore.getState().pinnedByProject.p1).toBe(1);
+      });
+
+      it("come back after an earlier removal and can't be removed while pinned", () => {
+        pin("old");
+        useThreadStore.setState({
+          threads: { p1: [makeThread({ id: "old", name: "Pinned Old", last_active: hoursAgo(48) })] },
+        });
+        useFocusRowsStore.setState({ dismissedAt: { old: Date.now() } });
+        const { focusEl } = renderWithFocus();
+        expect(focusEl.textContent).toContain("Pinned Old");
+        fireEvent.contextMenu(focusEl.querySelector("[data-session-nav='old']") as HTMLElement);
+        expect(screen.getByText("Unpin")).toBeTruthy();
+        expect(screen.queryByText("Remove from Focus")).toBeNull();
+      });
+
+      it("move to the top when pinned from Focus and follow the window again once unpinned", () => {
+        useThreadStore.setState({
+          threads: {
+            p1: [
+              makeThread({ id: "a", name: "Older", last_active: hoursAgo(5) }),
+              makeThread({ id: "b", name: "Newer", last_active: hoursAgo(1) }),
+            ],
+          },
+        });
+        const focusEl = document.createElement("div");
+        document.body.appendChild(focusEl);
+        const { rerender } = render(
+          <ProjectGroup {...baseProps} focusPortal={focusEl} focusSince={Date.now() - 24 * HOUR} />,
+        );
+        fireEvent.contextMenu(focusEl.querySelector("[data-session-nav='a']") as HTMLElement);
+        fireEvent.click(screen.getByText("Pin to top"));
+        expect(orderIn(focusEl, "Older")).toBeLessThan(orderIn(focusEl, "Newer"));
+        // A Focus pin leaves the project list alone.
+        expect(localStorage.getItem("xanom:pinned-sessions:p1")).toBeNull();
+        // A shorter window would drop it, but pinned rows stay.
+        rerender(<ProjectGroup {...baseProps} focusPortal={focusEl} focusSince={Date.now() - 2 * HOUR} />);
+        expect(focusEl.textContent).toContain("Older");
+        fireEvent.contextMenu(focusEl.querySelector("[data-session-nav='a']") as HTMLElement);
+        fireEvent.click(screen.getByText("Unpin"));
+        expect(focusEl.textContent).not.toContain("Older");
+        expect(focusEl.textContent).toContain("Newer");
+      });
+
+      it("pinned only in the project list still leave Focus with the window", () => {
+        useThreadStore.setState({
+          threads: { p1: [makeThread({ id: "a", name: "List Pinned", last_active: hoursAgo(5) })] },
+        });
+        const focusEl = document.createElement("div");
+        document.body.appendChild(focusEl);
+        const { rerender } = render(
+          <ProjectGroup {...baseProps} focusPortal={focusEl} focusSince={Date.now() - 24 * HOUR} />,
+        );
+        const listRow = Array.from(document.querySelectorAll("[data-session-nav='a']")).find((el) => !focusEl.contains(el));
+        fireEvent.contextMenu(listRow as HTMLElement);
+        fireEvent.click(screen.getByText("Pin to top"));
+        expect(useFocusRowsStore.getState().pinnedIds).toEqual({});
+        rerender(<ProjectGroup {...baseProps} focusPortal={focusEl} focusSince={Date.now() - 2 * HOUR} />);
+        expect(focusEl.textContent).not.toContain("List Pinned");
+      });
+    });
+
     it("renders nothing into Focus when no portal is given", () => {
       useThreadStore.setState({ threads: { p1: [makeThread({ name: "Solo" })] } });
       render(<ProjectGroup {...baseProps} />);
