@@ -215,6 +215,29 @@ describe("agentToast", () => {
       expect(t.threadId).toBe("orphan-session");
     });
 
+    it("suppresses toast when an OpenCode tab is on screen in split view", () => {
+      useThreadStore.setState(
+        { threads: { p1: [mkThread({ id: "oc-1", provider: "OpenCode" })] }, archivedThreads: {} },
+        false,
+      );
+      useUiStore.setState(
+        { selectedThreadId: null } as Partial<ReturnType<typeof useUiStore.getState>>,
+        false,
+      );
+      useSplitViewStore.setState({
+        panes: {
+          pane: {
+            id: "pane",
+            activeTabId: "tab",
+            tabs: [{ id: "tab", type: "opencode-sdk", opencodeThreadId: "oc-1", label: "OC" }],
+          },
+        },
+      } as Partial<ReturnType<typeof useSplitViewStore.getState>>);
+
+      showAgentCompleteToast("oc-1");
+      expect(useToastStore.getState().toasts).toEqual([]);
+    });
+
     it("suppresses toast when session is the focused selection", () => {
       useThreadStore.setState(
         { threads: { p1: [mkThread({ id: "t1" })] }, archivedThreads: {} },
