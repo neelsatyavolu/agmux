@@ -151,6 +151,16 @@ function syncUiStoreFromTab(tab: TabItem): void {
         ui.selectTerminalSession(tab.terminalSessionId, tab.terminalSessionCwd, tab.label);
       }
       break;
+    case "opencode-sdk":
+      if (tab.opencodeThreadId && ui.selectedThreadId !== tab.opencodeThreadId) {
+        ui.selectOpencodeSdkSession(
+          tab.opencodeThreadId,
+          tab.opencodeSessionCwd ?? "",
+          tab.opencodeSessionIsNew,
+          tab.label,
+        );
+      }
+      break;
   }
 }
 
@@ -491,6 +501,8 @@ export function PaneTabBar({ paneId }: Props) {
       if (tab.threadId) candidates.push(tab.threadId);
       if (tab.claudeSessionId) candidates.push(tab.claudeSessionId);
       if (tab.codexSessionId) candidates.push(tab.codexSessionId);
+      if (tab.opencodeThreadId) candidates.push(tab.opencodeThreadId);
+      if (tab.terminalSessionId) candidates.push(tab.terminalSessionId);
       if (tab.threadId) {
         const realIds = claudeSessionMap[tab.threadId] ?? [];
         for (const rid of realIds) candidates.push(rid);

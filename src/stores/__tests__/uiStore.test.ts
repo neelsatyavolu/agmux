@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useUiStore } from "../uiStore";
+import { useSettingsStore } from "../settingsStore";
+import { useSplitViewStore } from "../splitViewStore";
 import { clearLocalStorage } from "./setup";
 
 describe("uiStore (pure flag/state actions)", () => {
@@ -439,6 +441,38 @@ describe("uiStore — Maximum coverage", () => {
     expect(useUiStore.getState().unreadSessionIds["s1"]).toBeUndefined();
   });
 
+  it("markSessionUnread skips a Claude provider id while its thread is open", () => {
+    useUiStore.setState({
+      selectedThreadId: "xanom-1",
+      selectedClaudeSessionId: null,
+      claudeSessionMap: { "xanom-1": ["real-1"] },
+    } as never);
+    useUiStore.getState().markSessionUnread("real-1");
+    expect(useUiStore.getState().unreadSessionIds["real-1"]).not.toBe(true);
+  });
+
+  it("markSessionUnread skips an OpenCode tab that is the focused split pane", () => {
+    const settings = useSettingsStore.getState().settings;
+    useSettingsStore.setState({ settings: { ...settings, multiViewEnabled: true } });
+    useUiStore.setState({ selectedThreadId: "oc-1" } as never);
+    useSplitViewStore.setState({
+      focusedPaneId: "pane",
+      panes: {
+        pane: {
+          id: "pane",
+          activeTabId: "tab",
+          tabs: [{ id: "tab", type: "opencode-sdk", opencodeThreadId: "oc-1", label: "OC" }],
+        },
+      },
+    });
+    try {
+      useUiStore.getState().markSessionUnread("oc-1");
+      expect(useUiStore.getState().unreadSessionIds["oc-1"]).not.toBe(true);
+    } finally {
+      useSettingsStore.setState({ settings });
+    }
+  });
+
   // ── setClaudeSessionModel ───────────────────────────────
   it("setClaudeSessionModel records and dedups identical updates", () => {
     useUiStore.getState().setClaudeSessionModel("s1", "haiku");
@@ -528,6 +562,16 @@ describe("uiStore — Maximum coverage", () => {
     useUiStore.setState({ sessionCwdMap: { "xanom-1": "/repo" } } as never);
     useUiStore.getState().setClaudeRealId("xanom-1", "real-1");
     expect(useUiStore.getState().sessionCwdMap["real-1"]).toBe("/repo");
+  });
+
+  it("setClaudeRealId does not mark a thread unread while it is open", () => {
+    useUiStore.setState({
+      selectedThreadId: "xanom-1",
+      unreadSessionIds: { "real-1": true },
+    } as never);
+    useUiStore.getState().setClaudeRealId("xanom-1", "real-1");
+    expect(useUiStore.getState().unreadSessionIds["xanom-1"]).not.toBe(true);
+    expect(useUiStore.getState().claudeSessionMap["xanom-1"]).toEqual(["real-1"]);
   });
 
   // ── pendingOpencodePermissionMode round trip ──────────
