@@ -2,9 +2,9 @@
 
 macOS Tauri app for AI coding agents (Claude, Codex, Cursor, Droid, Kimi, Pi, OpenCode, Grok, Cline, Gemini, Hermes, MLX). Modes: PTY, Claude SDK, Cursor SDK, OpenCode SDK, Grok ACP, MLX. UI: agent / cowork / task / ide.
 
-## Open source — this repo is public
+## Source-available — this repo is public
 
-Source: https://github.com/neelsatyavolu/agmux (MIT). Every commit pushed is published, forever. Be careful:
+Source: https://github.com/neelsatyavolu/agmux (MIT + Commons Clause: free to use and modify, not to sell; say "source-available", not "open source"). Every commit pushed is published, forever. Be careful:
 
 - Never commit secrets, tokens, credentials, keys, personal files, photos/screenshots, local databases, transcripts, or machine-specific paths/configs. Review `git status` and the staged diff before every commit; stage explicit paths, not unknown files.
 - Local tool/agent state stays gitignored: `.agmux/`, `.wrangler/`, `.playwright-cli/`, `.superset/`, `.grok/config.toml`, `memory.json`, `handoffs.json`.

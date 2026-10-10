@@ -41,4 +41,6 @@ Contributor and agent conventions live in [`AGENTS.md`](AGENTS.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT with the Commons Clause](LICENSE). You can use, modify and share agmux freely, including at work, but you may not sell it or a product or service whose value comes mainly from it. This makes agmux source-available rather than open source.
+
+Versions published before this change remain under the plain MIT license. Vendored third-party code under `src-tauri/vendor/` keeps its own licenses.
