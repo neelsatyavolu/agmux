@@ -89,7 +89,11 @@ export function FocusSection({ projects, windowMinutes, onListElement }: Props) 
 
   const shown = limit + extraShown;
   const remaining = rankedCount - shown;
-  const setLimit = (next: number) => updateSettings({ focusThreadsVisible: resolveFocusThreadsVisible(next) });
+  const setLimit = (next: number) => {
+    updateSettings({ focusThreadsVisible: resolveFocusThreadsVisible(next) });
+    // Show more is a temporary expansion. The number just chosen is the list.
+    useFocusRowsStore.getState().showLess();
+  };
 
   const filteredProjects = useMemo(() => {
     const q = query.trim().toLowerCase();

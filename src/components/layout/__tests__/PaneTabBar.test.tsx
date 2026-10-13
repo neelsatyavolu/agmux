@@ -110,6 +110,31 @@ describe("PaneTabBar", () => {
     expect(getByText("Terminal")).toBeTruthy();
   });
 
+  it("selects the OpenCode session when its tab is active", () => {
+    const id = "oc-pane";
+    seedPane(id, {
+      id,
+      tabs: [{ id: "t1", type: "opencode-sdk", opencodeThreadId: "th1", opencodeSessionCwd: "/tmp/repo", label: "Session" }],
+      activeTabId: "t1",
+    });
+    render(<PaneTabBar paneId={id} />);
+    expect(useUiStore.getState().selectedThreadId).toBe("th1");
+  });
+
+  it("shows a finished pulse on an OpenCode tab with an unread reply", () => {
+    const id = "oc-glow";
+    seedPane(id, {
+      id,
+      tabs: [{ id: "t1", type: "opencode-sdk", opencodeThreadId: "th1", opencodeSessionCwd: "/tmp/repo", label: "Session" }],
+      activeTabId: "t1",
+    });
+    const { getByText } = render(<PaneTabBar paneId={id} />);
+    act(() => {
+      useUiStore.setState({ unreadSessionIds: { th1: true } });
+    });
+    expect(getByText("done")).toBeTruthy();
+  });
+
   it.each([
     ["opencode-sdk", "opencodeThreadId"], ["codex", "codexSessionId"],
   ])("resolves %s session tabs to their thread model", (type, key) => {

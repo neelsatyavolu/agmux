@@ -44,6 +44,8 @@ function collectViewedIds(): Set<string> {
     add(tab.threadId);
     add(tab.claudeSessionId);
     add(tab.codexSessionId);
+    add(tab.opencodeThreadId);
+    add(tab.terminalSessionId);
   }
 
   return ids;

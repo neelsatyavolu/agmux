@@ -81,14 +81,60 @@ test('Forget this Mac stops pushes for this phone', (t) => {
   assert.ok(sent.some((m) => m.type === 'push.unregister'));
 });
 
+const SAMPLE_THREAD = { id: 't9', title: 'Ship it', projectId: 'p', projectName: 'App', provider: 'ClaudeCode', surface: 'chat', processing: false };
+
 test('a tapped notification opens its session once the list arrives', (t) => {
   const { w, sent } = paired(t);
   w.handleMsg({ type: 'hello.ok', role: 'phone' });
   w.openThreadWhenReady('t9');
   assert.equal(w.eval('activeThreadId'), null);
-  w.handleMsg({ type: 'threads.snapshot', threads: [{ id: 't9', title: 'Ship it', projectId: 'p', projectName: 'App', provider: 'ClaudeCode', surface: 'chat', processing: false }] });
+  w.handleMsg({ type: 'threads.snapshot', threads: [SAMPLE_THREAD] });
   assert.equal(w.eval('activeThreadId'), 't9');
   assert.ok(sent.some((m) => m.type === 'thread.subscribe' && m.threadId === 't9'));
+});
+
+test('a tapped local alert waits for the session list instead of failing closed', (t) => {
+  const { w } = paired(t);
+  let note;
+  w.Notification = class {
+    static permission = 'granted';
+    constructor() { note = this; }
+    close() {}
+  };
+  w.handleMsg({ type: 'hello.ok', role: 'phone' });
+  w.notifyBlocked({ type: 'approval.requested', threadId: 't9', requestId: 'r', toolName: 'Bash' });
+  assert.equal(typeof note?.onclick, 'function');
+  note.onclick();
+  assert.equal(w.eval('activeThreadId'), null);
+  assert.equal(w.eval('pendingOpenThread'), 't9');
+  w.handleMsg({ type: 'threads.snapshot', threads: [SAMPLE_THREAD] });
+  assert.equal(w.eval('activeThreadId'), 't9');
+});
+
+test('a cold notification open reads ?thread= once the list arrives', (t) => {
+  const { w } = paired(t);
+  w.history.replaceState({}, '', '/?thread=t9');
+  w.consumeNotificationThread();
+  assert.equal(new w.URL(w.location.href).searchParams.get('thread'), null);
+  w.handleMsg({ type: 'hello.ok', role: 'phone' });
+  w.handleMsg({ type: 'threads.snapshot', threads: [SAMPLE_THREAD] });
+  assert.equal(w.eval('activeThreadId'), 't9');
+});
+
+test('a notification for a deleted session says so', (t) => {
+  const { w } = paired(t);
+  w.handleMsg({ type: 'hello.ok', role: 'phone' });
+  w.openThreadWhenReady('gone');
+  w.handleMsg({ type: 'threads.snapshot', threads: [{ ...SAMPLE_THREAD, id: 'other' }] });
+  assert.equal(w.eval('pendingOpenThread'), null);
+  assert.match(w.document.getElementById('toastHost')?.textContent ?? '', /no longer on your Mac/i);
+});
+
+test('Allow says when the phone is not connected', (t) => {
+  const { w } = paired(t);
+  w.handleMsg({ type: 'hello.ok', role: 'phone' });
+  w.eval('ws.readyState = 3; pendingApproval = { threadId: "t9", requestId: "r" }; respondApproval("allow")');
+  assert.match(w.document.getElementById('toastHost')?.textContent ?? '', /Not connected to your Mac/i);
 });
 
 test('an older relay without push support shows no error', (t) => {

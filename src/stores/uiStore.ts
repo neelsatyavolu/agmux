@@ -261,7 +261,11 @@ function isViewedInFocusedPane(sessionId: string): boolean {
   if (!focusedPane?.activeTabId) return false;
   const activeTab = focusedPane.tabs.find((t) => t.id === focusedPane.activeTabId);
   if (!activeTab) return false;
-  const tabSessionId = activeTab.threadId ?? activeTab.claudeSessionId ?? activeTab.codexSessionId;
+  const tabSessionId = activeTab.threadId
+    ?? activeTab.claudeSessionId
+    ?? activeTab.codexSessionId
+    ?? activeTab.opencodeThreadId
+    ?? activeTab.terminalSessionId;
   return tabSessionId === sessionId;
 }
 
@@ -274,7 +278,9 @@ function isSelectedClaudeSession(state: Pick<UiState, "selectedClaudeSessionId" 
   // not registered in claudeSessionMap.
   if (state.selectedThreadId === sessionId) return true;
   for (const [xanomId, realIds] of Object.entries(state.claudeSessionMap)) {
-    if (realIds.includes(sessionId) && state.selectedClaudeSessionId === xanomId) {
+    // Claude PTY rows are selected by their agmux thread id (selectedThreadId),
+    // while hooks report the provider's real session id.
+    if (realIds.includes(sessionId) && (state.selectedClaudeSessionId === xanomId || state.selectedThreadId === xanomId)) {
       return true;
     }
   }
@@ -1154,7 +1160,11 @@ export const useUiStore = create<UiState>((set, get) => ({
         };
       }
 
-      if ((s.unreadSessionIds[realId] ?? false) && !(s.unreadSessionIds[xanomId] ?? false)) {
+      const viewingThis =
+        s.selectedThreadId === xanomId ||
+        s.selectedClaudeSessionId === xanomId ||
+        s.selectedClaudeSessionId === realId;
+      if ((s.unreadSessionIds[realId] ?? false) && !(s.unreadSessionIds[xanomId] ?? false) && !viewingThis) {
         nextState.unreadSessionIds = { ...s.unreadSessionIds, [xanomId]: true };
       }
 

@@ -32,6 +32,10 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Context meter for new models** — The context ring shows the right size for GPT-6.1 Sol, GPT-6 Astra and Grok 4.7 Fast instead of a smaller default.
 
 ### Fixed
+- **Extra High on newer Claude models from your phone** — Fable 5.1, Sonnet 5.5 and Opus 5.5 now offer Extra High in the phone's effort control, the same as on your Mac.
+- **The chat you're already looking at stays read** — A Claude terminal, or an OpenCode chat open in a split view, no longer marks itself unread or pops a finished notice while you're on it. Switching to an OpenCode tab also selects that chat.
+- **Focus "Threads visible" matches the list** — Lowering how many threads Focus shows now shortens the list, even after Show more.
+- **Phone alerts open the right chat** — Tapping an alert opens that chat once your sessions load, including when the app was closed. If the chat is gone, you're told. Allow and Deny say so when they can't reach your Mac.
 - **Pin threads in Focus** — Pinning a thread from Focus now keeps it there, at the top, even after it goes quiet, and it never goes behind "Show more". Before, it dropped out of Focus like any other thread. Pins in your project list stay separate and don't affect Focus. Unpin a thread in Focus to let it leave again.
 - **Read on your phone stays read on your Mac** — A Claude terminal you started in agmux and followed on your phone no longer shows as unread on your Mac when it finishes.
 

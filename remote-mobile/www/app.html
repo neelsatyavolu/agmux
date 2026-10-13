@@ -3306,6 +3306,9 @@ function handleMsg(msg) {
         const id = pendingOpenThread;
         pendingOpenThread = null;
         openThread(id);
+      } else if (pendingOpenThread) {
+        pendingOpenThread = null;
+        showToast('That session is no longer on your Mac.');
       }
       break;
     }
@@ -4687,9 +4690,18 @@ function effortsFor(provider, model) {
   }
   if (provider === 'Gemini') return GEMINI_EFFORTS;
   if (provider !== 'ClaudeCode') return [];
-  // Claude — xhigh only on flagship models
-  const base = (model || '').replace(/\[.*\]$/, '').replace(/-\d{8}$/, '');
-  const xhighOk = /^(opus|claude-opus-5|claude-opus-4-[78]|claude-fable-5|fable|claude-sonnet-5|sonnet-5)$/.test(base);
+  // Claude — Extra High matches the Mac app: Fable, Mythos, Sonnet 5+, Opus 4.7+.
+  const base = (model || '').replace(/\[.*\]$/, '').replace(/-\d{8}$/, '').toLowerCase();
+  let xhighOk = base === 'opus' || base === 'fable' || base === 'mythos' || base === 'sonnet-5';
+  const parsed = base.match(/^claude-(fable|mythos|opus|sonnet|haiku)-(.+)$/);
+  if (parsed) {
+    const family = parsed[1];
+    const version = parsed[2].split(/[-.]/).filter(Boolean).map(Number);
+    const versionOk = version.length > 0 && version.every((n) => Number.isFinite(n));
+    if (versionOk && (family === 'fable' || family === 'mythos')) xhighOk = true;
+    else if (versionOk && family === 'opus') xhighOk = version[0] > 4 || (version[0] === 4 && (version[1] || 0) >= 7);
+    else if (versionOk && family === 'sonnet') xhighOk = version[0] >= 5;
+  }
   return CLAUDE_EFFORTS.filter(([v]) => v !== 'xhigh' || xhighOk);
 }
 
@@ -5474,7 +5486,10 @@ function renderUserInputQuestions(questions) {
 }
 
 function respondApproval(decision) {
-  if (!ws || ws.readyState !== 1) return;
+  if (!ws || ws.readyState !== 1) {
+    showToast('Not connected to your Mac yet — try again in a moment');
+    return;
+  }
   const pending = pendingUserInput || pendingApproval;
   if (!pending) return;
   let payload;
@@ -5528,7 +5543,7 @@ function notifyBlocked(msg) {
     n.onclick = () => {
       try { window.focus(); } catch {}
       if (msg.threadId) {
-        try { openThread(msg.threadId); } catch {}
+        try { openThreadWhenReady(msg.threadId); } catch {}
       }
       n.close();
     };
@@ -5984,6 +5999,19 @@ function openThreadWhenReady(id) {
   else pendingOpenThread = id;
 }
 
+/** Cold start from a notification: the service worker opens `?thread=`. */
+function consumeNotificationThread() {
+  let id = '';
+  try {
+    const u = new URL(location.href);
+    id = (u.searchParams.get('thread') || '').trim();
+    if (!id) return;
+    u.searchParams.delete('thread');
+    history.replaceState({}, '', u.pathname + u.search + u.hash);
+  } catch { return; }
+  openThreadWhenReady(id);
+}
+
 function notificationState() {
   return typeof Notification === 'undefined' ? 'unsupported' : Notification.permission;
 }
@@ -6058,7 +6086,7 @@ function notifyFinished(thread) {
     });
     n.onclick = () => {
       try { window.focus(); } catch {}
-      try { openThread(thread.id); } catch {}
+      try { openThreadWhenReady(thread.id); } catch {}
       n.close();
     };
   } catch { /* ignore */ }
@@ -6331,12 +6359,15 @@ window.addEventListener('hashchange', () => {
   doPair();
 });
 
+// Cold open from a notification (`?thread=`) and later service-worker clicks.
+consumeNotificationThread();
+
 // Service worker click → open thread (when notification was shown from SW push).
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (ev) => {
     const d = ev.data || {};
     if (d.type === 'open-thread' && d.threadId) {
-      try { openThread(d.threadId); } catch {}
+      try { openThreadWhenReady(d.threadId); } catch {}
     }
   });
 }

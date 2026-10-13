@@ -177,6 +177,17 @@ test('current Claude and Codex models request the desktop catalog', () => {
   assert.equal(h.c.usesLiveModelCatalog('ClaudeCode'), true);
   assert.equal(h.c.usesLiveModelCatalog('Codex'), true);
 });
+test('newer Claude models keep Extra High on the phone', () => {
+  const h = harness(['effortsFor'], {
+    CLAUDE_EFFORTS: [['low', 'Low'], ['high', 'High'], ['xhigh', 'XHigh'], ['max', 'Max']],
+  });
+  for (const model of ['claude-fable-5-1', 'claude-fable-5', 'claude-sonnet-5-5', 'claude-sonnet-5', 'claude-opus-5-5', 'claude-opus-4-8', 'opus', 'fable']) {
+    assert.ok(h.c.effortsFor('ClaudeCode', model).some(([effort]) => effort === 'xhigh'), model);
+  }
+  for (const model of ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5', 'haiku', 'sonnet']) {
+    assert.equal(h.c.effortsFor('ClaudeCode', model).some(([effort]) => effort === 'xhigh'), false, model);
+  }
+});
 test('Codex effort options honor the live model capability list', () => {
   const h = harness(['effortsFor'], {
     dynamicModelEfforts: { Codex: { 'gpt-6-astra': ['high', 'ultra'] } },

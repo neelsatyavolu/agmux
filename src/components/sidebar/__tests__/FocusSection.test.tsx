@@ -85,6 +85,16 @@ describe("FocusSection", () => {
     expect(screen.queryByText(/Nothing active/)).toBeNull();
   });
 
+  it("drops a Show more expansion when the visible-thread setting changes", () => {
+    useSettingsStore.setState((s) => ({ settings: { ...s.settings, focusThreadsVisible: 2 } }));
+    useFocusRowsStore.setState({ timestampsByProject: { p1: [5, 4, 3], p2: [2, 1] }, extraShown: 2 });
+    render(<FocusSection projects={projects} windowMinutes={10} onListElement={() => {}} />);
+    fireEvent.contextMenu(screen.getByText("Focus"));
+    fireEvent.click(screen.getByLabelText("Decrease visible threads"));
+    expect(useSettingsStore.getState().settings.focusThreadsVisible).toBe(1);
+    expect(useFocusRowsStore.getState().extraShown).toBe(0);
+  });
+
   it("changes how many threads it shows from the header's right-click menu", () => {
     render(<FocusSection projects={projects} windowMinutes={10} onListElement={() => {}} />);
     fireEvent.contextMenu(screen.getByText("Focus"));
