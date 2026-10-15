@@ -45,7 +45,7 @@ pub async fn freeze_legacy_bindings(pool: &SqlitePool) -> Result<(), String> {
 
 fn validate(provider: &str, id: &str) -> Result<(), String> {
     if !matches!(provider, "ClaudeCode" | "Codex" | "Grok" | "Droid" | "Kimi" | "Pi"
-        | "Cline" | "Gemini" | "Hermes" | "OpenCode" | "Cursor" | "MLX") {
+        | "Cline" | "Gemini" | "Hermes" | "Muse" | "OpenCode" | "Cursor" | "MLX") {
         return Err("Unknown session provider".into());
     }
     if id.is_empty() || id.len() > 256 || id.contains(['/', '\\']) || id.chars().any(char::is_control) {
@@ -258,7 +258,7 @@ mod tests {
         sqlx::raw_sql(include_str!("../../migrations/041_teams_created_claude_sessions.sql")).execute(&pool).await.unwrap();
         sqlx::raw_sql(include_str!("../../migrations/042_session_origins.sql")).execute(&pool).await.unwrap();
         sqlx::raw_sql("CREATE TABLE teams_sync_state(id INTEGER, agmux_sessions_only INTEGER); INSERT INTO teams_sync_state VALUES(1,2)").execute(&pool).await.unwrap();
-        let providers = ["ClaudeCode", "Codex", "Grok", "Droid", "Kimi", "Pi", "Cline", "Gemini", "Hermes", "OpenCode", "Cursor", "MLX"];
+        let providers = ["ClaudeCode", "Codex", "Grok", "Droid", "Kimi", "Pi", "Cline", "Gemini", "Hermes", "Muse", "OpenCode", "Cursor", "MLX"];
         for provider in providers {
             assert!(bind_session(&pool, provider, "not-recorded", "native").await.is_err());
             record_origin(&pool, provider, "created-owner", "pty", true).await.unwrap();

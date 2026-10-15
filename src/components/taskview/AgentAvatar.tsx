@@ -10,6 +10,7 @@ import cursorIcon from "../../assets/cursor-app-icon.png";
 import clineIcon from "../../assets/cline-icon.svg";
 import geminiIcon from "../../assets/gemini-icon.svg";
 import hermesIcon from "../../assets/hermes-icon.png";
+import museIcon from "../../assets/muse-icon.svg";
 import type { Provider } from "../../lib/types";
 
 interface AgentAvatarProps {
@@ -39,6 +40,7 @@ const META: Record<Provider, AvatarMeta> = {
   Cline: { bg: "#111111", src: clineIcon, label: "L", fullBleed: true },
   Gemini: { bg: "#0b1220", src: geminiIcon, label: "G", fullBleed: true },
   Hermes: { bg: "#1A1714", src: hermesIcon, label: "H", fullBleed: true },
+  Muse: { bg: "#0b1220", src: museIcon, label: "M" },
 };
 
 export function AgentAvatar({ provider, size = 22 }: AgentAvatarProps) {

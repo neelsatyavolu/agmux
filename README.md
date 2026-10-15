@@ -1,6 +1,6 @@
 # agmux
 
-A macOS app for running AI coding agents side by side: Claude Code, Codex, Cursor, Droid, Kimi, Pi, OpenCode, Grok, Cline, Gemini, Hermes and local MLX models, in terminals or structured chat.
+A macOS app for running AI coding agents side by side: Claude Code, Codex, Cursor, Droid, Kimi, Pi, OpenCode, Grok, Cline, Gemini, Muse and local MLX models, in terminals or structured chat.
 
 Download: [agmux.dev](https://agmux.dev) · Homebrew: `brew install --cask neel-xanom/agmux/agmux`
 

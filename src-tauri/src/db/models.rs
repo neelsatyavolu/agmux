@@ -25,7 +25,7 @@ pub struct Thread {
     pub id: String,
     pub project_id: String,
     pub name: String,
-    pub provider: String,  // "ClaudeCode" | "Codex" | "Droid" | "Kimi" | "Pi" | "OpenCode" | "MLX" | "Grok" | "Cursor" | "Cline" | "Gemini" | "Hermes"
+    pub provider: String,  // "ClaudeCode" | "Codex" | "Droid" | "Kimi" | "Pi" | "OpenCode" | "MLX" | "Grok" | "Cursor" | "Cline" | "Gemini" | "Hermes" | "Muse"
     pub run_mode: String,  // "Local" | "Cloud"
     pub work_mode: String, // "DirectRepo" | "Worktree"
     pub work_dir: String,
@@ -297,6 +297,7 @@ pub enum Provider {
     Cline,
     Gemini,
     Hermes,
+    Muse,
 }
 
 #[allow(dead_code)]
@@ -315,6 +316,7 @@ impl Provider {
             Provider::Cline => "Cline",
             Provider::Gemini => "Gemini",
             Provider::Hermes => "Hermes",
+            Provider::Muse => "Muse",
         }
     }
 
@@ -332,6 +334,7 @@ impl Provider {
             "Cline" => Ok(Provider::Cline),
             "Gemini" => Ok(Provider::Gemini),
             "Hermes" => Ok(Provider::Hermes),
+            "Muse" => Ok(Provider::Muse),
             _ => anyhow::bail!("Unknown provider: {}", s),
         }
     }
@@ -360,6 +363,8 @@ impl Provider {
             // Antigravity CLI (`agy`) instead of `gemini`.
             Provider::Gemini => "agy",
             Provider::Hermes => "hermes",
+            // Meta Muse Code CLI; installer puts it in ~/.local/bin.
+            Provider::Muse => "muse",
         }
     }
 }
@@ -427,6 +432,7 @@ mod tests {
             Provider::Cline,
             Provider::Gemini,
             Provider::Hermes,
+            Provider::Muse,
         ];
         for p in &all {
             let s = p.as_str();
@@ -449,6 +455,7 @@ mod tests {
         assert_eq!(Provider::from_str("Cline").unwrap(), Provider::Cline);
         assert_eq!(Provider::from_str("Gemini").unwrap(), Provider::Gemini);
         assert_eq!(Provider::from_str("Hermes").unwrap(), Provider::Hermes);
+        assert_eq!(Provider::from_str("Muse").unwrap(), Provider::Muse);
     }
 
     #[test]
@@ -472,6 +479,7 @@ mod tests {
         assert_eq!(Provider::Cline.cli_binary_name(), "cline");
         assert_eq!(Provider::Gemini.cli_binary_name(), "agy");
         assert_eq!(Provider::Hermes.cli_binary_name(), "hermes");
+        assert_eq!(Provider::Muse.cli_binary_name(), "muse");
     }
 
     #[test]
@@ -489,6 +497,7 @@ mod tests {
             Provider::Cline.cli_binary_name(),
             Provider::Gemini.cli_binary_name(),
             Provider::Hermes.cli_binary_name(),
+            Provider::Muse.cli_binary_name(),
         ];
         let mut seen = std::collections::HashSet::new();
         for n in &names {

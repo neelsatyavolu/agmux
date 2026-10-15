@@ -224,7 +224,8 @@ export function ThreadView({ thread, compact = false }: Props) {
       thread.provider !== "Droid" &&
       thread.provider !== "Cline" &&
       thread.provider !== "Gemini" &&
-      thread.provider !== "Hermes"
+      thread.provider !== "Hermes" &&
+      thread.provider !== "Muse"
     ) return;
     // SDK session views own their lifecycle and must not also spawn a PTY.
     if (thread.provider === "OpenCode" && thread.interaction_mode === "opencode-sdk") return;
@@ -257,6 +258,8 @@ export function ThreadView({ thread, compact = false }: Props) {
         ? "Gemini"
       : thread.provider === "Hermes"
         ? "Hermes"
+      : thread.provider === "Muse"
+        ? "Muse"
       : thread.provider === "Kimi"
         ? "Kimi"
         : thread.provider === "Pi"
@@ -424,7 +427,8 @@ export function ThreadView({ thread, compact = false }: Props) {
       thread.provider === "OpenCode" ||
       thread.provider === "Cline" ||
       (thread.provider === "Gemini" && thread.interaction_mode !== "gemini-sdk") ||
-      thread.provider === "Hermes";
+      thread.provider === "Hermes" ||
+      thread.provider === "Muse";
     if (!isTerminalAgent) {
       if (unloadTimerRef.current) {
         clearTimeout(unloadTimerRef.current);
@@ -961,6 +965,7 @@ export function ThreadView({ thread, compact = false }: Props) {
     thread.provider === "Cline" ||
     (thread.provider === "Gemini" && thread.interaction_mode !== "gemini-sdk") ||
     thread.provider === "Hermes" ||
+    thread.provider === "Muse" ||
     (thread.provider === "Grok" && thread.interaction_mode !== "grok-sdk")
   ) {
     return (

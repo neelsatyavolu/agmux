@@ -3118,6 +3118,7 @@ fn pty_provenance_session_id(
         "Cline" => Some("cline-session-id.txt"),
         "Gemini" => Some("gemini-session-id.txt"),
         "Hermes" => Some("hermes-session-id.txt"),
+        "Muse" => Some("muse-session-id.txt"),
         "OpenCode" => Some("opencode-session-id.txt"),
         "Grok" => Some("grok-session-id.txt"),
         _ => None,
@@ -3890,7 +3891,7 @@ mod grok_pty_tests {
         let dir = tempfile::tempdir().unwrap();
         for (provider, filename) in [("Pi", "pi-session-id.txt"), ("Droid", "droid-session-id.txt"),
             ("Kimi", "kimi-session-id.txt"), ("Cline", "cline-session-id.txt"),
-            ("Gemini", "gemini-session-id.txt"), ("Hermes", "hermes-session-id.txt"),
+            ("Gemini", "gemini-session-id.txt"), ("Hermes", "hermes-session-id.txt"), ("Muse", "muse-session-id.txt"),
             ("OpenCode", "opencode-session-id.txt")] {
             let mut thread = thread_with_provider(provider, "pty");
             thread.sdk_session_id = None;

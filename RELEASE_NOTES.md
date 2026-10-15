@@ -25,6 +25,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ## Unreleased
 
 ### New
+- **Muse terminal** — Meta's Muse Code is now one of the terminal agents you can start, in place of Hermes. It shows when it is working, when it is waiting for your approval and when it has finished, and picks up where it left off when you reopen it. Hermes sessions you already have still open.
 - **Newest models in more pickers** — Claude Fable 5.1, Claude Sonnet 5.5, GPT-6.1 Sol and GPT-6 Astra now show up in the New Task menu and in the phone app's model picker. On the phone, GPT-6.1 Sol and GPT-6 Astra also get the Max and Ultra reasoning levels.
 - **Grok 4.7 Fast costs** — The Usage tab now shows costs for Grok 4.7 Fast, at twice Grok 4.7's price.
 

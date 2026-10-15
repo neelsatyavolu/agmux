@@ -3,6 +3,7 @@ mod droid_settings;
 mod cline_hooks;
 mod gemini_settings;
 mod hermes_settings;
+mod muse_plugin;
 mod grok_settings;
 mod kimi_script;
 mod kimi_settings;
@@ -20,6 +21,7 @@ pub use gemini_settings::{
     ensure_agy_hook_script, ensure_agy_hooks_merged, ensure_gemini_hooks_merged,
 };
 pub use hermes_settings::{ensure_hermes_hooks_merged, ensure_hermes_plugin, ensure_hermes_provenance_bootstrap};
+pub use muse_plugin::ensure_muse_plugin;
 pub use kimi_script::ensure_kimi_hook_script;
 pub use kimi_settings::ensure_kimi_hooks_merged;
 pub use pi_extension::ensure_pi_extension;
@@ -825,7 +827,7 @@ async fn handle_connection(
 
                 if matches!(
                     event.provider.as_deref(),
-                    Some("cline") | Some("gemini") | Some("hermes")
+                    Some("cline") | Some("gemini") | Some("hermes") | Some("muse")
                 ) {
                     let provider_sid = hook_payload_str(
                         &event.payload,
@@ -862,6 +864,12 @@ async fn handle_connection(
                                             &sid,
                                         )
                                     }
+                                    Some("muse") => {
+                                        crate::process::muse_session::write_session_id(
+                                            &thread_state_dir,
+                                            &sid,
+                                        )
+                                    }
                                     _ => Ok(()),
                                 };
                                 if let Err(e) = write {
@@ -875,11 +883,12 @@ async fn handle_connection(
                             }
                         }
                     }
-                    if event.provider.as_deref() == Some("hermes") {
+                    if matches!(event.provider.as_deref(), Some("hermes" | "muse")) {
+                        // Muse reports "unknown" until its provider resolves a model.
                         if let Some(model) = hook_payload_str(
                             &event.payload,
                             &["model", "modelId", "model_id"],
-                        ) {
+                        ).filter(|m| m != "unknown") {
                             let pool = app.state::<crate::AppState>().db.clone();
                             let thread_id = event.session_id.clone();
                             tokio::spawn(async move {
@@ -1301,6 +1310,7 @@ async fn handle_connection(
                     "cline" => "cline-hook",
                     "gemini" => "gemini-hook",
                     "hermes" => "hermes-hook",
+                    "muse" => "muse-hook",
                     _ => "claude-hook",
                 };
 
@@ -2088,6 +2098,7 @@ mod tests {
             "cline" => "cline-hook",
             "gemini" => "gemini-hook",
             "hermes" => "hermes-hook",
+            "muse" => "muse-hook",
             _ => "claude-hook",
         }
     }
@@ -2111,6 +2122,11 @@ mod tests {
     #[test]
     fn channel_routing_hermes_to_hermes_hook() {
         assert_eq!(channel_for_provider("hermes"), "hermes-hook");
+    }
+
+    #[test]
+    fn channel_routing_muse_to_muse_hook() {
+        assert_eq!(channel_for_provider("muse"), "muse-hook");
     }
 
     #[test]

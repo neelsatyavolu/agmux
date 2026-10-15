@@ -51,7 +51,7 @@ pub async fn get_cleanup_session_activity(
             if safe_id(&row.id) {
                 // Deliberately avoid agmux_home(): it performs migration/writes.
                 let dir = home.join(".agmux/threads").join(&row.id);
-                for provider in ["pi", "droid", "kimi", "cline", "gemini", "hermes", "opencode", "grok"] {
+                for provider in ["pi", "droid", "kimi", "cline", "gemini", "hermes", "muse", "opencode", "grok"] {
                     let path = dir.join(format!("{provider}-session-id.txt"));
                     if safe_metadata(&path).is_some_and(|m| m.is_file() && m.len() <= 256) {
                         if let Ok(raw) = std::fs::read_to_string(path) {

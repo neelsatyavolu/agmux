@@ -14,6 +14,7 @@ import cursorIcon from "../../assets/cursor-app-icon.png";
 import clineIcon from "../../assets/cline-icon.svg";
 import geminiIcon from "../../assets/gemini-icon.svg";
 import hermesIcon from "../../assets/hermes-icon.png";
+import museIcon from "../../assets/muse-icon.svg";
 
 interface Props {
   thread: Thread;
@@ -42,6 +43,7 @@ const PROVIDER_AVATAR: Record<Provider, { bg: string; letter: string; icon?: str
   Cline: { bg: "#111111", letter: "L", icon: clineIcon },
   Gemini: { bg: "#0b1220", letter: "G", icon: geminiIcon },
   Hermes: { bg: "#1A1714", letter: "H", icon: hermesIcon },
+  Muse: { bg: "#0b1220", letter: "M", icon: museIcon },
 };
 
 function shortModel(m: string, provider: Provider): string {

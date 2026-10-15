@@ -933,7 +933,7 @@ mod tests {
     #[test]
     fn terminal_stop_matches_desktop_interrupt_keys() {
         assert_eq!(terminal_stop_key("Grok"), "\x03");
-        for provider in ["ClaudeCode", "Codex", "Kimi", "OpenCode", "Pi", "Droid", "Cline", "Hermes", "Gemini"] {
+        for provider in ["ClaudeCode", "Codex", "Kimi", "OpenCode", "Pi", "Droid", "Cline", "Hermes", "Muse", "Gemini"] {
             assert_eq!(terminal_stop_key(provider), "\x1b", "{provider}");
         }
     }

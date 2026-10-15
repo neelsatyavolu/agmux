@@ -878,7 +878,7 @@ describe("SettingsDialog — Maximum coverage", () => {
     ["cline-terminal", "Cline Terminal"],
     ["gemini-chat", "Gemini Chat"],
     ["gemini-terminal", "Gemini Terminal"],
-    ["hermes-terminal", "Hermes Terminal"],
+    ["muse-terminal", "Muse Terminal"],
     ["local-terminal", "Local Terminal"],
   ])("General: Quick Open dropdown sets quickOpenAction to %s", (action, label) => {
     useSettingsStore.getState().openSettings();

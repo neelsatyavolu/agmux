@@ -138,6 +138,7 @@ const REGISTRY: Record<Provider, ProviderUsageAdapter> = {
   Cline: new NoopUsageAdapter("Cline"),
   Gemini: new GeminiUsageAdapter(),
   Hermes: new NoopUsageAdapter("Hermes"),
+  Muse: new NoopUsageAdapter("Muse"),
 };
 
 export function getUsageAdapter(provider: Provider): ProviderUsageAdapter {

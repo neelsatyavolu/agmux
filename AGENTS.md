@@ -1,6 +1,6 @@
 # Agent Instructions — agmux
 
-macOS Tauri app for AI coding agents (Claude, Codex, Cursor, Droid, Kimi, Pi, OpenCode, Grok, Cline, Gemini, Hermes, MLX). Modes: PTY, Claude SDK, Cursor SDK, OpenCode SDK, Grok ACP, MLX. UI: agent / cowork / task / ide.
+macOS Tauri app for AI coding agents (Claude, Codex, Cursor, Droid, Kimi, Pi, OpenCode, Grok, Cline, Gemini, Hermes, Muse, MLX). Modes: PTY, Claude SDK, Cursor SDK, OpenCode SDK, Grok ACP, MLX. UI: agent / cowork / task / ide.
 
 ## Source-available — this repo is public
 
@@ -60,7 +60,7 @@ Source: https://github.com/neelsatyavolu/agmux (MIT + Commons Clause: free to us
 
 ## Terminal sessions — verify on local disk
 
-When working on **Claude / Codex / Droid / Kimi / Pi / OpenCode / Grok terminal (PTY)** or **Cursor SDK** behavior (resume, listing, titles, stop/finish, history), **double-check real local sessions** — do not trust UI state alone. Discovery/resume code lives in `src-tauri/src/process/spawn.rs` and `src-tauri/src/commands/threads.rs`.
+When working on **Claude / Codex / Droid / Kimi / Pi / OpenCode / Grok / Muse terminal (PTY)** or **Cursor SDK** behavior (resume, listing, titles, stop/finish, history), **double-check real local sessions** — do not trust UI state alone. Discovery/resume code lives in `src-tauri/src/process/spawn.rs` and `src-tauri/src/commands/threads.rs`.
 
 | Provider | On-disk path | What to open |
 |----------|--------------|--------------|
@@ -71,6 +71,7 @@ When working on **Claude / Codex / Droid / Kimi / Pi / OpenCode / Grok terminal 
 | Cline | `~/.cline/data/tasks/{taskId}/` · CLI `~/.cline/data/sessions/{id}/` | `--tui`; resume `--id`; bind `cline-session-id.txt`; hooks in `~/.cline/hooks` (TaskStart→prompt-submit — TUI `run("")` skips UserPromptSubmit). Transcript `prompt` / `*.messages.json` `<user_input>` is the ask for titles. |
 | Gemini | PTY: `~/.gemini/antigravity-cli/` (`cache/last_conversations.json`, `brain/{id}/.../transcript.jsonl`). Chat (`gemini-sdk`): isolated `~/.agmux/antigravity-acp/home` + `agy_acp_server`; bind `threads.sdk_session_id`. | Spawn `agy` for the New-menu terminal tile. Chat uses Antigravity ACP (`gemini_sdk_*`), not `agy`. PTY hooks: `~/.gemini/antigravity-cli/plugins/agmux/hooks.json` + `agy-hook.sh`. agy has no PermissionRequest hook — amber pulse/toast wait for the live Allow/Deny card in the PTY. Chat approvals are ACP `session/request_permission`. |
 | Hermes | `~/.hermes/state.db` sessions table | `hermes --tui --accept-hooks`; bind `hermes-session-id.txt`; plugin `~/.hermes/plugins/agmux-hooks` (TUI spinner/titles; shell hooks in config.yaml do not fire in `--tui`) |
+| Muse | `~/.local/share/muse/sessions/YYYY/MM/DD/{id}/` (or `$XDG_DATA_HOME/muse`); resumable view in `sessions/.msp-view-v1/{id}/` | Meta Muse Code CLI (`muse`); resume `muse resume <id>`; bind `muse-session-id.txt`. Replaces the Hermes tile in pickers (Hermes threads still open). Hooks only run from an installed + approved Muse plugin: `hooks::muse_plugin` writes `~/.agmux/hooks/muse-plugin` and runs `muse plugins install/approve agmux` at first spawn (one script per event — Muse rejects a shared hook source). Muse clears the hook environment, so `AGMUX_*` never reach the relay: spawn records `~/.agmux/muse/pids/{pid}` (thread id + socket) and the relay walks up its ancestors to find it. The relay drops `submit_reminder_decision` (internal tool that fires after Stop). PermissionRequest fires when Muse's approval judge *starts* reviewing a call (most end in a silent approval), so amber waits until the approval card is on the PTY (`src/lib/musePermissionPrompt.ts`, scanning output since the request — the animated status line pushes the card out of any fixed tail); `post-tool-use` clears the amber pulse. No phone history reader, Teams scan or usage counts yet. |
 | Pi | `~/.pi/agent/sessions/--{encoded_cwd}--/{ts}_{uuid}.jsonl` | agmux binds `~/.agmux/threads/{id}/pi-session-id.txt`. New-menu **local** tile also spawns Pi against the MLX gateway (`--model local/<id>`; writes `~/.pi/agent/models.json`). |
 | OpenCode PTY | `~/.agmux/threads/{id}/opencode-session-id.txt` → `~/.local/share/opencode/opencode.db` (or `$XDG_DATA_HOME/opencode`) | session.model + usage in SQLite |
 | Grok | `~/.grok/sessions/{urlencoded_cwd}/{session_id}/` | cwd with `/` → `%2F`; `summary.json`, `chat_history.jsonl`, `updates.jsonl` |

@@ -2,7 +2,7 @@ import { esc, icons } from "../dom.js";
 
 const sections = [
   ["allowedModes", "Session modes", "Choose where your team can start work. Any model or effort restriction makes terminals unavailable, even if Terminal is checked, because terminal agents choose these values internally.", [["chat", "Chat", "Conversations in agmux"], ["terminal", "Terminal", "Agent terminal sessions"]]],
-  ["allowedProviders", "Agents", "Choose which agents your team can use.", ["ClaudeCode", "Codex", "Grok", "OpenCode", "Cursor", "Kimi", "Pi", "Droid", "Cline", "Gemini", "Hermes", "MLX"].map(p => [p, p === "ClaudeCode" ? "Claude" : p])],
+  ["allowedProviders", "Agents", "Choose which agents your team can use.", ["ClaudeCode", "Codex", "Grok", "OpenCode", "Cursor", "Kimi", "Pi", "Droid", "Cline", "Gemini", "Hermes", "Muse", "MLX"].map(p => [p, p === "ClaudeCode" ? "Claude" : p])],
   ["allowedModels", "Models", "Allow only these selected model IDs, one per line. IDs are exact and case-sensitive. No wildcards or display-name matching. Provider-routed IDs must include their full prefix.", null],
   ["allowedEfforts", "Reasoning effort", "Choose the reasoning effort settings your team can select. Availability varies by agent and model.", ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"].map(e => [e, e])],
 ];

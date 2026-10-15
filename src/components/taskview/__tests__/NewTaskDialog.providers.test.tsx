@@ -74,7 +74,7 @@ describe("NewTaskDialog provider parity", () => {
     ["kimi-term", "Kimi", "pty", null],
     ["cline-term", "Cline", "pty", null],
     ["gemini-term", "Gemini", "pty", null],
-    ["hermes-term", "Hermes", "pty", null],
+    ["muse-term", "Muse", "pty", null],
   ] as const)("creates %s in the task and forwards its prompt", async (key, provider, mode, model) => {
     localStorage.setItem("agmux-new-task-last-agent", key);
     const onClose = vi.fn();
@@ -113,7 +113,7 @@ describe("NewTaskDialog provider parity", () => {
   it("offers every current provider in the picker, including Local and Droid", () => {
     render(<NewTaskDialog projectId="p" onClose={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: /Claude.*Sonnet/ }));
-    for (const label of ["Claude", "Codex", "Cursor", "OpenCode", "Grok", "Gemini", "Local", "Pi", "Kimi", "Cline", "Hermes", "Droid"]) {
+    for (const label of ["Claude", "Codex", "Cursor", "OpenCode", "Grok", "Gemini", "Local", "Pi", "Kimi", "Cline", "Muse", "Droid"]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
   });

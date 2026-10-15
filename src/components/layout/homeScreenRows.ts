@@ -158,6 +158,7 @@ export function prettifyModel(
     if (provider === "Cline") return "Cline";
     if (provider === "Gemini") return "Gemini";
     if (provider === "Hermes") return "Hermes";
+    if (provider === "Muse") return "Muse";
     return String(provider);
   }
   switch (provider) {

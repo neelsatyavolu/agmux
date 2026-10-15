@@ -6,7 +6,7 @@ export interface Project {
   created_at: string;
 }
 
-export type Provider = "ClaudeCode" | "Codex" | "Droid" | "Kimi" | "Pi" | "OpenCode" | "MLX" | "Grok" | "Cursor" | "Cline" | "Gemini" | "Hermes";
+export type Provider = "ClaudeCode" | "Codex" | "Droid" | "Kimi" | "Pi" | "OpenCode" | "MLX" | "Grok" | "Cursor" | "Cline" | "Gemini" | "Hermes" | "Muse";
 
 /** Draft-chat provider picker (same set as real DB providers). */
 export type DraftProvider = Provider;
@@ -28,7 +28,8 @@ export function isTerminalOnlyProvider(p: Provider): boolean {
     p === "Grok" ||
     p === "Cline" ||
     p === "Gemini" ||
-    p === "Hermes"
+    p === "Hermes" ||
+    p === "Muse"
   );
 }
 
@@ -62,6 +63,8 @@ export function providerDisplayName(p: Provider): string {
       return "Gemini";
     case "Hermes":
       return "Hermes";
+    case "Muse":
+      return "Muse";
     default: {
       const _exhaustive: never = p;
       return _exhaustive;

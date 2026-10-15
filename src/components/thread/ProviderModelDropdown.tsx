@@ -33,6 +33,7 @@ import cursorIcon from "../../assets/cursor-app-icon.png";
 import clineIcon from "../../assets/cline-icon.svg";
 import geminiIcon from "../../assets/gemini-icon.svg";
 import hermesIcon from "../../assets/hermes-icon.png";
+import museIcon from "../../assets/muse-icon.svg";
 import {
   DropdownPopover,
   DropdownHeader,
@@ -118,6 +119,7 @@ const PROVIDER_ICON_SRC: Record<Provider, string | null> = {
   Cline: clineIcon,
   Gemini: geminiIcon,
   Hermes: hermesIcon,
+  Muse: museIcon,
 };
 
 function ProviderIcon({ provider, size = 16 }: { provider: Provider; size?: number }) {
@@ -213,6 +215,7 @@ function displayLabel(
     Cline: "Cline",
     Gemini: "Gemini",
     Hermes: "Hermes",
+    Muse: "Muse",
   };
   if (!model) return providerLabel[provider] ?? provider;
   if (provider === "ClaudeCode") {

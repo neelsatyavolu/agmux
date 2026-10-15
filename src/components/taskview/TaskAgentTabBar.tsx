@@ -71,7 +71,7 @@ const TERMINAL_OPTIONS: AgentOption[] = [
   { provider: "Grok", label: "Grok", hint: "PTY terminal agent", interactionMode: "pty" },
   { provider: "Cline", label: "Cline", hint: "PTY terminal agent", interactionMode: "pty" },
   { provider: "Gemini", label: "Gemini", hint: "PTY terminal agent", interactionMode: "pty" },
-  { provider: "Hermes", label: "Hermes", hint: "PTY terminal agent", interactionMode: "pty" },
+  { provider: "Muse", label: "Muse", hint: "PTY terminal agent", interactionMode: "pty" },
   { provider: "Pi", label: "Pi", hint: "PTY terminal agent", interactionMode: "pty" },
   { provider: "Pi", label: "Local", hint: "Installed local model · Pi", interactionMode: "pty", local: true },
 ];

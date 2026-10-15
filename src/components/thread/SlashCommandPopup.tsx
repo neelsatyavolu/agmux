@@ -24,6 +24,7 @@ const PROVIDER_ICON_CLASS: Record<Provider, string> = {
   Cline: "text-zinc-200",
   Gemini: "text-blue-300",
   Hermes: "text-amber-200",
+  Muse: "text-blue-300",
 };
 
 const SOURCE_LABELS: Record<string, { label: string; color: string }> = {

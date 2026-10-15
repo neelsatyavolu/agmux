@@ -21,7 +21,7 @@ export type QuickOpenAction =
   | "cline-terminal"
   | "gemini-chat"
   | "gemini-terminal"
-  | "hermes-terminal"
+  | "muse-terminal"
   | "local-terminal"
   | "mlx-chat"
   | "cursor-chat"
@@ -42,7 +42,7 @@ export const QUICK_OPEN_OPTIONS: readonly { value: QuickOpenAction; label: strin
   { value: "cline-terminal", label: "Cline Terminal" },
   { value: "gemini-chat", label: "Gemini Chat" },
   { value: "gemini-terminal", label: "Gemini Terminal" },
-  { value: "hermes-terminal", label: "Hermes Terminal" },
+  { value: "muse-terminal", label: "Muse Terminal" },
   { value: "local-terminal", label: "Local Terminal" },
   { value: "mlx-chat", label: "MLX Chat" },
   { value: "cursor-chat", label: "Cursor Chat" },
@@ -170,7 +170,7 @@ export async function runQuickOpenAction(
     "pi-terminal": "Pi",
     "cline-terminal": "Cline",
     "gemini-terminal": "Gemini",
-    "hermes-terminal": "Hermes",
+    "muse-terminal": "Muse",
     "local-terminal": "Pi",
   };
   const terminalProvider = terminalProviders[action];

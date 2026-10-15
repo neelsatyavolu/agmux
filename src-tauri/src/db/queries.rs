@@ -2112,7 +2112,7 @@ mod tests {
         let pool = fresh_pool().await;
         let project = make_project(&pool).await;
         for provider in ["ClaudeCode", "Codex", "Cursor", "Droid", "Kimi", "Pi",
-            "OpenCode", "Grok", "Cline", "Gemini", "Hermes", "MLX"] {
+            "OpenCode", "Grok", "Cline", "Gemini", "Hermes", "Muse", "MLX"] {
             // Cursor has no PTY surface; use its required DB mode while still
             // checking the shared helper's provider-independent admission rule.
             let mode = if provider == "Cursor" { "cursor-sdk" } else { "pty" };
@@ -2154,7 +2154,7 @@ mod tests {
         let pool = fresh_pool().await;
         let project = make_project(&pool).await;
         for provider in ["ClaudeCode", "Codex", "Cursor", "Droid", "Kimi", "Pi",
-            "OpenCode", "Grok", "Cline", "Gemini", "Hermes", "MLX"] {
+            "OpenCode", "Grok", "Cline", "Gemini", "Hermes", "Muse", "MLX"] {
             let mode = if provider == "Cursor" { "cursor-sdk" } else { "pty" };
             let legacy = format!("legacy-{provider}");
             create_thread(&pool, &legacy, &project.id, "Terminal", provider, "/w", "/s",

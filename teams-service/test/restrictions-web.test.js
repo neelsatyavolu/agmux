@@ -92,7 +92,7 @@ it("validates model duplicates and round-trips exact IDs with unrestricted toggl
 it("offers every app provider and explains terminal incompatibility", () => {
   const el = root();
   el.innerHTML = restrictionsPanel(response({ editablePolicy: { ...unrestricted, allowedModels: ["exact-model"] } }));
-  expect([...el.querySelectorAll('[data-choice="allowedProviders"]')].map(e => e.value).sort()).toEqual(["ClaudeCode", "Codex", "Grok", "Cursor", "Droid", "Pi", "Kimi", "Cline", "Gemini", "Hermes", "OpenCode", "MLX"].sort());
+  expect([...el.querySelectorAll('[data-choice="allowedProviders"]')].map(e => e.value).sort()).toEqual(["ClaudeCode", "Codex", "Grok", "Cursor", "Droid", "Pi", "Kimi", "Cline", "Gemini", "Hermes", "Muse", "OpenCode", "MLX"].sort());
   expect(el.querySelector("[data-restrictions-summary]").textContent).toContain("Terminals unavailable");
   expect(el.textContent).toContain("even if Terminal is checked");
 });

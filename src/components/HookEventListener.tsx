@@ -25,6 +25,7 @@ import {
   waitForGeminiPermissionMenuGone,
   waitForGeminiPermissionPrompt,
 } from "../lib/geminiPermissionPrompt";
+import { waitForMusePermissionPrompt } from "../lib/musePermissionPrompt";
 import type { SessionEvent, Effect } from "../lib/sessionStateMachine";
 
 /**
@@ -137,6 +138,8 @@ export function HookEventListener() {
   const timersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   /** In-flight Grok permission confirmations — aborted on post-tool-use / supersede. */
   const grokPermConfirmRef = useRef<Record<string, AbortController>>({});
+  /** Muse sessions whose "needs approval" notification arrived mid card-watch. */
+  const museNotifiedRef = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     HOOKS_REGISTERED_COUNT += 1;
@@ -391,8 +394,9 @@ export function HookEventListener() {
       // Only cancel when the tool actually resolved (post) or the turn stopped
       // (silent auto-approve, or user approved and the tool finished).
       const geminiChannel = channelLabel === "gemini-hook";
+      const museChannel = channelLabel === "muse-hook";
       if (
-        (grokThread || geminiChannel) &&
+        (grokThread || geminiChannel || museChannel) &&
         (event === "post-tool-use" || event === "stop")
       ) {
         abortGrokPermConfirm(session_id, event);
@@ -404,7 +408,9 @@ export function HookEventListener() {
       // Allow/Deny card. Both do fire `post-tool-use` after the user allows —
       // treat that as user_accepted so the amber pulse clears. Deny / dismiss
       // is covered by the menu-gone watcher.
-      if (!sessionEvent && event === "post-tool-use" && (grokThread || geminiChannel)) {
+      // Muse does fire PermissionRequest, but nothing else marks the approval
+      // (yours or its auto-review) until the tool finishes.
+      if (!sessionEvent && event === "post-tool-use" && (grokThread || geminiChannel || museChannel)) {
         sessionEvent = { type: "user_accepted" };
         grokPermLog(`map post-tool-use → user_accepted session=${session_id.slice(0, 8)}`);
       }
@@ -525,6 +531,53 @@ export function HookEventListener() {
         return;
       }
 
+      // Muse fires PermissionRequest when its approval judge STARTS reviewing a
+      // call, and most reviews end in a silent approval. Raise amber only once
+      // the approval card is on the PTY. Muse's own "needs approval"
+      // notification (~6s into a wait) is held while the watch runs and used
+      // only if the watch ends without having seen the card.
+      if (
+        museChannel &&
+        sessionEvent.type === "notification" &&
+        sessionEvent.category === "permission"
+      ) {
+        const watching = !!grokPermConfirmRef.current[session_id];
+        if (event === "notification") {
+          if (watching) {
+            museNotifiedRef.current[session_id] = true;
+            return;
+          }
+        } else {
+          // A second request keeps the running watch: it started earlier, so
+          // it already covers the card for either call.
+          if (watching) return;
+          const ac = new AbortController();
+          grokPermConfirmRef.current[session_id] = ac;
+          delete museNotifiedRef.current[session_id];
+          const pendingEvent = sessionEvent;
+          void waitForMusePermissionPrompt(session_id, { signal: ac.signal })
+            .then((confirmed) => {
+              const notified = museNotifiedRef.current[session_id] === true;
+              if (grokPermConfirmRef.current[session_id] === ac) {
+                delete grokPermConfirmRef.current[session_id];
+                delete museNotifiedRef.current[session_id];
+              }
+              // Tool finished or turn stopped during the review → no card.
+              if (ac.signal.aborted) return;
+              if (!confirmed && !notified) return;
+              const effects = transitionSessionBridged(session_id, pendingEvent);
+              executeEffects(session_id, effects);
+            })
+            .catch(() => {
+              if (grokPermConfirmRef.current[session_id] === ac) {
+                delete grokPermConfirmRef.current[session_id];
+                delete museNotifiedRef.current[session_id];
+              }
+            });
+          return;
+        }
+      }
+
       // agy has no PermissionRequest hook. PreToolUse fires for every tool,
       // including auto-allowed workspace reads, so only raise amber once the
       // Allow/Deny card is actually on the PTY. ask_permission / ask_question
@@ -633,6 +686,10 @@ export function HookEventListener() {
     const hermesPromise = listen<{ event: string; session_id: string; payload: unknown }>(
       "hermes-hook",
       makeHookHandler("hermes-hook"),
+    );
+    const musePromise = listen<{ event: string; session_id: string; payload: unknown }>(
+      "muse-hook",
+      makeHookHandler("muse-hook"),
     );
     const piPromise = listen<{ event: string; session_id: string; payload: unknown }>(
       "pi-hook",
@@ -760,6 +817,7 @@ export function HookEventListener() {
       clinePromise.then((unlisten) => unlisten());
       geminiPromise.then((unlisten) => unlisten());
       hermesPromise.then((unlisten) => unlisten());
+      musePromise.then((unlisten) => unlisten());
       piPromise.then((unlisten) => unlisten());
       openCodePromise.then((unlisten) => unlisten());
       grokThreadPromise.then((unlisten) => unlisten());

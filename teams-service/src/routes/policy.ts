@@ -39,6 +39,7 @@ const PROVIDERS = new Set([
   "Cline",
   "Gemini",
   "Hermes",
+  "Muse",
   "MLX",
 ]);
 

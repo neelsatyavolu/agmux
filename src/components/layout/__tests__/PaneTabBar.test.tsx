@@ -70,7 +70,7 @@ describe("PaneTabBar", () => {
   it.each([
     ["ClaudeCode", "pty"], ["Codex", "pty"], ["Droid", "pty"],
     ["Kimi", "pty"], ["Pi", "pty"], ["OpenCode", "pty"],
-    ["Grok", "pty"], ["Cline", "pty"], ["Gemini", "pty"], ["Hermes", "pty"],
+    ["Grok", "pty"], ["Cline", "pty"], ["Gemini", "pty"], ["Hermes", "pty"], ["Muse", "pty"],
     ["ClaudeCode", "sdk"], ["OpenCode", "opencode-sdk"], ["Grok", "grok-sdk"],
     ["Cursor", "cursor-sdk"], ["Gemini", "gemini-sdk"], ["MLX", "mlx"],
     ["Droid", null],

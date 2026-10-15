@@ -36,6 +36,10 @@ vi.mock("../../lib/geminiPermissionPrompt", () => ({
   waitForGeminiPermissionMenuGone: vi.fn().mockResolvedValue(false),
 }));
 
+vi.mock("../../lib/musePermissionPrompt", () => ({
+  waitForMusePermissionPrompt: vi.fn().mockResolvedValue(false),
+}));
+
 import { HookEventListener, areHooksGloballyRegistered } from "../HookEventListener";
 import { useUiStore } from "../../stores/uiStore";
 import { useSessionNameStore } from "../../stores/sessionNameStore";
@@ -44,6 +48,7 @@ import {
   waitForGeminiPermissionMenuGone,
   waitForGeminiPermissionPrompt,
 } from "../../lib/geminiPermissionPrompt";
+import { waitForMusePermissionPrompt } from "../../lib/musePermissionPrompt";
 
 afterEach(() => {
   cleanup();
@@ -133,6 +138,7 @@ describe("HookEventListener — Deep coverage (event handling)", () => {
     expect(cbs["cline-hook"]).toBeTypeOf("function");
     expect(cbs["gemini-hook"]).toBeTypeOf("function");
     expect(cbs["hermes-hook"]).toBeTypeOf("function");
+    expect(cbs["muse-hook"]).toBeTypeOf("function");
     expect(cbs["pi-hook"]).toBeTypeOf("function");
     expect(cbs["opencode-hook"]).toBeTypeOf("function");
     expect(cbs["claude-session-diff-updated"]).toBeTypeOf("function");
@@ -247,6 +253,27 @@ describe("HookEventListener — Deep coverage (event handling)", () => {
     expect(thread.lines_added).toBe(12);
     expect(thread.lines_removed).toBe(3);
     expect(thread.files_changed).toBe(2);
+  });
+
+  it("Muse: prompt-submit names the thread and turns the spinner on", async () => {
+    const summarize = vi.spyOn(useSessionNameStore.getState(), "summarize");
+    const cbs = captureListeners();
+    render(<HookEventListener />);
+    await Promise.resolve();
+    cbs["muse-hook"]({
+      payload: {
+        event: "prompt-submit",
+        session_id: "muse-thread-1",
+        payload: {
+          hook_event_name: "UserPromptSubmit",
+          prompt: "fix the muse title",
+          session_id: "01a13363-57c3-74d1-bd28-17468f1eace5",
+        },
+      },
+    });
+    expect(summarize).toHaveBeenCalledWith("muse-thread-1", "fix the muse title", undefined);
+    expect(useUiStore.getState().claudeProcessingById["muse-thread-1"]).toBe(true);
+    summarize.mockRestore();
   });
 
   it("hermes prompt-submit names the thread and turns the spinner on", async () => {
@@ -583,6 +610,142 @@ describe("HookEventListener — Deep coverage (event handling)", () => {
 
     const events = transitionSpy.mock.calls.map(([, ev]) => (ev as { type: string }).type);
     expect(events).toEqual(["prompt_submit", "pre_tool_use", "stop"]);
+  });
+
+  const musePermissionRequest = {
+    payload: {
+      event: "permission-request",
+      session_id: "muse-perm",
+      payload: {
+        hook_event_name: "PermissionRequest",
+        tool_name: "bash",
+        tool_input: { command: "npm test" },
+      },
+    },
+  };
+  const museNeedsApproval = {
+    payload: {
+      event: "notification",
+      session_id: "muse-perm",
+      payload: {
+        hook_event_name: "Notification",
+        notification_type: "permission_prompt",
+        title: "Muse Code needs approval",
+      },
+    },
+  };
+  const sawPermission = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.some(
+      ([, ev]) => (ev as { category?: string }).category === "permission",
+    );
+
+  it("Muse: permission-request raises approval once the card is on screen", async () => {
+    vi.mocked(waitForMusePermissionPrompt).mockResolvedValueOnce(true);
+    const cbs = captureListeners();
+    const transitionSpy = vi
+      .spyOn(useUiStore.getState(), "transitionSessionBridged")
+      .mockReturnValue([]);
+    render(<HookEventListener />);
+    await Promise.resolve();
+
+    cbs["muse-hook"](musePermissionRequest);
+    expect(sawPermission(transitionSpy)).toBe(false);
+
+    await vi.waitFor(() => {
+      expect(transitionSpy).toHaveBeenCalledWith(
+        "muse-perm",
+        expect.objectContaining({ type: "notification", category: "permission" }),
+      );
+    });
+  });
+
+  it("Muse: a request its judge approves on its own never raises approval", async () => {
+    let finishWatch: (confirmed: boolean) => void = () => {};
+    let watchSignal: AbortSignal | undefined;
+    vi.mocked(waitForMusePermissionPrompt).mockImplementationOnce((_id, options) => {
+      watchSignal = options?.signal;
+      return new Promise<boolean>((resolve) => {
+        finishWatch = resolve;
+      });
+    });
+    const cbs = captureListeners();
+    const transitionSpy = vi
+      .spyOn(useUiStore.getState(), "transitionSessionBridged")
+      .mockReturnValue([]);
+    render(<HookEventListener />);
+    await Promise.resolve();
+
+    cbs["muse-hook"](musePermissionRequest);
+    cbs["muse-hook"]({
+      payload: {
+        event: "post-tool-use",
+        session_id: "muse-perm",
+        payload: { hook_event_name: "PostToolUse", tool_name: "bash" },
+      },
+    });
+    expect(watchSignal?.aborted).toBe(true);
+    finishWatch(false);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sawPermission(transitionSpy)).toBe(false);
+  });
+
+  it("Muse: its needs-approval notification waits for the card watch", async () => {
+    let finishWatch: (confirmed: boolean) => void = () => {};
+    vi.mocked(waitForMusePermissionPrompt).mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishWatch = resolve;
+        }),
+    );
+    const cbs = captureListeners();
+    const transitionSpy = vi
+      .spyOn(useUiStore.getState(), "transitionSessionBridged")
+      .mockReturnValue([]);
+    render(<HookEventListener />);
+    await Promise.resolve();
+
+    cbs["muse-hook"](musePermissionRequest);
+    cbs["muse-hook"](museNeedsApproval);
+    expect(sawPermission(transitionSpy)).toBe(false);
+
+    // The watch gave up without seeing the card: trust the notification.
+    finishWatch(false);
+    await vi.waitFor(() => {
+      expect(sawPermission(transitionSpy)).toBe(true);
+    });
+  });
+
+  it("Muse: a needs-approval notification with no watch running raises approval", async () => {
+    const cbs = captureListeners();
+    const transitionSpy = vi
+      .spyOn(useUiStore.getState(), "transitionSessionBridged")
+      .mockReturnValue([]);
+    render(<HookEventListener />);
+    await Promise.resolve();
+
+    cbs["muse-hook"](museNeedsApproval);
+    expect(sawPermission(transitionSpy)).toBe(true);
+  });
+
+  it("Muse: post-tool-use clears the approval wait", async () => {
+    const cbs = captureListeners();
+    const transitionSpy = vi
+      .spyOn(useUiStore.getState(), "transitionSessionBridged")
+      .mockReturnValue([]);
+    render(<HookEventListener />);
+    await Promise.resolve();
+
+    cbs["muse-hook"]({
+      payload: {
+        event: "post-tool-use",
+        session_id: "muse-perm",
+        payload: { hook_event_name: "PostToolUse", tool_name: "bash" },
+      },
+    });
+
+    expect(transitionSpy).toHaveBeenCalledWith("muse-perm", { type: "user_accepted" });
   });
 
   it("Kimi: permission-request becomes awaiting-approval notification", async () => {

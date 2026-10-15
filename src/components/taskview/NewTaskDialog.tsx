@@ -63,7 +63,7 @@ import geminiIcon from "../../assets/gemini-icon.svg";
 import appleIcon from "../../assets/apple-icon.svg";
 import kimiIcon from "../../assets/kimi-icon.svg";
 import clineIcon from "../../assets/cline-icon.svg";
-import hermesIcon from "../../assets/hermes-icon.png";
+import museIcon from "../../assets/muse-icon.svg";
 import droidIcon from "../../assets/droid-icon.svg";
 
 interface NewTaskDialogProps {
@@ -290,7 +290,7 @@ const AGENTS: AgentEntry[] = [
     ["kimi-term", "Kimi", "Kimi", kimiIcon],
     ["cline-term", "Cline", "Cline", clineIcon],
     ["gemini-term", "Gemini", "Gemini", geminiIcon],
-    ["hermes-term", "Hermes", "Hermes", hermesIcon],
+    ["muse-term", "Muse", "Muse", museIcon],
     ["droid-term", "Droid", "Droid", droidIcon],
   ] as const).map(([key, label, provider, icon]): AgentTerminalEntry => ({
     key, label, provider, icon, mode: "terminal", interactionMode: "pty",

@@ -9,6 +9,7 @@ pub mod cline_session;
 pub mod cline_creation;
 pub mod gemini_session;
 pub mod hermes_session;
+pub mod muse_session;
 pub mod opencode_session;
 pub mod io;
 pub mod kill;

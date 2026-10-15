@@ -42,6 +42,7 @@ import cursorIcon from "../../assets/cursor-app-icon.png";
 import clineIcon from "../../assets/cline-icon.svg";
 import geminiIcon from "../../assets/gemini-icon.svg";
 import hermesIcon from "../../assets/hermes-icon.png";
+import museIcon from "../../assets/muse-icon.svg";
 import { formatLocalModelLabel, isLocalModelSlug } from "../../lib/mlx";
 import { isCodexWorkSession } from "../../lib/coworkMode";
 import { syncPollingToAppForeground } from "../../lib/appVisibility";
@@ -227,6 +228,7 @@ const PROVIDER_BADGE: Record<Provider, AgentBadge> = {
   Cline:      { kind: "icon", src: clineIcon },
   Gemini:     { kind: "icon", src: geminiIcon },
   Hermes:     { kind: "icon", src: hermesIcon },
+  Muse:       { kind: "icon", src: museIcon },
 };
 
 const TERMINAL_BADGE: AgentBadge = { kind: "lucide", icon: "terminal", fg: "#fbbf24" };

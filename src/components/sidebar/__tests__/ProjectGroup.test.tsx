@@ -98,6 +98,7 @@ vi.mock("../../../assets/droid-icon.svg", () => ({ default: "droid.svg" }));
 vi.mock("../../../assets/cline-icon.svg", () => ({ default: "cline.svg" }));
 vi.mock("../../../assets/gemini-icon.svg", () => ({ default: "gemini.svg" }));
 vi.mock("../../../assets/hermes-icon.png", () => ({ default: "hermes.png" }));
+vi.mock("../../../assets/muse-icon.svg", () => ({ default: "muse.svg" }));
 vi.mock("../../../assets/kimi-icon.svg", () => ({ default: "kimi.svg" }));
 vi.mock("../../../assets/pi-icon.svg", () => ({ default: "pi.svg" }));
 vi.mock("../../../assets/opencode-icon.png", () => ({ default: "opencode.png" }));
@@ -2072,7 +2073,7 @@ describe("ProjectGroup — Deep coverage", () => {
     ).toEqual(["claude", "codex", "pi", "opencode", "grok"]);
     expect(
       Array.from(secondary.querySelectorAll("button")).map((b) => b.getAttribute("title")),
-    ).toEqual(["local", "kimi", "cline", "gemini", "hermes"]);
+    ).toEqual(["local", "kimi", "cline", "gemini", "muse"]);
     expect(screen.queryByTestId("terminal-agent-tiles-tertiary")).toBeNull();
     expect(screen.queryByTitle("droid")).toBeNull();
   });

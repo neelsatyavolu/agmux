@@ -46,7 +46,7 @@ describe("quickOpen", () => {
     expect(values).toContain("opencode-chat");
     expect(values).toContain("opencode-terminal");
     expect(values).toContain("kimi-terminal");
-    for (const action of ["pi-terminal", "cline-terminal", "gemini-terminal", "hermes-terminal", "local-terminal", "gemini-chat"]) {
+    for (const action of ["pi-terminal", "cline-terminal", "gemini-terminal", "muse-terminal", "local-terminal", "gemini-chat"]) {
       expect(values).toContain(action);
       expect(isQuickOpenAction(action)).toBe(true);
     }
@@ -81,7 +81,7 @@ describe("quickOpen", () => {
 
   it.each([
     ["pi-terminal", "Pi"], ["cline-terminal", "Cline"],
-    ["gemini-terminal", "Gemini"], ["hermes-terminal", "Hermes"],
+    ["gemini-terminal", "Gemini"], ["muse-terminal", "Muse"],
   ] as const)("starts %s with the matching provider", async (action, provider) => {
     await runQuickOpenAction({ id: "project", repo_path: "/repo" }, action, "ClaudeCode");
     expect(mocks.addThread).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project", provider, workMode: "DirectRepo" }));

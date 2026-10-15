@@ -70,6 +70,7 @@ import cursorIcon from "../../assets/cursor-app-icon.png";
 import clineIcon from "../../assets/cline-icon.svg";
 import geminiIcon from "../../assets/gemini-icon.svg";
 import hermesIcon from "../../assets/hermes-icon.png";
+import museIcon from "../../assets/muse-icon.svg";
 import { pickDidYouKnowTip, parseTip } from "../../lib/didYouKnowTips";
 import { coworkDraftProvider, resolveCoworkDraftProject } from "../../lib/coworkMode";
 import {
@@ -171,6 +172,7 @@ const PROVIDER_AVATAR: Record<Provider, { icon: string | null; bg: string; lette
   Cline: { icon: clineIcon, bg: "#111111", letter: "L" },
   Gemini: { icon: geminiIcon, bg: "#0b1220", letter: "G" },
   Hermes: { icon: hermesIcon, bg: "#1A1714", letter: "H" },
+  Muse: { icon: museIcon, bg: "#0b1220", letter: "M" },
 };
 
 const EMPTY_THREADS: Thread[] = [];

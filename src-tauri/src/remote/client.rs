@@ -1926,7 +1926,7 @@ async fn suppressed_catalog_ids(
     if let Ok(rows) = sqlx::query_as::<_, (String, Option<String>)>(
         r#"SELECT id, sdk_session_id FROM threads
            WHERE is_archived = 1
-             AND provider IN ('ClaudeCode', 'Codex', 'Grok', 'Gemini', 'OpenCode', 'Cursor', 'Kimi', 'Pi', 'Droid', 'Cline', 'Hermes')"#,
+             AND provider IN ('ClaudeCode', 'Codex', 'Grok', 'Gemini', 'OpenCode', 'Cursor', 'Kimi', 'Pi', 'Droid', 'Cline', 'Hermes', 'Muse')"#,
     )
     .fetch_all(pool)
     .await
@@ -2293,7 +2293,7 @@ pub async fn list_remote_threads(
            LEFT JOIN tasks task ON task.project_id = t.project_id
                                AND task.branch_name = t.worktree_branch
            WHERE t.is_archived = 0
-             AND t.provider IN ('ClaudeCode', 'Codex', 'Grok', 'Gemini', 'OpenCode', 'Cursor', 'Kimi', 'Pi', 'Droid', 'Cline', 'Hermes')
+             AND t.provider IN ('ClaudeCode', 'Codex', 'Grok', 'Gemini', 'OpenCode', 'Cursor', 'Kimi', 'Pi', 'Droid', 'Cline', 'Hermes', 'Muse')
            ORDER BY t.last_active DESC
            LIMIT 400"#,
     )
@@ -3609,7 +3609,7 @@ mod tests {
 
     #[test]
     fn includes_opencode_and_cursor() {
-        for prov in ["OpenCode", "Cursor", "Kimi", "Pi", "Gemini", "Droid", "Cline", "Hermes"] {
+        for prov in ["OpenCode", "Cursor", "Kimi", "Pi", "Gemini", "Droid", "Cline", "Hermes", "Muse"] {
             let t = sample_thread(prov, "pty", "x", "Idle");
             assert!(
                 to_remote_thread(

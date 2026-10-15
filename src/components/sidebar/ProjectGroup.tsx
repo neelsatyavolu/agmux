@@ -142,6 +142,7 @@ import cursorIcon from "../../assets/cursor-app-icon.png";
 import clineIcon from "../../assets/cline-icon.svg";
 import geminiIcon from "../../assets/gemini-icon.svg";
 import hermesIcon from "../../assets/hermes-icon.png";
+import museIcon from "../../assets/muse-icon.svg";
 import {
   DropdownPopover,
   DropdownHeader,
@@ -171,7 +172,7 @@ const TERMINAL_SECONDARY_TILES = [
   { key: "kimi", provider: "Kimi" as Provider, label: "kimi" },
   { key: "cline", provider: "Cline" as Provider, label: "cline" },
   { key: "gemini", provider: "Gemini" as Provider, label: "gemini" },
-  { key: "hermes", provider: "Hermes" as Provider, label: "hermes" },
+  { key: "muse", provider: "Muse" as Provider, label: "muse" },
 ] as const;
 type TerminalAgentKey =
   | (typeof TERMINAL_PRIMARY_TILES)[number]["key"]
@@ -186,6 +187,7 @@ function isPtyTerminalProvider(provider: Provider, interactionMode: Thread["inte
     provider === "Cline" ||
     (provider === "Gemini" && interactionMode !== "gemini-sdk") ||
     provider === "Hermes" ||
+    provider === "Muse" ||
     (provider === "Grok" && interactionMode !== "grok-sdk")
   );
 }
@@ -309,7 +311,7 @@ function relativeTime(ts: number): string {
   return `${months}mo`;
 }
 
-export type SidebarProviderIcon = "claude" | "codex" | "droid" | "kimi" | "pi" | "opencode" | "mlx" | "grok" | "cursor" | "cline" | "gemini" | "hermes";
+export type SidebarProviderIcon = "claude" | "codex" | "droid" | "kimi" | "pi" | "opencode" | "mlx" | "grok" | "cursor" | "cline" | "gemini" | "hermes" | "muse";
 
 const PROVIDER_ICONS: Record<SidebarProviderIcon, string> = {
   claude: claudeIcon,
@@ -324,6 +326,7 @@ const PROVIDER_ICONS: Record<SidebarProviderIcon, string> = {
   cline: clineIcon,
   gemini: geminiIcon,
   hermes: hermesIcon,
+  muse: museIcon,
 };
 
 export function ProviderIcon({
@@ -2046,7 +2049,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
       case "kimi": return handleNewKimiSession();
       case "cline": return handleNewNamedPty("Cline");
       case "gemini": return handleNewNamedPty("Gemini");
-      case "hermes": return handleNewNamedPty("Hermes");
+      case "muse": return handleNewNamedPty("Muse");
     }
   }, [
     handleNewClaudeSession,
@@ -2177,6 +2180,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
       if (t.provider === "Cline") return "cline";
       if (t.provider === "Gemini") return "gemini";
       if (t.provider === "Hermes") return "hermes";
+      if (t.provider === "Muse") return "muse";
       if (t.provider === "Kimi") return "kimi";
       if (t.provider === "Pi") return "pi";
       if (t.provider === "OpenCode") return "opencode";
@@ -2306,6 +2310,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
       if (t.provider === "Cline") return "cline";
       if (t.provider === "Gemini") return "gemini";
       if (t.provider === "Hermes") return "hermes";
+      if (t.provider === "Muse") return "muse";
       if (t.provider === "Kimi") return "kimi";
       if (t.provider === "Pi") return "pi";
       if (t.provider === "OpenCode") return "opencode";
@@ -2351,6 +2356,7 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
         if (t.provider === "Cline") return prettifyClineModel(t.model) || "";
         if (t.provider === "Gemini") return prettifyGeminiModel(t.model, { includeEffort: false }) || "";
         if (t.provider === "Hermes") return prettifyPiModel(t.model) || "";
+        if (t.provider === "Muse") return t.model || "";
         if (t.provider === "Kimi") return prettifyKimiModel(t.model) || "";
         if (t.provider === "Pi") return prettifyPiModel(t.model) || "";
         if (t.provider === "Codex") {
@@ -2736,6 +2742,8 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
                     ? "gemini"
                   : t.provider === "Hermes"
                     ? "hermes"
+                  : t.provider === "Muse"
+                    ? "muse"
                   : t.provider === "Kimi"
                     ? "kimi"
                     : t.provider === "Pi"
@@ -2792,6 +2800,8 @@ export function ProjectGroup({ project, codexThreads, claudeSessions, kimiSessio
                           ? prettifyGeminiModel(t.model, { includeEffort: false })
                         : t.provider === "Hermes"
                           ? prettifyPiModel(t.model)
+                        : t.provider === "Muse"
+                          ? t.model
                         : t.provider === "Kimi"
                           ? prettifyKimiModel(t.model)
                           : t.provider === "Pi"

@@ -513,6 +513,7 @@ const KNOWN_PROVIDERS: readonly Provider[] = [
   "Cline",
   "Gemini",
   "Hermes",
+  "Muse",
 ];
 
 function sanitizeRecentProviders(raw: unknown): Provider[] {
@@ -566,10 +567,13 @@ export function loadSettings(): AppSettings {
         gemini: { ...DEFAULT_SETTINGS.usageProviders.gemini, ...(parsed.usageProviders?.gemini ?? {}) },
         cursor: { ...DEFAULT_SETTINGS.usageProviders.cursor, ...(parsed.usageProviders?.cursor ?? {}) },
       };
-      // Droid terminal provider was replaced by Kimi Code — migrate stale prefs.
+      // Droid terminal provider was replaced by Kimi Code, and the Hermes
+      // tile by Muse — migrate stale prefs.
       const rawQuickOpen =
         (parsed as { quickOpenAction?: string }).quickOpenAction === "droid-terminal"
           ? "kimi-terminal"
+          : (parsed as { quickOpenAction?: string }).quickOpenAction === "hermes-terminal"
+            ? "muse-terminal"
           : parsed.quickOpenAction;
       const quickOpenAction = isQuickOpenAction(rawQuickOpen)
         ? rawQuickOpen
@@ -583,6 +587,8 @@ export function loadSettings(): AppSettings {
           ? ("Kimi" as const)
           : (parsed as { defaultProvider?: string }).defaultProvider === "Kimi"
             ? ("Pi" as const)
+          : (parsed as { defaultProvider?: string }).defaultProvider === "Hermes"
+            ? ("Muse" as const)
           : parsed.defaultProvider;
       // Summarization is local-only — migrate any stored Groq preference.
       const llmProvider = "local" as const;

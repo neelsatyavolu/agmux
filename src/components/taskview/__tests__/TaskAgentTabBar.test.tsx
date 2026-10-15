@@ -261,7 +261,8 @@ describe("TaskAgentTabBar — Final coverage gaps", () => {
     expect(screen.getByText("Kimi")).toBeTruthy();
     expect(screen.getByText("Cline")).toBeTruthy();
     expect(screen.getByText("Gemini")).toBeTruthy();
-    expect(screen.getByText("Hermes")).toBeTruthy();
+    expect(screen.getByText("Muse")).toBeTruthy();
+    expect(screen.queryByText("Hermes")).toBeNull();
     // Terminal parity with agent mode
     expect(screen.getAllByText("OpenCode").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Grok").length).toBeGreaterThan(0);
@@ -558,7 +559,7 @@ describe("TaskAgentTabBar — provider creation parity", () => {
     ["Droid", "Droid", "pty", null],
     ["Cline", "Cline", "pty", null],
     ["Gemini", "Gemini", "pty", null],
-    ["Hermes", "Hermes", "pty", null],
+    ["Muse", "Muse", "pty", null],
   ] as const)("creates %s using its supported route", async (label, provider, mode, model) => {
     const { createTaskAgent } = await import("../../../lib/taskCommands");
     vi.mocked(createTaskAgent).mockClear();

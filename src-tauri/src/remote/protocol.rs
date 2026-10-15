@@ -443,7 +443,7 @@ pub enum WireMessage {
 pub fn is_remote_eligible_provider(provider: &str) -> bool {
     matches!(
         provider,
-        "ClaudeCode" | "Codex" | "Grok" | "Gemini" | "OpenCode" | "Cursor" | "Kimi" | "Pi" | "Droid" | "Cline" | "Hermes"
+        "ClaudeCode" | "Codex" | "Grok" | "Gemini" | "OpenCode" | "Cursor" | "Kimi" | "Pi" | "Droid" | "Cline" | "Hermes" | "Muse"
     )
 }
 

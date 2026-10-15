@@ -73,6 +73,7 @@ import cursorIcon from "../../assets/cursor-app-icon.png";
 import clineIcon from "../../assets/cline-icon.svg";
 import geminiIcon from "../../assets/gemini-icon.svg";
 import hermesIcon from "../../assets/hermes-icon.png";
+import museIcon from "../../assets/muse-icon.svg";
 
 const PROVIDER_ICON_SRC: Record<Provider, string | null> = {
   ClaudeCode: claudeIcon,
@@ -87,6 +88,7 @@ const PROVIDER_ICON_SRC: Record<Provider, string | null> = {
   Cline: clineIcon,
   Gemini: geminiIcon,
   Hermes: hermesIcon,
+  Muse: museIcon,
 };
 
 const TITLE_MAX_CHARS = 32;

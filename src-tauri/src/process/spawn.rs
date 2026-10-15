@@ -1044,6 +1044,33 @@ pub async fn spawn_pty_session(
                 }
             }
         }
+        Provider::Muse => {
+            // Muse clears the hook environment, so AGMUX_* variables would
+            // never reach the relay. The plugin's hooks find this thread via
+            // the pid registered after spawn (process::muse_session).
+            if let Err(e) = crate::hooks::ensure_muse_plugin() {
+                tracing::warn!("[spawn-timing {tid}] Muse plugin missing: {e}");
+            }
+            let thread_state_dir = crate::paths::agmux_home().join("threads").join(thread_id);
+            if let Some(sid) = crate::process::muse_session::read_session_id(&thread_state_dir) {
+                if crate::process::muse_session::session_exists(&sid) {
+                    cmd.arg("resume");
+                    cmd.arg(&sid);
+                    tracing::info!(
+                        "[spawn-timing {tid}] Muse resume {}",
+                        &sid[..8.min(sid.len())]
+                    );
+                } else {
+                    crate::process::muse_session::remove_session_id(&thread_state_dir);
+                }
+            }
+            if let Some(ref model) = options.model {
+                if !model.is_empty() {
+                    cmd.arg("--model");
+                    cmd.arg(model);
+                }
+            }
+        }
         Provider::Kimi => {
             // Hooks are merged into ~/.kimi-code/config.toml at app startup
             // (see hooks::kimi_settings). The relay is session-gated by
@@ -1310,6 +1337,13 @@ pub async fn spawn_pty_session(
                 &crate::paths::agmux_home().join("shell-diff-hooks/instances"), &instance, pid,
             ) {
                 tracing::warn!(%error, "Codex terminal capture owner unavailable");
+            }
+        }
+    }
+    if matches!(provider_enum, Provider::Muse) {
+        if let (Some(pid), Some(socket_path)) = (child.process_id(), options.hook_socket_path.as_deref()) {
+            if let Err(error) = crate::process::muse_session::register_pid(pid, thread_id, socket_path) {
+                tracing::warn!(%error, "Muse hook routing unavailable");
             }
         }
     }

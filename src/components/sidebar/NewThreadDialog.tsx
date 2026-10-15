@@ -14,7 +14,7 @@ import cursorIcon from "../../assets/cursor-app-icon.png";
 // Used for both forceDirectRepo and branch-selector visibility so the set
 // stays in sync. Grok ships its own `-w/--worktree` flag — treating it as
 // DirectRepo here avoids double-managing the worktree from agmux's side.
-const TERMINAL_ONLY_PROVIDERS: readonly Provider[] = ["Droid", "Kimi", "Pi", "OpenCode", "Grok", "Cline", "Gemini", "Hermes"];
+const TERMINAL_ONLY_PROVIDERS: readonly Provider[] = ["Droid", "Kimi", "Pi", "OpenCode", "Grok", "Cline", "Gemini", "Hermes", "Muse"];
 const isTerminalOnlyProvider = (p: Provider) => TERMINAL_ONLY_PROVIDERS.includes(p);
 
 interface Props {
