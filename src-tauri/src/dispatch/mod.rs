@@ -916,15 +916,12 @@ async fn send_pty_line(
     // keeps a dashed optimistic bubble forever because exact text match fails.
     send_pty_raw(state, thread_id, "\x15").await?;
     tokio::time::sleep(std::time::Duration::from_millis(40)).await;
-    // Mirror the desktop `sendPtyLine` convention: multi-line pastes (and any
-    // write into a freshly-spawned TUI) submit CR separately after a pause.
-    if text.contains('\n') || !was_alive {
-        send_pty_raw(state, thread_id, text).await?;
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-        send_pty_raw(state, thread_id, "\r").await
-    } else {
-        send_pty_raw(state, thread_id, &format!("{text}\r")).await
-    }
+    // Always submit CR separately after a pause. Claude Code reads a long
+    // burst (~70+ chars) as a paste, and a CR inside that paste is not a
+    // submit: the text sat in the input box and the next send's Ctrl-U wiped it.
+    send_pty_raw(state, thread_id, text).await?;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    send_pty_raw(state, thread_id, "\r").await
 }
 
 /// Wait until the thread's PTY has produced output and then stayed quiet for

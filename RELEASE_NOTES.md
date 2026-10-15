@@ -32,6 +32,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Context meter for new models** — The context ring shows the right size for GPT-6.1 Sol, GPT-6 Astra and Grok 4.7 Fast instead of a smaller default.
 
 ### Fixed
+- **Longer phone messages to Claude terminals** — A longer message sent from the phone to a Claude terminal could sit unsent in the terminal's text box instead of starting a reply. It now always sends.
 - **Pin threads in Focus** — Pinning a thread from Focus now keeps it there, at the top, even after it goes quiet, and it never goes behind "Show more". Before, it dropped out of Focus like any other thread. Pins in your project list stay separate and don't affect Focus. Unpin a thread in Focus to let it leave again.
 - **Read on your phone stays read on your Mac** — A Claude terminal you started in agmux and followed on your phone no longer shows as unread on your Mac when it finishes.
 
