@@ -60,8 +60,20 @@ function formatDeviceWhen(ms: number): string {
   }
 }
 
-/** High-contrast QR of the auto-pair URL for phone camera scanners. */
-function PairQrCode({ url, expired }: { url: string; expired: boolean }) {
+const IOS_APP_URL = "https://apps.apple.com/app/agmux-remote/id6818431146";
+
+/** High-contrast QR for phone camera scanners (auto-pair URL or App Store link). */
+function PairQrCode({
+  url,
+  expired,
+  label = "Scan to pair phone",
+  size = 200,
+}: {
+  url: string;
+  expired: boolean;
+  label?: string;
+  size?: number;
+}) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -86,12 +98,12 @@ function PairQrCode({ url, expired }: { url: string; expired: boolean }) {
 
   return (
     <div
-      className="relative mx-auto flex size-[200px] items-center justify-center overflow-hidden rounded-2xl bg-white p-3 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
-      style={{ opacity: expired ? 0.4 : 1 }}
-      aria-label="QR code — scan with your phone to pair"
+      className="relative mx-auto flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white p-3 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
+      style={{ opacity: expired ? 0.4 : 1, width: size, height: size }}
+      aria-label={`QR code — ${label.toLowerCase()}`}
     >
       {dataUrl ? (
-        <img src={dataUrl} alt="Scan to pair phone" className="size-full object-contain" />
+        <img src={dataUrl} alt={label} className="size-full object-contain" />
       ) : (
         <Loader2 className="size-6 animate-spin text-zinc-400" />
       )}
@@ -378,14 +390,41 @@ export function RemoteControlSection() {
         </SettingsRow>
       </SettingsCard>
 
-      {/* ── 2. Pair phone — QR first, main action ── */}
+      {/* ── 2. iPhone app — install before pairing ── */}
+      <SettingsCard
+        className="mb-5"
+        eyebrow="Remote Control"
+        title="iPhone app"
+        description="Get agmux Remote from the App Store, or use remote.agmux.dev in any phone browser."
+      >
+        <div className="settings-row flex items-center gap-5 px-6 py-4">
+          <PairQrCode
+            url={IOS_APP_URL}
+            expired={false}
+            label="Scan to get agmux Remote on the App Store"
+            size={132}
+          />
+          <div className="min-w-0 space-y-3">
+            <p className="m-0 text-[12.5px] leading-snug text-[var(--text-muted)]">
+              Scan with your iPhone camera to open agmux Remote on the App Store. Once it is
+              installed, scanning the pairing QR below opens the app.
+            </p>
+            <GlassButton size="sm" variant="ghost" onClick={() => void openPairUrl(IOS_APP_URL)}>
+              <ExternalLink className="size-3.5" />
+              <span className="ml-1.5">Open App Store</span>
+            </GlassButton>
+          </div>
+        </div>
+      </SettingsCard>
+
+      {/* ── 3. Pair phone — QR first, main action ── */}
       <SettingsCard
         className="mb-5"
         eyebrow="Remote Control"
         title="Pair phone"
         description={
           connected
-            ? "Scan the QR with your phone camera — it opens remote.agmux.dev and pairs automatically."
+            ? "Scan the QR with your phone camera — it opens agmux Remote (or remote.agmux.dev) and pairs automatically."
             : remoteEnabled
               ? "Waiting for the relay connection. Leave Remote control on, then the QR will appear."
               : "Turn on Remote control above, then scan the QR with your phone."
@@ -552,7 +591,7 @@ export function RemoteControlSection() {
         ) : null}
       </SettingsCard>
 
-      {/* ── 3. Paired phones ── */}
+      {/* ── 4. Paired phones ── */}
       <SettingsCard
         className="mb-5"
         eyebrow="Remote Control"
@@ -618,7 +657,7 @@ export function RemoteControlSection() {
         )}
       </SettingsCard>
 
-      {/* ── 4. Advanced (desktop id / reset) — secondary ── */}
+      {/* ── 5. Advanced (desktop id / reset) — secondary ── */}
       <SettingsCard
         className="mb-5"
         eyebrow="Remote Control"
@@ -674,7 +713,7 @@ export function RemoteControlSection() {
         </SettingsRow>
       </SettingsCard>
 
-      {/* ── 5. How it works ── */}
+      {/* ── 6. How it works ── */}
       <SettingsCard
         eyebrow="Remote Control"
         title="How it works"
@@ -690,7 +729,7 @@ export function RemoteControlSection() {
             {
               step: "2",
               title: "Scan the QR with your phone",
-              body: "Camera opens remote.agmux.dev and pairs automatically — or copy the link.",
+              body: "Camera opens the agmux Remote app (or remote.agmux.dev) and pairs automatically — or copy the link.",
             },
             {
               step: "3",
