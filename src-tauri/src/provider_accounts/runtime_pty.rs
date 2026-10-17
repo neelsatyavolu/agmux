@@ -123,164 +123,375 @@ fn claude_quota_rejection(value: &Value) -> bool {
         && value["message"]["model"] == "<synthetic>" && value["message"]["stop_reason"] == "stop_sequence"
 }
 
-fn native_idle(provider: &str, session_id: &str, work_dir: &str, checkpoint: (u64, Option<u64>)) -> bool {
-    if checkpoint.0 > 0 && checkpoint.1.is_none() { return false; }
-    let Some(path) = history_path(provider, session_id, work_dir) else { return false; };
-    native_idle_path(provider, session_id, &path, checkpoint.1)
+/// Histories larger than this are not read; such a session never counts as idle.
+const IDLE_SCAN_LIMIT: u64 = 512 * 1024 * 1024;
+
+/// A history's (length, modified time) when it was found idle. Unchanged at the handoff, it
+/// still proves the same thing, so the file needn't be read again under the session lock.
+pub(crate) type HistoryMark = (u64, Option<std::time::SystemTime>);
+
+fn history_mark(path: &std::path::Path) -> Option<HistoryMark> {
+    let metadata = std::fs::metadata(path).ok()?;
+    Some((metadata.len(), metadata.modified().ok()))
 }
 
-fn native_idle_path(provider: &str, session_id: &str, path: &std::path::Path, required_start: Option<u64>) -> bool {
-    use std::io::Read;
-    let Ok(before) = std::fs::metadata(&path) else { return false; };
-    // Unknown/truncated histories do not prove it is safe to stop a process.
-    if before.len() > 16 * 1024 * 1024 { return false; }
-    let Ok(file) = std::fs::File::open(path) else { return false; };
-    let mut bytes = Vec::new();
-    if file.take(16 * 1024 * 1024 + 1).read_to_end(&mut bytes).is_err() || bytes.len() > 16 * 1024 * 1024 { return false; }
-    if !bytes.ends_with(b"\n") { return false; }
-    let mut boundary = super::runtime::NativeBoundary::default();
-    let mut identity_verified = !matches!(provider, "Codex" | "ClaudeCode");
-    let mut claude_user_turn = false;
-    let mut claude_queued = 0usize;
-    let mut line_offset = 0u64;
-    let mut input_submitted = required_start.is_none();
-    let mut active_turn: Option<String> = None;
-    for line in bytes.split(|b| *b == b'\n').filter(|line| !line.is_empty()) {
-        let start = line_offset;
-        line_offset += line.len() as u64 + 1;
+/// `pid` is the terminal's CLI process and `process_start` the history's length when it
+/// launched: work recorded as started before then died with an earlier process. With
+/// `known` (a mark from an earlier check) the history must be unchanged since, unread.
+fn native_idle(provider: &str, session_id: &str, work_dir: &str, checkpoint: (u64, Option<u64>), pid: Option<u32>,
+    process_start: u64, known: Option<HistoryMark>) -> Option<HistoryMark> {
+    if checkpoint.0 > 0 && checkpoint.1.is_none() { return None; }
+    let path = history_path(provider, session_id, work_dir)?;
+    let mark = match known {
+        Some(known) => (history_mark(&path)? == known).then_some(known)?,
+        None => native_idle_path(provider, session_id, &path, checkpoint.1, process_start)?,
+    };
+    // Claude's history can't show its background agents, workflows, queued messages
+    // or open dialogs; its own process status does.
+    if provider == "ClaudeCode" && !pid.is_some_and(|pid| crate::commands::background_work::claude_tree_is_idle(pid, session_id)) {
+        return None;
+    }
+    Some(mark)
+}
+
+/// The history's length now: where a process launched now starts writing.
+fn history_len(provider: &str, session_id: &str, work_dir: &str) -> u64 {
+    history_path(provider, session_id, work_dir).and_then(|path| history_mark(&path)).map_or(0, |mark| mark.0)
+}
+
+/// Streams the history so long sessions are checked too. A partial last line, a session
+/// mismatch or a file that changed while it was read is never idle.
+fn native_idle_path(provider: &str, session_id: &str, path: &std::path::Path, required_start: Option<u64>, process_start: u64) -> Option<HistoryMark> {
+    use std::io::{BufRead, Read};
+    let before = history_mark(path)?;
+    if before.0 > IDLE_SCAN_LIMIT { return None; }
+    let file = std::fs::File::open(path).ok()?;
+    let mut reader = std::io::BufReader::with_capacity(1 << 20, file.take(IDLE_SCAN_LIMIT + 1));
+    let mut scan = IdleScan::new(provider, session_id, required_start, process_start);
+    let mut line = Vec::new();
+    let mut offset = 0u64;
+    loop {
+        line.clear();
+        if reader.read_until(b'\n', &mut line).ok()? == 0 { break; }
+        if line.last() != Some(&b'\n') { return None; }
+        let start = offset;
+        offset += line.len() as u64;
+        let text = &line[..line.len() - 1];
+        if !text.is_empty() && !scan.observe(start, text) { return None; }
+    }
+    if offset == 0 || history_mark(path)? != before { return None; }
+    scan.idle().then_some(before)
+}
+
+/// The kind of a Grok session update, when it is near the start of the line.
+fn grok_update_kind(line: &[u8]) -> Option<&[u8]> {
+    const KEY: &[u8] = b"\"sessionUpdate\":\"";
+    let head = &line[..line.len().min(512)];
+    let start = head.windows(KEY.len()).position(|w| w == KEY)? + KEY.len();
+    let end = head[start..].iter().position(|b| *b == b'"')?;
+    Some(&head[start..start + end])
+}
+
+/// Exec results in a Codex tool output: (session id, finished). A command still running
+/// reports its session id with no exit code; its receipt comes later as a CommandExecution
+/// item whose process_id is that id. Result fields precede the (maybe truncated) output.
+fn codex_exec_sessions(output: &Value) -> Vec<(String, bool)> {
+    let texts: Vec<&str> = match output {
+        Value::String(text) => vec![text],
+        Value::Array(blocks) => blocks.iter().filter_map(|block| block["text"].as_str()).collect(),
+        _ => Vec::new(),
+    };
+    let mut found = Vec::new();
+    for text in texts {
+        // A direct exec_command call reports in text: "Process running with session ID N".
+        const RUNNING: &str = "Process running with session ID ";
+        let mut rest = text;
+        while let Some(at) = rest.find(RUNNING) {
+            rest = &rest[at + RUNNING.len()..];
+            let id: String = rest.chars().take_while(char::is_ascii_digit).collect();
+            if !id.is_empty() { found.push((id, false)); }
+        }
+        let mut rest = text;
+        while let Some(at) = rest.find("\"chunk_id\"") {
+            rest = &rest[at + "\"chunk_id\"".len()..];
+            let end = [rest.find("\"output\":"), rest.find("\"chunk_id\"")].into_iter().flatten().min().unwrap_or(rest.len());
+            let head = &rest[..end];
+            let Some(at) = head.find("\"session_id\":") else { continue; };
+            let id: String = head[at + "\"session_id\":".len()..].trim_start().chars().take_while(char::is_ascii_digit).collect();
+            let exit = head.find("\"exit_code\":").map(|at| head[at + "\"exit_code\":".len()..].trim_start());
+            let finished = exit.is_some_and(|code| code.starts_with(|c: char| c.is_ascii_digit() || c == '-'));
+            if !id.is_empty() { found.push((id, finished)); }
+        }
+    }
+    found
+}
+
+/// Replays one native history. Only work that can still be running blocks a handoff:
+/// something started before this process launched died with an earlier one, and a
+/// finished turn's leftovers are settled by the provider's own later records.
+struct IdleScan<'a> {
+    provider: &'a str,
+    session_id: &'a str,
+    required_start: Option<u64>,
+    process_start: u64,
+    boundary: super::runtime::NativeBoundary,
+    identity_verified: bool,
+    input_submitted: bool,
+    active_turn: Option<String>,
+    claude_user_turn: bool,
+    claude_queued: usize,
+    /// Grok tool calls of the current turn, ones an earlier turn left open, and background tasks.
+    grok_tools: std::collections::HashSet<String>,
+    grok_earlier_tools: std::collections::HashSet<String>,
+    grok_tasks: std::collections::HashSet<String>,
+    grok_dreams: usize,
+}
+
+impl<'a> IdleScan<'a> {
+    fn new(provider: &'a str, session_id: &'a str, required_start: Option<u64>, process_start: u64) -> Self {
+        Self { provider, session_id, required_start, process_start, boundary: Default::default(),
+            identity_verified: !matches!(provider, "Codex" | "ClaudeCode"), input_submitted: required_start.is_none(),
+            active_turn: None, claude_user_turn: false, claude_queued: 0, grok_tools: Default::default(),
+            grok_earlier_tools: Default::default(), grok_tasks: Default::default(), grok_dreams: 0 }
+    }
+
+    fn idle(&self) -> bool {
+        self.input_submitted && self.identity_verified && self.boundary.idle() && self.grok_tools.is_empty()
+            && self.grok_earlier_tools.is_empty() && self.grok_tasks.is_empty() && self.grok_dreams == 0
+    }
+
+    fn submitted_at(&mut self, start: u64) {
+        if self.required_start.is_none_or(|offset| start >= offset) { self.input_submitted = true; }
+    }
+
+    /// Recorded by the process that is running now.
+    fn live(&self, start: u64) -> bool { start >= self.process_start }
+
+    fn started(&mut self, start: u64, id: &str) {
+        if self.live(start) { self.boundary.tool_started(id); }
+    }
+
+    /// False means the history can't prove this session is idle.
+    fn observe(&mut self, start: u64, line: &[u8]) -> bool {
+        if self.provider == "Grok" {
+            // Most Grok lines are hook, message and thought chunks; skip them unparsed.
+            let wanted = |kind: &[u8]| matches!(kind, b"user_message_chunk" | b"turn_completed" | b"tool_call" | b"tool_call_update"
+                | b"task_backgrounded" | b"task_completed" | b"background_tasks" | b"subagent_spawned" | b"subagent_finished"
+                | b"memory_dream_started" | b"memory_dream_completed");
+            if grok_update_kind(line).is_some_and(|kind| !wanted(kind)) { return true; }
+        }
         let Ok(value) = serde_json::from_slice::<Value>(line) else { return false; };
-        if provider == "Codex" {
-            if value["type"] == "session_meta" {
-                if value["payload"]["id"].as_str() != Some(session_id) { return false; }
-                identity_verified = true;
-            }
-            if value["type"] == "response_item" && matches!(value["payload"]["type"].as_str(), Some("function_call" | "custom_tool_call")) {
-                let Some(id) = value["payload"]["call_id"].as_str() else { return false; };
-                boundary.tool_started(id);
-            }
-            if value["type"] != "event_msg" { continue; }
-            let event = &value["payload"];
-            match event["type"].as_str().unwrap_or("") {
-                "task_started" => {
-                    active_turn = event["turn_id"].as_str().map(str::to_string);
-                    boundary.started();
-                    if required_start.is_none_or(|offset| start >= offset) { input_submitted = true; }
-                },
-                "task_complete" if active_turn.is_some() && event["turn_id"].as_str() == active_turn.as_deref() => boundary.completed(),
-                "item_started" | "item_completed" => {
-                    let item = &event["item"];
-                    match item["type"].as_str().unwrap_or("") {
-                        "UserMessage" | "AgentMessage" | "Reasoning" | "Plan" => {},
-                        "CommandExecution" | "FileChange" | "McpToolCall" => {
-                            let Some(id) = item["id"].as_str() else { return false; };
-                            let finished = event["type"] == "item_completed"
-                                && matches!(item["status"].as_str(), Some("completed" | "failed"))
-                                && (item["type"] != "CommandExecution" || item["exit_code"].as_i64().is_some());
-                            if finished { boundary.tool_completed(id); }
-                            else { boundary.tool_started(id); }
-                        }
-                        // Completion of spawn/wait is not completion of every
-                        // child or detached process. Unknown item kinds remain unsafe.
-                        _ => boundary.tool_started("unverified-modern-execution"),
+        match self.provider {
+            "Codex" => self.codex(start, &value),
+            "ClaudeCode" => self.claude(start, &value),
+            _ => self.grok(start, &value),
+        }
+    }
+
+    fn codex(&mut self, start: u64, value: &Value) -> bool {
+        let payload = &value["payload"];
+        if value["type"] == "session_meta" {
+            if payload["id"].as_str() != Some(self.session_id) { return false; }
+            self.identity_verified = true;
+        }
+        if value["type"] == "response_item" {
+            match payload["type"].as_str() {
+                Some("function_call" | "custom_tool_call") => {
+                    let Some(id) = payload["call_id"].as_str() else { return false; };
+                    self.started(start, id);
+                }
+                Some("function_call_output" | "custom_tool_call_output") => {
+                    let Some(id) = payload["call_id"].as_str() else { return false; };
+                    self.boundary.tool_completed(id);
+                    // A command can outlive the call that started it.
+                    for (session, finished) in codex_exec_sessions(&payload["output"]) {
+                        let key = format!("exec:{session}");
+                        if finished { self.boundary.tool_completed(&key); } else { self.started(start, &key); }
                     }
                 }
-                "collab_agent_spawn_begin" | "background_terminal_started" => {
-                    boundary.tool_started("unverified-modern-execution");
-                }
-                "exec_command_begin" | "apply_patch_begin" => {
-                    let Some(id) = event["call_id"].as_str() else { return false; };
-                    boundary.tool_started(id);
-                }
-                "exec_command_end" | "apply_patch_end" => {
-                    let Some(id) = event["call_id"].as_str() else { return false; };
-                    boundary.tool_completed(id);
-                }
-                _ => {},
-            }
-        } else if provider == "ClaudeCode" {
-            if value["isSidechain"] == true { continue; }
-            if value.get("sessionId").is_some() && value["sessionId"].as_str() != Some(session_id) { return false; }
-            let kind = value["type"].as_str().unwrap_or("");
-            if matches!(kind, "user" | "assistant") {
-                if value["sessionId"].as_str() != Some(session_id) { return false; }
-                identity_verified = true;
-                let content = &value["message"]["content"];
-                let results_only = content.as_array().is_some_and(|blocks| !blocks.is_empty()
-                    && blocks.iter().all(|b| b["type"] == "tool_result"));
-                if kind == "user" && !results_only {
-                    boundary.started();
-                    if value["isMeta"] != true && value["isCompactSummary"] != true {
-                        claude_user_turn = true;
-                        if required_start.is_none_or(|offset| start >= offset) { input_submitted = true; }
-                    }
-                }
-                if let Some(blocks) = content.as_array() {
-                    for block in blocks {
-                        match block["type"].as_str().unwrap_or("") {
-                            "tool_use" | "server_tool_use" | "mcp_tool_use" => {
-                                let Some(id) = block["id"].as_str() else { return false; };
-                                boundary.tool_started(id);
-                                if block["input"]["run_in_background"] == true
-                                    || matches!(block["name"].as_str(), Some("Agent" | "Task" | "dispatch_agent")) {
-                                    boundary.tool_started("unverified-background");
-                                }
-                            },
-                            "tool_result" => {
-                                let Some(id) = block["tool_use_id"].as_str() else { return false; };
-                                boundary.tool_completed(id);
-                            },
-                            _ => {},
-                        }
-                    }
-                }
-                if kind == "assistant" {
-                    boundary.started();
-                    if claude_user_turn && (value["message"]["stop_reason"] == "end_turn" || claude_quota_rejection(&value)) { boundary.completed(); }
-                }
-                // Native Bash may detach even without run_in_background input.
-                if value["toolUseResult"]["backgroundTaskId"].is_string()
-                    || value["toolUseResult"]["isAsync"] == true { boundary.tool_started("unverified-background"); }
-            } else if kind == "queue-operation" {
-                match value["operation"].as_str() {
-                    Some("enqueue") => { claude_queued += 1; boundary.started(); boundary.tool_started("queued-input"); },
-                    Some("dequeue") if claude_queued > 0 => {
-                        claude_queued -= 1;
-                        if claude_queued == 0 { boundary.tool_completed("queued-input"); }
-                    },
-                    _ => boundary.tool_started("unverified-queue"),
-                }
-            } else if kind == "system" && matches!(value["subtype"].as_str(), Some("task_started" | "task_progress")) {
-                boundary.tool_started("unverified-background");
-            }
-        } else {
-            let method = value["method"].as_str().unwrap_or("");
-            if !matches!(method, "session/update" | "_x.ai/session/update") { continue; }
-            if value["params"]["sessionId"].as_str() != Some(session_id) { return false; }
-            let update = &value["params"]["update"];
-            match update["sessionUpdate"].as_str().unwrap_or("") {
-                "user_message_chunk" => { boundary.started(); if required_start.is_none_or(|offset| start >= offset) { input_submitted = true; } },
-                "turn_completed" if method == "_x.ai/session/update" => boundary.completed(),
-                "tool_call" => {
-                    let Some(id) = update["toolCallId"].as_str() else { return false; };
-                    boundary.tool_started(id);
-                }
-                "tool_call_update" if matches!(update["status"].as_str(), Some("completed" | "failed")) => {
-                    let Some(id) = update["toolCallId"].as_str() else { return false; };
-                    boundary.tool_completed(id);
-                }
-                "background_tasks" => {
-                    if update["tasks"].as_array().is_some_and(Vec::is_empty) { boundary.tool_completed("background"); }
-                    else { boundary.tool_started("background"); }
-                }
-                // Without a complete subagent lifecycle schema, never retire its parent.
-                "subagent_spawned" => boundary.tool_started("unverified-subagent"),
                 _ => {},
             }
         }
+        if value["type"] != "event_msg" { return true; }
+        match payload["type"].as_str().unwrap_or("") {
+            "task_started" => {
+                self.active_turn = payload["turn_id"].as_str().map(str::to_string);
+                self.boundary.started();
+                self.submitted_at(start);
+            },
+            // An interrupted turn is over too; commands it left running stay tracked above.
+            "task_complete" | "turn_aborted" if self.active_turn.is_some() && payload["turn_id"].as_str() == self.active_turn.as_deref() => self.boundary.completed(),
+            "item_started" | "item_completed" => {
+                let item = &payload["item"];
+                let done = payload["type"] == "item_completed";
+                match item["type"].as_str().unwrap_or("") {
+                    "UserMessage" | "AgentMessage" | "Reasoning" | "Plan" => {},
+                    "CommandExecution" | "FileChange" | "McpToolCall" => {
+                        let Some(id) = item["id"].as_str() else { return false; };
+                        let finished = done && matches!(item["status"].as_str(), Some("completed" | "failed"))
+                            && (item["type"] != "CommandExecution" || item["exit_code"].as_i64().is_some());
+                        if finished {
+                            self.boundary.tool_completed(id);
+                            if let Some(process) = item["process_id"].as_str() { self.boundary.tool_completed(&format!("exec:{process}")); }
+                        } else { self.started(start, id); }
+                    }
+                    // A child agent runs inside this process until it reports completed.
+                    "SubAgentActivity" => {
+                        let Some(child) = item["agent_thread_id"].as_str().or(item["agent_path"].as_str()) else { return false; };
+                        if child == self.session_id || item["agent_path"] == "/root" { return true; }
+                        let key = format!("subagent:{child}");
+                        if item["kind"] == "completed" { self.boundary.tool_completed(&key); }
+                        else { self.started(start, &key); }
+                    }
+                    // Other kinds (web search, image view, hook prompt, agent waits) are
+                    // pending only between their own start and completion.
+                    _ => match item["id"].as_str() {
+                        Some(id) if done => self.boundary.tool_completed(id),
+                        Some(id) => self.started(start, id),
+                        None => self.started(start, "unverified-modern-execution"),
+                    },
+                }
+            }
+            "collab_agent_spawn_begin" | "background_terminal_started" => self.started(start, "unverified-modern-execution"),
+            "exec_command_begin" | "apply_patch_begin" => {
+                let Some(id) = payload["call_id"].as_str() else { return false; };
+                self.started(start, id);
+            }
+            "exec_command_end" | "apply_patch_end" => {
+                let Some(id) = payload["call_id"].as_str() else { return false; };
+                self.boundary.tool_completed(id);
+            }
+            _ => {},
+        }
+        true
     }
-    let Ok(after) = std::fs::metadata(&path) else { return false; };
-    input_submitted && identity_verified && boundary.idle() && before.len() == after.len() && before.modified().ok() == after.modified().ok()
+
+    /// Background agents, workflows and detached shells aren't settled here: the
+    /// handoff also needs Claude's own process status to say idle.
+    fn claude(&mut self, start: u64, value: &Value) -> bool {
+        if value["isSidechain"] == true { return true; }
+        if value.get("sessionId").is_some() && value["sessionId"].as_str() != Some(self.session_id) { return false; }
+        let kind = value["type"].as_str().unwrap_or("");
+        if matches!(kind, "user" | "assistant") {
+            if value["sessionId"].as_str() != Some(self.session_id) { return false; }
+            self.identity_verified = true;
+            let content = &value["message"]["content"];
+            let results_only = content.as_array().is_some_and(|blocks| !blocks.is_empty()
+                && blocks.iter().all(|b| b["type"] == "tool_result"));
+            if kind == "user" && !results_only {
+                self.boundary.started();
+                if value["isMeta"] != true && value["isCompactSummary"] != true {
+                    self.claude_user_turn = true;
+                    self.submitted_at(start);
+                }
+            }
+            for block in content.as_array().into_iter().flatten() {
+                match block["type"].as_str().unwrap_or("") {
+                    "tool_use" | "server_tool_use" | "mcp_tool_use" => {
+                        let Some(id) = block["id"].as_str() else { return false; };
+                        self.started(start, id);
+                    },
+                    "tool_result" => {
+                        let Some(id) = block["tool_use_id"].as_str() else { return false; };
+                        self.boundary.tool_completed(id);
+                    },
+                    _ => {},
+                }
+            }
+            if kind == "assistant" {
+                self.boundary.started();
+                if self.claude_user_turn && (value["message"]["stop_reason"] == "end_turn" || claude_quota_rejection(value)) {
+                    self.boundary.completed();
+                    // Queue records before a finished turn were that turn's; Claude doesn't
+                    // record every message it absorbs, so only later ones can still be waiting.
+                    self.claude_queued = 0;
+                    self.boundary.tool_completed("queued-input");
+                }
+            }
+        } else if kind == "queue-operation" {
+            match value["operation"].as_str() {
+                Some("enqueue") if self.live(start) => self.claude_queued += 1,
+                Some("dequeue" | "remove") => self.claude_queued = self.claude_queued.saturating_sub(1),
+                Some("popAll") => self.claude_queued = 0,
+                _ => {},
+            }
+            if self.claude_queued > 0 { self.boundary.tool_started("queued-input"); }
+            else { self.boundary.tool_completed("queued-input"); }
+        }
+        true
+    }
+
+    fn grok(&mut self, start: u64, value: &Value) -> bool {
+        let method = value["method"].as_str().unwrap_or("");
+        if !matches!(method, "session/update" | "_x.ai/session/update") { return true; }
+        if value["params"]["sessionId"].as_str() != Some(self.session_id) { return false; }
+        let update = &value["params"]["update"];
+        let live = self.live(start);
+        match update["sessionUpdate"].as_str().unwrap_or("") {
+            "user_message_chunk" => {
+                // A cancelled turn's tool can still finish after that turn ended.
+                self.grok_earlier_tools.extend(self.grok_tools.drain());
+                self.boundary.started();
+                self.submitted_at(start);
+            },
+            "turn_completed" if method == "_x.ai/session/update" => {
+                self.boundary.completed();
+                // A later turn ended normally: Grok has moved past what an earlier one left open.
+                if update["stop_reason"] == "end_turn" { self.grok_earlier_tools.clear(); }
+            },
+            "tool_call" => {
+                let Some(id) = update["toolCallId"].as_str() else { return false; };
+                if live { self.grok_tools.insert(id.to_string()); }
+            }
+            "tool_call_update" if matches!(update["status"].as_str(), Some("completed" | "failed")) => {
+                let Some(id) = update["toolCallId"].as_str() else { return false; };
+                self.grok_tools.remove(id);
+                self.grok_earlier_tools.remove(id);
+            }
+            // A backgrounded command runs on until its task_completed.
+            "task_backgrounded" => {
+                let Some(id) = update["tool_call_id"].as_str() else { return false; };
+                self.grok_tools.remove(id);
+                self.grok_earlier_tools.remove(id);
+                let task = update["task_id"].as_str().unwrap_or(id);
+                if live { self.grok_tasks.insert(task.to_string()); }
+            }
+            "task_completed" => {
+                if let Some(task) = update["task_snapshot"]["task_id"].as_str() { self.grok_tasks.remove(task); }
+            }
+            // The live set as of then; finished tasks stay listed with their status. One
+            // written by an earlier process describes tasks that died with it.
+            "background_tasks" => {
+                self.grok_tasks.clear();
+                if live {
+                    let running = update["tasks"].as_array().into_iter().flatten()
+                        .filter(|task| task["status"] == "running").filter_map(|task| task["task_id"].as_str());
+                    self.grok_tasks.extend(running.map(str::to_string));
+                }
+            }
+            "subagent_spawned" => match update["subagent_id"].as_str() {
+                Some(id) => self.started(start, &format!("subagent:{id}")),
+                None => self.started(start, "unverified:subagent"),
+            },
+            "subagent_finished" => {
+                if let Some(id) = update["subagent_id"].as_str() { self.boundary.tool_completed(&format!("subagent:{id}")); }
+            }
+            // Memory consolidation Grok runs after a turn.
+            "memory_dream_started" => if live { self.grok_dreams += 1; },
+            "memory_dream_completed" => self.grok_dreams = self.grok_dreams.saturating_sub(1),
+            _ => {},
+        }
+        true
+    }
 }
+
+/// After finding no replacement, how long a terminal waits before looking again.
+const RESERVE_RETRY: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+/// At most three switches per terminal in this long.
+const SWITCH_WINDOW: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+
+/// How one handoff attempt ended: switched, try again later, or stop watching.
+enum Step { Switched, Retry, Stop }
 
 pub fn monitor(
     app: tauri::AppHandle,
@@ -302,9 +513,14 @@ pub fn monitor(
             }
         }
         drop(initial_writer);
+        // Where the running process starts writing; work begun before it died with an earlier one.
+        let mut process_start = options.resume_session_id.as_deref().map_or(0, |native| history_len(&provider, native, &work_dir));
         let mut notices = std::collections::HashSet::new();
-        let mut switched = std::collections::HashSet::new();
+        let mut recent_switches = std::collections::VecDeque::new();
         let mut switching = false;
+        let mut next_reservation_at: Option<tokio::time::Instant> = None;
+        // Per monitor, so a late-exiting earlier monitor can't give back this one's reservation.
+        let reserve_key = format!("{thread_id}#next-account-{}", uuid::Uuid::new_v4());
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             if provider == "ClaudeCode" && super::claude::uses_project_auth(std::path::Path::new(&work_dir)) { break; }
@@ -327,7 +543,8 @@ pub fn monitor(
             }
             let key = if provider == "Codex" { options.resume_session_id.as_deref().unwrap_or(&thread_id) } else { &thread_id }.to_string();
             let Some(account) = super::current_assignment(&key).await else { break; };
-            let _ = super::refresh_account(&account.account_id).await;
+            // Every session on a login shares one reading; a usage failure keeps the last one.
+            let _ = super::refresh_if_stale(&account.account_id, 55).await;
             let exhaustion = if provider == "ClaudeCode" {
                 let model = match native.as_deref() {
                     Some(native) => native_model(&provider, native, &work_dir).await,
@@ -335,10 +552,18 @@ pub fn monitor(
                 };
                 claude_quota_exhaustion(&key, &account.account_id, model.as_deref()).await
             } else { super::quota_exhaustion(&account.account_id).await };
-            let Ok(Some(reset)) = exhaustion else { continue; };
+            let Ok(Some(reset)) = exhaustion else {
+                notices.clear();
+                next_reservation_at = None;
+                continue;
+            };
             if !super::auto_switch_enabled().await.unwrap_or(false) { continue; }
+            if next_reservation_at.is_some_and(|at| tokio::time::Instant::now() < at) { continue; }
+            let notice = |status: &str| {
+                let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": key, "threadId": thread_id, "status": status}));
+            };
             let Some(native) = native else {
-                if notices.insert("identity") { let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": key, "threadId": thread_id, "status": "identity_unavailable"})); }
+                if notices.insert("identity") { notice("identity_unavailable"); }
                 continue;
             };
             let checkpoint = {
@@ -348,104 +573,130 @@ pub fn monitor(
                 if let Some(path) = history_path(&provider, &native, &work_dir) { writer.set_native_history(path); }
                 writer.input_checkpoint()
             };
+            let pid = child.lock().await.process_id();
             let (p, n, w) = (provider.clone(), native.clone(), work_dir.clone());
-            let idle = tokio::task::spawn_blocking(move || native_idle(&p, &n, &w, checkpoint)).await.unwrap_or(false);
-            if !idle {
-                if notices.insert("waiting") { let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": key, "threadId": thread_id, "status": "waiting_for_idle"})); }
+            let idle = tokio::task::spawn_blocking(move || native_idle(&p, &n, &w, checkpoint, pid, process_start, None)).await.ok().flatten();
+            let Some(mark) = idle else {
+                if notices.insert("waiting") { notice("waiting_for_idle"); }
                 continue;
-            }
-            if switched.len() >= 3 || switched.contains(&account.account_id) { break; }
-            // Subscribe before stopping so a late old-reader exit cannot close
-            // the replacement terminal. Keep the session map locked through handoff.
-            let mut sessions = state.sessions.lock().await;
-            let Some(old) = sessions.get(&thread_id) else { break; };
-            if !Arc::ptr_eq(&old.child, &child) || old.is_shutting_down.load(Ordering::Relaxed) { break; }
-            let (done, wait) = tokio::sync::oneshot::channel();
-            let done = std::sync::Mutex::new(Some(done));
-            let listener = app.listen(format!("pty-exit-{thread_id}"), move |_| {
-                if let Some(done) = done.lock().unwrap_or_else(|e| e.into_inner()).take() { let _ = done.send(()); }
-            });
-            // Freeze terminal writes while revalidating the native boundary.
-            let writer = old.writer.lock().await;
-            if writer.input_checkpoint() != checkpoint { app.unlisten(listener); continue; }
-            let generation = old.input_generation.load(Ordering::SeqCst);
-            let (p, n, w) = (provider.clone(), native.clone(), work_dir.clone());
-            if !tokio::task::spawn_blocking(move || native_idle(&p, &n, &w, checkpoint)).await.unwrap_or(false) {
-                app.unlisten(listener);
-                drop(writer);
-                continue;
-            }
-            if old.input_generation.load(Ordering::SeqCst) != generation { app.unlisten(listener); continue; }
+            };
+            // A reading that keeps flipping must not restart the session over and over.
+            let now = tokio::time::Instant::now();
+            while recent_switches.front().is_some_and(|at| now.duration_since(*at) > SWITCH_WINDOW) { recent_switches.pop_front(); }
+            if recent_switches.len() >= 3 { continue; }
             // /model inside the terminal can supersede the launch options.
             // Unknown model context must not stop the current native process.
             let Some(model) = native_model(&provider, &native, &work_dir).await else {
-                app.unlisten(listener);
-                if notices.insert("model") { let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": key, "threadId": thread_id, "status": "model_unavailable"})); }
+                if notices.insert("model") { notice("model_unavailable"); }
                 continue;
             };
-            if super::remember_model(&account_provider, &key, Some(&model)).await.is_err() {
-                app.unlisten(listener);
-                continue;
-            }
+            if super::remember_model(&account_provider, &key, Some(&model)).await.is_err() { continue; }
             // /model may have changed since the first quota observation.
             let reset = if provider == "ClaudeCode" {
                 match claude_quota_exhaustion(&key, &account.account_id, Some(&model)).await {
                     Ok(Some(reset)) => reset,
-                    _ => { app.unlisten(listener); continue; },
+                    _ => continue,
                 }
             } else { reset };
-            if old.input_generation.load(Ordering::SeqCst) != generation { app.unlisten(listener); continue; }
-            if provider == "ClaudeCode" && super::claude::uses_project_auth(std::path::Path::new(&work_dir)) { app.unlisten(listener); break; }
-            options.model = Some(model);
-            switched.insert(account.account_id.clone());
-            switching = true;
-            let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": key, "threadId": thread_id, "status": "switching"}));
-            old.kill().await;
-            drop(writer);
-            let exited = tokio::time::timeout(std::time::Duration::from_secs(5), wait).await;
-            app.unlisten(listener);
-            if !matches!(exited, Ok(Ok(()))) { break; }
-            sessions.remove(&thread_id);
-            let marked = if provider == "ClaudeCode" {
-                super::mark_exhausted_for_session(&account_provider, &key, reset).await
-            } else { super::mark_exhausted(&account_provider, &key, reset).await };
-            // The old process is gone and no longer in the session map, so its exit can't
-            // release this binding; give it back even when the limit couldn't be recorded.
-            let released = super::release(&key).await;
-            if marked.is_err() || released.is_err() { break; }
-            options.resume_session_id = Some(native);
-            let next_key = if provider == "Codex" { options.resume_session_id.as_deref().unwrap_or(&thread_id) } else { &thread_id };
-            // A first PTY handoff can move from an agmux key to its native ID.
-            // Copy the retained entitlement/exclusions only after the old
-            // binding is released, so acquire cannot reuse the exhausted home.
-            if super::bind(&account_provider, &key, next_key).await.is_err()
-                || super::remember_model(&account_provider, next_key, options.model.as_deref()).await.is_err() { break; }
-            // A Codex native key can already be a live chat's binding; give back only one taken here.
-            let next_created = match super::acquire_tracked(&account_provider, next_key).await {
-                Ok((Some(next), created)) if !switched.contains(&next.account_id) => created,
-                Ok((Some(_), true)) => { let _ = super::release(next_key).await; break; }
-                _ => break,
-            };
-            let replacement = crate::process::spawn::spawn_pty_session(&state.db, &thread_id, &provider, &work_dir, &options).await;
-            match replacement {
-                Ok(replacement) => {
-                    expected_child = Arc::downgrade(&replacement.child);
-                    crate::process::io::start_stdout_reader(app.clone(), thread_id.clone(), replacement.master.clone(), replacement.child.clone(),
-                        replacement.is_shutting_down.clone(), replacement.output_buffer.clone(), state.db.clone());
-                    sessions.insert(thread_id.clone(), replacement);
-                    notices.clear();
-                    switching = false;
-                    let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": options.resume_session_id, "threadId": thread_id, "status": "ready", "continuationRequired": true}));
+            // Find where to go before touching the session: with nowhere to go it keeps running.
+            // Its own login is fine again once that limit has reset; other accounts it left stay excluded.
+            match super::reserve_replacement(&account_provider, &key, &reserve_key, reset).await {
+                Ok(Some(_)) => {},
+                result => {
+                    if matches!(result, Ok(Some(_))) { super::abandon_reservation(&reserve_key).await; }
+                    if let Err(error) = result { tracing::info!("No replacement account for {thread_id}: {error}"); }
+                    next_reservation_at = Some(tokio::time::Instant::now() + RESERVE_RETRY);
+                    if notices.insert("no_replacement") { notice("no_replacement"); }
+                    continue;
                 }
-                Err(_) => {
+            };
+            next_reservation_at = None;
+            let step = 'handoff: {
+                // Subscribe before stopping so a late old-reader exit cannot close the
+                // replacement terminal. The map stays locked only to stop and restart.
+                let mut sessions = state.sessions.lock().await;
+                let Some(old) = sessions.get(&thread_id) else { break 'handoff Step::Stop; };
+                if !Arc::ptr_eq(&old.child, &child) || old.is_shutting_down.load(Ordering::Relaxed) { break 'handoff Step::Stop; }
+                let (done, wait) = tokio::sync::oneshot::channel();
+                let done = std::sync::Mutex::new(Some(done));
+                let listener = app.listen(format!("pty-exit-{thread_id}"), move |_| {
+                    if let Some(done) = done.lock().unwrap_or_else(|e| e.into_inner()).take() { let _ = done.send(()); }
+                });
+                // Freeze terminal writes while revalidating the native boundary.
+                let writer = old.writer.lock().await;
+                let generation = old.input_generation.load(Ordering::SeqCst);
+                let (p, n, w) = (provider.clone(), native.clone(), work_dir.clone());
+                // Unchanged history only: one that moved on is checked again on the next pass, not
+                // re-read while every terminal waits on this lock.
+                let still_idle = writer.input_checkpoint() == checkpoint
+                    && tokio::task::spawn_blocking(move || native_idle(&p, &n, &w, checkpoint, pid, process_start, Some(mark))).await.ok().flatten().is_some()
+                    && native_model(&provider, &native, &work_dir).await.as_deref() == Some(model.as_str())
+                    && old.input_generation.load(Ordering::SeqCst) == generation;
+                if !still_idle { app.unlisten(listener); break 'handoff Step::Retry; }
+                if provider == "ClaudeCode" && super::claude::uses_project_auth(std::path::Path::new(&work_dir)) { app.unlisten(listener); break 'handoff Step::Stop; }
+                // A first Codex handoff moves from an agmux key to its native ID, which a chat
+                // on the same conversation may hold; then the switch can't be completed.
+                let next_key = if provider == "Codex" { native.clone() } else { thread_id.clone() };
+                if next_key != key && super::current_assignment(&next_key).await.is_some() {
+                    app.unlisten(listener);
+                    next_reservation_at = Some(tokio::time::Instant::now() + RESERVE_RETRY);
+                    break 'handoff Step::Retry;
+                }
+                options.model = Some(model);
+                recent_switches.push_back(tokio::time::Instant::now());
+                switching = true;
+                notice("switching");
+                old.kill().await;
+                drop(writer);
+                let exited = tokio::time::timeout(std::time::Duration::from_secs(5), wait).await;
+                app.unlisten(listener);
+                if !matches!(exited, Ok(Ok(()))) { break 'handoff Step::Stop; }
+                sessions.remove(&thread_id);
+                options.resume_session_id = Some(native.clone());
+                // The old process is gone and out of the session map, so its exit can't
+                // release its binding: handing over (or failing to) gives it back here.
+                let retired = match super::adopt_reservation(&account_provider, &key, &reserve_key, &next_key).await {
+                    Ok(retired) => retired,
+                    Err(error) => {
+                        tracing::warn!("Could not hand {thread_id} to its replacement account: {error}");
+                        let _ = super::release(&key).await;
+                        break 'handoff Step::Stop;
+                    }
+                };
+                process_start = history_len(&provider, &native, &work_dir);
+                let replacement = crate::process::spawn::spawn_pty_session(&state.db, &thread_id, &provider, &work_dir, &options).await;
+                let started = match replacement {
+                    Ok(replacement) => {
+                        expected_child = Arc::downgrade(&replacement.child);
+                        crate::process::io::start_stdout_reader(app.clone(), thread_id.clone(), replacement.master.clone(), replacement.child.clone(),
+                            replacement.is_shutting_down.clone(), replacement.output_buffer.clone(), state.db.clone());
+                        sessions.insert(thread_id.clone(), replacement);
+                        true
+                    }
                     // Nothing runs on the new account; holding it would keep a team lease
                     // nobody renews and block "Use this account" until restart.
-                    if next_created { let _ = super::release(next_key).await; }
-                    let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": key, "threadId": thread_id, "status": "unavailable"}));
-                    break;
+                    Err(_) => { let _ = super::release(&next_key).await; false }
+                };
+                drop(sessions);
+                if let Some(retired) = retired {
+                    if let Err(error) = super::retire(retired).await { tracing::warn!("Could not return the account {thread_id} left: {error}"); }
                 }
+                switching = false;
+                if !started {
+                    notice("unavailable");
+                    break 'handoff Step::Stop;
+                }
+                notices.clear();
+                let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": options.resume_session_id, "threadId": thread_id, "status": "ready", "continuationRequired": true}));
+                Step::Switched
+            };
+            match step {
+                Step::Switched => {},
+                Step::Retry => super::abandon_reservation(&reserve_key).await,
+                Step::Stop => { super::abandon_reservation(&reserve_key).await; break; },
             }
         }
+        super::abandon_reservation(&reserve_key).await;
         if switching {
             let _ = app.emit("provider-account-runtime", json!({"provider": account_provider, "sessionKey": thread_id, "threadId": thread_id, "status": "unavailable"}));
         }
@@ -489,8 +740,10 @@ mod tests {
         let result = claude("user",json!({"content":[{"type":"tool_result","tool_use_id":"t"}]}));
         assert!(!idle("ClaudeCode", &[user.clone(),tool.clone(),end.clone()]));
         assert!(idle("ClaudeCode", &[user.clone(),tool.clone(),result.clone(),end.clone()]));
+        // A background agent or shell outlives its tool result. The transcript can't show
+        // it; the handoff also needs Claude's process status (`claude_tree_is_idle`).
         let mut background=tool; background["message"]["content"][0]["input"]=json!({"run_in_background":true});
-        assert!(!idle("ClaudeCode", &[user.clone(),background,result,end.clone()]));
+        assert!(idle("ClaudeCode", &[user.clone(),background,result,end.clone()]));
         let mut child=end; child["isSidechain"]=json!(true);
         assert!(!idle("ClaudeCode", &[user.clone(),child]));
         let enqueue=json!({"type":"queue-operation","sessionId":"session","operation":"enqueue"});
@@ -498,6 +751,20 @@ mod tests {
         let end=claude("assistant",json!({"stop_reason":"end_turn","content":[]}));
         assert!(!idle("ClaudeCode", &[user.clone(),end.clone(),enqueue.clone()]));
         assert!(idle("ClaudeCode", &[enqueue,dequeue,user,end]));
+    }
+    #[test]
+    fn claude_queue_only_counts_messages_waiting_after_the_last_finished_turn() {
+        let user = claude("user", json!({"content":"question"}));
+        let end = claude("assistant", json!({"stop_reason":"end_turn","content":[]}));
+        let op = |operation: &str| json!({"type":"queue-operation","sessionId":"session","operation":operation});
+        // Claude absorbs some queued messages mid-turn without a dequeue record.
+        assert!(idle("ClaudeCode", &[user.clone(), op("enqueue"), op("enqueue"), end.clone()]));
+        assert!(!idle("ClaudeCode", &[user.clone(), end.clone(), op("enqueue"), op("enqueue"), op("dequeue")]));
+        for settled in ["dequeue", "remove", "popAll"] {
+            assert!(idle("ClaudeCode", &[user.clone(), end.clone(), op("enqueue"), op(settled)]), "{settled}");
+        }
+        // Unknown queue operations are not a lasting block.
+        assert!(idle("ClaudeCode", &[user, end, op("future-operation")]));
     }
     #[test]
     fn claude_native_quota_rejection_is_idle_without_losing_the_verified_model() {
@@ -574,7 +841,7 @@ mod tests {
         let path = directory.path().join("native.jsonl");
         let text = lines.iter().map(|v| format!("{v}\n")).collect::<String>();
         std::fs::write(&path, text).unwrap();
-        native_idle_path(provider, "session", &path, None)
+        native_idle_path(provider, "session", &path, None, 0).is_some()
     }
     #[test]
     fn codex_completion_must_match_latest_identified_turn() {
@@ -642,10 +909,210 @@ mod tests {
         let old = format!("{header}\n{end}\n");
         std::fs::write(&path, &old).unwrap();
         let input_offset = old.len() as u64;
-        assert!(!native_idle_path("Codex", "session", &path, Some(input_offset)));
+        assert!(native_idle_path("Codex", "session", &path, Some(input_offset), 0).is_none());
         let start = json!({"type":"event_msg","payload":{"type":"task_started","turn_id":"turn"}});
         std::fs::write(&path, format!("{old}{start}\n{end}\n")).unwrap();
-        assert!(native_idle_path("Codex", "session", &path, Some(input_offset)));
+        assert!(native_idle_path("Codex", "session", &path, Some(input_offset), 0).is_some());
+    }
+    #[test]
+    fn codex_tool_outputs_finish_their_calls_and_an_interrupt_ends_the_turn() {
+        let header = json!({"type":"session_meta","payload":{"id":"session"}});
+        let turn = json!({"type":"event_msg","payload":{"type":"task_started","turn_id":"turn"}});
+        let complete = json!({"type":"event_msg","payload":{"type":"task_complete","turn_id":"turn"}});
+        let call = |kind: &str, id: &str| json!({"type":"response_item","payload":{"type":kind,"call_id":id}});
+        assert!(idle("Codex", &[header.clone(), turn.clone(), call("custom_tool_call","w"), call("custom_tool_call_output","w"), complete.clone()]));
+        assert!(idle("Codex", &[header.clone(), turn.clone(), call("function_call","f"), call("function_call_output","f"), complete.clone()]));
+        assert!(!idle("Codex", &[header.clone(), turn.clone(), call("function_call","f"), call("function_call_output","other"), complete.clone()]));
+        let aborted = |id: &str| json!({"type":"event_msg","payload":{"type":"turn_aborted","turn_id":id,"reason":"interrupted"}});
+        assert!(idle("Codex", &[header.clone(), turn.clone(), aborted("turn")]));
+        assert!(!idle("Codex", &[header.clone(), turn.clone(), aborted("other")]));
+        // A command an interrupted turn left running is still tracked by its item.
+        let command = json!({"type":"event_msg","payload":{"type":"item_started","item":{"type":"CommandExecution","id":"shell"}}});
+        assert!(!idle("Codex", &[header, turn, command, aborted("turn")]));
+    }
+    #[test]
+    fn codex_finished_non_execution_items_never_block_but_running_child_agents_do() {
+        let header = json!({"type":"session_meta","payload":{"id":"session"}});
+        let turn = json!({"type":"event_msg","payload":{"type":"task_started","turn_id":"turn"}});
+        let complete = json!({"type":"event_msg","payload":{"type":"task_complete","turn_id":"turn"}});
+        let item = |event: &str, item: Value| json!({"type":"event_msg","payload":{"type":event,"item":item}});
+        for done in [json!({"type":"ImageView","id":"exec-1"}), json!({"type":"Extension","kind":"web.search","id":"exec-2"}),
+            json!({"type":"HookPrompt","id":"msg-1"}), json!({"type":"CollabAgentToolCall","id":"call-1","tool":"wait","status":"completed"})] {
+            assert!(idle("Codex", &[header.clone(), turn.clone(), item("item_completed", done), complete.clone()]));
+        }
+        assert!(!idle("Codex", &[header.clone(), turn.clone(), item("item_started", json!({"type":"Future","id":"x"})), complete.clone()]));
+        let child = |kind: &str| item("item_completed", json!({"type":"SubAgentActivity","id":"c","kind":kind,"agent_thread_id":"child","agent_path":"/root/review"}));
+        assert!(!idle("Codex", &[header.clone(), turn.clone(), child("started"), complete.clone()]));
+        assert!(idle("Codex", &[header.clone(), turn.clone(), child("started"), child("completed"), complete.clone()]));
+        assert!(!idle("Codex", &[header.clone(), turn.clone(), child("started"), child("completed"), child("interacted"), complete.clone()]));
+        // The root agent's own activity is this session, not a child.
+        let root = item("item_completed", json!({"type":"SubAgentActivity","id":"r","kind":"interacted","agent_thread_id":"session","agent_path":"/root"}));
+        assert!(idle("Codex", &[header, turn, root, complete]));
+    }
+    fn grok(kind: &str, fields: Value) -> Value {
+        let mut update = json!({"sessionUpdate": kind});
+        update.as_object_mut().unwrap().extend(fields.as_object().cloned().unwrap_or_default());
+        json!({"timestamp":1,"method":"_x.ai/session/update","params":{"sessionId":"session","update":update}})
+    }
+    #[test]
+    fn grok_backgrounded_commands_and_finished_background_tasks_do_not_block() {
+        let user = grok("user_message_chunk", json!({}));
+        let call = grok("tool_call", json!({"toolCallId":"cmd","status":"in_progress"}));
+        let end = grok("turn_completed", json!({"stop_reason":"end_turn"}));
+        let backgrounded = grok("task_backgrounded", json!({"tool_call_id":"cmd","task_id":"cmd"}));
+        let tasks = |status: &str| grok("background_tasks", json!({"tasks":[{"task_id":"cmd","status":status}]}));
+        assert!(!idle("Grok", &[user.clone(), call.clone(), backgrounded.clone(), tasks("running"), end.clone()]));
+        assert!(idle("Grok", &[user.clone(), call.clone(), backgrounded.clone(), tasks("running"), end.clone(), tasks("completed")]));
+        assert!(idle("Grok", &[user.clone(), call.clone(), backgrounded, end.clone(), tasks("failed")]));
+        assert!(idle("Grok", &[user, end, grok("background_tasks", json!({"tasks":[]}))]));
+    }
+    #[test]
+    fn grok_subagents_block_until_their_own_finish_and_cancelled_tools_until_a_later_turn() {
+        let user = grok("user_message_chunk", json!({}));
+        let end = grok("turn_completed", json!({"stop_reason":"end_turn"}));
+        let cancelled = grok("turn_completed", json!({"stop_reason":"cancelled"}));
+        let spawned = |id: &str| grok("subagent_spawned", json!({"subagent_id":id}));
+        let finished = |id: &str| grok("subagent_finished", json!({"subagent_id":id,"status":"completed"}));
+        assert!(!idle("Grok", &[user.clone(), spawned("a"), end.clone()]));
+        assert!(!idle("Grok", &[user.clone(), spawned("a"), spawned("b"), finished("b"), end.clone()]));
+        assert!(idle("Grok", &[user.clone(), spawned("a"), spawned("b"), finished("b"), finished("a"), end.clone()]));
+        // A command can still finish after its turn was cancelled.
+        let call = grok("tool_call", json!({"toolCallId":"cmd"}));
+        assert!(!idle("Grok", &[user.clone(), call.clone(), cancelled.clone()]));
+        assert!(!idle("Grok", &[user.clone(), call.clone(), cancelled.clone(), user.clone(), cancelled.clone()]));
+        assert!(idle("Grok", &[user.clone(), call.clone(), cancelled.clone(), user.clone(), end.clone()]));
+        let done = grok("tool_call_update", json!({"toolCallId":"cmd","status":"completed"}));
+        assert!(idle("Grok", &[user.clone(), call, cancelled, done]));
+    }
+    /// Idle with `before` written by an earlier process and `after` by the running one.
+    fn idle_since(provider: &str, before: &[Value], after: &[Value]) -> bool {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("native.jsonl");
+        let earlier = before.iter().map(|v| format!("{v}\n")).collect::<String>();
+        let text = earlier.clone() + &after.iter().map(|v| format!("{v}\n")).collect::<String>();
+        std::fs::write(&path, text).unwrap();
+        native_idle_path(provider, "session", &path, None, earlier.len() as u64).is_some()
+    }
+    #[test]
+    fn codex_commands_still_running_after_their_call_block_until_their_receipt() {
+        let header = json!({"type":"session_meta","payload":{"id":"session"}});
+        let turn = json!({"type":"event_msg","payload":{"type":"task_started","turn_id":"turn"}});
+        let complete = json!({"type":"event_msg","payload":{"type":"task_complete","turn_id":"turn"}});
+        let call = json!({"type":"response_item","payload":{"type":"custom_tool_call","call_id":"w"}});
+        let output = |results: &str| json!({"type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"w",
+            "output":[{"type":"input_text","text":"Script completed\nOutput:\n"},{"type":"input_text","text":results}]}});
+        let running = output(r#"{"chunk_id":"a","wall_time_seconds":10.0,"session_id":3203,"original_token_count":3,"output":"listening on :3000"}"#);
+        let receipt = |pid: &str| json!({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"CommandExecution",
+            "id":"exec-1","status":"completed","exit_code":0,"process_id":pid}}});
+        assert!(!idle("Codex", &[header.clone(), turn.clone(), call.clone(), running.clone(), complete.clone()]));
+        assert!(!idle("Codex", &[header.clone(), turn.clone(), call.clone(), running.clone(), complete.clone(), receipt("9")]));
+        assert!(idle("Codex", &[header.clone(), turn.clone(), call.clone(), running.clone(), complete.clone(), receipt("3203")]));
+        // A later poll reporting its exit settles it too.
+        let polled = output(r#"{"chunk_id":"b","wall_time_seconds":0.1,"exit_code":0,"session_id":3203,"output":"done"}"#);
+        assert!(idle("Codex", &[header.clone(), turn.clone(), call.clone(), running.clone(), polled, complete.clone()]));
+        // allSettled wrappers nest results; truncated output keeps the result fields.
+        for text in [r#"[{"i":0,"status":"fulfilled","value":{"chunk_id":"c","session_id":77,"output":"…"}}]"#,
+            "Warning: truncated output\n{\"chunk_id\":\"d\",\"wall_time_seconds\":1.0,\"session_id\":77,\"original_token_count\":9,\"output\":\"cut off mid-"] {
+            assert!(!idle("Codex", &[header.clone(), turn.clone(), call.clone(), output(text), complete.clone()]), "{text}");
+        }
+        // A direct exec_command call reports in text instead.
+        let direct = json!({"type":"response_item","payload":{"type":"function_call_output","call_id":"w",
+            "output":"Chunk ID: 1a2b\nWall time: 10.0 seconds\nProcess running with session ID 4410\nOriginal token count: 4\nOutput:\nready"}});
+        assert!(!idle("Codex", &[header.clone(), turn.clone(), call.clone(), direct.clone(), complete.clone()]));
+        assert!(idle("Codex", &[header.clone(), turn.clone(), call.clone(), direct, complete.clone(), receipt("4410")]));
+        // A command an earlier process started died with it.
+        assert!(idle_since("Codex", &[header.clone(), turn.clone(), call.clone(), running], &[turn, complete]));
+    }
+    #[test]
+    fn grok_background_tasks_run_until_their_own_completion() {
+        let user = grok("user_message_chunk", json!({}));
+        let end = grok("turn_completed", json!({"stop_reason":"end_turn"}));
+        let call = grok("tool_call", json!({"toolCallId":"cmd"}));
+        let backgrounded = grok("task_backgrounded", json!({"tool_call_id":"cmd","task_id":"cmd"}));
+        // Grok often marks the call completed once it is in the background.
+        let call_done = grok("tool_call_update", json!({"toolCallId":"cmd","status":"completed"}));
+        let task_done = grok("task_completed", json!({"task_snapshot":{"task_id":"cmd","command":"cargo test"}}));
+        assert!(!idle("Grok", &[user.clone(), call.clone(), backgrounded.clone(), call_done.clone(), end.clone()]));
+        assert!(idle("Grok", &[user.clone(), call.clone(), backgrounded.clone(), call_done.clone(), end.clone(), task_done]));
+        // A list or task an earlier process wrote describes work that died with it.
+        let listed = grok("background_tasks", json!({"tasks":[{"task_id":"cmd","status":"running"}]}));
+        assert!(idle_since("Grok", &[user.clone(), call.clone(), backgrounded.clone(), listed.clone(), end.clone()], &[user.clone(), end.clone()]));
+        assert!(!idle_since("Grok", &[user.clone()], &[call, backgrounded, listed, end.clone()]));
+        let dream = |kind: &str| grok(kind, json!({}));
+        assert!(!idle("Grok", &[user.clone(), end.clone(), dream("memory_dream_started")]));
+        assert!(idle("Grok", &[user.clone(), end.clone(), dream("memory_dream_started"), dream("memory_dream_completed")]));
+        assert!(idle_since("Grok", &[user, end.clone(), dream("memory_dream_started")], &[end]));
+    }
+    #[test]
+    fn claude_tools_and_queue_from_an_earlier_process_do_not_block() {
+        let user = claude("user", json!({"content":"question"}));
+        let tool = claude("assistant", json!({"stop_reason":"tool_use","content":[{"type":"tool_use","id":"t","name":"Bash","input":{}}]}));
+        let rejected = {
+            let mut value = claude("assistant", json!({"model":"<synthetic>","stop_reason":"stop_sequence","content":[]}));
+            value["isApiErrorMessage"] = json!(true); value["error"] = json!("rate_limit"); value["apiErrorStatus"] = json!(429);
+            value
+        };
+        let enqueue = json!({"type":"queue-operation","sessionId":"session","operation":"enqueue"});
+        assert!(!idle("ClaudeCode", &[user.clone(), tool.clone(), user.clone(), rejected.clone()]));
+        assert!(idle_since("ClaudeCode", &[user.clone(), tool, enqueue], &[user, rejected]));
+    }
+    #[test]
+    #[ignore = "Read-only scan of this Mac's Grok, Codex and Claude histories"]
+    fn live_histories_settle_once_their_work_is_done() {
+        let home = dirs::home_dir().unwrap();
+        let month_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(30 * 86400);
+        let recent = |path: &std::path::Path| std::fs::metadata(path).and_then(|m| m.modified()).is_ok_and(|t| t > month_ago);
+        let mut grok = (0, 0);
+        for cwd in std::fs::read_dir(home.join(".grok/sessions")).into_iter().flatten().flatten() {
+            for session in std::fs::read_dir(cwd.path()).into_iter().flatten().flatten() {
+                let path = session.path().join("updates.jsonl");
+                if !recent(&path) { continue; }
+                let id = session.file_name().to_string_lossy().to_string();
+                grok.0 += 1;
+                if native_idle_path("Grok", &id, &path, None, 0).is_some() { grok.1 += 1; }
+            }
+        }
+        let mut codex = (0, 0);
+        let mut stack = vec![home.join(".codex/sessions")];
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+                let path = entry.path();
+                if path.is_dir() { stack.push(path); continue; }
+                let name = entry.file_name().to_string_lossy().to_string();
+                let Some(id) = name.strip_suffix(".jsonl").and_then(|n| n.get(n.len().saturating_sub(36)..)) else { continue; };
+                if !name.starts_with("rollout-") || !recent(&path) { continue; }
+                codex.0 += 1;
+                if native_idle_path("Codex", id, &path, None, 0).is_some() { codex.1 += 1; }
+            }
+        }
+        let mut claude = (0, 0);
+        for project in std::fs::read_dir(home.join(".claude/projects")).into_iter().flatten().flatten() {
+            for entry in std::fs::read_dir(project.path()).into_iter().flatten().flatten() {
+                let path = entry.path();
+                let Some(id) = path.file_name().and_then(|n| n.to_str()).and_then(|n| n.strip_suffix(".jsonl")).map(str::to_string) else { continue; };
+                if !recent(&path) { continue; }
+                claude.0 += 1;
+                if native_idle_path("ClaudeCode", &id, &path, None, 0).is_some() { claude.1 += 1; }
+            }
+        }
+        println!("settled histories (last 30 days): grok {}/{} · codex {}/{} · claude {}/{}", grok.1, grok.0, codex.1, codex.0, claude.1, claude.0);
+    }
+    #[test]
+    fn long_histories_are_read_whole() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("updates.jsonl");
+        let hook = grok("hook_execution", json!({"event_name":"post_tool_use","runs":[{"name":"x".repeat(400)}]})).to_string();
+        let mut text = format!("{}\n{}\n", grok("user_message_chunk", json!({})), grok("tool_call", json!({"toolCallId":"t"})));
+        while text.len() < 20 * 1024 * 1024 { text.push_str(&hook); text.push('\n'); }
+        std::fs::write(&path, &text).unwrap();
+        assert!(native_idle_path("Grok", "session", &path, None, 0).is_none());
+        text.push_str(&format!("{}\n{}\n", grok("tool_call_update", json!({"toolCallId":"t","status":"completed"})),
+            grok("turn_completed", json!({"stop_reason":"end_turn"}))));
+        std::fs::write(&path, &text).unwrap();
+        let mark = native_idle_path("Grok", "session", &path, None, 0).expect("a 20 MB history is still checked");
+        assert_eq!(mark.0, text.len() as u64);
+        std::fs::write(&path, format!("{text}{{\"partial\"")).unwrap();
+        assert!(native_idle_path("Grok", "session", &path, None, 0).is_none(), "a line still being written");
     }
     #[test]
     fn grok_user_text_cannot_complete_a_turn_and_unfinished_tools_block_handoff() {

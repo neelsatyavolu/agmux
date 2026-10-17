@@ -672,6 +672,20 @@ pub async fn spawn_pty_session(
                     );
                 }
             }
+            if crate::consult::is_enabled() {
+                let identity = crate::consult::ConsultIdentity {
+                    thread_id: Some(thread_id),
+                    project_id: options.project_id.as_deref(),
+                };
+                match crate::consult::codex_cli_overrides(None, &identity) {
+                    Ok(overrides) => {
+                        for arg in overrides {
+                            cmd.arg(arg);
+                        }
+                    }
+                    Err(e) => tracing::warn!("[spawn-timing {tid}] consult MCP inject failed: {e}"),
+                }
+            }
         }
         Provider::ClaudeCode => {
             // Start in agmux's light/dark mode; see process::claude_theme.
@@ -764,6 +778,21 @@ pub async fn spawn_pty_session(
                     tracing::info!(
                         "[spawn-timing {tid}] Claude --append-system-prompt (project memory)"
                     );
+                }
+            }
+            // consult (second opinions) as its own --mcp-config, so it works
+            // with project memory off and joins the strict list when it's on.
+            if crate::consult::is_enabled() {
+                let identity = crate::consult::ConsultIdentity {
+                    thread_id: Some(thread_id),
+                    project_id: options.project_id.as_deref(),
+                };
+                match crate::consult::claude_mcp_config_json(None, &identity) {
+                    Ok(json) => {
+                        cmd.arg("--mcp-config");
+                        cmd.arg(&json);
+                    }
+                    Err(e) => tracing::warn!("[spawn-timing {tid}] consult MCP inject failed: {e}"),
                 }
             }
         }
@@ -1307,6 +1336,18 @@ pub async fn spawn_pty_session(
                     cmd.arg(&instructions);
                     tracing::info!("[spawn-timing {tid}] Grok --rules (project memory)");
                 }
+            }
+            // Shared per-folder config: written when on, agmux's entry removed when off.
+            let identity = crate::consult::ConsultIdentity {
+                thread_id: None,
+                project_id: options.project_id.as_deref(),
+            };
+            if let Err(e) = crate::consult::sync_grok_project_config(
+                work_dir,
+                &identity,
+                crate::consult::is_enabled(),
+            ) {
+                tracing::warn!("[spawn-timing {tid}] consult Grok config failed: {e}");
             }
         }
     }

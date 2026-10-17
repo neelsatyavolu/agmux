@@ -1309,6 +1309,16 @@ function GeneralPage({
         </SettingsRow>
 
         <SettingsRow
+          label="Second opinions"
+          description="Claude, Codex and Grok sessions can ask the other agents signed in on this Mac for advice or a review of their changes, ask a copy of another session in the project, and send it a message. Advisors only read files; each question uses that agent's subscription. Applies to new sessions."
+        >
+          <Toggle
+            enabled={settings.consultEnabled ?? true}
+            onChange={(v) => updateSettings({ consultEnabled: v })}
+          />
+        </SettingsRow>
+
+        <SettingsRow
           label="Keep awake while running"
           description="Prevent your Mac from sleeping while any agent is working or waiting for your approval."
         >

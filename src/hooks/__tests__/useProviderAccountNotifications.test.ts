@@ -25,6 +25,7 @@ describe("useProviderAccountNotifications", () => {
       ["ready", "Account switched. Conversation is ready to continue."],
       ["resume_failed", "Account switched, but the conversation could not be reopened. Open the conversation to try again."],
       ["unavailable", "No replacement account is available. Check Accounts for sign-in and usage availability."],
+      ["no_replacement", "Usage limit reached and no other account is free. This session stays open and switches when one frees up."],
     ])("presents fixed copy for %s", async (status, message) => {
       const { result } = renderHook(useProviderAccountNotifications);
       await act(async () => {});

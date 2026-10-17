@@ -759,6 +759,19 @@ impl CodexAppServer {
                 let _ = crate::memory::ensure_memory(pid, repo, &[work_dir]);
             }
         }
+        // One app-server serves many threads: no thread id, so consult scopes
+        // by project and cannot name the sender of a message.
+        if crate::consult::is_enabled() {
+            let identity = crate::consult::ConsultIdentity { thread_id: None, project_id };
+            match crate::consult::codex_cli_overrides(None, &identity) {
+                Ok(overrides) => {
+                    for arg in overrides {
+                        cmd.arg(arg);
+                    }
+                }
+                Err(e) => tracing::warn!("[codex] consult MCP inject failed: {e}"),
+            }
+        }
 
         let mut child = cmd
             .spawn()
@@ -1948,21 +1961,46 @@ impl CodexServerManager {
                     Err(_) => None,
                 };
                 let exhausted = observed.or(crate::provider_accounts::quota_exhaustion(account_id).await?);
-                if let Some(reset) = exhausted {
-                        if !crate::provider_accounts::auto_switch_enabled().await? {
-                            return Err("Codex account quota exhausted; automatic switching is disabled".into());
+                // Without a switch the turn still goes out here, and Codex reports its own limit.
+                let switch = match exhausted {
+                    Some(reset) if crate::provider_accounts::auto_switch_enabled().await? => Some(reset),
+                    _ => None,
+                };
+                if let Some(reset) = switch {
+                    // Find where to go before letting go of this thread's account.
+                    let reserve_key = format!("{thread_id}#next-account");
+                    let reserved = match crate::provider_accounts::reserve_replacement("codex", thread_id, &reserve_key, reset).await {
+                        Ok(Some(next)) if !attempted.contains(&next.account_id) => true,
+                        result => {
+                            if matches!(result, Ok(Some(_))) { crate::provider_accounts::abandon_reservation(&reserve_key).await; }
+                            let _ = app_handle.emit("provider-account-runtime", serde_json::json!({
+                                "provider": "codex", "sessionKey": thread_id, "threadId": thread_id, "status": "no_replacement" }));
+                            false
                         }
+                    };
+                    if reserved {
                         // Never stop the account server: unrelated threads may be
                         // active. Release and verify just this native writer.
                         server.release_thread_writer_for_pty(thread_id).await;
-                        let loaded = server.list_loaded_thread_ids().await.map_err(|e| e.to_string())?;
+                        let loaded = match server.list_loaded_thread_ids().await {
+                            Ok(loaded) => loaded,
+                            Err(error) => { crate::provider_accounts::abandon_reservation(&reserve_key).await; return Err(error.to_string()); }
+                        };
                         if loaded.iter().any(|id| id == thread_id) {
+                            crate::provider_accounts::abandon_reservation(&reserve_key).await;
                             return Err("Codex quota exhausted; session is still busy and cannot switch accounts".into());
                         }
-                        crate::provider_accounts::mark_exhausted("codex", thread_id, reset).await?;
-                        crate::provider_accounts::release(thread_id).await?;
+                        let retired = match crate::provider_accounts::adopt_reservation("codex", thread_id, &reserve_key, thread_id).await {
+                            Ok(retired) => retired,
+                            Err(error) => { crate::provider_accounts::abandon_reservation(&reserve_key).await; return Err(error); }
+                        };
+                        // A lease that can't be handed back lapses on its own; the switch already happened.
+                        if let Some(retired) = retired {
+                            if let Err(error) = crate::provider_accounts::retire(retired).await { tracing::warn!("Could not return the account {thread_id} left: {error}"); }
+                        }
                         self.thread_servers.remove(thread_id);
                         continue;
+                    }
                 }
             }
             let active_turn = ActiveTurnReservation::new(server.thread_activity.clone(), thread_id)?;

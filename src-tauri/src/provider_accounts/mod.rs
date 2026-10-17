@@ -190,6 +190,12 @@ pub async fn acquire(provider: &str, session_key: &str) -> Result<Option<Account
 /// Also says whether this call created the binding. A launch that fails gives back only a
 /// binding it created; an existing one belongs to a live chat or session for the same key.
 pub async fn acquire_tracked(provider: &str, session_key: &str) -> Result<(Option<AccountAssignment>, bool), String> {
+    // A key that already has its account (a restart after a handoff, under the terminal
+    // session lock) needn't wait for another session's account selection to finish.
+    if let Some(binding) = bindings().lock().await.get(session_key) {
+        if binding.provider != canonical_provider(provider) { return Err("Session account provider mismatch".into()); }
+        return Ok((Some(binding.assignment.clone()), false));
+    }
     let _acquire = ACQUIRE_LOCK.get_or_init(|| Mutex::new(())).lock().await;
     let existed = bindings().lock().await.contains_key(session_key);
     let assignment = acquire_locked(provider, session_key).await?;
@@ -213,6 +219,7 @@ async fn acquire_locked(provider: &str, session_key: &str) -> Result<Option<Acco
     let mut route = routes().lock().await.get(session_key).cloned().unwrap_or_default();
     route.model_excluded.retain(|_, reset| reset.is_none_or(|t| t > now()));
     let mut native_exhausted = false;
+    let mut out_of_quota_login = None;
     if native::unmanaged_auth(provider).await { return Ok(None); }
     // Merely registering an overflow account must never replace the existing login.
     // Unknown quota also stays on the current login; only an observed limit enables fallback.
@@ -223,18 +230,50 @@ async fn acquire_locked(provider: &str, session_key: &str) -> Result<Option<Acco
         let native_compatible = provider != "claude" || !route.handoff || native_exhausted
             || claude::supports_model(&primary.home, route.model.as_deref(), route.minimum_plan.as_deref()).await.unwrap_or(false);
         if selection::use_native_primary(store.auto_switch, native_exhausted) && native_compatible {
-            {
-                let mut contexts = routes().lock().await;
-                let context = contexts.entry(session_key.into()).or_default();
-                context.provider = provider.into(); context.minimum_plan = plan;
-            }
-            assigned_route(session_key).await;
-            bindings().lock().await.insert(session_key.into(), Binding { assignment: primary.clone(), provider: provider.into(), team: None, remaining: None, reset: None, checked: None });
+            bind_native(provider, session_key, &primary, plan).await;
             return Ok(Some(primary));
         }
+        // A new session still opens on the login when nothing else can take it (user
+        // decision 2026-10-16): the CLI shows its own limit, and the session switches
+        // once an account frees up. A handoff never goes back to the account that ran out.
+        if !route.handoff { out_of_quota_login = Some((primary.clone(), plan.clone())); }
         route.minimum_plan = route.minimum_plan.or(plan);
         route.excluded.insert(primary.account_id);
     }
+    let other = acquire_other(provider, session_key, &store, route, native_exhausted, &active).await;
+    match (other, out_of_quota_login) {
+        (Ok(Some(assignment)), _) => Ok(Some(assignment)),
+        (_, Some((primary, plan))) => {
+            bind_native(provider, session_key, &primary, plan).await;
+            Ok(Some(primary))
+        }
+        (other, None) => other,
+    }
+}
+
+async fn bind_native(provider: &str, session_key: &str, primary: &AccountAssignment, plan: Option<String>) {
+    {
+        let mut contexts = routes().lock().await;
+        let context = contexts.entry(session_key.into()).or_default();
+        context.provider = provider.into(); context.minimum_plan = plan;
+    }
+    assigned_route(session_key).await;
+    bindings().lock().await.insert(session_key.into(), Binding { assignment: primary.clone(), provider: provider.into(), team: None, remaining: None, reset: None, checked: None });
+}
+
+/// A team account another session on this Mac already holds that `route` may also use. One
+/// person's sessions share it, so running out never takes a pool account per terminal.
+fn shared_team_binding(assigned: &HashMap<String, Binding>, provider: &str, route: &RouteContext, at: i64) -> Option<Binding> {
+    assigned.values().filter(|b| b.provider == provider && b.team.as_ref().is_some_and(|lease| lease.expires_at > at + 60)
+        && !route.excluded.contains(&b.assignment.account_id) && !route.model_excluded.contains_key(&b.assignment.account_id)
+        && !(b.remaining == Some(0.0) && !b.reset.is_some_and(|t| t <= at)))
+        .max_by(|a, b| a.remaining.unwrap_or(-1.0).total_cmp(&b.remaining.unwrap_or(-1.0))
+            .then_with(|| b.assignment.account_id.cmp(&a.assignment.account_id)))
+        .cloned()
+}
+
+/// Everything but the current login. Caller holds `ACQUIRE_LOCK`.
+async fn acquire_other(provider: &str, session_key: &str, store: &storage::Store, route: RouteContext, native_exhausted: bool, active: &[String]) -> Result<Option<AccountAssignment>, String> {
     let fallback = native_exhausted || route.handoff;
     if fallback && !store.auto_switch { return Err("Account quota exhausted; automatic switching is disabled".into()); }
     if matches!(provider, "codex" | "claude") && fallback && (route.model.is_none() || route.minimum_plan.is_none()) {
@@ -302,6 +341,25 @@ async fn acquire_locked(provider: &str, session_key: &str) -> Result<Option<Acco
         bindings().lock().await.insert(session_key.into(), Binding { assignment: result.clone(), provider: provider.into(), team: None, remaining: None, reset: None, checked: None });
         return Ok(Some(result));
     }
+    if provider != "claude" && store.auto_switch {
+        let shared = shared_team_binding(&*bindings().lock().await, provider, &route, now());
+        if let Some(shared) = shared {
+            let minimum_plan = route.minimum_plan.clone().or_else(|| if fallback { None } else {
+                storage::read_json(&shared.assignment.home.join("auth.json")).ok().and_then(|c| profile::plan(provider, &c)) });
+            let compatible = provider != "codex" || (!fallback && route.model.is_none())
+                || compatibility::check(provider, &shared.assignment.home, route.model.as_deref(), minimum_plan.as_deref()).await.unwrap_or(false);
+            let lease = shared.team.as_ref().map(|l| l.lease_id.clone());
+            let mut assigned = bindings().lock().await;
+            // Still held: a session that let it go in the meantime returned the lease.
+            if compatible && assigned.values().any(|b| b.team.as_ref().map(|l| &l.lease_id) == lease.as_ref()) {
+                let result = shared.assignment.clone();
+                assigned.insert(session_key.into(), shared);
+                drop(assigned);
+                assigned_route(session_key).await;
+                return Ok(Some(result));
+            }
+        }
+    }
     if provider != "claude" && store.auto_switch && crate::teams::secret_store::load().is_some() {
         let mut excluded: Vec<String> = route.excluded.iter().cloned().collect();
         // Bounded allocation attempts; reject incompatible leases without executing a prompt.
@@ -329,27 +387,125 @@ async fn acquire_locked(provider: &str, session_key: &str) -> Result<Option<Acco
             let compatible = !(native_exhausted && native::same_identity(provider, &lease.credentials))
                 && (provider != "codex" || (!fallback && route.model.is_none())
                     || compatibility::check(provider, &home, route.model.as_deref(), minimum_plan.as_deref()).await.unwrap_or(false));
-            if !compatible {
+            // The pool hands out accounts nobody measured lately; one that is already out
+            // would only fail the session's next prompt.
+            let reading = if compatible && lease.remaining_percent.is_none() { measure_leased(provider, &home).await } else { None };
+            let out = reading.as_ref().is_some_and(|(remaining, _, usage)| *remaining == Some(0.0) && !usage.allowance_usable);
+            if !compatible || out {
                 excluded.push(lease.account_id.clone());
+                let (remaining, blocked_until) = match &reading { Some((remaining, blocked, _)) if out => (*remaining, *blocked), _ => (None, None) };
                 let released = async {
-                    // A catalog probe may refresh OAuth; return the latest token before releasing.
+                    // A catalog or usage probe may refresh OAuth; return the latest token before releasing.
                     let credentials = storage::read_json(&home.join("auth.json"))?;
-                    team::renew(&lease, credentials, None, None).await?;
+                    team::renew(&lease, credentials, remaining, blocked_until).await?;
                     team::release(&lease).await
                 }.await;
                 let _ = std::fs::remove_file(home.join("auth.json"));
                 released?;
                 continue;
             }
+            let mut lease = lease;
+            let (mut remaining, mut reset, mut checked) = (lease.remaining_percent, None, None);
+            if let Some((measured, blocked_until, usage)) = &reading {
+                // Teammates' allocation ranks by this reading too.
+                let credentials = match storage::read_json(&home.join("auth.json")) {
+                    Ok(credentials) => credentials,
+                    Err(error) => {
+                        let _ = team::release(&lease).await;
+                        let _ = std::fs::remove_file(home.join("auth.json"));
+                        return Err(error);
+                    }
+                };
+                if let Ok(expiry) = team::renew(&lease, credentials, *measured, *blocked_until).await { lease.expires_at = expiry; }
+                team::report_display(&lease, Some(&usage.usage), usage.plan.as_deref()).await;
+                (remaining, reset, checked) = (*measured, quota::summarize(usage, now()).1, Some(now()));
+            }
             let result = AccountAssignment { account_id: lease.account_id.clone(), home, label: lease.label.clone() };
             assigned_route(session_key).await;
-            bindings().lock().await.insert(session_key.into(), Binding { assignment: result.clone(), provider: provider.into(), team: Some(lease), remaining: None, reset: None, checked: None });
+            bindings().lock().await.insert(session_key.into(), Binding { assignment: result.clone(), provider: provider.into(), team: Some(lease), remaining, reset, checked });
             return Ok(Some(result));
         }
     }
     let observed = { let _lock = store_lock().lock().await; storage::load()?.observed_team_pools.iter().any(|p| p == provider) };
     if !fallback && rows.is_empty() && !observed { Ok(None) }
     else { Err(format!("No compatible {} account is available for this session. Your model has not been changed.", provider)) }
+}
+
+/// A freshly leased team account's usage: (remaining, blocked until, reading). None when it
+/// can't be measured in time, which is unknown, not out.
+async fn measure_leased(provider: &str, home: &Path) -> Option<(Option<f64>, Option<i64>, quota::AccountUsage)> {
+    let usage = tokio::time::timeout(std::time::Duration::from_secs(20), quota::fetch(provider, home)).await.ok()?.ok()?;
+    let (remaining, reset) = quota::summarize(&usage, now());
+    let blocked_until = if usage.allowance_usable { Some(0) } else { team_block_until(remaining, reset) };
+    Some((remaining, blocked_until, usage))
+}
+
+/// Picks, and holds under `reserve_key`, the account `session_key` would move to now that its
+/// own ran out, while the session keeps running on it: with no replacement nothing about the
+/// session changes. Records the limit like `mark_exhausted_for_session`. Once the old process
+/// is gone `adopt_reservation` hands it over; `abandon_reservation` gives it back.
+pub async fn reserve_replacement(provider: &str, session_key: &str, reserve_key: &str, reset: Option<i64>) -> Result<Option<AccountAssignment>, String> {
+    let current = current_assignment(session_key).await.ok_or("This session has no account")?;
+    abandon_reservation(reserve_key).await;
+    let picked = async {
+        // The reservation starts as an alias, so it inherits the session's model and exclusions.
+        bind(provider, session_key, reserve_key).await?;
+        mark_exhausted_for_session(provider, reserve_key, reset).await?;
+        release(reserve_key).await?;
+        acquire(provider, reserve_key).await
+    }.await;
+    match picked {
+        Ok(Some(next)) if next.account_id != current.account_id => Ok(Some(next)),
+        other => {
+            abandon_reservation(reserve_key).await;
+            other.map(|_| None)
+        }
+    }
+}
+
+pub async fn abandon_reservation(reserve_key: &str) {
+    if let Err(error) = release(reserve_key).await { tracing::warn!("Could not return a reserved account: {error}"); }
+    routes().lock().await.remove(reserve_key);
+}
+
+/// A team lease the old account held, returned by `retire` after the session restarted.
+pub(crate) struct RetiredLease(Binding);
+
+/// Once the old process has exited: `next_key` takes the reserved account and `old_key`
+/// lets go of its own. Local only, so it is quick under the terminal session lock; an old
+/// team lease no other session shares comes back for `retire`.
+pub(crate) async fn adopt_reservation(provider: &str, old_key: &str, reserve_key: &str, next_key: &str) -> Result<Option<RetiredLease>, String> {
+    let mut assigned = bindings().lock().await;
+    let reserved = assigned.get(reserve_key).cloned().ok_or("The replacement account was given back before the switch")?;
+    if reserved.provider != canonical_provider(provider) { return Err("Session account provider mismatch".into()); }
+    if next_key != old_key && assigned.contains_key(next_key) { return Err("Session is already assigned to another account".into()); }
+    let old = assigned.remove(old_key);
+    assigned.remove(reserve_key);
+    assigned.insert(next_key.into(), reserved);
+    let retired = old.filter(|old| old.team.is_some() && !assigned.values().any(|b| b.assignment.home == old.assignment.home));
+    let mut contexts = routes().lock().await;
+    let mut route = contexts.remove(reserve_key).unwrap_or_default();
+    route.handoff = false;
+    contexts.remove(old_key);
+    contexts.insert(next_key.into(), route);
+    Ok(retired.map(RetiredLease))
+}
+
+pub(crate) async fn retire(lease: RetiredLease) -> Result<(), String> { return_lease(&lease.0).await }
+
+/// Usage of `id`, unless it was measured in the last `max_age` seconds: the sessions on one
+/// login, its keeper and the Accounts page share one reading instead of each polling.
+pub async fn refresh_if_stale(id: &str, max_age: i64) -> Result<(), String> {
+    let checked = if id.starts_with("native:") { native::last_checked(id) } else {
+        let held = bindings().lock().await.values()
+            .find(|b| b.assignment.account_id == id && b.team.is_some()).map(|b| b.checked);
+        match held {
+            Some(checked) => checked,
+            None => { let _lock = store_lock().lock().await; storage::load()?.accounts.iter().find(|a| a.id == id).and_then(|a| a.last_checked_at) }
+        }
+    };
+    if checked.is_some_and(|t| now() - t < max_age) { return Ok(()); }
+    refresh_account(id).await
 }
 
 pub async fn refresh_account(id: &str) -> Result<(), String> {
@@ -546,7 +702,8 @@ pub async fn maintain(session_key: &str) -> Result<(), String> {
             Some(binding.assignment.account_id.clone())
         } else { None }
     };
-    // Usage failure is not revocation and must not interrupt a running turn.
+    // Usage failure is not revocation and must not interrupt a running turn. The stamp above
+    // already spaces these out (a team account's reading time is that stamp), so measure now.
     if let Some(id) = refresh { let _ = refresh_account(&id).await; }
     Ok(())
 }
@@ -573,19 +730,25 @@ pub async fn release(session_key: &str) -> Result<(), String> {
     }
     let Some(binding) = assigned.remove(session_key) else { return Ok(()); };
     if assigned.values().any(|b| b.assignment.home == binding.assignment.home) { return Ok(()); }
-    if let Some(lease) = &binding.team {
-        // Call only after the last native writer has stopped. Even a revoked
-        // lease must leave no reusable credentials or stale runtime assignment.
-        let result = async {
-            let credentials_lock = quota::credential_lock(&binding.assignment.home);
-            let _credentials = credentials_lock.lock().await;
-            let credentials = storage::read_json(&binding.assignment.home.join("auth.json"))?;
-            team::renew(lease, credentials, None, None).await?;
-            team::release(lease).await
-        }.await;
-        let _ = std::fs::remove_file(binding.assignment.home.join("auth.json"));
-        result
-    } else { Ok(()) }
+    // Out of the map, nothing can join this lease; don't hold every session's account
+    // lookups while it is returned over the network.
+    drop(assigned);
+    return_lease(&binding).await
+}
+
+/// Call only after the last native writer has stopped. Even a revoked lease must
+/// leave no reusable credentials or stale runtime assignment.
+async fn return_lease(binding: &Binding) -> Result<(), String> {
+    let Some(lease) = &binding.team else { return Ok(()); };
+    let result = async {
+        let credentials_lock = quota::credential_lock(&binding.assignment.home);
+        let _credentials = credentials_lock.lock().await;
+        let credentials = storage::read_json(&binding.assignment.home.join("auth.json"))?;
+        team::renew(lease, credentials, None, None).await?;
+        team::release(lease).await
+    }.await;
+    let _ = std::fs::remove_file(binding.assignment.home.join("auth.json"));
+    result
 }
 
 #[tauri::command]
@@ -902,9 +1065,69 @@ mod tests {
             assignment: AccountAssignment { account_id: id.into(), home: PathBuf::from(format!("/test/{id}")), label: "Test".into() },
             provider: "codex".into(),
             team: Some(team::TeamAssignment { team_id: "team".into(), lease_id: lease.into(), account_id: id.into(),
-                provider: "codex".into(), label: "Test".into(), credentials: serde_json::json!({}), expires_at: 100 }),
+                provider: "codex".into(), label: "Test".into(), credentials: serde_json::json!({}), expires_at: 100, remaining_percent: None }),
             remaining: None, reset: None, checked: None,
         }
+    }
+    fn held(id: &str, provider: &str, expires_at: i64) -> Binding {
+        let mut held = binding(id, &format!("lease-{id}"));
+        held.provider = provider.into();
+        held.team.as_mut().unwrap().expires_at = expires_at;
+        held
+    }
+    #[test]
+    fn sessions_share_a_held_team_account_only_while_it_is_usable() {
+        let at = 1_000;
+        let mut out = held("out", "grok", at + 300);
+        out.remaining = Some(0.0); out.reset = Some(at + 100);
+        let mut personal = held("personal", "grok", at + 300);
+        personal.team = None;
+        let mut fuller = held("fuller", "grok", at + 300);
+        fuller.remaining = Some(80.0);
+        let mut assigned = HashMap::from([
+            ("a".to_string(), held("usable", "grok", at + 300)),
+            ("b".to_string(), out.clone()),
+            ("c".to_string(), held("expiring", "grok", at + 30)),
+            ("d".to_string(), personal),
+            ("e".to_string(), held("codex", "codex", at + 300)),
+        ]);
+        let route = RouteContext::default();
+        assert_eq!(shared_team_binding(&assigned, "grok", &route, at).unwrap().assignment.account_id, "usable");
+        assigned.insert("f".into(), fuller);
+        assert_eq!(shared_team_binding(&assigned, "grok", &route, at).unwrap().assignment.account_id, "fuller", "most headroom first");
+        let mut excluded = RouteContext::default();
+        excluded.excluded.extend(["usable".to_string(), "fuller".to_string()]);
+        assert!(shared_team_binding(&assigned, "grok", &excluded, at).is_none(), "the account that ran out, an expiring lease and a personal login never qualify");
+        out.reset = Some(at - 1);
+        assigned.insert("b".into(), out);
+        assert_eq!(shared_team_binding(&assigned, "grok", &excluded, at).unwrap().assignment.account_id, "out", "a reset makes it usable again");
+        assert_eq!(shared_team_binding(&assigned, "codex", &route, at).unwrap().assignment.account_id, "codex");
+    }
+    #[tokio::test]
+    async fn adopting_a_reservation_moves_it_and_returns_only_an_unshared_old_lease() {
+        let key = format!("test-adopt:{}", uuid::Uuid::new_v4());
+        let reserve = format!("{key}#next-account");
+        bindings().lock().await.extend([(key.clone(), binding("old", "lease-old")), (reserve.clone(), binding("next", "lease-next"))]);
+        {
+            let mut contexts = routes().lock().await;
+            let route = contexts.entry(reserve.clone()).or_default();
+            route.handoff = true; route.excluded.insert("old".into());
+        }
+        let retired = adopt_reservation("codex", &key, &reserve, &key).await.unwrap();
+        assert!(retired.is_some(), "nobody else holds the old lease");
+        assert_eq!(current_assignment(&key).await.unwrap().account_id, "next");
+        assert!(current_assignment(&reserve).await.is_none());
+        let route = routes().lock().await.get(&key).cloned().unwrap();
+        assert!(!route.handoff && route.excluded.contains("old"));
+        assert!(!routes().lock().await.contains_key(&reserve));
+
+        let alias = format!("{key}:alias");
+        bindings().lock().await.extend([(alias.clone(), binding("next", "lease-next")), (reserve.clone(), binding("third", "lease-third"))]);
+        assert!(adopt_reservation("codex", &key, &reserve, &key).await.unwrap().is_none(), "another session still shares it");
+        assert_eq!(current_assignment(&alias).await.unwrap().account_id, "next");
+        assert!(adopt_reservation("codex", &key, &reserve, &key).await.is_err(), "nothing reserved");
+        assert!(adopt_reservation("grok", &alias, &key, &alias).await.is_err(), "provider mismatch");
+        for k in [&key, &alias] { bindings().lock().await.remove(k); routes().lock().await.remove(k); }
     }
     #[test]
     fn legacy_fallback_requires_unmanaged_state_and_transport_failure() {

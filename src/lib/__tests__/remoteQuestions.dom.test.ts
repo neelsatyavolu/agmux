@@ -28,7 +28,7 @@ describe("phone agent questions", () => {
     sheet.showUserInputSheet({ threadId: "t", requestId: "r", questions: [{ header: "Region", question, options: [{ label: "East" }, { label: "West" }] }] });
     sheet.respondApproval("allow");
     expect(sheet.send).not.toHaveBeenCalled();
-    const choices = document.querySelectorAll<HTMLInputElement>('input[type="radio"]');
+    const choices = document.querySelectorAll<HTMLInputElement>('#apprQuestions input[type="radio"]');
     expect(choices.length).toBe(2);
     choices[1].click();
     sheet.respondApproval("allow");
@@ -43,10 +43,10 @@ describe("phone agent questions", () => {
       { question: "Targets?", multiSelect: true, options: [{ label: "Web" }, { label: "iOS" }] },
       { question: "Anything else?", options: [] },
     ] });
-    const choices = document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    const choices = document.querySelectorAll<HTMLInputElement>('#apprQuestions input[type="checkbox"]');
     expect(choices.length).toBe(2);
     choices.forEach((input) => input.click());
-    const text = document.querySelectorAll<HTMLTextAreaElement>("textarea");
+    const text = document.querySelectorAll<HTMLTextAreaElement>("#apprQuestions textarea");
     text[1].value = "  Keep the existing name.  ";
     text[1].dispatchEvent(new Event("input", { bubbles: true }));
     sheet.respondApproval("allow");
@@ -56,7 +56,7 @@ describe("phone agent questions", () => {
   it("uses Codex question IDs and answer arrays", () => {
     const sheet = questionSheet();
     sheet.showUserInputSheet({ threadId: "codex", requestId: "r", questions: [{ id: "region", question: "Where?", options: ["East", "West"] }] });
-    document.querySelectorAll<HTMLInputElement>('input[type="radio"]')[1].click();
+    document.querySelectorAll<HTMLInputElement>('#apprQuestions input[type="radio"]')[1].click();
     sheet.respondApproval("allow");
     expect(JSON.parse(sheet.send.mock.calls[0][0]).answers).toEqual({ answers: { region: { answers: ["West"] } } });
   });
@@ -64,7 +64,7 @@ describe("phone agent questions", () => {
   it("keeps OpenCode multi-select answers as ordered arrays", () => {
     const sheet = questionSheet();
     sheet.showUserInputSheet({ threadId: "oc", requestId: "r", questions: [{ question: "Targets?", multiple: true, options: ["Web, desktop", "iOS"] }] });
-    const choices = document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    const choices = document.querySelectorAll<HTMLInputElement>('#apprQuestions input[type="checkbox"]');
     expect(choices.length).toBe(2);
     choices.forEach((input) => input.click());
     sheet.respondApproval("allow");
@@ -74,7 +74,7 @@ describe("phone agent questions", () => {
   it("supports a custom answer to a choice question and clears controls for approvals", () => {
     const sheet = questionSheet();
     sheet.showUserInputSheet({ threadId: "t", requestId: "r", questions: [{ question: "Region?", options: ["East", "West"] }] });
-    const text = document.querySelector<HTMLTextAreaElement>("textarea");
+    const text = document.querySelector<HTMLTextAreaElement>("#apprQuestions textarea");
     expect(text).not.toBeNull();
     text!.value = "Europe";
     text!.dispatchEvent(new Event("input", { bubbles: true }));

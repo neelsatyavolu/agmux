@@ -40,6 +40,7 @@ Source: https://github.com/neelsatyavolu/agmux (MIT + Commons Clause: free to us
 | Architecture, DB, debugging | `.claude/rules/architecture.md` |
 | context-mode routing (Claude plugin) | `.claude/rules/context-mode.md` |
 | Teams (org analytics) — read before touching it | `AGMUX_TEAMS.md` |
+| consult (second opinions) built in | `.claude/rules/architecture.md` → consult; `src-tauri/src/consult/`, `sidecar/agmux-consult-mcp.mjs` |
 | Owner product analytics | `analytics-service/` (Worker + D1 at owner.agmux.dev); desktop `src-tauri/src/product_analytics/` |
 | Remote phone UI (PWA) | `remote.agmux.dev` (Worker assets); legacy mirror `agmux.dev/remote`; relay `remote-relay/` |
 | iPhone app — change it, test it, ship to TestFlight | `remote-mobile/AGENTS.md` (read first) |

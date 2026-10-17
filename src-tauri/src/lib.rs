@@ -4,6 +4,7 @@ mod ael;
 mod appkit_guard;
 mod codex;
 mod commands;
+mod consult;
 mod crash_log;
 mod db;
 mod diff_stats;
@@ -841,6 +842,8 @@ pub fn run() {
             commands::mcp::add_mcp_server,
             commands::memory::get_project_memory_enabled,
             commands::memory::set_project_memory_enabled,
+            commands::consult::get_consult_enabled,
+            commands::consult::set_consult_enabled,
             commands::memory::get_project_memory_session_inject,
             commands::memory::set_project_memory_session_inject,
             commands::memory::memory_ensure,

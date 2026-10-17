@@ -6,6 +6,7 @@ import type {
 } from "../../lib/types";
 import { toolDiffStats } from "../../lib/toolDiffStats";
 import { isSubagentTool } from "../../lib/subagentConversations";
+import { consultToolFromName } from "../../lib/consultTools";
 
 // File-mutating tools must render as individual inline diffs (never collapsed
 // into a ToolGroup) and feed computeTurnChanges. Includes Claude PascalCase,
@@ -111,7 +112,8 @@ export function groupMessages(
         DELETE_TOOL_NAMES.has(item.name) ||
         isSubagentTool(item.name) ||
         TODO_TOOL_NAMES.has(item.name) ||
-        TASK_TOOL_NAMES.has(item.name);
+        TASK_TOOL_NAMES.has(item.name) ||
+        consultToolFromName(item.name) !== null;
 
       if (isIndividual) {
         flushGroup();

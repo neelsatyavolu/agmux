@@ -8,6 +8,7 @@ const messages = {
   ready: "Account switched. Conversation is ready to continue.",
   resume_failed: "Account switched, but the conversation could not be reopened. Open the conversation to try again.",
   unavailable: "No replacement account is available. Check Accounts for sign-in and usage availability.",
+  no_replacement: "Usage limit reached and no other account is free. This session stays open and switches when one frees up.",
 };
 type RuntimeStatus = keyof typeof messages;
 export interface ProviderAccountNotification {
@@ -27,7 +28,7 @@ export function useProviderAccountNotifications() {
       if (disposed || !payload || typeof payload !== "object") return;
       const { provider, sessionKey, status } = payload as Record<string, unknown>;
       if ((provider !== "claude" && provider !== "codex" && provider !== "grok") || typeof sessionKey !== "string" || !sessionKey
-        || (status !== "ready" && status !== "resume_failed" && status !== "unavailable"
+        || (status !== "ready" && status !== "resume_failed" && status !== "unavailable" && status !== "no_replacement"
           && status !== "waiting_for_idle" && status !== "identity_unavailable" && status !== "model_unavailable")) return;
       const key = JSON.stringify([provider, sessionKey]);
       const notice: ProviderAccountNotification = { key, provider, status, message: messages[status] };

@@ -15,6 +15,21 @@ Run on a disposable macOS user account/test Mac, with test projects and provider
 
 Record failures and platform/provider coverage explicitly. Do not check off unperformed steps. Service changes (support schema and private attachment bucket) must be deployed before distributing a desktop that depends on them.
 
+## v4.3.2 — 2026-10-17
+
+Candidate recorded before a signed DMG existed. Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.1. Parent commit at the start of the bump: `4752a7e4`.
+
+Automated checks (pass):
+
+- `npx tsc --noEmit`
+- `npm test` — 7196 passed, 14 skipped (two phone-question tests were counting the phone Settings switches as answer choices; the tests now look only inside the question sheet)
+- `cd sidecar && npm test` — 310 passed
+- `cd analytics-service && npx tsc --noEmit && npm test` — 29 passed
+- `cd src-tauri && cargo test -p xanom` — 2514 passed, 27 ignored
+- `cd src-tauri && python3 -m unittest discover -s tests -p 'test_codex_diff_hook.py'` — 126 tests, 2 skipped
+
+Not run on an installed app, so these are not accepted: fresh install of the signed DMG, first-run setup, a live conversation for each provider, approvals and stop, quit/relaunch persistence, load, upgrade from the installed v4.3.1, recovery, a real support submission, or Teams on the live site. Second opinions, the Muse terminal and the reworked account switching were not exercised end to end in an installed build or with teammate accounts. Intel was not tested on this Mac. The release workflow repeats the automated checks and builds both Mac architectures.
+
 ## v4.3.1 — 2026-10-01
 
 Candidate recorded before a signed DMG existed. Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.0. Parent commit at the start of the bump: `a04ab9a7`.

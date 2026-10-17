@@ -14,6 +14,7 @@ paths:
   | `opencode-sdk-bridge.mjs` | OpenCode SDK (shared, multiplexed) | `dist/opencode-sdk-bridge.bundle.mjs` (+ `.cjs`) |
   | `cursor-sdk-bridge.mjs` | Cursor SDK (shared, multiplexed) | `dist/cursor-sdk-bridge.bundle.mjs` |
   | `agmux-memory-mcp.mjs` / `agmux-memory-cli.mjs` | project memory MCP + CLI | matching `dist/*.bundle.mjs` |
+  | `agmux-consult-mcp.mjs` (+ `agmux-consult-sessions.mjs`) | consult second-opinions MCP (pinned `consult-mcp`, node22 target) | `dist/agmux-consult-mcp.bundle.mjs` |
 - Communication: JSON-RPC over stdin (requests from Rust) / stdout (responses + events to Rust)
 - Stderr reserved for debug logging only (not parsed by Rust)
 - After any `sidecar/` edit: `cd sidecar && node build.mjs` (also runs `copy-cursor-runtime.mjs` for `@cursor/sdk` natives)

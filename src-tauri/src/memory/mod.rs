@@ -45,7 +45,7 @@ fn session_inject_flag_path() -> PathBuf {
         .join("project-memory-session-inject")
 }
 
-fn read_bool_flag(path: &Path, default: bool) -> bool {
+pub(crate) fn read_bool_flag(path: &Path, default: bool) -> bool {
     match std::fs::read_to_string(path) {
         Ok(raw) => {
             let v = raw.trim().to_ascii_lowercase();
@@ -61,7 +61,7 @@ fn read_bool_flag(path: &Path, default: bool) -> bool {
     }
 }
 
-fn write_bool_flag(path: &Path, enabled: bool) -> Result<(), String> {
+pub(crate) fn write_bool_flag(path: &Path, enabled: bool) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -396,7 +396,7 @@ pub fn load_store(path: &Path, project_id: &str) -> MemoryStore {
     load_store_strict(path, project_id).unwrap_or_else(|_| MemoryStore::empty(project_id))
 }
 
-fn atomic_write(path: &Path, content: &str) -> Result<(), String> {
+pub(crate) fn atomic_write(path: &Path, content: &str) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -2019,7 +2019,7 @@ fn first_existing_file(cands: impl IntoIterator<Item = PathBuf>) -> Option<PathB
     None
 }
 
-fn resolve_sidecar_script(
+pub(crate) fn resolve_sidecar_script(
     app: Option<&tauri::AppHandle>,
     source_name: &str,
     bundle_name: &str,
@@ -2217,7 +2217,7 @@ fn mcp_server_stdio_json(
 }
 
 /// Escape a path/string for embedding in a TOML double-quoted string.
-fn toml_escape(s: &str) -> String {
+pub(crate) fn toml_escape(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }
 

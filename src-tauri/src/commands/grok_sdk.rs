@@ -198,6 +198,7 @@ async fn resume_or_new_session(
     } else {
         (Vec::new(), None)
     };
+    let mcp_servers = crate::consult::with_acp_server(mcp_servers, app, Some(thread_id));
 
     let system_prompt_override = grok_cowork_system_prompt(thread.as_ref());
 
@@ -467,6 +468,7 @@ pub async fn grok_sdk_load_session(
     } else {
         (Vec::new(), None)
     };
+    let mcp_servers = crate::consult::with_acp_server(mcp_servers, &app, Some(thread_id.as_str()));
     let thread = queries::get_thread(&state.db, &thread_id).await.ok();
     let system_prompt_override = grok_cowork_system_prompt(thread.as_ref());
     let _setup = server.session_setup_lock().await;
@@ -525,28 +527,62 @@ async fn prepare_grok_account(
         let Some(account_id) = server.account_id.clone() else { break; };
         crate::provider_accounts::maintain(&thread_id).await?;
         // This accessor polls provider-owned quota; text from ACP tools and
-        // terminal output is never considered evidence of exhaustion.
-        let _ = crate::provider_accounts::refresh_account(&account_id).await;
+        // terminal output is never considered evidence of exhaustion. A reading
+        // from the last half minute is reused rather than delaying every prompt.
+        let _ = crate::provider_accounts::refresh_if_stale(&account_id, 30).await;
         let Some(reset) = crate::provider_accounts::quota_exhaustion(&account_id).await? else { break; };
-        if !crate::provider_accounts::auto_switch_enabled().await? {
-            return Err("Grok account quota exhausted; automatic switching is disabled".into());
-        }
-        if config.model.is_none() {
-            return Err("Grok account fallback requires the exact session model".into());
-        }
-        if attempt == 2 || !attempted.insert(account_id) {
-            return Err("Grok account fallback attempt limit reached".into());
+        // Without a switch the prompt still goes out on this account, and Grok says why it can't run.
+        if !crate::provider_accounts::auto_switch_enabled().await? { break; }
+        let notice = |status: &str| {
+            let _ = app.emit("provider-account-runtime", serde_json::json!({
+                "provider": "grok", "sessionKey": thread_id, "threadId": thread_id, "status": status }));
+        };
+        if config.model.is_none() { notice("model_unavailable"); break; }
+        if attempt == 2 || !attempted.insert(account_id.clone()) { break; }
+        // Find where to go before stopping this chat's process; with nowhere to go it stays.
+        let reserve_key = format!("{thread_id}#next-account");
+        match crate::provider_accounts::reserve_replacement("grok", &thread_id, &reserve_key, reset).await {
+            Ok(Some(next)) if !attempted.contains(&next.account_id) => {},
+            result => {
+                if matches!(result, Ok(Some(_))) { crate::provider_accounts::abandon_reservation(&reserve_key).await; }
+                notice("no_replacement");
+                break;
+            }
         }
         {
             let mut servers = state.grok_servers.lock().await;
-            let active = servers.get(&thread_id).ok_or("Grok server stopped")?;
-            if !Arc::ptr_eq(&active, &server) { return Err("Grok server changed during account selection".into()); }
+            let active = servers.get(&thread_id);
+            if !active.is_some_and(|active| Arc::ptr_eq(&active, &server)) {
+                drop(servers);
+                crate::provider_accounts::abandon_reservation(&reserve_key).await;
+                return Err("Grok server changed during account selection".into());
+            }
             servers.take(&thread_id);
         }
         server.shutdown().await;
-        crate::provider_accounts::mark_exhausted("grok", &thread_id, reset).await?;
-        crate::provider_accounts::release(&thread_id).await?;
-        let (replacement, fresh) = ensure_grok_server(&app, state, &thread_id, &server.work_dir, config).await?;
+        let retired = match crate::provider_accounts::adopt_reservation("grok", &thread_id, &reserve_key, &thread_id).await {
+            Ok(retired) => retired,
+            Err(error) => {
+                let _ = crate::provider_accounts::release(&thread_id).await;
+                crate::provider_accounts::abandon_reservation(&reserve_key).await;
+                return Err(error);
+            }
+        };
+        // A lease that can't be handed back lapses on its own; the switch already happened.
+        if let Some(retired) = retired {
+            if let Err(error) = crate::provider_accounts::retire(retired).await { tracing::warn!("Could not return the account {thread_id} left: {error}"); }
+        }
+        let (replacement, fresh) = match ensure_grok_server(&app, state, &thread_id, &server.work_dir, config).await {
+            Ok(started) => started,
+            Err(error) => {
+                // It can fail before taking the account it was handed (a policy or model
+                // check); nothing runs on it then, so don't keep holding it.
+                if !state.grok_servers.lock().await.get(&thread_id).is_some_and(|server| server.is_alive()) {
+                    let _ = crate::provider_accounts::release(&thread_id).await;
+                }
+                return Err(error);
+            }
+        };
         if replacement.account_id.as_ref().is_none_or(|id| attempted.contains(id)) {
             replacement.shutdown().await;
             return Err("No different managed Grok account is available".into());

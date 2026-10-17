@@ -2163,7 +2163,7 @@ fn monitor_claude_profile(app: AppHandle, mut ctx: SdkSessionContext, cwd: Strin
             if !state.sdk_sessions.lock().await.get(&thread_id).is_some_and(|s| Arc::ptr_eq(&s.child, &old.child))
                 || old.is_shutting_down.load(Ordering::SeqCst) { break; }
             let Some(account) = crate::provider_accounts::current_assignment(&old.account_key).await else { break; };
-            let _ = crate::provider_accounts::refresh_account(&account.account_id).await;
+            let _ = crate::provider_accounts::refresh_if_stale(&account.account_id, 55).await;
             if !lifecycle.current(generation) { continue; }
             if !crate::provider_accounts::auto_switch_enabled().await.unwrap_or(false) { continue; }
             let config = old.execution_config.lock().await;
@@ -2641,6 +2641,15 @@ pub async fn sdk_start_session(
                     }
                 }
             }
+        }
+    }
+    if crate::consult::is_enabled() {
+        let identity = crate::consult::ConsultIdentity {
+            thread_id: Some(thread_id.as_str()),
+            project_id: memory_pid,
+        };
+        if let Err(e) = crate::consult::merge_into_claude_sdk_params(&mut params, &app, &identity) {
+            tracing::warn!("[claude-sdk] consult MCP inject failed: {e}");
         }
     }
     if let Some(mt) = max_turns {

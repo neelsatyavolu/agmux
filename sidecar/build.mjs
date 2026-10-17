@@ -72,12 +72,13 @@ console.log("Built sidecar/dist/cursor-sdk-bridge.bundle.mjs");
 // Session memory MCP server (stdio) — no external deps; bundle store + server.
 // Source must NOT include a shebang; banner is the only one (double shebang
 // → SyntaxError when Claude/Codex spawn `node dist/*.bundle.mjs`).
-async function buildMemoryEntry(entry, outfile) {
+async function buildMemoryEntry(entry, outfile, { target = "node18", plugins = [] } = {}) {
   await build({
     entryPoints: [entry],
     bundle: true,
     platform: "node",
-    target: "node18",
+    target,
+    plugins,
     format: "esm",
     outfile,
     banner: { js: "#!/usr/bin/env node" },
@@ -103,5 +104,25 @@ async function buildMemoryEntry(entry, outfile) {
 await buildMemoryEntry("agmux-memory-mcp.mjs", "dist/agmux-memory-mcp.bundle.mjs");
 // Bash-callable fallback when MCP tools are still pending / not listed.
 await buildMemoryEntry("agmux-memory-cli.mjs", "dist/agmux-memory-cli.bundle.mjs");
+
+// consult (second opinions) MCP server. consult-mcp reads its version from
+// ../package.json at runtime, which doesn't exist next to the bundle: inline it.
+const { readFileSync: readConsultFile } = await import("node:fs");
+const consultVersion = JSON.parse(
+  readConsultFile(new URL("./node_modules/consult-mcp/package.json", import.meta.url), "utf8"),
+).version;
+const consultVersionPlugin = {
+  name: "consult-version",
+  setup(b) {
+    b.onLoad({ filter: /consult-mcp[\\/]dist[\\/]version\.js$/ }, () => ({
+      contents: `export const VERSION = ${JSON.stringify(consultVersion)};`,
+      loader: "js",
+    }));
+  },
+};
+await buildMemoryEntry("agmux-consult-mcp.mjs", "dist/agmux-consult-mcp.bundle.mjs", {
+  target: "node22",
+  plugins: [consultVersionPlugin],
+});
 
 await import("./copy-cursor-runtime.mjs");

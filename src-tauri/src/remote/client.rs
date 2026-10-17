@@ -2767,7 +2767,7 @@ fn remote_surface_for(t: &Thread, signals: &RunSignals) -> &'static str {
 ///
 /// Chats: each runtime proves it differently, and every signal is paired with
 /// a liveness check so a crash can't leave a permanent spinner.
-pub(super) fn thread_is_processing(
+pub(crate) fn thread_is_processing(
     t: &Thread,
     surface: &str,
     signals: &RunSignals,

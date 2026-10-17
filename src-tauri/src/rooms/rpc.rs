@@ -7,6 +7,7 @@
 //!   room.context {threadId}
 //!   room.send    {fromThreadId, to, body, expectReply?, responseId?}
 //!   room.read    {callerThreadId, member, maxChars?}
+//!   sessions.list / sessions.send — consult inside agmux (`crate::consult::sessions`)
 //!
 //! Fixed socket path (`~/.agmux/room.sock`) so the sidecar needs no env
 //! plumbing; stale sockets are unlinked on bind (single-app assumption, same
@@ -136,6 +137,8 @@ async fn dispatch_method(app: &AppHandle, method: &str, params: &Value) -> Resul
         "room.send" => room_send(app, params).await,
         "room.read" => room_read(app, params).await,
         "room.spawn" => room_spawn(app, params).await,
+        "sessions.list" => crate::consult::sessions::list(app, params).await,
+        "sessions.send" => crate::consult::sessions::send(app, params).await,
         _ => Err(format!("unknown method: {method}")),
     }
 }

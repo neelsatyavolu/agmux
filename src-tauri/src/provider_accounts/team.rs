@@ -35,6 +35,9 @@ pub struct TeamAssignment {
     pub label: String,
     pub credentials: Value,
     pub expires_at: i64,
+    /// The pool's reading when leased, if someone measured the account lately.
+    #[serde(default)]
+    pub remaining_percent: Option<f64>,
 }
 
 struct Api {
@@ -349,10 +352,14 @@ fn lease_assignment(data: LeaseResponse, team_id: &str, provider: &str) -> Resul
         || data.expires_at <= chrono::Utc::now().timestamp() {
         return Err(INVALID_RESPONSE.into());
     }
+    let now = chrono::Utc::now().timestamp();
+    // The service sends no remainingPercent for a reading older than its freshness window.
+    let remaining_percent = data.account.remaining_percent.filter(|n| n.is_finite() && (0.0..=100.0).contains(n))
+        .filter(|_| !data.account.blocked_until.is_some_and(|until| until <= now));
     Ok(TeamAssignment {
         team_id: team_id.into(), lease_id: data.lease_id, account_id: data.account.id,
         provider: data.account.provider, label: data.account.label,
-        credentials: data.credentials, expires_at: data.expires_at,
+        credentials: data.credentials, expires_at: data.expires_at, remaining_percent,
     })
 }
 

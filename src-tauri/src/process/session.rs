@@ -106,6 +106,25 @@ fn is_terminal_cancel(data: &[u8]) -> bool {
     matches!(data, b"\x03" | b"\x1b")
 }
 
+/// Focus and mouse reports xterm sends on its own (clicks, scrolling). They can't leave a
+/// typed draft in the CLI, so they don't hold back an automatic account handoff.
+fn is_terminal_report(data: &[u8]) -> bool {
+    let mut rest = data;
+    while !rest.is_empty() {
+        rest = match rest {
+            [0x1b, b'[', b'I' | b'O', tail @ ..] => tail,
+            [0x1b, b'[', b'M', _, _, _, tail @ ..] => tail,
+            [0x1b, b'[', b'<', tail @ ..] => {
+                let Some(end) = tail.iter().position(|b| matches!(b, b'M' | b'm')) else { return false; };
+                if end == 0 || !tail[..end].iter().all(|b| b.is_ascii_digit() || *b == b';') { return false; }
+                &tail[end + 1..]
+            }
+            _ => return false,
+        };
+    }
+    !data.is_empty()
+}
+
 impl std::io::Write for PolicyWriter {
     fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
         if !data.is_empty() && !is_terminal_cancel(data) {
@@ -116,7 +135,7 @@ impl std::io::Write for PolicyWriter {
         // before automatic quota handoff may discard the terminal's input state.
         let offset = self.native_history.as_ref().and_then(|p| std::fs::metadata(p).ok()).map(|m| m.len());
         let written = self.inner.write(data)?;
-        if written > 0 {
+        if written > 0 && !is_terminal_report(data) {
             self.input_revision = self.input_revision.wrapping_add(1);
             self.input_offset = offset;
         }
@@ -142,6 +161,24 @@ mod policy_writer_tests {
         writer.set_native_history(path);
         assert_eq!(writer.input_checkpoint(), (0, None));
         writer.write_all(b"\x03").unwrap();
+        assert_eq!(writer.input_checkpoint(), (1, Some(7)));
+    }
+    #[test]
+    fn mouse_and_focus_reports_are_not_typed_input() {
+        use std::io::Write;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("history");
+        std::fs::write(&path, b"native\n").unwrap();
+        let mut writer = PolicyWriter::new(Box::new(Vec::<u8>::new()), "Grok");
+        writer.set_native_history(path);
+        for report in [b"\x1b[I".as_slice(), b"\x1b[O", b"\x1b[<64;10;5M", b"\x1b[<0;3;4m\x1b[<0;3;4M", b"\x1b[M !!", b"\x1b[I\x1b[<65;1;1M"] {
+            writer.write_all(report).unwrap();
+            assert_eq!(writer.input_checkpoint(), (0, None), "{report:?}");
+        }
+        for typed in [b"a".as_slice(), b"\x1b[A", b"\x1b[<64;10;5", b"\x1b[<M", b"\x1b[Ix", b"\x1b[200~text\x1b[201~"] {
+            assert!(!is_terminal_report(typed), "{typed:?}");
+        }
+        writer.write_all(b"x").unwrap();
         assert_eq!(writer.input_checkpoint(), (1, Some(7)));
     }
     #[test]

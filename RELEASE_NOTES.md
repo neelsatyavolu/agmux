@@ -1,6 +1,6 @@
 # Release Notes
 
-User-facing delta since the **last public GitHub release** (currently v4.3.1). This is the source of truth for `/release` — not a session diary.
+User-facing delta since the **last public GitHub release** (currently v4.3.2). This is the source of truth for `/release` — not a session diary.
 
 **Audience (hard rule)**
 - Write for a **non-technical person who has never coded**. They only care what they **see or experience** in the app.
@@ -25,6 +25,15 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ## Unreleased
 
 ### New
+
+### Improved
+
+### Fixed
+
+## v4.3.2 — 2026-10-17
+
+### New
+- **Second opinions** — Claude, Codex and Grok sessions can now ask the other agents signed in on your Mac for advice, or to review their changes before calling the work done. They can also ask a copy of another session in the same project what it knows, or send it a short message, which it reads when its current reply ends. In chat, each question shows as a card with who was asked, how long they took and their answer. Advisors only read your files, and each question uses that agent's own subscription. Turn it off in Settings → Second opinions.
 - **Muse terminal** — Meta's Muse Code is now one of the terminal agents you can start, in place of Hermes. It shows when it is working, when it is waiting for your approval and when it has finished, and picks up where it left off when you reopen it. Hermes sessions you already have still open.
 - **Newest models in more pickers** — Claude Fable 5.1, Claude Sonnet 5.5, GPT-6.1 Sol and GPT-6 Astra now show up in the New Task menu and in the phone app's model picker. On the phone, GPT-6.1 Sol and GPT-6 Astra also get the Max and Ultra reasoning levels.
 - **agmux Remote for iPhone** — The phone app is now on the App Store. Settings → Remote Control has a QR code you can scan with your iPhone to get it. Once it is installed, scanning the pairing QR opens the app.
@@ -34,6 +43,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 - **Context meter for new models** — The context ring shows the right size for GPT-6.1 Sol, GPT-6 Astra and Grok 4.7 Fast instead of a smaller default.
 
 ### Fixed
+- **Automatic account switching** — When a session ran out of usage, agmux often said it was waiting for the session to finish its work and then never switched. This happened most with long sessions and ones that had run background commands or helper agents. Sessions now switch once their work is done. A session only stops once another account is ready for it, your other terminals keep responding during a switch, and your sessions share one team account instead of each taking their own. If every account is out, new sessions still open on your own login.
 - **Longer phone messages to Claude terminals** — A longer message sent from the phone to a Claude terminal could sit unsent in the terminal's text box instead of starting a reply. It now always sends.
 - **Pin threads in Focus** — Pinning a thread from Focus now keeps it there, at the top, even after it goes quiet, and it never goes behind "Show more". Before, it dropped out of Focus like any other thread. Pins in your project list stay separate and don't affect Focus. Unpin a thread in Focus to let it leave again.
 - **Read on your phone stays read on your Mac** — A Claude terminal you started in agmux and followed on your phone no longer shows as unread on your Mac when it finishes.

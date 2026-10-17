@@ -230,6 +230,12 @@ export interface AppSettings {
    */
   projectMemoryEnabled: boolean;
   /**
+   * consult (second opinions): new Claude, Codex and Grok sessions can ask
+   * other agents for advice, ask copies of other sessions, and message them.
+   * Default on. Synced to `~/.agmux/consult-enabled` for the Rust backend.
+   */
+  consultEnabled: boolean;
+  /**
    * When project memory is on, inject a compact recent-session index (titles +
    * one-line previews) into new session prompts. Full transcripts are never injected.
    * Synced to `~/.agmux/project-memory-session-inject`. Default on.
@@ -459,6 +465,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   claudeSkipPermissions: false,
   defaultBypassPermissions: false,
   projectMemoryEnabled: true,
+  consultEnabled: true,
   projectMemorySessionInject: true,
   issuesDispatchInstructions: "",
   moveStatusLineToTopBar: false,
@@ -636,6 +643,12 @@ function syncProjectMemoryFlag(enabled: boolean) {
   });
 }
 
+function syncConsultFlag(enabled: boolean) {
+  void invoke("set_consult_enabled", { enabled }).catch(() => {
+    /* ignore — not in Tauri / command not registered yet */
+  });
+}
+
 function syncProjectMemorySessionInjectFlag(enabled: boolean) {
   void invoke("set_project_memory_session_inject", { enabled }).catch(() => {
     /* ignore */
@@ -661,6 +674,7 @@ interface SettingsState {
 const initialSettings = loadSettings();
 // Keep Rust gates in sync on app load (default true when key never written).
 syncProjectMemoryFlag(initialSettings.projectMemoryEnabled ?? true);
+syncConsultFlag(initialSettings.consultEnabled ?? true);
 syncProjectMemorySessionInjectFlag(initialSettings.projectMemorySessionInject ?? true);
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -683,6 +697,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       if (Object.prototype.hasOwnProperty.call(patch, "projectMemoryEnabled")) {
         syncProjectMemoryFlag(updated.projectMemoryEnabled ?? true);
       }
+      if (Object.prototype.hasOwnProperty.call(patch, "consultEnabled")) {
+        syncConsultFlag(updated.consultEnabled ?? true);
+      }
       if (Object.prototype.hasOwnProperty.call(patch, "projectMemorySessionInject")) {
         syncProjectMemorySessionInjectFlag(updated.projectMemorySessionInject ?? true);
       }
@@ -703,6 +720,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   resetSettings: () => {
     saveSettings(DEFAULT_SETTINGS);
     syncProjectMemoryFlag(DEFAULT_SETTINGS.projectMemoryEnabled ?? true);
+    syncConsultFlag(DEFAULT_SETTINGS.consultEnabled ?? true);
     syncProjectMemorySessionInjectFlag(DEFAULT_SETTINGS.projectMemorySessionInject ?? true);
     return set({ settings: { ...DEFAULT_SETTINGS } });
   },

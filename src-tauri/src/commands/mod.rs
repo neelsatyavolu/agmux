@@ -26,6 +26,7 @@ pub mod keep_awake;
 pub mod local_llm;
 pub mod mcp;
 pub mod memory;
+pub mod consult;
 pub mod mlx;
 pub mod opencode_sdk;
 pub mod product_analytics;

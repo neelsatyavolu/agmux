@@ -10,11 +10,13 @@ import {
   Users,
   Wrench,
   Info,
+  MessagesSquare,
 } from "lucide-react";
 import { getToolRenderer } from "./tools";
 import { ApplyPatchToolRenderer } from "./tools/ApplyPatchToolRenderer";
 import { classifyToolResult, shortenPath } from "./tools/types";
 import { summarizePatchText } from "../../lib/patchParser";
+import { consultToolFromName, formatSeconds, parseConsultAnswers, summarizeConsultCall } from "../../lib/consultTools";
 import { toolDiffStats } from "../../lib/toolDiffStats";
 import { ToolDetailDialog } from "./ToolDetailDialog";
 import type { ToolDetailData } from "./ToolDetailDialog";
@@ -708,6 +710,24 @@ export const ToolUseBlock = memo(function ToolUseBlock({ name, toolId, input, re
         detail: truncate(query, 80),
         detailMono: false,
         badges: null,
+      };
+    }
+
+    // consult (second opinions): who was asked and how long they took.
+    const consultTool = consultToolFromName(name);
+    if (consultTool) {
+      const summary = summarizeConsultCall(consultTool, input);
+      const answers = result && !result.isError ? parseConsultAnswers(result.content) : null;
+      const seconds = answers ? Math.max(...answers.map((a) => a.seconds ?? 0)) : 0;
+      return {
+        icon: <MessagesSquare size={13} className={pending ? "text-amber-400" : "text-cyan-400"} />,
+        label: summary.label,
+        labelColor: "text-cyan-400",
+        detail: summary.detail ? truncate(summary.detail, 80) : null,
+        detailMono: false,
+        badges: seconds > 0 ? (
+          <span className="tabular-nums text-[10.5px] text-[var(--text-tertiary)]">{formatSeconds(seconds)}</span>
+        ) : null,
       };
     }
 

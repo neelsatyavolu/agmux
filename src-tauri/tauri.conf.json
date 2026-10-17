@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "agmux",
-  "version": "4.3.1",
+  "version": "4.3.2",
   "identifier": "com.xanom.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -52,7 +52,8 @@
       "../sidecar/dist/cursor-sdk-bridge.bundle.mjs": "sidecar/dist/cursor-sdk-bridge.bundle.mjs",
       "../sidecar/dist/cursor-sdk-runtime": "sidecar/dist/cursor-sdk-runtime",
       "../sidecar/dist/agmux-memory-mcp.bundle.mjs": "sidecar/dist/agmux-memory-mcp.bundle.mjs",
-      "../sidecar/dist/agmux-memory-cli.bundle.mjs": "sidecar/dist/agmux-memory-cli.bundle.mjs"
+      "../sidecar/dist/agmux-memory-cli.bundle.mjs": "sidecar/dist/agmux-memory-cli.bundle.mjs",
+      "../sidecar/dist/agmux-consult-mcp.bundle.mjs": "sidecar/dist/agmux-consult-mcp.bundle.mjs"
     },
     "macOS": {
       "minimumSystemVersion": "13.0",

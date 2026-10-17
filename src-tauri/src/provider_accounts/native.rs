@@ -190,6 +190,11 @@ pub(super) async fn extend_accounts(accounts: &mut Vec<Account>) {
     cached.retain(|id, _| present.contains(id));
 }
 
+/// When the login `id` was last measured on this Mac.
+pub(super) fn last_checked(id: &str) -> Option<i64> {
+    cache().lock().unwrap_or_else(|e| e.into_inner()).get(id).and_then(|row| row.last_checked_at)
+}
+
 /// The current login's last reading on this Mac: (row ID, remaining percent, checked at).
 pub(super) fn cached_reading(provider: &str) -> Option<(String, Option<f64>, Option<i64>)> {
     cache().lock().unwrap_or_else(|e| e.into_inner()).values().find(|row| row.provider == provider)

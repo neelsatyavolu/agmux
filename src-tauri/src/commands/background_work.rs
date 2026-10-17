@@ -174,6 +174,36 @@ fn claude_tree_is_busy(root: u32) -> bool {
     })
 }
 
+/// Claude Code's own word that the process is between turns, for an account handoff:
+/// every Claude process in the tree reports "idle", one of them for `session_id`, and no
+/// shell it started (background commands included) is still running. No status file is
+/// not idle: background agents, workflows and queued messages only show up there.
+pub(crate) fn claude_tree_is_idle(root: u32, session_id: &str) -> bool {
+    let rows = list_processes();
+    let tree = process_tree(&rows, root);
+    if tree.is_empty() || tree.iter().any(|row| is_claude_shell_command(&row.command)) {
+        return false;
+    }
+    let dirs = claude_session_dirs();
+    let statuses: Vec<String> = tree
+        .iter()
+        .flat_map(|row| dirs.iter().filter_map(move |dir| std::fs::read_to_string(dir.join(format!("{}.json", row.pid))).ok()))
+        .collect();
+    claude_statuses_idle(&statuses, session_id)
+}
+
+fn claude_statuses_idle(statuses: &[String], session_id: &str) -> bool {
+    let mut found = false;
+    for json in statuses {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(json) else { return false };
+        if value["status"] != "idle" {
+            return false;
+        }
+        found |= value["sessionId"].as_str() == Some(session_id);
+    }
+    found
+}
+
 /// Grok writes a `background_tasks` session update listing every background
 /// command each time one starts or ends. The latest one is the live set.
 pub(crate) fn grok_background_running(reader: impl BufRead) -> bool {
@@ -383,6 +413,18 @@ mod tests {
         assert!(!claude_status_is_busy(r#"{"pid":1,"status":"idle"}"#));
         assert!(!claude_status_is_busy(r#"{"pid":1}"#));
         assert!(!claude_status_is_busy("not json"));
+    }
+
+    #[test]
+    fn claude_handoff_needs_every_process_idle_and_the_exact_session() {
+        let status = |status: &str, session: &str| json!({"pid": 1, "sessionId": session, "status": status}).to_string();
+        assert!(claude_statuses_idle(&[status("idle", "s")], "s"));
+        assert!(claude_statuses_idle(&[status("idle", "s"), status("idle", "other")], "s"));
+        assert!(!claude_statuses_idle(&[status("idle", "other")], "s"), "another conversation is not this one");
+        assert!(!claude_statuses_idle(&[status("idle", "s"), status("busy", "child")], "s"));
+        assert!(!claude_statuses_idle(&[status("waiting", "s")], "s"));
+        assert!(!claude_statuses_idle(&[], "s"), "no status file is unknown, not idle");
+        assert!(!claude_statuses_idle(&["not json".into()], "s"));
     }
 
     #[test]

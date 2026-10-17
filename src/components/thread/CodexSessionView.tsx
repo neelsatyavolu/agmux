@@ -27,6 +27,7 @@ import {
   FileMinus,
   Terminal,
   Plug,
+  MessagesSquare,
   Wrench,
   Folder as FolderIcon,
   GitBranch as GitBranchIcon,
@@ -105,6 +106,8 @@ import { EditorPanel } from "../layout/EditorPanel";
 import TerminalPanel from "./TerminalPanel";
 import { TerminalView } from "./TerminalView";
 import { MarkdownContent } from "./MarkdownContent";
+import { ConsultToolRenderer } from "./tools/ConsultToolRenderer";
+import { consultToolFromName, formatSeconds, summarizeConsultCall } from "../../lib/consultTools";
 import { UserMessageText } from "./UserMessageText";
 import { sendNotification } from "../../lib/notifications";
 import { markTurnStart, showAgentCompleteToast } from "../../lib/agentToast";
@@ -3915,6 +3918,31 @@ export function renderCodexToolItem(
       const running = item.mcpStatus === "inProgress";
       const failed = item.mcpStatus === "failed";
       const body = failed ? (item.mcpErrorMessage ?? "") : (item.mcpResultText ?? "");
+      const consultTool = consultToolFromName(item.mcpToolName ?? "", item.mcpServer ?? "");
+      if (consultTool) {
+        const args = item.mcpArguments && typeof item.mcpArguments === "object"
+          ? (item.mcpArguments as Record<string, unknown>)
+          : {};
+        const summary = summarizeConsultCall(consultTool, args);
+        return (
+          <div key={item.id}>
+            <CodexToolRow
+              icon={<MessagesSquare size={13} />}
+              lead={summary.label}
+              subject={summary.detail || undefined}
+              subjectMono={false}
+              detail={item.mcpDurationMs ? formatSeconds(item.mcpDurationMs / 1000) : undefined}
+              status={running ? "running" : failed ? "error" : "ok"}
+              toggle={{ open, openLabel: "hide", closedLabel: running ? "question" : "answer", onToggle }}
+            />
+            <CodexCollapse open={open}>
+              <div className="ml-[23px] mb-2.5 mt-[3px] codex-panel overflow-hidden rounded-[10px]">
+                <ConsultToolRenderer input={args} result={body || null} isError={failed} isPending={running} />
+              </div>
+            </CodexCollapse>
+          </div>
+        );
+      }
       const title = toolNameWithNamespace(item.mcpServer, item.mcpToolName);
       return (
         <div key={item.id}>

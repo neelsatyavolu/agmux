@@ -9,6 +9,8 @@ import { GlobToolRenderer, GrepToolRenderer } from "./GlobGrepToolRenderer";
 import { TaskToolRenderer } from "./TaskToolRenderer";
 import { AskUserToolRenderer } from "./AskUserToolRenderer";
 import { TodoWriteToolRenderer } from "./TodoWriteToolRenderer";
+import { ConsultToolRenderer } from "./ConsultToolRenderer";
+import { consultToolNames } from "../../../lib/consultTools";
 
 const TOOL_REGISTRY: Record<string, React.ComponentType<ToolRendererProps>> = {
   // Claude / SDK casing
@@ -59,6 +61,8 @@ const TOOL_REGISTRY: Record<string, React.ComponentType<ToolRendererProps>> = {
   todowrite: TodoWriteToolRenderer,
   todoread: TodoWriteToolRenderer,
   patch: ApplyPatchToolRenderer,
+  // consult (second opinions), under every name a provider reports
+  ...Object.fromEntries(consultToolNames().map((n) => [n, ConsultToolRenderer])),
 };
 
 export function getToolRenderer(name: string): React.ComponentType<ToolRendererProps> | null {
