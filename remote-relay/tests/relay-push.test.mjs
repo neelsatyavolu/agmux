@@ -32,7 +32,7 @@ function apns(script = []) {
 async function fixture({ env = PUSH_ENV, script } = {}) {
   const server = apns(script);
   const stored = [];
-  const context = { exports: {}, crypto: webcrypto, TextEncoder, Date, Map, Set, Uint8Array, JSON, btoa, atob, fetch: server.fetch };
+  const context = { exports: {}, crypto: webcrypto, TextEncoder, Date, Map, Set, Uint8Array, JSON, btoa, atob, fetch: server.fetch, WebSocketRequestResponsePair: class {} };
   context.require = (name) => {
     const mod = { exports: {} };
     vm.runInNewContext(sources[name], { ...context, exports: mod.exports, module: mod });
@@ -45,6 +45,7 @@ async function fixture({ env = PUSH_ENV, script } = {}) {
     blockConcurrencyWhile(f) { initialized = f(); },
     storage: { get: async () => ({}), put: async (_k, v) => { stored.push(JSON.parse(JSON.stringify(v))); } },
     getWebSockets: () => sockets.filter((s) => s.readyState === 1),
+    setWebSocketAutoResponse() {},
     id: { toString: () => 'desktop-test' },
   };
   const hub = new context.exports.DesktopHub(state, { ...env });

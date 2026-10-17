@@ -479,6 +479,11 @@ mod tests {
         let back: WireMessage = serde_json::from_str(&s).unwrap();
         assert!(matches!(back, WireMessage::Ping { .. }));
 
+        // The relay auto-answers this exact frame without waking its
+        // Durable Object (`setWebSocketAutoResponse`); keep it byte-identical.
+        let bare = serde_json::to_string(&WireMessage::Ping { id: None }).unwrap();
+        assert_eq!(bare, r#"{"type":"ping"}"#);
+
         let pong = WireMessage::Pong { id: None };
         let s = serde_json::to_string(&pong).unwrap();
         assert_eq!(s, r#"{"type":"pong"}"#);

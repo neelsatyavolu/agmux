@@ -120,6 +120,14 @@ const MAX_SUBSCRIBED: usize = 4;
 const KEEPALIVE_INTERVAL: Duration = Duration::from_secs(15);
 /// No inbound frame for this long (≈2–3 missed keepalives) → reconnect.
 const RELAY_IDLE_TIMEOUT: Duration = Duration::from_secs(40);
+/// The hub pushes `devices.snapshot` whenever a phone connects, leaves or
+/// pairs, so the keepalive's `devices.list` is only a fallback. Every frame it
+/// sends wakes the relay's Durable Object, so ask every 4th tick (≈60s).
+const DEVICES_REFRESH_EVERY: u64 = 4;
+
+fn keepalive_refreshes_devices(tick: u64) -> bool {
+    tick % DEVICES_REFRESH_EVERY == 0
+}
 
 /// Is a phone actually watching right now?
 ///
@@ -934,8 +942,10 @@ async fn connect_once(inner: Arc<Inner>, app: AppHandle, my_gen: u64) -> Result<
         let shutdown = shutdown.clone();
         let last_inbound = last_inbound.clone();
         async move {
+            let mut tick: u64 = 0;
             loop {
                 tokio::time::sleep(KEEPALIVE_INTERVAL).await;
+                tick = tick.wrapping_add(1);
                 if inner.stop.load(Ordering::SeqCst)
                     || inner.generation.load(std::sync::atomic::Ordering::SeqCst) != my_gen
                 {
@@ -955,12 +965,16 @@ async fn connect_once(inner: Arc<Inner>, app: AppHandle, my_gen: u64) -> Result<
                 }
                 match inner.outbound.lock().await.as_ref() {
                     Some(tx) => {
-                        // Ping first (hub answers immediately); devices.list for presence.
-                        if tx
-                            .send(WireMessage::Ping { id: None })
-                            .and_then(|_| tx.send(WireMessage::DevicesList))
-                            .is_err()
-                        {
+                        // Bare ping: the relay answers it at the edge without
+                        // waking the hub. devices.list is a periodic presence fallback.
+                        let sent = tx.send(WireMessage::Ping { id: None }).and_then(|_| {
+                            if keepalive_refreshes_devices(tick) {
+                                tx.send(WireMessage::DevicesList)
+                            } else {
+                                Ok(())
+                            }
+                        });
+                        if sent.is_err() {
                             shutdown.notify_one();
                             return;
                         }
@@ -3029,6 +3043,13 @@ fn pair_code_consumed(pair_expires_at: Option<i64>, devices: &[PairedDevice]) ->
 mod tests {
     use super::*;
     use std::collections::{HashMap, HashSet};
+
+    #[test]
+    fn keepalive_asks_for_devices_about_once_a_minute() {
+        let ticks: Vec<u64> = (1..=8).filter(|t| keepalive_refreshes_devices(*t)).collect();
+        assert_eq!(ticks, vec![4, 8]);
+        assert_eq!(KEEPALIVE_INTERVAL * DEVICES_REFRESH_EVERY as u32, Duration::from_secs(60));
+    }
 
     fn paired_device(created_at: i64) -> PairedDevice {
         PairedDevice {

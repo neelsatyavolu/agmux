@@ -102,6 +102,12 @@ export class DesktopHub {
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
     this.apns = new ApnsClient(env);
+    // Keepalive pings without an id are answered by the runtime: no DO wake,
+    // no billed request. Must match the desktop's serde output and the phone
+    // heartbeat byte for byte; pings with an id still reach webSocketMessage.
+    this.state.setWebSocketAutoResponse(
+      new WebSocketRequestResponsePair('{"type":"ping"}', '{"type":"pong"}'),
+    );
     // Restore durable secrets / devices across DO hibernation
     this.state.blockConcurrencyWhile(async () => {
       const stored = (await this.state.storage.get<AuthStore>("auth")) ?? {};

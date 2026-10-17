@@ -12,7 +12,10 @@ const compiled = compile('desktop-hub.ts');
 const modules = { './push': compile('push.ts'), './push-events': compile('push-events.ts') };
 
 async function fixture() {
-  const context = { exports: {}, crypto: webcrypto, TextEncoder, Date, Map, Set, Uint8Array, JSON };
+  class WebSocketRequestResponsePair {
+    constructor(request, response) { this.request = request; this.response = response; }
+  }
+  const context = { exports: {}, crypto: webcrypto, TextEncoder, Date, Map, Set, Uint8Array, JSON, WebSocketRequestResponsePair };
   context.require = (name) => {
     const mod = { exports: {} };
     vm.runInNewContext(modules[name], { ...context, exports: mod.exports, module: mod });
@@ -25,6 +28,7 @@ async function fixture() {
     blockConcurrencyWhile(f) { initialized = f(); },
     storage: { get: async () => ({}), put: async () => {} },
     getWebSockets: () => sockets,
+    setWebSocketAutoResponse(pair) { this.autoResponse = pair; },
     id: { toString: () => 'desktop-test' },
   };
   const hub = new context.exports.DesktopHub(state, {});
@@ -43,7 +47,7 @@ async function fixture() {
   const deliver = (ws, msg) => hub.webSocketMessage(ws, JSON.stringify(msg));
   const desktop = socket();
   await deliver(desktop, { type: 'hello', role: 'desktop', token: 'a'.repeat(32), desktopId: 'desktop-test' });
-  return { hub, socket, deliver, desktop };
+  return { hub, socket, deliver, desktop, state };
 }
 
 async function pair(f) {
@@ -52,6 +56,17 @@ async function pair(f) {
   await f.deliver(phone, { type: 'pair.submit', code: f.hub.pairCode });
   return phone;
 }
+
+test('bare pings are answered at the edge without waking the hub', async () => {
+  const f = await fixture();
+  // Must match the desktop's serde output and the phone heartbeat byte for byte.
+  assert.equal(f.state.autoResponse.request, '{"type":"ping"}');
+  assert.equal(JSON.parse(f.state.autoResponse.response).type, 'pong');
+  // Pings with an id still reach the hub and get a matching pong.
+  f.desktop.sent = [];
+  await f.deliver(f.desktop, { type: 'ping', id: 'resume' });
+  assert.deepEqual(f.desktop.sent, [{ type: 'pong', id: 'resume' }]);
+});
 
 test('one pairing code admits only one concurrent redemption', async () => {
   const f = await fixture();

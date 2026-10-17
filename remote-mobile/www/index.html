@@ -3075,7 +3075,8 @@ function startLiveness(sock) {
   heartbeatTimer = setInterval(() => {
     if (!sock || sock.readyState !== WebSocket.OPEN) return;
     try {
-      sock.send(JSON.stringify({ type: 'ping', id: String(Date.now()) }));
+      // Exact bare frame: the relay answers it without waking the hub.
+      sock.send('{"type":"ping"}');
     } catch { /* onclose / idle watch will recover */ }
   }, HEARTBEAT_MS);
   idleWatchTimer = setInterval(() => {
