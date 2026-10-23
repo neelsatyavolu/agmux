@@ -15,6 +15,16 @@ Run on a disposable macOS user account/test Mac, with test projects and provider
 
 Record failures and platform/provider coverage explicitly. Do not check off unperformed steps. Service changes (support schema and private attachment bucket) must be deployed before distributing a desktop that depends on them.
 
+## v4.3.3 — 2026-10-22
+
+Security-only candidate from `6cb69955`, built in an isolated worktree to preserve unrelated local changes. Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.2.
+
+Automated checks: frontend typecheck/build pass; frontend 7196 passed and 14 skipped (one timing-sensitive test passed on focused and full reruns); sidecar 310 passed; analytics 29 and teams 397 tests/typechecks passed before assembling the candidate. Rust test evidence is recorded with the release verification.
+
+The existing vendored WebView drag-crash patch is preserved. Network TLS, certificate roots, HTTP/2 and XML parsing dependencies are patched. Remaining cross-platform lockfile advisories concern Windows ZIP updating and unused optional MySQL RSA; neither appears in the macOS normal dependency graph.
+
+Installed-app fresh-install, provider conversations, upgrade/recovery, support and Intel acceptance were not exercised. Do not represent these automated checks as installed-app acceptance.
+
 ## v4.3.2 — 2026-10-17
 
 Candidate recorded before a signed DMG existed. Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.1. Parent commit at the start of the bump: `4752a7e4`.
