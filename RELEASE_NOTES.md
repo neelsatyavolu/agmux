@@ -30,7 +30,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 
-## v4.3.3 — 2026-10-22
+## v4.3.4 — 2026-10-22
 
 ### Fixed
 - **Security update** — Updated the components that protect network connections and process app data.

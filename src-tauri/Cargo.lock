@@ -7650,7 +7650,7 @@ checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
 
 [[package]]
 name = "xanom"
-version = "4.3.3"
+version = "4.3.4"
 dependencies = [
  "anyhow",
  "async-trait",

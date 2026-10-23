@@ -15,7 +15,7 @@ Run on a disposable macOS user account/test Mac, with test projects and provider
 
 Record failures and platform/provider coverage explicitly. Do not check off unperformed steps. Service changes (support schema and private attachment bucket) must be deployed before distributing a desktop that depends on them.
 
-## v4.3.3 — 2026-10-22
+## v4.3.4 — 2026-10-22
 
 Security-only candidate from `6cb69955`, built in an isolated worktree to preserve unrelated local changes. Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.2.
 
