@@ -19,7 +19,7 @@ Record failures and platform/provider coverage explicitly. Do not check off unpe
 
 Security-only candidate from `6cb69955`, built in an isolated worktree to preserve unrelated local changes. Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.2.
 
-Automated checks: frontend typecheck/build pass; frontend 7196 passed and 14 skipped (one timing-sensitive test passed on focused and full reruns); sidecar 310 passed; analytics 29 and teams 397 tests/typechecks passed before assembling the candidate. Rust test evidence is recorded with the release verification.
+Automated checks: frontend typecheck/build pass; frontend 7196 passed and 14 skipped (one timing-sensitive test passed on focused and full reruns); sidecar 310 passed; Rust 2515 passed and 27 ignored; analytics 29 and teams 397 tests/typechecks passed before assembling the candidate.
 
 The existing vendored WebView drag-crash patch is preserved. Network TLS, certificate roots, HTTP/2 and XML parsing dependencies are patched. Remaining cross-platform lockfile advisories concern Windows ZIP updating and unused optional MySQL RSA; neither appears in the macOS normal dependency graph.
 
