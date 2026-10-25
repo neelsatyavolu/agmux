@@ -7,7 +7,7 @@
 import { html, raw } from "./dom.js";
 
 export const SHARED = [
-  "Token totals from sessions started in agmux: in, out, cached — plus estimated cost",
+  "Token totals from sessions started in agmux or agterm: in, out, cached — plus estimated cost",
   "Active agent time in hourly buckets",
   "Sessions started, session activity by hour, turn counts, and tool-call counts",
   "Tool calls grouped by kind: terminal, edits, reads, search, web, subagents, MCP",
@@ -32,12 +32,12 @@ export const NEVER = [
   "Personal provider credentials",
   "Keystrokes, screenshots, screen recording",
   "Live “watch someone code” views — the product has none",
-  "Claude Code, Codex, or Grok sessions you started outside agmux",
+  "Claude Code, Codex, or Grok sessions you started outside agmux and agterm",
 ];
 
 /** Shorter phrasing for the constrained join step, same meaning and order. */
 export const SHARED_SHORT = [
-  "Token counts from agmux sessions (in, out, cached) and estimated cost",
+  "Token counts from agmux and agterm sessions (in, out, cached) and estimated cost",
   "Active agent time, bucketed by hour — not idle app time",
   "Sessions started, session activity by hour, turn counts, and tool-call counts",
   "Tool calls grouped by kind: terminal, edits, reads, search, web, subagents, MCP",
@@ -60,7 +60,7 @@ export const NEVER_SHORT = [
   "Terminal output, personal secrets, environment variables",
   "Personal provider credentials",
   "Live viewing of your session — no one can watch you work",
-  "Sessions started outside agmux",
+  "Sessions started outside agmux and agterm",
 ];
 
 /**
