@@ -9,6 +9,8 @@ export interface PushEnv {
   APNS_KEY_ID?: string;
   APNS_TEAM_ID?: string;
   APNS_TOPIC?: string;
+  /** Other apps' bundle ids (comma-separated) whose phones may ask for pushes, e.g. agterm Remote. */
+  APNS_TOPICS?: string;
 }
 
 export type ApnsEnvironment = "production" | "sandbox";
@@ -20,6 +22,8 @@ export interface PushRegistration {
   approvals: boolean;
   finished: boolean;
   updatedAt: number;
+  /** The app's bundle id when it isn't APNS_TOPIC (agmux's own app). */
+  topic?: string;
 }
 
 export interface PushAlert {
@@ -70,6 +74,11 @@ export class ApnsClient {
     private readonly fetchImpl: typeof fetch = (input, init) => fetch(input, init),
   ) {}
 
+  /** Bundle ids a phone may register under: APNS_TOPIC plus APNS_TOPICS. */
+  get topics(): Set<string> {
+    return new Set([this.env.APNS_TOPIC, ...(this.env.APNS_TOPICS ?? "").split(",")].map((t) => (t ?? "").trim()).filter(Boolean));
+  }
+
   get configured(): boolean {
     return Boolean(this.env.APNS_KEY && this.env.APNS_KEY_ID && this.env.APNS_TEAM_ID && this.env.APNS_TOPIC);
   }
@@ -91,10 +100,10 @@ export class ApnsClient {
     return this.jwt.value;
   }
 
-  private async post(env: ApnsEnvironment, deviceToken: string, alert: PushAlert, freshJwt = false) {
+  private async post(env: ApnsEnvironment, reg: PushRegistration, alert: PushAlert, freshJwt = false) {
     const headers: Record<string, string> = {
       authorization: `bearer ${await this.token(freshJwt)}`,
-      "apns-topic": this.env.APNS_TOPIC ?? "",
+      "apns-topic": reg.topic ?? this.env.APNS_TOPIC ?? "",
       "apns-push-type": "alert",
       "apns-priority": "10",
     };
@@ -103,7 +112,7 @@ export class ApnsClient {
       aps: { alert: { title: alert.title, body: alert.body }, sound: "default", ...(alert.threadId ? { "thread-id": alert.threadId } : {}) },
       ...(alert.threadId ? { threadId: alert.threadId } : {}),
     };
-    const res = await this.fetchImpl(`${HOSTS[env]}/3/device/${deviceToken}`, {
+    const res = await this.fetchImpl(`${HOSTS[env]}/3/device/${reg.token}`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -124,8 +133,8 @@ export class ApnsClient {
     const order: ApnsEnvironment[] = reg.env === "sandbox" ? ["sandbox", "production"] : ["production", "sandbox"];
     let last = { status: 0, reason: "" };
     for (const env of order) {
-      let r = await this.post(env, reg.token, alert);
-      if (r.status === 403 && r.reason === "ExpiredProviderToken") r = await this.post(env, reg.token, alert, true);
+      let r = await this.post(env, reg, alert);
+      if (r.status === 403 && r.reason === "ExpiredProviderToken") r = await this.post(env, reg, alert, true);
       if (r.status === 200) return { result: "sent", env };
       last = r;
       if (r.status === 410) return { result: "gone" };

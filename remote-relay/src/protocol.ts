@@ -209,7 +209,8 @@ export type WireMessage =
     }
   /** Client → hub liveness; hub replies `pong` without involving the peer. */
   /** iPhone app → relay only: push token and which alerts this phone wants. */
-  | { type: "push.register"; token: string; approvals?: boolean; finished?: boolean; environment?: "production" | "sandbox" }
+  /** `topic`: the app's bundle id when it isn't agmux Remote (e.g. agterm Remote); must be allowed by APNS_TOPICS. */
+  | { type: "push.register"; token: string; approvals?: boolean; finished?: boolean; environment?: "production" | "sandbox"; topic?: string }
   | { type: "push.unregister" }
   /** Relay → phone: whether the relay will send pushes (APNs configured). */
   | { type: "push.registered"; enabled: boolean }

@@ -106,6 +106,26 @@ test('an approval reaches a closed app as a signed APNs alert', async () => {
   assert.ok(crypto.verify('sha256', Buffer.from(`${header}.${claims}`), { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(sig, 'base64url')));
 });
 
+test('another allowed app (agterm Remote) gets pushes under its own bundle id', async () => {
+  const f = await fixture({ env: { ...PUSH_ENV, APNS_TOPICS: 'co.xanom.agterm.remote, other.app' } });
+  await f.deliver(f.phone, { type: 'push.register', token: DEVICE_TOKEN, topic: 'co.xanom.agterm.remote' });
+  assert.deepEqual(f.phone.sent.at(-1), { type: 'push.registered', enabled: true });
+  assert.equal(f.stored.at(-1).devices[0].push.topic, 'co.xanom.agterm.remote');
+  await f.hangUp(f.phone);
+  await f.deliver(f.desktop, snapshot);
+  await f.deliver(f.desktop, approval);
+  await f.hub.pushWork;
+  assert.equal(f.server.calls.length, 1);
+  assert.equal(f.server.calls[0].headers['apns-topic'], 'co.xanom.agterm.remote');
+});
+
+test('a push topic that is not on the list is refused', async () => {
+  const f = await fixture();
+  await f.deliver(f.phone, { type: 'push.register', token: DEVICE_TOKEN, topic: 'com.example.other' });
+  assert.deepEqual(f.phone.sent.at(-1), { type: 'error', message: 'push topic not allowed' });
+  assert.equal(f.stored.some((s) => s.devices?.[0]?.push), false);
+});
+
 test('a phone with agmux open in the foreground gets no push; in the background it does', async () => {
   const f = await fixture();
   await f.deliver(f.phone, { type: 'push.register', token: DEVICE_TOKEN });

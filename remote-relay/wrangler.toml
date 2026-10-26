@@ -14,6 +14,8 @@ routes = [{ pattern = "remote.agmux.dev", custom_domain = true }]
 APNS_KEY_ID = "4D2Q9WPRZG"
 APNS_TEAM_ID = "VTQW687WBQ"
 APNS_TOPIC = "dev.agmux.remote"
+# Other apps on this relay that may register for push under their own bundle id (same team key).
+APNS_TOPICS = "co.xanom.agterm.remote"
 
 [[durable_objects.bindings]]
 name = "DESKTOP_HUB"

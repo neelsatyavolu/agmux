@@ -894,6 +894,11 @@ export class DesktopHub {
       this.send(ws, { type: "error", message: "invalid push token" });
       return;
     }
+    // Another app sharing this relay (agterm Remote) names its bundle id; only listed ones.
+    if (msg.topic !== undefined && !this.apns.topics.has(msg.topic)) {
+      this.send(ws, { type: "error", message: "push topic not allowed" });
+      return;
+    }
     // Phones on TestFlight/App Store use production; the relay corrects it on first send.
     const env = msg.environment === "sandbox" ? "sandbox" : device.push?.token === msg.token ? device.push.env : "production";
     device.push = {
@@ -902,6 +907,7 @@ export class DesktopHub {
       approvals: msg.approvals !== false,
       finished: msg.finished !== false,
       updatedAt: Date.now(),
+      ...(msg.topic ? { topic: msg.topic } : {}),
     };
     this.send(ws, { type: "push.registered", enabled: this.apns.configured });
     return this.persistAuth();
