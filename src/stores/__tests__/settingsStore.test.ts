@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   useSettingsStore,
+  loadSettings,
   commitMessageCandidates,
   ONBOARDING_REVISION,
 } from "../settingsStore";
@@ -64,6 +65,20 @@ describe("settingsStore", () => {
     useSettingsStore.getState().updateSettings({ editorFontSize: 99 });
     useSettingsStore.getState().resetSettings();
     expect(useSettingsStore.getState().settings.editorFontSize).not.toBe(99);
+  });
+
+  it("defaults to Manual and preserves both the selected mode and manual order after reload", () => {
+    expect(useSettingsStore.getState().settings.projectSortMode).toBe("manual");
+    useSettingsStore.getState().updateSettings({ projectOrder: ["b", "a"], projectSortMode: "recent" });
+    const loaded = loadSettings();
+    expect(loaded.projectSortMode).toBe("recent");
+    expect(loaded.projectOrder).toEqual(["b", "a"]);
+  });
+
+  it.each([undefined, "unknown"])("loads old or invalid project sort mode %s as Manual", (projectSortMode) => {
+    localStorage.setItem("agmux-settings", JSON.stringify({ projectOrder: ["b", "a"], projectSortMode }));
+    expect(loadSettings().projectSortMode).toBe("manual");
+    expect(loadSettings().projectOrder).toEqual(["b", "a"]);
   });
 
   it("defaults commitMessageModel to auto", () => {

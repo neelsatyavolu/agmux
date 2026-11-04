@@ -25,6 +25,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ## Unreleased
 
 ### New
+- **Project order** — Choose Recent activity in Settings → General to keep the projects you last worked on at the top of the sidebar and project tabs. Switch back to Manual to restore your own order.
 
 ### Improved
 

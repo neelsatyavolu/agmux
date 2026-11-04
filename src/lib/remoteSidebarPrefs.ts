@@ -40,13 +40,20 @@ function collectHidden(): Record<string, string[]> {
 }
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
+let displayedProjectOrder: string[] | null = null;
+
+/** Keep phone/folder pickers in step without overwriting the saved manual order. */
+export function setRemoteSidebarProjectOrder(order: string[] | null): void {
+  displayedProjectOrder = order;
+  syncRemoteSidebarPrefs();
+}
 
 /** Debounced push of the current order + pins + hidden set to the remote bridge. */
 export function syncRemoteSidebarPrefs(): void {
   if (syncTimer) clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
     syncTimer = null;
-    const projectOrder = useSettingsStore.getState().settings.projectOrder ?? [];
+    const projectOrder = displayedProjectOrder ?? useSettingsStore.getState().settings.projectOrder ?? [];
     invoke<void>("remote_sync_sidebar_prefs", {
       projectOrder,
       pinned: collectPinned(),
