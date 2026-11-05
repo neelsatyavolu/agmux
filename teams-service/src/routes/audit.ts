@@ -53,7 +53,11 @@ export type AuditAction =
   | "knowledge.verify"
   | "knowledge.export"
   | "knowledge.disclosure"
-  | "knowledge.mcp_quota";
+  | "knowledge.mcp_quota"
+  | "team_sessions.on"
+  | "team_sessions.off"
+  | "team_sessions.ask"
+  | "team_sessions.message";
 
 export interface AuditRow {
   id: string;

@@ -27,6 +27,7 @@ import * as billing from "./routes/billing";
 import * as knowledge from "./routes/knowledge";
 import * as dev from "./routes/dev";
 import * as providerAccounts from "./routes/provider-accounts";
+import * as teamSessions from "./routes/team-sessions";
 import { runLeaderboardSyncs } from "./leaderboard/sync";
 
 type Handler = (
@@ -122,6 +123,48 @@ const ROUTES: Route[] = [
     pattern: new RegExp(`^/api/teams/${seg}/provider-accounts((?:/[^/]+){0,3})$`),
     handler: (req: Request, env: Env, p: string[], pr: Principal) => providerAccounts.handle(req, env, pr, p[0]!, p[1]!),
   })),
+
+  // Team sessions: opted-in members' live agent sessions (content plane, not analytics).
+  {
+    method: "GET",
+    pattern: new RegExp(`^/api/teams/${seg}/session-sharing$`),
+    handler: (_r, env, p, pr) => teamSessions.getSharing(env, pr, p[0]!),
+  },
+  {
+    method: "PUT",
+    pattern: new RegExp(`^/api/teams/${seg}/session-sharing$`),
+    handler: (req, env, p, pr) => teamSessions.putSharing(req, env, pr, p[0]!),
+  },
+  {
+    method: "GET",
+    pattern: new RegExp(`^/api/teams/${seg}/live-sessions$`),
+    handler: (_r, env, p, pr) => teamSessions.listLive(env, pr, p[0]!),
+  },
+  {
+    method: "PUT",
+    pattern: new RegExp(`^/api/teams/${seg}/live-sessions$`),
+    handler: (req, env, p, pr) => teamSessions.putLive(req, env, pr, p[0]!),
+  },
+  {
+    method: "POST",
+    pattern: new RegExp(`^/api/teams/${seg}/live-sessions/${seg}/requests$`),
+    handler: (req, env, p, pr) => teamSessions.createRequest(req, env, pr, p[0]!, p[1]!),
+  },
+  {
+    method: "GET",
+    pattern: new RegExp(`^/api/teams/${seg}/session-requests/${seg}$`),
+    handler: (_r, env, p, pr) => teamSessions.getRequest(env, pr, p[0]!, p[1]!),
+  },
+  {
+    method: "POST",
+    pattern: new RegExp(`^/api/teams/${seg}/session-requests/${seg}/answer$`),
+    handler: (req, env, p, pr) => teamSessions.answerRequest(req, env, pr, p[0]!, p[1]!),
+  },
+  {
+    method: "POST",
+    pattern: new RegExp(`^/api/teams/${seg}/session-inbox$`),
+    handler: (_r, env, p, pr) => teamSessions.claimInbox(env, pr, p[0]!),
+  },
 
   // ── teams ───────────────────────────────────────────────────────────────
   { method: "GET", pattern: /^\/api\/teams$/, handler: (_r, env, _p, pr) => teams.listTeams(env, pr) },
@@ -544,6 +587,11 @@ export default {
       budget.runBudgetAlerts(env).catch(() => {
         // A failed sweep must not retry-storm; the next tick re-evaluates from
         // the ledger anyway.
+      }),
+    );
+    ctx.waitUntil(
+      teamSessions.expire(env).catch(() => {
+        // Team session requests also expire on every poll; the next tick retries.
       }),
     );
     ctx.waitUntil(

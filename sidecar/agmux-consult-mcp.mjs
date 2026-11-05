@@ -30,6 +30,8 @@ import { createTaskManager } from "consult-mcp/dist/tasks.js";
 import { EFFORTS, SESSION_ID_PATTERN } from "consult-mcp/dist/types.js";
 import { roomRequest } from "./agmux-room-client.mjs";
 import { callerParams, createAgmuxSessions } from "./agmux-consult-sessions.mjs";
+import { withPinnedPermissionMode } from "./agmux-consult-claude.mjs";
+import { createTeamSessions, registerTeamSessionTools, runTeamAnswer, teamSocketPath } from "./agmux-consult-team.mjs";
 
 const DEFAULT_TIMEOUT_SEC = 900;
 const DEFAULT_TASK_TIMEOUT_SEC = 3600;
@@ -192,9 +194,14 @@ async function main() {
   const withShutdown = (signal) => (signal ? AbortSignal.any([signal, shutdown.signal]) : shutdown.signal);
   const { ask, askSession } = createConsult({
     run,
-    adapters: { claude, codex, grok, agy },
+    adapters: { claude: withPinnedPermissionMode(claude), codex, grok, agy },
     timeoutMs: secondsFromEnv("CONSULT_TIMEOUT_SEC", DEFAULT_TIMEOUT_SEC),
   });
+  // The owner's app answering a teammate's ask: one read-only copy, then exit.
+  if (process.argv.includes("--answer-team-ask")) {
+    await runTeamAnswer({ askSession, signal: shutdown.signal });
+    return;
+  }
   const sessions = createAgmuxSessions({
     request: roomRequest,
     caller,
@@ -219,6 +226,11 @@ async function main() {
     ...(tasks ? { tasks } : {}),
   });
   registerAgmuxSessionTools(server, sessions);
+  const teamSocket = teamSocketPath();
+  if (teamSocket) {
+    const team = createTeamSessions({ request: roomRequest, socketPath: teamSocket });
+    registerTeamSessionTools(server, team, { withProgress, progressIntervalMs: PROGRESS_INTERVAL_MS });
+  }
 
   const transport = new StdioServerTransport();
   transport.onclose = () => shutdown.abort();
