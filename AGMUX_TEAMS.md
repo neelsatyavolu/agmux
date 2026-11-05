@@ -248,6 +248,30 @@ local test requires localhost sockets and makes no production deployment.
 - **Backward compatible rollout:** `features.knowledge` only when `kw_*` exist and `KNOWLEDGE_ENABLED` ≠ `"false"`.
 - Apply D1 migration: `wrangler d1 execute agmux-teams --remote --file=migrations/009_knowledge.sql` (and local).
 
+### Team sessions (separate content plane; deployed 2026-11-04)
+
+- **Not analytics.** Members opt in per team (`team_session_sharing`); an opted-in desktop reports its live agent
+  sessions every 30 s (`PUT /api/teams/:id/live-sessions`: tab key, agent, title, project *folder name*, branch,
+  status, `canAsk`; rows count as live for 120 s and the hourly sweep deletes them). Only opted-in members can list
+  others' sessions. Code: `src/routes/team-sessions.ts`, migration `017_team_sessions.sql`.
+- Requests (`POST …/live-sessions/:sessionId/requests`, kind `ask` or `message`) wait in the owner desktop's inbox
+  (`POST …/session-inbox`, claimed once, polled every 4 s); the desktop answers with `POST …/session-requests/:id/answer`
+  and the asker polls `GET …/session-requests/:id`. The question is blanked when claimed and the row deleted when the
+  asker reads the result; unclaimed requests fail after 120 s, claimed ones after 20 min, everything is gone after an
+  hour. At most 5 open requests per member (one atomic insert). Messages need the owner's `acceptMessages`; turning
+  it off fails queued messages. Audit: `team_sessions.on|off|ask|message`, never the text.
+- Device ids are chosen by desktops, so every lookup is by user **and** device. Text is stripped of control
+  characters. Only Claude Code sessions are askable: consult's Claude copy is `--restricted` to the tab's folder,
+  while Codex's read-only sandbox can read the whole disk.
+- Desktops: agterm (Settings → Teams & Phone → Team Sessions) reports, answers asks by running the bundled consult
+  with `--answer-team-ask`, and serves consult's `list_team_sessions` / `ask_team_session` / `message_team_session`
+  over a local socket (`AGTERM_TEAM_SOCK`). The agmux desktop doesn't report or answer yet.
+- **Deployed 2026-11-04:** version `11ab83a3-2da3-4d25-9843-8f6bf62218b3`, a plain `wrangler deploy` of
+  `feat/team-sessions` (master `2987fd17` + this feature; the previous live `fa15f5ef` was master `46ec42ef`, the same
+  teams-service code). Migration 017 was applied first; D1 bookmark before it:
+  `000044d1-000003f1-0000511a-18132fd7756e0e856b163c6696bd87ee`. Roll back with
+  `wrangler versions deploy fa15f5ef-dedb-4a6b-8a76-f470e8a3400c@100%` and leave the three tables (additive).
+
 ---
 
 ## 1. Shape of the thing

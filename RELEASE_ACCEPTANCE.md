@@ -15,6 +15,16 @@ Run on a disposable macOS user account/test Mac, with test projects and provider
 
 Record failures and platform/provider coverage explicitly. Do not check off unperformed steps. Service changes (support schema and private attachment bucket) must be deployed before distributing a desktop that depends on them.
 
+## v4.3.5 — 2026-11-04
+
+Candidate from `0679b6d8` (team sessions in agmux Teams and consult's team tools) on `2987fd17`, built in an isolated worktree to preserve unrelated local changes. Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.4.
+
+Automated checks (pass): `npx tsc --noEmit`; `npm test` — 7196 passed, 14 skipped; `cd sidecar && npm test` — 318 passed; `cd src-tauri && cargo test -p xanom -- --test-threads=1` — 2515 passed, 27 ignored; analytics 29 and teams 414 tests and typechecks.
+
+Live checks: the bundled consult's `--answer-team-ask` forked a real Claude Code session and answered through a local Teams Worker (wrangler dev, local D1) end to end; a real fork of a session saved in bypassPermissions answered with `--permission-mode default`. The Teams Worker with migration 017 is deployed (`11ab83a3`) and answered signed-out and signed-in smoke checks.
+
+Installed-app fresh-install, provider conversations, upgrade/recovery, support and Intel acceptance were not exercised. Do not represent these automated checks as installed-app acceptance.
+
 ## v4.3.4 — 2026-10-22
 
 Security-only candidate from `6cb69955`, built in an isolated worktree to preserve unrelated local changes. Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.2.

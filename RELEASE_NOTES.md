@@ -30,6 +30,11 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 
+## v4.3.5 — 2026-11-04
+
+### Fixed
+- **Asking another session works for sessions started without permission prompts** — An agent asking a copy of such a session used to get an error instead of an answer.
+
 ## v4.3.4 — 2026-10-22
 
 ### Fixed
