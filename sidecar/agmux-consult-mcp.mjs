@@ -31,7 +31,10 @@ import { EFFORTS, SESSION_ID_PATTERN } from "consult-mcp/dist/types.js";
 import { roomRequest } from "./agmux-room-client.mjs";
 import { callerParams, createAgmuxSessions } from "./agmux-consult-sessions.mjs";
 import { withPinnedPermissionMode } from "./agmux-consult-claude.mjs";
-import { createTeamSessions, registerTeamSessionTools, runTeamAnswer, teamSocketPath } from "./agmux-consult-team.mjs";
+import {
+  conversationOnlyCodex, conversationOnlyGrok, createTeamSessions, registerTeamSessionTools, runTeamAnswer, teamSocketPath,
+} from "./agmux-consult-team.mjs";
+import { appendInstructions, coordinationInstructions, createBoard, registerBoardTools } from "./agmux-consult-board.mjs";
 
 const DEFAULT_TIMEOUT_SEC = 900;
 const DEFAULT_TASK_TIMEOUT_SEC = 3600;
@@ -197,13 +200,23 @@ async function main() {
     adapters: { claude: withPinnedPermissionMode(claude), codex, grok, agy },
     timeoutMs: secondsFromEnv("CONSULT_TIMEOUT_SEC", DEFAULT_TIMEOUT_SEC),
   });
-  // The owner's app answering a teammate's ask: one read-only copy, then exit.
+  // The owner's app answering a teammate's ask: one read-only copy, then exit. Codex and Grok
+  // copies get no tools, so a teammate's question reaches only the conversation.
   if (process.argv.includes("--answer-team-ask")) {
-    await runTeamAnswer({ askSession, signal: shutdown.signal });
+    const forTeam = createConsult({
+      run,
+      adapters: { claude: withPinnedPermissionMode(claude), codex: conversationOnlyCodex(codex), grok: conversationOnlyGrok(grok) },
+      timeoutMs: secondsFromEnv("CONSULT_TIMEOUT_SEC", DEFAULT_TIMEOUT_SEC),
+    });
+    await runTeamAnswer({ askSession: forTeam.askSession, signal: shutdown.signal });
     return;
   }
+  // Started by agterm: its app lists and messages this Mac's agent tabs (and serves the board and
+  // team tools) over its own socket, the same calls agmux's room socket answers.
+  const teamSocket = teamSocketPath();
+  const appRequest = teamSocket ? (method, params, options = {}) => roomRequest(method, params, { ...options, socketPath: teamSocket }) : roomRequest;
   const sessions = createAgmuxSessions({
-    request: roomRequest,
+    request: appRequest,
     caller,
     askFork: (target, question, effort, signal) => askSession(target, question, effort, withShutdown(signal)),
   });
@@ -226,10 +239,15 @@ async function main() {
     ...(tasks ? { tasks } : {}),
   });
   registerAgmuxSessionTools(server, sessions);
-  const teamSocket = teamSocketPath();
   if (teamSocket) {
+    const status = await appRequest("team.status", {}, { timeoutMs: 3000 }).catch(() => ({}));
+    registerBoardTools(server, createBoard({ request: roomRequest, socketPath: teamSocket }));
+    // Always registered (a slow app at startup mustn't drop them for the session); while team
+    // sessions are off the app answers them with how to turn it on. The instructions only name
+    // them when it's on, so agents don't reach for them otherwise.
     const team = createTeamSessions({ request: roomRequest, socketPath: teamSocket });
     registerTeamSessionTools(server, team, { withProgress, progressIntervalMs: PROGRESS_INTERVAL_MS });
+    appendInstructions(server, coordinationInstructions({ teamSessions: Boolean(status?.teamSessions) }));
   }
 
   const transport = new StdioServerTransport();

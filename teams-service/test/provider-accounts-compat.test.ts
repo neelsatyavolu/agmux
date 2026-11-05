@@ -93,7 +93,7 @@ describe("provider accounts backward compatibility", () => {
     // Nullable session-start counter (migration 016) is also later and additive.
     await env.DB.prepare("ALTER TABLE metric_hourly DROP COLUMN sessions_started").run();
     // Team sessions (migration 017) are later, additive tables of their own.
-    for (const table of ["team_session_requests", "team_live_sessions", "team_session_sharing"]) {
+    for (const table of ["team_board_items", "team_session_requests", "team_live_sessions", "team_session_sharing"]) {
       await env.DB.prepare(`DROP TABLE ${table}`).run();
     }
     // Compare against the actual pre-feature schema, not a slice of the new schema.

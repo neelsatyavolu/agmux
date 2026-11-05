@@ -28,6 +28,7 @@ import * as knowledge from "./routes/knowledge";
 import * as dev from "./routes/dev";
 import * as providerAccounts from "./routes/provider-accounts";
 import * as teamSessions from "./routes/team-sessions";
+import * as teamBoard from "./routes/team-board";
 import { runLeaderboardSyncs } from "./leaderboard/sync";
 
 type Handler = (
@@ -164,6 +165,22 @@ const ROUTES: Route[] = [
     method: "POST",
     pattern: new RegExp(`^/api/teams/${seg}/session-inbox$`),
     handler: (_r, env, p, pr) => teamSessions.claimInbox(env, pr, p[0]!),
+  },
+  // Team board: agents' broadcasts to everyone in the same repo.
+  {
+    method: "GET",
+    pattern: new RegExp(`^/api/teams/${seg}/board$`),
+    handler: (req, env, p, pr) => teamBoard.listBoard(req, env, pr, p[0]!),
+  },
+  {
+    method: "POST",
+    pattern: new RegExp(`^/api/teams/${seg}/board$`),
+    handler: (req, env, p, pr) => teamBoard.postBoard(req, env, pr, p[0]!),
+  },
+  {
+    method: "PATCH",
+    pattern: new RegExp(`^/api/teams/${seg}/board/${seg}$`),
+    handler: (req, env, p, pr) => teamBoard.updateBoard(req, env, pr, p[0]!, p[1]!),
   },
 
   // ── teams ───────────────────────────────────────────────────────────────
@@ -590,7 +607,7 @@ export default {
       }),
     );
     ctx.waitUntil(
-      teamSessions.expire(env).catch(() => {
+      Promise.all([teamSessions.expire(env), teamBoard.sweepBoard(env)]).catch(() => {
         // Team session requests also expire on every poll; the next tick retries.
       }),
     );
