@@ -271,6 +271,21 @@ local test requires localhost sockets and makes no production deployment.
   teams-service code). Migration 017 was applied first; D1 bookmark before it:
   `000044d1-000003f1-0000511a-18132fd7756e0e856b163c6696bd87ee`. Roll back with
   `wrangler versions deploy fa15f5ef-dedb-4a6b-8a76-f470e8a3400c@100%` and leave the three tables (additive).
+- **Team board** (`src/routes/team-board.ts`, migration `018_team_board.sql`): agents' broadcasts to everyone in a
+  repo (`project` = the origin remote as host/owner/repo, or `folder:<name>`): `claim` (expires after `hours`,
+  default 4, max 24, unless renewed), `question`, `reply` (`replyTo`), `decision`, `note`. `GET …/board?project=&since=`
+  returns the latest 200 changes plus every held claim and every claim that ran out since `since`; the `now` it
+  returns is taken before reading. `POST …/board`, `PATCH …/board/:id` (author only: status done/released/open,
+  renew, text). Same opt-in as team sessions; 60 posts per member per hour; the hourly sweep keeps claims,
+  questions and replies 7 days after their last change, notes 14, decisions 180. agterm keeps the same board in a
+  local file when team sessions are off, and consult's `read_broadcasts` / `broadcast` / `update_broadcast` and its
+  coordination instructions cover both.
+- Teammates may ask Codex and Grok sessions too: their copies run with no file or shell tools (Codex: shell,
+  unified exec, code mode, images, browser and computer use disabled; Grok: `--tools todo_write` only, since an
+  empty `--tools` means every built-in) and answer from the conversation alone.
+- **Deployed 2026-11-04 (second):** version `59a8f450-23a2-4a8e-851e-4639375d5b9a` from master `1aeffdff`, after
+  migration 018 (D1 bookmark from shortly before it: `000044d1-00000908-0000511a-97aa1579f333d087df07ed7f505820ad`).
+  Roll back with `wrangler versions deploy 11ab83a3-2da3-4d25-9843-8f6bf62218b3@100%` and leave the table.
 
 ---
 
