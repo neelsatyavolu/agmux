@@ -653,6 +653,35 @@ describe("member detail", () => {
     assertClean(m);
   });
 
+  it("splits usage by login, with the unattributed remainder as its own row", () => {
+    const logins = {
+      reported: true,
+      rows: [
+        { provider: "claude", identityHash: "a".repeat(64), name: "shared@example.com", nameSource: "email", tokens: 1_200_000, costUsd: 3.5, costIncomplete: false, activeHours: 2, share: 0.6 },
+        { provider: "claude", identityHash: "b".repeat(64), name: "Claude login 2", nameSource: "number", tokens: 600_000, costUsd: 1.25, costIncomplete: true, activeHours: 1, share: 0.3 },
+        { provider: "claude", identityHash: null, name: "Not attributed", nameSource: "none", tokens: 200_000, costUsd: 0.5, costIncomplete: false, activeHours: 0, share: 0.1 },
+      ],
+    };
+    const m = memberDetail({ team, data: detail({ logins }), isSelf: false });
+    expect(m).toContain("By login");
+    expect(m).toContain("shared@example.com");
+    expect(m).toContain("Claude login 2");
+    expect(m).toContain("≥ $1.25");
+    expect(m).toContain("Not attributed: sessions from before the update");
+  });
+
+  it("says a member's app does not report logins yet instead of showing zeros", () => {
+    const m = memberDetail({ team, data: detail({ logins: { reported: false, rows: [] } }), isSelf: false });
+    expect(m).toContain("Not reported yet");
+    expect(memberDetail({ team, data: detail(), isSelf: false })).not.toContain("By login");
+  });
+
+  it("escapes a login name", () => {
+    const logins = { reported: true, rows: [{ provider: "claude", identityHash: "a".repeat(64), name: "<img src=x>", nameSource: "email", tokens: 1, costUsd: 0, costIncomplete: false, activeHours: 0, share: 1 }] };
+    const m = memberDetail({ team, data: detail({ logins }), isSelf: false });
+    expect(m).not.toContain("<img src=x>");
+  });
+
   it("keeps the analytics panels in a flow, not fixed grid rows", () => {
     // Same rule as the team page: the member view paired a 7-row heatmap with
     // a 13-row projects list, which left ~700px of dead space under the chart.

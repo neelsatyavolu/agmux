@@ -161,6 +161,8 @@ export async function devReset(req: Request, env: Env): Promise<Response> {
   requireDev(env, req);
   for (const table of [
     "metric_hourly",
+    "metric_account_hourly",
+    "account_labels",
     "upload_receipts",
     "sync_state",
     "invites",

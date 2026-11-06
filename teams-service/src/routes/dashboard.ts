@@ -23,6 +23,7 @@ import {
 } from "../aggregate";
 import { budgetFor } from "./budget";
 import { resolveAnalyticsScope, type AnalyticsScope } from "../scope";
+import { memberLogins, providerTotals } from "../logins";
 
 /** Resolve the request's time window from `range=` or `from=`+`to=`. */
 function windowOf(url: URL): TimeWindow {
@@ -264,6 +265,9 @@ export async function memberDetail(
 
   const t = totals(current);
   const p = totals(previous);
+  const logins = await memberLogins(
+    env, ctx.team.id, targetUserId, win.sinceHour, win.untilHour, providerTotals(current),
+  );
 
   return json({
     range: win.range,
@@ -289,6 +293,7 @@ export async function memberDetail(
     projects: projects(current),
     flags: buildFlags(current, p, win),
     neverSynced: current.length === 0 && !(member as { last_upload_at: string | null }).last_upload_at,
+    logins,
   });
 }
 

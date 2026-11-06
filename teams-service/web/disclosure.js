@@ -22,6 +22,7 @@ export const SHARED = [
   "Counts of pull requests (size tier by lines changed) from GitHub repositories your team owner selected, when Leaderboard is enabled",
   "Separately from analytics: Grok and Codex team account credentials explicitly added by an owner or manager are encrypted and shared with eligible team members",
   "Which account your running agmux sessions use, as an opaque ID with a session count, so members see how many people share an account — plus that Claude account’s email when your owner turns on shared Claude activity and 2 or more members use it",
+  "Which Claude or Codex login each session used (an opaque ID; a Claude login's email only if the team owner turns on Shared Claude accounts)",
 ];
 
 export const NEVER = [
@@ -51,6 +52,7 @@ export const SHARED_SHORT = [
   "PR counts by size tier from selected GitHub repos when Leaderboard is on",
   "Explicitly added team account credentials — encrypted and shared with eligible members, separately from analytics",
   "Which account agmux sessions use (opaque ID); a shared Claude account’s email when your owner enables it",
+  "Which Claude or Codex login each session used (opaque ID); a Claude login's email if your owner turns on Shared Claude accounts",
 ];
 
 export const NEVER_SHORT = [

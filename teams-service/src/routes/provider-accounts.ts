@@ -252,7 +252,11 @@ async function handleAccount(req: Request, env: Env, principal: Principal, teamK
     await env.DB.prepare(`INSERT INTO provider_account_settings (team_id,claude_activity,updated_at,updated_by) VALUES (?,?,?,?)
       ON CONFLICT(team_id) DO UPDATE SET claude_activity=excluded.claude_activity,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
       .bind(team, input.claudeActivity ? 1 : 0, now(), user).run();
-    if (!input.claudeActivity) await env.DB.prepare("DELETE FROM provider_account_activity WHERE team_id=? AND provider='claude'").bind(team).run();
+    if (!input.claudeActivity) await env.DB.batch([
+      env.DB.prepare("DELETE FROM provider_account_activity WHERE team_id=? AND provider='claude'").bind(team),
+      // Claude emails on the usage-by-login view are kept only while sharing is on.
+      env.DB.prepare("DELETE FROM account_labels WHERE team_id=? AND provider='claude'").bind(team),
+    ]);
     return response({ claudeActivity: input.claudeActivity });
   }
   if (suffix === "/activity" && req.method === "GET") {

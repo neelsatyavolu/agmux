@@ -188,6 +188,8 @@ export async function deleteTeam(env: Env, principal: Principal, key: string): P
     env.DB.prepare("UPDATE team_members SET left_at = ? WHERE team_id = ? AND left_at IS NULL")
       .bind(now, ctx.team.id),
     env.DB.prepare("DELETE FROM metric_hourly WHERE team_id = ?").bind(ctx.team.id),
+    env.DB.prepare("DELETE FROM metric_account_hourly WHERE team_id = ?").bind(ctx.team.id),
+    env.DB.prepare("DELETE FROM account_labels WHERE team_id = ?").bind(ctx.team.id),
     env.DB.prepare("UPDATE invites SET revoked_at = ? WHERE team_id = ? AND revoked_at IS NULL")
       .bind(now, ctx.team.id),
   ];

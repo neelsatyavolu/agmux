@@ -1,7 +1,7 @@
 /* 5 · Member detail   —   6 · Employee self-view (same shape, self scope). */
 
 import { agoLabel, esc, html, raw } from "../dom.js";
-import { fmt } from "../charts.js";
+import { fmt, providerColor } from "../charts.js";
 import {
   avatar,
   efficiencyGrid,
@@ -207,6 +207,7 @@ export function memberDetail({ team, data, isSelf, fromLeaderboard = null }) {
               : ""}
           </div>
         </div>
+        ${data.logins ? raw(loginsPanel(data.logins)) : ""}
         <div class="pnl">
           <div class="pnl-h">
             <h3>What the agents did</h3>
@@ -278,6 +279,46 @@ export function memberDetail({ team, data, isSelf, fromLeaderboard = null }) {
 
       ${isSelf ? raw(selfDisclosurePanel()) : ""}
     </section>
+  `;
+}
+
+/* Usage split by Claude / Codex login (docs/teams-usage-by-login.md). */
+const LOGIN_PROVIDER = { claude: "ClaudeCode", codex: "Codex" };
+
+function loginsPanel(logins) {
+  const body = !logins.reported
+    ? html`<p class="hint" style="margin:0">Not reported yet. Logins are counted for sessions started after this member updates agmux or agterm.</p>`
+    : !logins.rows.length
+      ? html`<p class="hint" style="margin:0">No Claude or Codex usage in this range.</p>`
+      : html`${logins.rows.map((r) => loginRow(r))}${logins.rows.some((r) => r.identityHash === null)
+          ? html`<p class="hint" style="margin:6px 0 0">Not attributed: sessions from before the update, or where the login could not be read.</p>`
+          : ""}`;
+  return html`
+    <div class="pnl">
+      <div class="pnl-h">
+        <h3>By login</h3>
+        <div class="sp"></div>
+        <span class="sub">tokens · cost</span>
+      </div>
+      <div class="pnl-b mix">${body}</div>
+    </div>
+  `;
+}
+
+function loginRow(r) {
+  const color = providerColor(LOGIN_PROVIDER[r.provider] ?? r.provider);
+  const share = r.share ?? 0;
+  const unknown = r.identityHash === null;
+  const cost = `${r.costIncomplete ? "≥ " : ""}${fmt.money(r.costUsd)}`;
+  return html`
+    <div class="mixrow" ${unknown ? raw('style="opacity:0.7"') : ""}>
+      <div class="t" title="${r.name} · ${fmt.pct(share)} of ${r.provider === "codex" ? "Codex" : "Claude"} tokens · ${cost}">
+        ${raw(`<i data-lucide="circle" style="width:9px;height:9px;color:${esc(color)}"></i>`)}<span class="${r.nameSource === "email" ? "mono" : ""}">${r.name}</span>
+      </div>
+      <div class="track"><i style="width:${(share * 100).toFixed(1)}%;background:${raw(esc(color))}"></i></div>
+      <div class="p">${fmt.tok(r.tokens)}</div>
+      <div class="h">${cost}</div>
+    </div>
   `;
 }
 

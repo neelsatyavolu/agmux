@@ -55,6 +55,29 @@ export interface IncomingBucket {
   localDow?: number;
 }
 
+/** Counters for one login's attributed events in one hour (docs/teams-usage-by-login.md). */
+export interface IncomingAccountBucket {
+  hourUtc: string;
+  provider: string; // "claude" | "codex"
+  identityHash: string; // 64 lowercase hex
+  tokensIn?: number;
+  tokensOut?: number;
+  tokensCacheRead?: number;
+  tokensCacheWrite?: number;
+  tokensReasoning?: number;
+  costUsd?: number;
+  costIncomplete?: boolean;
+  activeMs?: number;
+  turns?: number;
+}
+
+/** A Claude login's email. Stored only for teams with Shared Claude accounts on. */
+export interface IncomingAccountLabel {
+  provider: "claude";
+  identityHash: string;
+  label: string;
+}
+
 export interface UploadPayload {
   batchId: string;
   /**
@@ -64,6 +87,11 @@ export interface UploadPayload {
    */
   timezone?: string;
   buckets: IncomingBucket[];
+  /** Absent from desktops that predate the login split. */
+  accountBuckets?: IncomingAccountBucket[];
+  accountLabels?: IncomingAccountLabel[];
+  /** True from every desktop that reports logins, even with no account buckets. */
+  accountsReported?: boolean;
 }
 
 /** Loose IANA shape — full zone validation is the desktop's job via chrono-tz. */
@@ -88,6 +116,11 @@ export interface UploadResult {
 
 const HOUR_RE = /^\d{4}-\d{2}-\d{2}T\d{2}$/;
 const MAX_BUCKETS = 2000;
+const MAX_ACCOUNT_BUCKETS = 2000;
+const MAX_ACCOUNT_LABELS = 50;
+const ACCOUNT_PROVIDERS = new Set(["claude", "codex"]);
+const IDENTITY_HASH_RE = /^[0-9a-f]{64}$/;
+const MAX_LABEL = 120;
 
 const int = (v: unknown): number => {
   const n = Math.trunc(Number(v ?? 0));
@@ -172,16 +205,16 @@ export async function pruneStale(
   const { skipped } = await filterUploadTeamIds(env, memberships.map((m) => m.team_id));
   const kept = skipped.filter((t) => t.reason === "billing").map((t) => t.id);
   const cutoff = new Date(Math.min(...candidates)).toISOString();
-  const r = await env.DB.prepare(
-    `DELETE FROM metric_hourly
-      WHERE user_id = ? AND device_id = ?
-        AND hour_utc >= ?
-        AND updated_at < ?${kept.length ? `
-        AND team_id NOT IN (${kept.map(() => "?").join(",")})` : ""}`,
-  )
-    .bind(userId, deviceId, payload.sinceHour, cutoff, ...kept)
-    .run();
-  return { deleted: Number(r.meta?.changes ?? 0) };
+  const stale = (table: string) =>
+    env.DB.prepare(
+      `DELETE FROM ${table}
+        WHERE user_id = ? AND device_id = ?
+          AND hour_utc >= ?
+          AND updated_at < ?${kept.length ? `
+          AND team_id NOT IN (${kept.map(() => "?").join(",")})` : ""}`,
+    ).bind(userId, deviceId, payload.sinceHour, cutoff, ...kept);
+  const [r, accounts] = await env.DB.batch([stale("metric_hourly"), stale("metric_account_hourly")]);
+  return { deleted: Number(r.meta?.changes ?? 0) + Number(accounts.meta?.changes ?? 0) };
 }
 
 export function validatePayload(body: unknown): UploadPayload {
@@ -205,7 +238,58 @@ export function validatePayload(body: unknown): UploadPayload {
     batchId: p.batchId.trim().slice(0, 80),
     timezone: normalizeTimezone(p.timezone) ?? undefined,
     buckets: p.buckets,
+    accountBuckets: validateAccountBuckets(p.accountBuckets),
+    accountLabels: validateAccountLabels(p.accountLabels),
+    accountsReported: p.accountsReported === true,
   };
+}
+
+function validateAccountBuckets(v: unknown): IncomingAccountBucket[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) throw badRequest("accountBuckets must be an array.");
+  if (v.length > MAX_ACCOUNT_BUCKETS) {
+    throw badRequest(`Too many account buckets in one batch (max ${MAX_ACCOUNT_BUCKETS}).`);
+  }
+  for (const b of v as Partial<IncomingAccountBucket>[]) {
+    if (!b || typeof b.hourUtc !== "string" || !HOUR_RE.test(b.hourUtc)) {
+      throw badRequest("Each account bucket needs hourUtc as 'YYYY-MM-DDTHH'.");
+    }
+    if (typeof b.provider !== "string" || !ACCOUNT_PROVIDERS.has(b.provider)) {
+      throw badRequest("Each account bucket needs provider claude or codex.");
+    }
+    if (typeof b.identityHash !== "string" || !IDENTITY_HASH_RE.test(b.identityHash)) {
+      throw badRequest("Each account bucket needs a 64-character hex identityHash.");
+    }
+  }
+  return v as IncomingAccountBucket[];
+}
+
+/** Labels are dropped (not rejected) when malformed: a bad email must not lose the usage upload. */
+function validateAccountLabels(v: unknown): IncomingAccountLabel[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) throw badRequest("accountLabels must be an array.");
+  if (v.length > MAX_ACCOUNT_LABELS) {
+    throw badRequest(`Too many account labels (max ${MAX_ACCOUNT_LABELS}).`);
+  }
+  return (v as Partial<IncomingAccountLabel>[]).flatMap((l) => {
+    if (!l || l.provider !== "claude" || typeof l.identityHash !== "string" || !IDENTITY_HASH_RE.test(l.identityHash)) return [];
+    if (typeof l.label !== "string") return [];
+    const text = l.label.trim();
+    if (!text || text.length > MAX_LABEL || /[\u0000-\u001f\u007f]/.test(text)) return [];
+    return [{ provider: "claude" as const, identityHash: l.identityHash, label: text }];
+  });
+}
+
+/** Teams whose owner turned on Shared Claude accounts; only they may store Claude emails. */
+async function teamsSharingClaude(env: Env, teams: string[]): Promise<Set<string>> {
+  if (!teams.length) return new Set();
+  const rows = await env.DB.prepare(
+    `SELECT team_id FROM provider_account_settings
+      WHERE claude_activity = 1 AND team_id IN (${teams.map(() => "?").join(",")})`,
+  )
+    .bind(...teams)
+    .all<{ team_id: string }>();
+  return new Set(rows.results.map((r) => r.team_id));
 }
 
 /**
@@ -344,12 +428,65 @@ export async function applyUpload(
     }
   }
 
+  const accountBuckets = payload.accountBuckets ?? [];
+  if (accountBuckets.length) {
+    const accountUpsert = env.DB.prepare(
+      `INSERT INTO metric_account_hourly (
+         team_id, user_id, device_id, hour_utc, provider, identity_hash,
+         tokens_in, tokens_out, tokens_cache_read, tokens_cache_write, tokens_reasoning,
+         cost_usd, cost_incomplete, active_ms, turns, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (team_id, user_id, device_id, hour_utc, provider, identity_hash)
+       DO UPDATE SET
+         tokens_in = excluded.tokens_in,
+         tokens_out = excluded.tokens_out,
+         tokens_cache_read = excluded.tokens_cache_read,
+         tokens_cache_write = excluded.tokens_cache_write,
+         tokens_reasoning = excluded.tokens_reasoning,
+         cost_usd = excluded.cost_usd,
+         cost_incomplete = excluded.cost_incomplete,
+         active_ms = excluded.active_ms,
+         turns = excluded.turns,
+         updated_at = excluded.updated_at`,
+    );
+    for (const teamId of teams) {
+      for (const b of accountBuckets) {
+        if (b.hourUtc > latestHour) latestHour = b.hourUtc;
+        statements.push(
+          accountUpsert.bind(
+            teamId, userId, deviceId, b.hourUtc, b.provider, b.identityHash,
+            int(b.tokensIn), int(b.tokensOut), int(b.tokensCacheRead), int(b.tokensCacheWrite),
+            int(b.tokensReasoning), num(b.costUsd), b.costIncomplete === false ? 0 : 1,
+            int(b.activeMs), int(b.turns), now,
+          ),
+        );
+      }
+    }
+  }
+
+  const labels = payload.accountLabels ?? [];
+  if (labels.length) {
+    const sharing = await teamsSharingClaude(env, teams);
+    const labelUpsert = env.DB.prepare(
+      `INSERT INTO account_labels (team_id, user_id, provider, identity_hash, label, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (team_id, user_id, provider, identity_hash)
+       DO UPDATE SET label = excluded.label, updated_at = excluded.updated_at`,
+    );
+    for (const teamId of teams) {
+      if (!sharing.has(teamId)) continue;
+      for (const l of labels) {
+        statements.push(labelUpsert.bind(teamId, userId, l.provider, l.identityHash, l.label, now));
+      }
+    }
+  }
+
   statements.push(
     env.DB.prepare(
       `INSERT INTO upload_receipts (device_id, batch_id, user_id, accepted_at, bucket_count)
        VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (device_id, batch_id) DO NOTHING`,
-    ).bind(deviceId, payload.batchId, userId, now, payload.buckets.length),
+    ).bind(deviceId, payload.batchId, userId, now, payload.buckets.length + accountBuckets.length),
   );
   statements.push(
     env.DB.prepare(
@@ -360,6 +497,13 @@ export async function applyUpload(
          last_bucket_hour = MAX(COALESCE(sync_state.last_bucket_hour, ''), excluded.last_bucket_hour)`,
     ).bind(userId, deviceId, now, latestHour),
   );
+  if (payload.accountsReported) {
+    statements.push(
+      env.DB.prepare(
+        "UPDATE sync_state SET accounts_reported_at = ? WHERE user_id = ? AND device_id = ?",
+      ).bind(now, userId, deviceId),
+    );
+  }
 
   // Persist the member's IANA zone so dashboards can label after-hours /
   // weekend as "their wall clock", not the manager's or UTC.
@@ -377,7 +521,7 @@ export async function applyUpload(
     accepted: true,
     acceptedAt: now,
     duplicate: false,
-    bucketsApplied: payload.buckets.length,
+    bucketsApplied: payload.buckets.length + accountBuckets.length,
     teams,
     teamsSkipped,
   };
@@ -390,6 +534,7 @@ export async function trimRetention(env: Env): Promise<void> {
     .slice(0, 13);
   await env.DB.batch([
     env.DB.prepare("DELETE FROM metric_hourly WHERE hour_utc < ?").bind(cutoff),
+    env.DB.prepare("DELETE FROM metric_account_hourly WHERE hour_utc < ?").bind(cutoff),
     env.DB.prepare("DELETE FROM upload_receipts WHERE accepted_at < ?").bind(
       new Date(Date.now() - 7 * 86_400_000).toISOString(),
     ),

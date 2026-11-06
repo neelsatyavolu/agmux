@@ -8,6 +8,7 @@ import { createDeviceToken, createSession } from "../src/session";
 import { addMember, makeEnv, seedTeam, seedUser } from "./helpers/d1";
 
 const migration = readFileSync(new URL("../migrations/013_provider_accounts.sql", import.meta.url), "utf8");
+const usageByLogin = readFileSync(new URL("../migrations/019_usage_by_login.sql", import.meta.url), "utf8");
 const catalogSql = "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name";
 
 async function call(env: Env, path: string, headers: Record<string, string> = {}, body?: unknown) {
@@ -96,6 +97,11 @@ describe("provider accounts backward compatibility", () => {
     for (const table of ["team_board_items", "team_session_requests", "team_live_sessions", "team_session_sharing"]) {
       await env.DB.prepare(`DROP TABLE ${table}`).run();
     }
+    // Usage split by login (migration 019) adds its own tables and one nullable column.
+    for (const table of ["metric_account_hourly", "account_labels"]) {
+      await env.DB.prepare(`DROP TABLE ${table}`).run();
+    }
+    await env.DB.prepare("ALTER TABLE sync_state DROP COLUMN accounts_reported_at").run();
     // Compare against the actual pre-feature schema, not a slice of the new schema.
     const head = new DatabaseSync(":memory:");
     try {
@@ -105,6 +111,10 @@ describe("provider accounts backward compatibility", () => {
       expect((await env.DB.prepare(catalogSql).all()).results).toEqual(head.prepare(catalogSql).all());
       // Restore 016 (the Worker writes it), then compare later steps against this schema.
       await env.DB.prepare("ALTER TABLE metric_hourly ADD COLUMN sessions_started INTEGER").run();
+      // Restore 019 too: the Worker writes and trims its tables on every upload.
+      for (const statement of usageByLogin.replace(/--.*$/gm, "").split(";").filter(sql => sql.trim())) {
+        await env.DB.prepare(statement).run();
+      }
       const catalog = (await env.DB.prepare(catalogSql).all()).results;
       expect((await call(env, "/api/metrics/upload", desktop, oldUpload())).status).toBe(200);
       await env.DB.prepare("INSERT INTO team_policies (team_id,allowed_providers,allowed_models,updated_by,updated_at) VALUES ('team','[]','[]','owner','2026-09-12T00:00:00Z')").run();
