@@ -138,15 +138,20 @@ fn model_pricing(model: &str) -> ModelPricing {
         "claude-opus-4-6" | "claude-opus-4-5" => Some((5.0, 25.0, 0.50, 6.25)),
         "claude-opus-4-1" | "claude-opus-4" => Some((15.0, 75.0, 1.50, 18.75)),
         // Anthropic made Sonnet 5's introductory price permanent; 5.5 kept it.
-        "claude-sonnet-5-5" | "claude-sonnet-5" => Some((2.0, 10.0, 0.20, 2.50)),
+        // Sonnet 5.5 cache hits are 0.05x input; Sonnet 5 keeps the standard 0.1x.
+        "claude-sonnet-5-5" => Some((2.0, 10.0, 0.10, 2.50)),
+        "claude-sonnet-5" => Some((2.0, 10.0, 0.20, 2.50)),
         "claude-sonnet-4-6" | "claude-sonnet-4-5" | "claude-sonnet-4" =>
             Some((3.0, 15.0, 0.30, 3.75)),
+        // Prompts up to 100k tokens; long_context_step applies the 5x card above that.
+        "claude-haiku-5-5" => Some((0.10, 0.50, 0.01, 0.125)),
         "claude-haiku-4-5" => Some((1.0, 5.0, 0.10, 1.25)),
         "claude-3-5-haiku" => Some((0.80, 4.0, 0.08, 1.0)),
         // OpenAI documents explicit cache writes only for GPT-5.6 and later.
         "gpt-6-astra" => Some((10.0, 50.0, 1.0, 12.50)),
         // 6.1 Sol halves 6 Sol's cache-read rate; everything else matches.
         "gpt-6.1-sol" => Some((2.0, 10.0, 0.10, 2.50)),
+        "gpt-6.1-terra" => Some((1.0, 5.0, 0.05, 1.25)),
         "gpt-6-sol" => Some((2.0, 10.0, 0.20, 2.50)),
         "gpt-6-luna" => Some((0.10, 0.50, 0.01, 0.125)),
         "gpt-5.6" | "gpt-5.6-sol" | "gpt-daybreak-blue-latest" =>
@@ -243,17 +248,20 @@ impl ModelPricing {
 }
 
 /// Per-request standard long-context step. Threshold is the largest short
-/// prompt: xAI switches at >=200k, whereas OpenAI switches at >272k.
+/// prompt: xAI switches at >=200k, OpenAI at >272k, Claude Haiku 5.5 at >100k
+/// (5x on every class; its prompt counts cache reads and writes).
 fn long_context_step(model: &str) -> Option<(i64, f64, f64)> {
     match pricing_model_key(model).as_str() {
         "gpt-5.4" | "gpt-5.4-2026-03-05" | "gpt-5.5" | "gpt-5.6" |
         "gpt-5.6-sol" | "gpt-daybreak-blue-latest" | "gpt-5.6-terra" |
-        "gpt-5.6-luna" | "gpt-6-astra" | "gpt-6.1-sol" | "gpt-6-sol" | "gpt-6-luna" =>
+        "gpt-5.6-luna" | "gpt-6-astra" | "gpt-6.1-sol" | "gpt-6.1-terra" | "gpt-6-sol" |
+        "gpt-6-luna" =>
             Some((272_000, 2.0, 1.5)),
         "grok-4.7" | "grok-4.6" | "grok-4.5" | "grok-build-0.1" | "grok-4.3" |
         "grok-4.20-multi-agent-0309" | "grok-4.20-0309-reasoning" |
         "grok-4.20-0309-non-reasoning" => Some((199_999, 2.0, 2.0)),
-        // Claude 4.6+ has no premium. The Sonnet 4/4.5 1M beta was
+        "claude-haiku-5-5" => Some((100_000, 5.0, 5.0)),
+        // Other Claude 4.6+ models have no premium. The Sonnet 4/4.5 1M beta was
         // retired April 30, 2026; do not apply its obsolete premium today.
         _ => None,
     }
@@ -2007,12 +2015,17 @@ mod tests {
             ("gpt-6-astra", (10.0, 50.0, 1.0, 12.5)),
             ("gpt-6.1-sol", (2.0, 10.0, 0.1, 2.5)),
             ("openai/gpt-6.1-sol", (2.0, 10.0, 0.1, 2.5)),
+            ("gpt-6.1-terra", (1.0, 5.0, 0.05, 1.25)),
+            ("openai/gpt-6.1-terra", (1.0, 5.0, 0.05, 1.25)),
             ("gpt-6-sol", (2.0, 10.0, 0.2, 2.5)),
             ("gpt-6-luna", (0.1, 0.5, 0.01, 0.125)),
             ("openai/gpt-6-sol", (2.0, 10.0, 0.2, 2.5)),
             ("openai/gpt-6-luna", (0.1, 0.5, 0.01, 0.125)),
-            ("claude-sonnet-5-5", (2.0, 10.0, 0.2, 2.5)),
-            ("anthropic/claude-sonnet-5.5", (2.0, 10.0, 0.2, 2.5)),
+            ("claude-sonnet-5-5", (2.0, 10.0, 0.1, 2.5)),
+            ("anthropic/claude-sonnet-5.5", (2.0, 10.0, 0.1, 2.5)),
+            ("claude-sonnet-5", (2.0, 10.0, 0.2, 2.5)),
+            ("claude-haiku-5-5", (0.1, 0.5, 0.01, 0.125)),
+            ("anthropic/claude-haiku-5.5", (0.1, 0.5, 0.01, 0.125)),
             ("claude-opus-5-5", (4.0, 20.0, 0.2, 5.0)),
             ("anthropic/claude-opus-5-5-20260922", (4.0, 20.0, 0.2, 5.0)),
             ("gpt-5.6-sol", (4.0, 20.0, 0.4, 5.0)),
@@ -2050,6 +2063,7 @@ mod tests {
         for (model, input_rate, cache_read_rate, cache_write_rate) in [
             ("gpt-6-astra", 10.0, 1.0, 12.5),
             ("gpt-6.1-sol", 2.0, 0.1, 2.5),
+            ("gpt-6.1-terra", 1.0, 0.05, 1.25),
             ("gpt-6-sol", 2.0, 0.2, 2.5),
             ("gpt-6-luna", 0.1, 0.01, 0.125),
         ] {
@@ -2093,7 +2107,7 @@ mod tests {
         use super::model_requires_cache_write_usage;
         crate::pricing_catalog::test_clear_catalog();
         for model in ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
-            "openai/gpt-5.6", "claude-sonnet-5", "gpt-6.1-sol", "claude-sonnet-5-5"] {
+            "openai/gpt-5.6", "claude-sonnet-5", "gpt-6.1-sol", "gpt-6.1-terra", "claude-sonnet-5-5"] {
             assert!(model_requires_cache_write_usage(model), "{model}");
         }
         for model in ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex", "grok-4.6",
@@ -2295,6 +2309,30 @@ mod tests {
         assert_eq!((nano.input_per_mtok, nano.output_per_mtok), (0.20, 1.25));
         let flagship = model_pricing("gpt-5.4");
         assert_eq!((flagship.input_per_mtok, flagship.output_per_mtok), (2.50, 15.0));
+    }
+
+    /// Haiku 5.5 bills a whole request at 5x once its prompt, cache reads and
+    /// writes included, is over 100,000 tokens.
+    #[test]
+    fn haiku_55_long_prompt_uses_higher_rate_card() {
+        crate::pricing_catalog::test_clear_catalog();
+        for prompt in [99_999_i64, 100_000, 100_001] {
+            let spec = TokenCostSpec {
+                pure_input: prompt - 3000,
+                pure_output: 10_000,
+                cache_read: 1000,
+                cache_write: 1000,
+                cache_write_1h: 1000,
+            };
+            let m = if prompt > 100_000 { 5.0 } else { 1.0 };
+            let expected = ((prompt - 3000) as f64 * 0.1 + 10_000.0 * 0.5 + 1000.0 * 0.01
+                + 1000.0 * 0.125 + 1000.0 * 0.2) / 1e6 * m;
+            let cost = super::estimate_token_cost_checked(Some("claude-haiku-5-5"), spec).unwrap();
+            assert!((cost - expected).abs() < 1e-12, "{prompt}: got {cost}, want {expected}");
+        }
+        let over = TokenCostSpec { pure_input: 100_001, pure_output: 0, cache_read: 0, cache_write: 0, cache_write_1h: 0 };
+        assert_eq!(super::estimate_aggregated_token_cost_checked(Some("claude-haiku-5-5"), over),
+            Err(super::TokenCostUnavailable::RequestBoundaries));
     }
 
     #[test]
