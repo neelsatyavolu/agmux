@@ -255,6 +255,8 @@ pub fn run() {
                 // agmux Teams: upload hourly aggregates every 2 minutes. Each
                 // tick is a no-op unless the user has linked an account and is
                 // on a team, so this is free for everyone else.
+                // Login spans let Teams split usage by the login each session ran on.
+                teams::login_spans::init(db.clone());
                 teams::spawn_auto_uploader(db.clone());
 
                 // A CLI signed into a team account stays leased to this member while it

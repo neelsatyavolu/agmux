@@ -94,6 +94,10 @@ pub struct UsageEvent {
     /// `is_subagent_path`; Grok children roll up into the parent's usage.
     #[serde(default)]
     pub subagent: bool,
+    /// Codex subagent threads: the exact parent thread that spawned them, so
+    /// their usage is credited to the login the parent ran under.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_session_id: Option<String>,
 }
 
 /// The wire shape. Field names match the Worker's `IncomingBucket` exactly.
@@ -198,9 +202,9 @@ fn is_after_hours<Z: TimeZone>(t: DateTime<Z>) -> bool {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct Span {
-    start: DateTime<Utc>,
-    end: DateTime<Utc>,
+pub(super) struct Span {
+    pub(super) start: DateTime<Utc>,
+    pub(super) end: DateTime<Utc>,
 }
 
 /// Splits `[start, end)` on UTC hour boundaries.
@@ -208,7 +212,7 @@ struct Span {
 /// A span running 13:50→14:20 is 10 minutes of the 13:00 bucket and 20 of the
 /// 14:00 one. Attributing it wholly to its start hour would misplace
 /// long-running work, which is the thing the heatmap exists to show.
-fn split_by_hour(start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<(DateTime<Utc>, Span)> {
+pub(super) fn split_by_hour(start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<(DateTime<Utc>, Span)> {
     if end <= start {
         return Vec::new();
     }
@@ -261,7 +265,7 @@ type Ident = (String, String, String);
 /// Each consecutive pair contributes the gap between them, capped so that a
 /// coffee break doesn't read as work. The final event gets a short tail because
 /// there is nothing after it to measure against.
-fn session_spans(timeline: &mut Vec<(DateTime<Utc>, Ident)>) -> Vec<(Span, Ident)> {
+pub(super) fn session_spans<T: Clone>(timeline: &mut Vec<(DateTime<Utc>, T)>) -> Vec<(Span, T)> {
     timeline.sort_by(|a, b| a.0.cmp(&b.0));
     if timeline.is_empty() {
         return Vec::new();
@@ -539,6 +543,7 @@ mod tests {
             is_sidechain: false,
             is_subagent_path: false,
             subagent: false,
+            parent_session_id: None,
         }
     }
 

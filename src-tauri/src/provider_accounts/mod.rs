@@ -259,6 +259,7 @@ async fn bind_native(provider: &str, session_key: &str, primary: &AccountAssignm
     }
     assigned_route(session_key).await;
     bindings().lock().await.insert(session_key.into(), Binding { assignment: primary.clone(), provider: provider.into(), team: None, remaining: None, reset: None, checked: None });
+    activity::note_session_login(provider, session_key, primary);
 }
 
 /// A team account another session on this Mac already holds that `route` may also use. One
@@ -325,6 +326,7 @@ async fn acquire_other(provider: &str, session_key: &str, store: &storage::Store
             }
             assigned_route(session_key).await;
             bindings().lock().await.insert(session_key.into(), Binding { assignment: result.clone(), provider: provider.into(), team: None, remaining: None, reset: None, checked: None });
+            activity::note_session_login(provider, session_key, &result);
             return Ok(Some(result));
         }
         let Ok(credentials) = storage::read_json(&home.join("auth.json")) else { continue; };
@@ -339,6 +341,7 @@ async fn acquire_other(provider: &str, session_key: &str, store: &storage::Store
         let result = AccountAssignment { account_id: id, home, label: account.label.clone() };
         assigned_route(session_key).await;
         bindings().lock().await.insert(session_key.into(), Binding { assignment: result.clone(), provider: provider.into(), team: None, remaining: None, reset: None, checked: None });
+        activity::note_session_login(provider, session_key, &result);
         return Ok(Some(result));
     }
     if provider != "claude" && store.auto_switch {
@@ -356,6 +359,7 @@ async fn acquire_other(provider: &str, session_key: &str, store: &storage::Store
                 assigned.insert(session_key.into(), shared);
                 drop(assigned);
                 assigned_route(session_key).await;
+                activity::note_session_login(provider, session_key, &result);
                 return Ok(Some(result));
             }
         }
@@ -423,6 +427,7 @@ async fn acquire_other(provider: &str, session_key: &str, store: &storage::Store
             let result = AccountAssignment { account_id: lease.account_id.clone(), home, label: lease.label.clone() };
             assigned_route(session_key).await;
             bindings().lock().await.insert(session_key.into(), Binding { assignment: result.clone(), provider: provider.into(), team: Some(lease), remaining, reset, checked });
+            activity::note_session_login(provider, session_key, &result);
             return Ok(Some(result));
         }
     }
@@ -481,6 +486,7 @@ pub(crate) async fn adopt_reservation(provider: &str, old_key: &str, reserve_key
     if next_key != old_key && assigned.contains_key(next_key) { return Err("Session is already assigned to another account".into()); }
     let old = assigned.remove(old_key);
     assigned.remove(reserve_key);
+    activity::note_session_login(&reserved.provider, next_key, &reserved.assignment);
     assigned.insert(next_key.into(), reserved);
     let retired = old.filter(|old| old.team.is_some() && !assigned.values().any(|b| b.assignment.home == old.assignment.home));
     let mut contexts = routes().lock().await;
@@ -718,7 +724,10 @@ pub async fn bind(provider: &str, source_key: &str, target_key: &str) -> Result<
         if binding.provider != canonical_provider(provider) { return Err("Session account provider mismatch".into()); }
         if let Some(existing) = assigned.get(target_key) {
             if existing.assignment.account_id != binding.assignment.account_id { return Err("Session is already assigned to another account".into()); }
-        } else { assigned.insert(target_key.into(), binding); }
+        } else {
+            activity::note_session_login(&binding.provider, target_key, &binding.assignment);
+            assigned.insert(target_key.into(), binding);
+        }
     }
     Ok(())
 }

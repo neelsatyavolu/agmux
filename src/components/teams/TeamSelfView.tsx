@@ -29,6 +29,7 @@ import {
 } from "../../lib/teams";
 import { GlassButton } from "../ui/GlassButton";
 import { DailyTrends, MixBars, Sparkline } from "./charts";
+import { LoginsPanel } from "./LoginsPanel";
 import { OutputPanel, ToolMix } from "./TeamDashboard";
 import {
   Banner,
@@ -257,6 +258,8 @@ export function TeamSelfView({
           </div>
         </Panel>
       </div>
+
+      <LoginsPanel logins={data.logins} />
 
       <div className="grid grid-cols-2 items-start gap-3">
         <Panel

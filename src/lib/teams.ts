@@ -401,6 +401,26 @@ export interface MemberDetail {
   projects: ProjectRow[];
   flags: TeamFlags;
   neverSynced: boolean;
+  /** Usage split by login. Absent from servers that predate it. */
+  logins?: LoginsBlock;
+}
+
+/** One login's share of a member's usage; `identityHash: null` is the part no login could be named for. */
+export interface LoginRow {
+  provider: string;
+  identityHash: string | null;
+  name: string;
+  tokens: number;
+  costUsd: number;
+  costIncomplete: boolean;
+  activeHours: number;
+  share: number;
+}
+
+export interface LoginsBlock {
+  /** False until one of this member's apps reports which login each session used. */
+  reported: boolean;
+  rows: LoginRow[];
 }
 
 /* ── commands ─────────────────────────────────────────────────────────── */

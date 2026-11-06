@@ -147,6 +147,7 @@ fn parse_reader(reader: impl BufRead, session_id: &str, fallback_dir: &str) -> R
             is_subagent_path: fallback_dir.contains("/subagents")
                 || fallback_dir.contains("\\subagents"),
             subagent: false,
+            parent_session_id: None,
         };
         if let Some(key) = claude_row_key(&v) {
             if let Some(&idx) = keyed.get(&key) {

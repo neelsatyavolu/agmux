@@ -25,6 +25,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ## Unreleased
 
 ### New
+- **Teams usage by login** — Your Teams dashboard can now show how much of your usage went through each Claude or Codex login, such as a personal login and a shared one. Logins show by email only when your team owner turns on Shared Claude accounts; usage from before this update shows as not attributed.
 
 ### Improved
 

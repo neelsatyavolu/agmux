@@ -105,6 +105,7 @@ fn parse_lines<S: AsRef<str>>(
             cache_read: 0, cache_write: 0, reasoning: 0, cost_usd: 0.0, cost_incomplete: false,
             is_turn: false, tool_calls: 0, tools: ToolTally::default(),
             claude_row_key: None, is_sidechain: false, is_subagent_path: false, subagent: false,
+            parent_session_id: None,
         };
         let tool = tool_signal(&v);
         if !tool.is_empty() {

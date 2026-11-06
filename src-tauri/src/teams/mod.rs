@@ -13,11 +13,13 @@
 //! thread id as the JSONL name; others bind `sdk_session_id`). Codex / Claude
 //! Code / Grok used in their own apps are not uploaded.
 
+pub mod account_buckets;
 pub mod aggregate;
 pub mod coverage;
 pub mod approval_wait;
 pub mod policy;
 pub mod scan;
+pub mod login_spans;
 pub mod ownership;
 pub mod secret_store;
 pub mod uploader;
@@ -198,6 +200,16 @@ pub async fn build_recent_buckets(
     pool: &SqlitePool,
     mode: scan::ScanMode,
 ) -> Result<Vec<HourlyBucket>, String> {
+    Ok(build_recent_snapshot(pool, mode).await?.0)
+}
+
+/// The regular buckets plus the same usage split by login (`account_buckets`).
+/// Labels are every Claude email recorded locally; the caller decides whether
+/// any team may receive them.
+pub async fn build_recent_snapshot(
+    pool: &SqlitePool,
+    mode: scan::ScanMode,
+) -> Result<(Vec<HourlyBucket>, uploader::AccountPart), String> {
     let (events, stats) = scan::collect_events(pool, mode).await?;
     tracing::debug!(
         "teams: scanned {} files ({} changed), {} usage events ({:?})",
@@ -215,12 +227,15 @@ pub async fn build_recent_buckets(
         .filter(|e| e.at >= oldest && e.at <= now)
         .collect();
     let mut buckets = aggregate::build_buckets(&in_window, now);
+    let (logins, account_labels) = login_spans::load_for(pool, &in_window).await?;
+    let mut account_buckets = account_buckets::build_account_buckets(&in_window, &logins, now);
     // Approval waits are local SQLite samples (not provider logs).
     approval_wait::merge_into_buckets(pool, &mut buckets, oldest, now).await?;
     if coverage::read(pool).await?.is_partial() {
         for bucket in &mut buckets { bucket.cost_incomplete = true; }
+        for bucket in &mut account_buckets { bucket.cost_incomplete = true; }
     }
-    Ok(buckets)
+    Ok((buckets, uploader::AccountPart { account_buckets, account_labels }))
 }
 
 
@@ -350,8 +365,13 @@ pub async fn build_and_flush(
     // Local time defines the scan window, never the destructive prune cutoff.
     let started = Utc::now();
     let mode = if repair { scan::ScanMode::Full } else { mode };
-    let buckets = build_recent_buckets(pool, mode).await?;
-    uploader::enqueue(pool, &buckets).await?;
+    let (buckets, mut accounts) = build_recent_snapshot(pool, mode).await?;
+    // A Claude email goes only to teams whose owner turned on Shared Claude accounts;
+    // the server keeps it for those teams alone.
+    if !crate::provider_accounts::activity::claude_sharing_on().await {
+        accounts.account_labels.clear();
+    }
+    uploader::enqueue_snapshot(pool, &buckets, Some(&accounts)).await?;
     let mut outcome = uploader::flush(pool).await?;
 
     if snapshot_uploaded(pool, &outcome).await? {
@@ -441,6 +461,8 @@ mod sync_tests {
             .execute(pool).await.unwrap();
         sqlx::raw_sql(include_str!("../../migrations/036_teams_agmux_sessions_only.sql"))
             .execute(pool).await.unwrap();
+        sqlx::raw_sql(include_str!("../../migrations/047_teams_login_spans.sql"))
+            .execute(pool).await.unwrap();
     }
 
     #[tokio::test]
@@ -477,9 +499,9 @@ mod sync_tests {
         let pool = pool().await;
         let success = uploader::FlushOutcome { sent: 1, ..Default::default() };
         assert!(snapshot_uploaded(&pool, &success).await.unwrap());
-        uploader::enqueue(&pool, &[HourlyBucket {
+        uploader::enqueue_snapshot(&pool, &[HourlyBucket {
             provider: "Codex".into(), ..Default::default()
-        }]).await.unwrap();
+        }], None).await.unwrap();
         sqlx::query("UPDATE teams_upload_queue SET next_attempt_at = datetime('now', '+1 hour')")
             .execute(&pool).await.unwrap();
         assert!(!snapshot_uploaded(&pool, &success).await.unwrap());
@@ -498,10 +520,12 @@ mod sync_tests {
     #[tokio::test]
     async fn empty_snapshot_is_uploaded_before_obsolete_buckets_can_be_pruned() {
         let pool = pool().await;
-        assert_eq!(uploader::enqueue(&pool, &[]).await.unwrap(), 1);
+        assert_eq!(uploader::enqueue_snapshot(&pool, &[], Some(&uploader::AccountPart::default())).await.unwrap(), 1);
         let pending = uploader::FlushOutcome::default();
         assert!(!snapshot_uploaded(&pool, &pending).await.unwrap());
         let payload: String = sqlx::query_scalar("SELECT payload_json FROM teams_upload_queue").fetch_one(&pool).await.unwrap();
         assert_eq!(payload, "[]");
+        let accounts: Option<String> = sqlx::query_scalar("SELECT accounts_json FROM teams_upload_queue").fetch_one(&pool).await.unwrap();
+        assert_eq!(accounts.as_deref(), Some(r#"{"accountBuckets":[],"accountLabels":[]}"#), "an empty snapshot still reports logins");
     }
 }

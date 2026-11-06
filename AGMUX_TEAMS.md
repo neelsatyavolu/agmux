@@ -626,6 +626,34 @@ growth. This applies to non-xAI models used through Grok too.
 
 ---
 
+## 4a. Usage by login
+
+Contract: `docs/teams-usage-by-login.md`. Transcripts do not say which login ran
+them, so the desktop records it when it binds a session to an account:
+every `bindings()` insert in `provider_accounts/mod.rs` (native, personal,
+shared or new team lease, `bind` aliases, `adopt_reservation` after an
+automatic switch) calls `activity::note_session_login`, which resolves the
+pool identity hash (Claude: `claude_hash` of `claude status`; Codex:
+`team_identity_hash` of the home's `auth.json`) in the background and writes a
+span to `teams_login_spans` (migration 047). Keys are normalized by
+`teams::login_spans::session_key` (`claude-sdk:{thread}:…` → thread;
+`#next-account` reservations skipped).
+
+At sync, `login_spans::load_for` resolves each event's session through its
+native id, its owner (`session_origin_bindings`, `threads.sdk_session_id`) and
+its parent (Claude `parent:child`, Codex `parent_session_id` from
+`source.subagent.thread_spawn`). `account_buckets::build_account_buckets` (pure)
+credits each event to the latest span at or before it. Unmatched events are
+not attributed; the server shows the remainder as "Not attributed". Claude
+emails are sent as `accountLabels` only while `activity::claude_sharing_on()`.
+Queued batches keep the per-login part in `teams_upload_queue.accounts_json`;
+NULL (older queued batches) uploads without `accountsReported`.
+
+Not attributed: Claude sessions under project auth (`uses_project_auth`) or
+Desktop Cowork homes, providers whose auth agmux does not manage
+(`native::unmanaged_auth`), Codex auto-review threads with no parent id, and
+Codex subagent events in snapshots stored before this change.
+
 ## 4b. Manager surface
 
 Everything below reads from the same aggregates; none of it collects anything

@@ -88,6 +88,7 @@ where I: IntoIterator<Item = S>, S: AsRef<str> {
     let mut header_seen = false;
     let mut forked_from_id: Option<String> = None;
     let mut subagent = false;
+    let mut parent_session_id: Option<String> = None;
     let mut counter = CodexSessionCounter::default();
     let mut history_boundary = CodexHistoryBoundary::default();
     // Tool calls and patch results sit on their own lines, ahead of the
@@ -161,6 +162,8 @@ where I: IntoIterator<Item = S>, S: AsRef<str> {
                 }
                 // Spawned subagents and auto-review threads: `{"subagent": …}`.
                 subagent = p.pointer("/source/subagent").is_some();
+                parent_session_id = p.pointer("/source/subagent/thread_spawn/parent_thread_id")
+                    .and_then(Value::as_str).filter(|s| !s.is_empty()).map(ToOwned::to_owned);
                 history_boundary = CodexHistoryBoundary::from_meta(p);
             }
         }
@@ -267,6 +270,7 @@ where I: IntoIterator<Item = S>, S: AsRef<str> {
             is_sidechain: false,
             is_subagent_path: false,
             subagent,
+            parent_session_id: parent_session_id.clone(),
         });
     }
 
@@ -782,6 +786,12 @@ mod tests {
         let events = parse_session(&format!("{}\n{copied}\n{usage}", header(serde_json::json!("cli"))), "s");
         assert!(!events[0].subagent);
         assert!(parse_session(&format!("{}\n{usage}", fork_header()), "child").iter().all(|e| e.subagent));
+        // A spawned child names its parent, whose login it runs on.
+        let spawned = header(serde_json::json!({"subagent":{"thread_spawn":{"parent_thread_id":"p"}}}));
+        assert_eq!(parse_session(&format!("{spawned}\n{usage}"), "s")[0].parent_session_id.as_deref(), Some("p"));
+        let review = header(serde_json::json!({"subagent":{"other":"guardian"}}));
+        assert_eq!(parse_session(&format!("{review}\n{usage}"), "s")[0].parent_session_id, None);
+        assert_eq!(parse_session(&format!("{}\n{copied}\n{usage}", header(serde_json::json!("cli"))), "s")[0].parent_session_id, None);
     }
 
     #[test]

@@ -37,6 +37,39 @@ pub(super) async fn login_hash(provider: &str, id: &str, home: &Path) -> Option<
     profile::team_identity_hash(provider, &storage::read_json(&home.join("auth.json")).ok()?)
 }
 
+/// Teams' usage-by-login split: remembers that `session_key` runs on this login from now on.
+/// Local only; the hash is the pool's, a Claude email stays here unless the team owner turned
+/// on Shared Claude accounts. Resolving the login runs Claude's own status command, so it
+/// happens in the background with the time taken now.
+pub(super) fn note_session_login(provider: &str, session_key: &str, assignment: &AccountAssignment) {
+    use crate::teams::login_spans;
+    let Some(pool) = login_spans::pool().cloned() else { return };
+    if login_spans::scan_provider(provider).is_none() || login_spans::session_key(session_key).is_none() { return; }
+    let from_ms = login_spans::now_ms();
+    let (provider, key) = (provider.to_string(), session_key.to_string());
+    let (id, home) = (assignment.account_id.clone(), assignment.home.clone());
+    tauri::async_runtime::spawn(async move {
+        let found = if provider == "claude" { claude_login(&id, &home).await } else { login_hash(&provider, &id, &home).await.map(|hash| (hash, None)) };
+        let Some((hash, label)) = found else {
+            tracing::debug!("teams: could not identify the {provider} login for a session; its usage stays unattributed");
+            return;
+        };
+        if let Err(error) = login_spans::record(&pool, &provider, &key, from_ms, &hash, label.as_deref()).await {
+            tracing::warn!("teams: could not record a session's login: {error}");
+        }
+    });
+}
+
+async fn claude_login(id: &str, home: &Path) -> Option<(String, Option<String>)> {
+    if let Ok(Some(meta)) = claude::status(home).await { return Some((claude_hash(&meta.identity), meta.email)); }
+    storage::load().ok().and_then(|s| s.claude_identities.get(id).cloned()).map(|identity| (claude_hash(&identity), None))
+}
+
+/// Whether any of this member's teams has Shared Claude accounts on, as last reported.
+pub async fn claude_sharing_on() -> bool {
+    state().lock().await.sent.values().any(|(claude, _)| *claude)
+}
+
 async fn collect(include_claude: bool) -> Vec<serde_json::Value> {
     let mut sessions: HashMap<String, (String, PathBuf, u32)> = HashMap::new();
     for binding in bindings().lock().await.values() {
@@ -151,5 +184,14 @@ mod tests {
         assert_eq!(claude_hash(identity), format!("{:x}", Sha256::digest(format!(r#"["claude",{}]"#, serde_json::json!(identity)).as_bytes())));
         assert_eq!(claude_hash(identity).len(), 64);
         assert_ne!(claude_hash(identity), claude_hash("claude:account-org:[\"b\",\"o\"]"));
+    }
+
+    /// Shared with agterm (docs/teams-usage-by-login.md): both apps must name a login alike.
+    #[test]
+    fn claude_hash_contract_vectors() {
+        let account = format!("claude:account-org:{}", serde_json::json!(["00000000-0000-4000-8000-000000000001", "org-example"]));
+        assert_eq!(claude_hash(&account), "16605ac4757244e77aa72283fbe8bee396257c66fe1171694ded5ca8cdd60f53");
+        let email = format!("claude:email-org:{}", serde_json::json!(["name@example.com", "org-example"]));
+        assert_eq!(claude_hash(&email), "5e0ed78b11a6da6d2e5f9d0fe0de3c50ba4c7f1c7bf777ea49903b9fa29ab391");
     }
 }

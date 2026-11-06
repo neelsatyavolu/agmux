@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
 
+use super::account_buckets::{AccountBucket, AccountLabel};
 use super::aggregate::{self, HourlyBucket};
 use super::secret_store;
 
@@ -19,6 +20,10 @@ pub const MAX_BACKOFF_STEP: i64 = (BACKOFF_SECONDS.len() - 1) as i64;
 /// Server rejects more than 2000 buckets per request (`metrics.ts` MAX_BUCKETS).
 /// Stay under that so a 90-day full resync still ships.
 pub const MAX_BUCKETS_PER_BATCH: usize = 1800;
+/// Same server cap for `accountBuckets`, counted separately.
+pub const MAX_ACCOUNT_BUCKETS_PER_BATCH: usize = 1800;
+/// Server cap for `accountLabels`.
+pub const MAX_ACCOUNT_LABELS: usize = 50;
 
 pub fn backoff_delay(step: i64) -> i64 {
     let idx = step.clamp(0, MAX_BACKOFF_STEP) as usize;
@@ -34,6 +39,27 @@ struct UploadPayload<'a> {
     /// managers can see which wall clock the flags were judged against.
     timezone: &'a str,
     buckets: &'a [HourlyBucket],
+    /// Usage split by login. Present (possibly empty) whenever this build
+    /// reports logins; absent for batches queued by an older build.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    account_buckets: Option<&'a [AccountBucket]>,
+    #[serde(skip_serializing_if = "<[AccountLabel]>::is_empty")]
+    account_labels: &'a [AccountLabel],
+    /// Lets the dashboard tell "this app does not report logins" from
+    /// "nothing attributed".
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    accounts_reported: bool,
+}
+
+/// The per-login part of one queued batch (`teams_upload_queue.accounts_json`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountPart {
+    #[serde(default)]
+    pub account_buckets: Vec<AccountBucket>,
+    /// Claude emails; only filled when a team owner turned on Shared Claude accounts.
+    #[serde(default)]
+    pub account_labels: Vec<AccountLabel>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,37 +106,52 @@ fn filter_uploadable(buckets: &[HourlyBucket]) -> Vec<HourlyBucket> {
         .collect()
 }
 
-/// Queues buckets in one or more batches under [`MAX_BUCKETS_PER_BATCH`].
-/// Empty authoritative snapshots still need an upload timestamp before pruning.
-pub async fn enqueue(pool: &SqlitePool, buckets: &[HourlyBucket]) -> Result<usize, String> {
+/// Queues buckets in one or more batches under [`MAX_BUCKETS_PER_BATCH`], with
+/// the snapshot's per-login part spread over the same batches: chunk `i` of
+/// each, labels on the first batch. `None` is a batch that says nothing about
+/// logins. Empty authoritative snapshots still need an upload timestamp before pruning.
+pub async fn enqueue_snapshot(pool: &SqlitePool, buckets: &[HourlyBucket], accounts: Option<&AccountPart>) -> Result<usize, String> {
     let expected = buckets.len();
     let buckets = filter_uploadable(buckets);
     if buckets.len() != expected {
         return Err("Teams snapshot contains an invalid provider; refusing a partial upload".into());
     }
-    if buckets.is_empty() {
-        enqueue_one(pool, &[]).await?;
-        return Ok(1);
+    let batches = split_batches(&buckets, accounts);
+    for (chunk, part) in &batches {
+        enqueue_one(pool, chunk, part.as_ref()).await?;
     }
-    let mut n = 0usize;
-    for chunk in buckets.chunks(MAX_BUCKETS_PER_BATCH) {
-        enqueue_one(pool, chunk).await?;
-        n += 1;
-    }
-    Ok(n)
+    Ok(batches.len())
 }
 
-async fn enqueue_one(pool: &SqlitePool, buckets: &[HourlyBucket]) -> Result<String, String> {
+/// Always at least one batch, so an empty snapshot is still stamped.
+fn split_batches<'a>(buckets: &'a [HourlyBucket], accounts: Option<&AccountPart>) -> Vec<(&'a [HourlyBucket], Option<AccountPart>)> {
+    let bucket_chunks: Vec<&[HourlyBucket]> = buckets.chunks(MAX_BUCKETS_PER_BATCH).collect();
+    let account_chunks: Vec<&[AccountBucket]> = accounts
+        .map(|a| a.account_buckets.chunks(MAX_ACCOUNT_BUCKETS_PER_BATCH).collect())
+        .unwrap_or_default();
+    let n = bucket_chunks.len().max(account_chunks.len()).max(1);
+    (0..n).map(|i| {
+        let part = accounts.map(|a| AccountPart {
+            account_buckets: account_chunks.get(i).map(|c| c.to_vec()).unwrap_or_default(),
+            account_labels: if i == 0 { a.account_labels.iter().take(MAX_ACCOUNT_LABELS).cloned().collect() } else { Vec::new() },
+        });
+        (bucket_chunks.get(i).copied().unwrap_or(&[]), part)
+    }).collect()
+}
+
+async fn enqueue_one(pool: &SqlitePool, buckets: &[HourlyBucket], accounts: Option<&AccountPart>) -> Result<String, String> {
     let batch_id = Uuid::new_v4().to_string();
     let payload = serde_json::to_string(buckets).map_err(|e| e.to_string())?;
-    let byte_size = payload.len() as i64;
+    let accounts_json = accounts.map(serde_json::to_string).transpose().map_err(|e| e.to_string())?;
+    let byte_size = (payload.len() + accounts_json.as_ref().map_or(0, String::len)) as i64;
 
     sqlx::query(
-        "INSERT INTO teams_upload_queue (batch_id, payload_json, bucket_count, byte_size, created_at)
-         VALUES (?, ?, ?, ?, datetime('now'))",
+        "INSERT INTO teams_upload_queue (batch_id, payload_json, accounts_json, bucket_count, byte_size, created_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now'))",
     )
     .bind(&batch_id)
     .bind(&payload)
+    .bind(&accounts_json)
     .bind(buckets.len() as i64)
     .bind(byte_size)
     .execute(pool)
@@ -150,7 +191,7 @@ pub async fn flush(pool: &SqlitePool) -> Result<FlushOutcome, String> {
     };
 
     let rows = sqlx::query(
-        "SELECT batch_id, payload_json, bucket_count FROM teams_upload_queue
+        "SELECT batch_id, payload_json, accounts_json, bucket_count FROM teams_upload_queue
          WHERE next_attempt_at IS NULL OR next_attempt_at <= datetime('now')
          ORDER BY created_at",
     )
@@ -170,10 +211,15 @@ pub async fn flush(pool: &SqlitePool) -> Result<FlushOutcome, String> {
         let batch_id: String = row.get("batch_id");
         let payload_json: String = row.get("payload_json");
         let bucket_count: i64 = row.get("bucket_count");
+        let accounts_json: Option<String> = row.get("accounts_json");
 
-        let buckets: Vec<HourlyBucket> = match serde_json::from_str::<Vec<HourlyBucket>>(&payload_json)
+        let parsed = serde_json::from_str::<Vec<HourlyBucket>>(&payload_json).and_then(|b| {
+            let accounts = accounts_json.as_deref().map(serde_json::from_str::<AccountPart>).transpose()?;
+            Ok((b, accounts))
+        });
+        let (buckets, accounts): (Vec<HourlyBucket>, Option<AccountPart>) = match parsed
         {
-            Ok(b) => filter_uploadable(&b),
+            Ok((b, accounts)) => (filter_uploadable(&b), accounts),
             Err(e) => {
                 // Unparseable payload can never succeed; drop it rather than
                 // wedging the queue forever.
@@ -186,7 +232,7 @@ pub async fn flush(pool: &SqlitePool) -> Result<FlushOutcome, String> {
                 continue;
             }
         };
-        if buckets.is_empty() && bucket_count > 0 {
+        if buckets.is_empty() && bucket_count > 0 && accounts.as_ref().is_none_or(|a| a.account_buckets.is_empty()) {
             // Only empty-provider poison rows — discard so the queue unblocks.
             let _ = sqlx::query("DELETE FROM teams_upload_queue WHERE batch_id = ?")
                 .bind(&batch_id)
@@ -200,7 +246,7 @@ pub async fn flush(pool: &SqlitePool) -> Result<FlushOutcome, String> {
         }
 
         let timezone = aggregate::system_tz_name();
-        match send(&client, &base, &creds.token, &batch_id, &timezone, &buckets).await {
+        match send(&client, &base, &creds.token, &batch_id, &timezone, &buckets, accounts.as_ref()).await {
             Ok(result) => {
                 sqlx::query("DELETE FROM teams_upload_queue WHERE batch_id = ?")
                     .bind(&batch_id)
@@ -292,6 +338,7 @@ async fn send(
     batch_id: &str,
     timezone: &str,
     buckets: &[HourlyBucket],
+    accounts: Option<&AccountPart>,
 ) -> Result<UploadResult, String> {
     let res = client
         .post(format!("{}/api/metrics/upload", base.trim_end_matches('/')))
@@ -300,6 +347,9 @@ async fn send(
             batch_id,
             timezone,
             buckets,
+            account_buckets: accounts.map(|a| a.account_buckets.as_slice()),
+            account_labels: accounts.map_or(&[], |a| a.account_labels.as_slice()),
+            accounts_reported: accounts.is_some(),
         })
         .send()
         .await
@@ -505,6 +555,9 @@ mod tests {
             batch_id: "b1",
             timezone: "Asia/Tokyo",
             buckets: &buckets,
+            account_buckets: None,
+            account_labels: &[],
+            accounts_reported: false,
         })
         .unwrap();
         assert!(json.contains("\"batchId\":\"b1\""));
@@ -531,6 +584,9 @@ mod tests {
             batch_id: "b1",
             timezone: "UTC",
             buckets: &buckets,
+            account_buckets: None,
+            account_labels: &[],
+            accounts_reported: false,
         })
         .unwrap();
         for field in [
@@ -557,6 +613,9 @@ mod tests {
             batch_id: "b1",
             timezone: "UTC",
             buckets: &buckets,
+            account_buckets: None,
+            account_labels: &[],
+            accounts_reported: false,
         })
         .unwrap();
         assert!(json.contains("\"approvalRequests\":4"), "{json}");
@@ -606,5 +665,53 @@ mod tests {
         let env: ApiEnvelope<UploadResult> = serde_json::from_str(raw).unwrap();
         assert!(!env.ok);
         assert!(env.error.unwrap().contains("linked desktop device token"));
+    }
+
+    fn account_bucket(hour: &str) -> AccountBucket {
+        AccountBucket { hour_utc: hour.into(), provider: "claude".into(), identity_hash: "a".repeat(64), tokens_in: 7, ..Default::default() }
+    }
+
+    #[test]
+    fn payload_carries_logins_only_from_builds_that_report_them() {
+        let buckets = vec![HourlyBucket { hour_utc: "2026-11-06T14".into(), provider: "ClaudeCode".into(), ..Default::default() }];
+        let part = AccountPart {
+            account_buckets: vec![account_bucket("2026-11-06T14")],
+            account_labels: vec![AccountLabel { provider: "claude".into(), identity_hash: "a".repeat(64), label: "name@example.com".into() }],
+        };
+        let json = serde_json::to_string(&UploadPayload {
+            batch_id: "b1", timezone: "UTC", buckets: &buckets,
+            account_buckets: Some(&part.account_buckets), account_labels: &part.account_labels, accounts_reported: true,
+        }).unwrap();
+        for field in ["\"accountBuckets\":[{", "\"identityHash\"", "\"accountLabels\":[{", "\"label\":\"name@example.com\"", "\"accountsReported\":true"] {
+            assert!(json.contains(field), "missing {field} in {json}");
+        }
+        let empty = serde_json::to_string(&UploadPayload {
+            batch_id: "b1", timezone: "UTC", buckets: &buckets, account_buckets: Some(&[]), account_labels: &[], accounts_reported: true,
+        }).unwrap();
+        assert!(empty.contains("\"accountBuckets\":[]") && !empty.contains("accountLabels"), "{empty}");
+        let old = serde_json::to_string(&UploadPayload {
+            batch_id: "b1", timezone: "UTC", buckets: &buckets, account_buckets: None, account_labels: &[], accounts_reported: false,
+        }).unwrap();
+        assert!(!old.contains("account"), "an older queued batch says nothing about logins: {old}");
+    }
+
+    #[test]
+    fn login_buckets_are_chunked_beside_the_regular_buckets_with_labels_once() {
+        let buckets = vec![HourlyBucket { provider: "Codex".into(), ..Default::default() }; MAX_BUCKETS_PER_BATCH + 1];
+        let part = AccountPart {
+            account_buckets: (0..MAX_ACCOUNT_BUCKETS_PER_BATCH * 2 + 1).map(|_| account_bucket("2026-11-06T14")).collect(),
+            account_labels: (0..MAX_ACCOUNT_LABELS + 5).map(|i| AccountLabel { provider: "claude".into(), identity_hash: format!("{i:064x}"), label: "x@example.com".into() }).collect(),
+        };
+        let batches = split_batches(&buckets, Some(&part));
+        assert_eq!(batches.len(), 3);
+        assert_eq!(batches.iter().map(|(b, _)| b.len()).collect::<Vec<_>>(), vec![MAX_BUCKETS_PER_BATCH, 1, 0]);
+        let parts: Vec<&AccountPart> = batches.iter().map(|(_, p)| p.as_ref().unwrap()).collect();
+        assert_eq!(parts.iter().map(|p| p.account_buckets.len()).collect::<Vec<_>>(), vec![MAX_ACCOUNT_BUCKETS_PER_BATCH, MAX_ACCOUNT_BUCKETS_PER_BATCH, 1]);
+        assert_eq!(parts.iter().map(|p| p.account_labels.len()).collect::<Vec<_>>(), vec![MAX_ACCOUNT_LABELS, 0, 0]);
+        // Empty snapshots still produce one batch, reporting logins when the build does.
+        let empty = split_batches(&[], Some(&AccountPart::default()));
+        assert_eq!(empty.len(), 1);
+        assert!(empty[0].1.is_some());
+        assert!(split_batches(&[], None)[0].1.is_none());
     }
 }
