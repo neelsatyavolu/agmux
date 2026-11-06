@@ -280,18 +280,6 @@ function validateAccountLabels(v: unknown): IncomingAccountLabel[] {
   });
 }
 
-/** Teams whose owner turned on Shared Claude accounts; only they may store Claude emails. */
-async function teamsSharingClaude(env: Env, teams: string[]): Promise<Set<string>> {
-  if (!teams.length) return new Set();
-  const rows = await env.DB.prepare(
-    `SELECT team_id FROM provider_account_settings
-      WHERE claude_activity = 1 AND team_id IN (${teams.map(() => "?").join(",")})`,
-  )
-    .bind(...teams)
-    .all<{ team_id: string }>();
-  return new Set(rows.results.map((r) => r.team_id));
-}
-
 /**
  * Applies a batch to every team the user is currently an active member of.
  * Fan-out is intentional: one upload feeds all memberships, and each team only
@@ -466,17 +454,18 @@ export async function applyUpload(
 
   const labels = payload.accountLabels ?? [];
   if (labels.length) {
-    const sharing = await teamsSharingClaude(env, teams);
+    // The sharing check runs inside the statement, in the same transaction as the write, so an
+    // owner turning sharing off (which deletes labels) can't be undone by an upload in flight.
     const labelUpsert = env.DB.prepare(
       `INSERT INTO account_labels (team_id, user_id, provider, identity_hash, label, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)
+       SELECT ?, ?, ?, ?, ?, ?
+        WHERE EXISTS (SELECT 1 FROM provider_account_settings WHERE team_id = ? AND claude_activity = 1)
        ON CONFLICT (team_id, user_id, provider, identity_hash)
        DO UPDATE SET label = excluded.label, updated_at = excluded.updated_at`,
     );
     for (const teamId of teams) {
-      if (!sharing.has(teamId)) continue;
       for (const l of labels) {
-        statements.push(labelUpsert.bind(teamId, userId, l.provider, l.identityHash, l.label, now));
+        statements.push(labelUpsert.bind(teamId, userId, l.provider, l.identityHash, l.label, now, teamId));
       }
     }
   }

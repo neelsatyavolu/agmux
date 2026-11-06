@@ -637,7 +637,16 @@ pool identity hash (Claude: `claude_hash` of `claude status`; Codex:
 `team_identity_hash` of the home's `auth.json`) in the background and writes a
 span to `teams_login_spans` (migration 047). Keys are normalized by
 `teams::login_spans::session_key` (`claude-sdk:{thread}:…` → thread;
-`#next-account` reservations skipped).
+`#next-account` reservations skipped). The span's time is taken before the
+background lookup, and every bind writes its own row (no "same login as last
+time" skip): lookups can finish out of order, so only the full set of
+timestamps orders an A → B → A switch. A login that cannot be identified
+writes `UNKNOWN_LOGIN` (empty hash), which ends the previous span instead of
+letting the old login absorb the new usage.
+
+Known gap: a session resumed under project auth or an unmanaged login skips
+`provider_accounts` entirely, so no boundary is written and its later usage
+still counts for the last recorded login.
 
 At sync, `login_spans::load_for` resolves each event's session through its
 native id, its owner (`session_origin_bindings`, `threads.sdk_session_id`) and

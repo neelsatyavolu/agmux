@@ -50,10 +50,10 @@ pub(super) fn note_session_login(provider: &str, session_key: &str, assignment: 
     let (id, home) = (assignment.account_id.clone(), assignment.home.clone());
     tauri::async_runtime::spawn(async move {
         let found = if provider == "claude" { claude_login(&id, &home).await } else { login_hash(&provider, &id, &home).await.map(|hash| (hash, None)) };
-        let Some((hash, label)) = found else {
+        let (hash, label) = found.unwrap_or_else(|| {
             tracing::debug!("teams: could not identify the {provider} login for a session; its usage stays unattributed");
-            return;
-        };
+            (login_spans::UNKNOWN_LOGIN.to_string(), None)
+        });
         if let Err(error) = login_spans::record(&pool, &provider, &key, from_ms, &hash, label.as_deref()).await {
             tracing::warn!("teams: could not record a session's login: {error}");
         }

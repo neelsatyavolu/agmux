@@ -63,7 +63,8 @@ pub fn wire_provider(provider: &str) -> Option<&'static str> {
 
 /// The login a session was on at `at`: the latest span starting at or before it.
 pub fn login_at(spans: &[LoginSpan], at: DateTime<Utc>) -> Option<&str> {
-    spans.iter().filter(|s| s.from <= at).max_by_key(|s| s.from).map(|s| s.identity_hash.as_str())
+    // An unknown boundary (`login_spans::UNKNOWN_LOGIN`) ends the previous login's span.
+    spans.iter().filter(|s| s.from <= at).max_by_key(|s| s.from).map(|s| s.identity_hash.as_str()).filter(|h| !h.is_empty())
 }
 
 type Key = (String, String, String); // (hour, wire provider, identity hash)

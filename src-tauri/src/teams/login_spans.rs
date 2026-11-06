@@ -50,23 +50,19 @@ fn clean_label(label: Option<&str>) -> Option<String> {
     (!label.is_empty() && label.chars().count() <= 120 && !label.chars().any(char::is_control)).then(|| label.to_string())
 }
 
-/// Starts a span at `from_ms` unless the session's latest earlier span is
-/// already this login (restarts and re-acquires of the same account).
+/// `identity_hash` of a boundary where the session's login could not be read:
+/// usage after it is not attributed rather than credited to the previous login.
+pub const UNKNOWN_LOGIN: &str = "";
+
+/// Starts a span at `from_ms`, the moment the session was bound. Every bind is
+/// its own boundary, even when the login repeats: logins are looked up in the
+/// background, so binds can be recorded out of order (A, then A again, then a
+/// late B between them), and only the full set of timestamps orders them.
+/// `hash` is a 64-hex identity or `UNKNOWN_LOGIN`.
 pub async fn record(pool: &SqlitePool, account_provider: &str, raw_key: &str, from_ms: i64, hash: &str, label: Option<&str>) -> Result<(), String> {
     let (Some(provider), Some(key)) = (scan_provider(account_provider), session_key(raw_key)) else { return Ok(()) };
-    if !valid_hash(hash) { return Err("invalid login identity hash".into()); }
-    let label = if provider == "ClaudeCode" { clean_label(label) } else { None };
-    let latest: Option<String> = sqlx::query_scalar(
-        "SELECT identity_hash FROM teams_login_spans WHERE provider=? AND session_key=? AND from_ms<=?
-         ORDER BY from_ms DESC LIMIT 1")
-        .bind(provider).bind(&key).bind(from_ms).fetch_optional(pool).await.map_err(|e| e.to_string())?;
-    if latest.as_deref() == Some(hash) {
-        if label.is_some() {
-            sqlx::query("UPDATE teams_login_spans SET label=? WHERE provider=? AND identity_hash=? AND (label IS NULL OR label<>?)")
-                .bind(&label).bind(provider).bind(hash).bind(&label).execute(pool).await.map_err(|e| e.to_string())?;
-        }
-        return Ok(());
-    }
+    if hash != UNKNOWN_LOGIN && !valid_hash(hash) { return Err("invalid login identity hash".into()); }
+    let label = if provider == "ClaudeCode" && hash != UNKNOWN_LOGIN { clean_label(label) } else { None };
     sqlx::query("INSERT OR REPLACE INTO teams_login_spans(provider,session_key,from_ms,identity_hash,label) VALUES (?,?,?,?,?)")
         .bind(provider).bind(&key).bind(from_ms).bind(hash).bind(&label)
         .execute(pool).await.map_err(|e| e.to_string())?;
@@ -94,7 +90,7 @@ pub async fn load_for(pool: &SqlitePool, events: &[UsageEvent]) -> Result<(Sessi
     let mut labels: HashMap<String, (i64, String)> = HashMap::new();
     for (provider, key, from_ms, hash, label) in rows {
         let Some(from) = Utc.timestamp_millis_opt(from_ms).single() else { continue };
-        if let (Some(label), "ClaudeCode") = (label, provider.as_str()) {
+        if let (Some(label), "ClaudeCode", false) = (label, provider.as_str(), hash == UNKNOWN_LOGIN) {
             let newer = labels.get(&hash).is_none_or(|(at, _)| *at < from_ms);
             if newer { labels.insert(hash.clone(), (from_ms, label)); }
         }
@@ -197,7 +193,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repeated_binds_to_the_same_login_keep_one_span_and_a_switch_adds_one() {
+    async fn every_bind_is_a_boundary_and_non_sessions_are_skipped() {
         let pool = db().await;
         record(&pool, "claude", "t1", 1_000, A, Some("one@example.com")).await.unwrap();
         record(&pool, "claude", "claude-sdk:t1:x", 2_000, A, Some("one@example.com")).await.unwrap();
@@ -207,7 +203,38 @@ mod tests {
         assert!(record(&pool, "codex", "t2", 5_000, "not-a-hash", None).await.is_err());
         let rows: Vec<(String, i64, String)> = sqlx::query_as("SELECT session_key,from_ms,identity_hash FROM teams_login_spans ORDER BY from_ms")
             .fetch_all(&pool).await.unwrap();
-        assert_eq!(rows, vec![("t1".into(), 1_000, A.into()), ("t1".into(), 3_000, B.into())]);
+        assert_eq!(rows, vec![("t1".into(), 1_000, A.into()), ("t1".into(), 2_000, A.into()), ("t1".into(), 3_000, B.into())]);
+    }
+
+    /// Logins resolve in the background, so a switch A → B → A can be recorded as
+    /// A(t0), A(t2), then B(t1). Usage after t2 must still be A's.
+    #[tokio::test]
+    async fn binds_recorded_out_of_order_still_attribute_by_time() {
+        use crate::teams::account_buckets::login_at;
+        let pool = db().await;
+        record(&pool, "codex", "t", 1_000, A, None).await.unwrap();
+        record(&pool, "codex", "t", 3_000, A, None).await.unwrap();
+        record(&pool, "codex", "t", 2_000, B, None).await.unwrap();
+        let (logins, _) = load_for(&pool, &[ev("Codex", "t")]).await.unwrap();
+        let spans = &logins[&("Codex".to_string(), "t".to_string())];
+        let at = |ms: i64| login_at(spans, Utc.timestamp_millis_opt(ms).unwrap()).map(str::to_string);
+        assert_eq!(at(1_500).as_deref(), Some(A));
+        assert_eq!(at(2_500).as_deref(), Some(B));
+        assert_eq!(at(3_500).as_deref(), Some(A));
+    }
+
+    /// A resume under a login that can't be read must not keep crediting the previous one.
+    #[tokio::test]
+    async fn an_unknown_login_ends_the_previous_span() {
+        use crate::teams::account_buckets::login_at;
+        let pool = db().await;
+        record(&pool, "claude", "t", 1_000, A, Some("a@example.com")).await.unwrap();
+        record(&pool, "claude", "t", 2_000, UNKNOWN_LOGIN, Some("ignored@example.com")).await.unwrap();
+        let (logins, labels) = load_for(&pool, &[ev("ClaudeCode", "t")]).await.unwrap();
+        let spans = &logins[&("ClaudeCode".to_string(), "t".to_string())];
+        assert_eq!(login_at(spans, Utc.timestamp_millis_opt(1_500).unwrap()), Some(A));
+        assert_eq!(login_at(spans, Utc.timestamp_millis_opt(2_500).unwrap()), None);
+        assert_eq!(labels.iter().map(|l| l.label.as_str()).collect::<Vec<_>>(), vec!["a@example.com"]);
     }
 
     #[tokio::test]
