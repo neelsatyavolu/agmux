@@ -202,7 +202,7 @@ if event == "stop":
 elif event == "pre-tool-use":
     # Do not return "ask" — that would force a prompt on every tool,
     # including workspace reads agy already auto-allows. Empty object
-    # leaves agy's own permission engine in charge; agmux detects the
+    # leaves the permission engine of agy in charge; agmux detects the
     # live Allow/Deny card from the PTY.
     sys.stdout.write("{}\n")
 elif event == "post-tool-use":
@@ -389,5 +389,36 @@ mod tests {
         assert!(AGY_HOOK_SCRIPT.contains("elif event == \"pre-tool-use\":"));
         assert!(!AGY_HOOK_SCRIPT.contains("{\\\"decision\\\":\\\"ask\\\"}"));
         assert!(agy_hooks_json("/h/agy-hook.sh").contains("pre-tool-use"));
+    }
+
+    // The Python body sits inside a bash single-quoted string, so an
+    // apostrophe anywhere in it truncates the program and every hook fails.
+    #[test]
+    fn agy_hook_script_runs_for_every_event() {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("agy-hook.sh");
+        fs::write(&script, AGY_HOOK_SCRIPT).unwrap();
+        for event in ["prompt-submit", "pre-tool-use", "post-tool-use", "stop"] {
+            let mut child = Command::new("bash")
+                .arg(&script)
+                .arg(event)
+                .env_remove("AGMUX_HOOK_SOCKET")
+                .env_remove("XANOM_HOOK_SOCKET")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap();
+            child.stdin.take().unwrap().write_all(b"{}").unwrap();
+            let out = child.wait_with_output().unwrap();
+            assert!(
+                out.status.success(),
+                "{event}: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            let _: Value = serde_json::from_slice(&out.stdout).unwrap();
+        }
     }
 }

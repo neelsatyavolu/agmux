@@ -30,6 +30,17 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 
+## v4.3.6 — 2026-11-06
+
+### Improved
+- **Agents know about your other sessions** — Claude, Codex and Grok sessions are now told they can see the other sessions in the project, ask one a question, or send it a note, so they use these without being asked. Needs Second opinions turned on.
+
+### Fixed
+- **Readable "Failed to start" message in light mode** — the error shown when a session can't start was pale pink on pink; it now uses clear, high-contrast text.
+- **Teams costs for the newest Claude models** — Claude Haiku 5.5 sessions now show a cost, including its higher rate for very long prompts, and Claude Sonnet 5.5 is no longer overcharged for reused context.
+- **GPT-6.1 Terra costs** — The Usage tab and Teams now show costs for GPT-6.1 Terra instead of leaving them out.
+- **Gemini terminal can use its tools again** — every file read, edit or command in a Gemini terminal stopped with an error from agmux's status helper. It works again.
+
 ## v4.3.5 — 2026-11-04
 
 ### Fixed

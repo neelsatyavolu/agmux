@@ -1016,15 +1016,15 @@ export function ThreadView({ thread, compact = false }: Props) {
         <div className={`flex flex-1 overflow-hidden ${compact ? "topbar-offset-row1" : "topbar-offset-full"}`}>
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {spawnError && (
-              <div className="flex items-start gap-2 border-b border-red-500/30 bg-red-950/20 px-4 py-3">
-                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-red-400" />
+              <div className="flex items-start gap-2 border-b border-[color-mix(in_srgb,var(--status-red)_30%,transparent)] bg-[var(--ui-red-soft)] px-4 py-3">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--status-red)]" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-red-400">Failed to start</p>
-                  <p className="mt-0.5 text-xs text-red-300/70">{spawnError}</p>
+                  <p className="text-sm font-medium text-[var(--status-red)]">Failed to start</p>
+                  <p className="mt-0.5 break-words text-xs text-[var(--text-secondary)]">{spawnError}</p>
                 </div>
                 <button
                   onClick={() => setSpawnError(null)}
-                  className="shrink-0 rounded p-1 text-red-400 hover:bg-red-500/10"
+                  className="shrink-0 rounded p-1 text-[var(--status-red)] hover:bg-[var(--ui-red-soft)]"
                 >
                   <X size={12} />
                 </button>
@@ -1240,15 +1240,15 @@ export function ThreadView({ thread, compact = false }: Props) {
         <div className="flex flex-1 flex-col overflow-hidden">
         {/* Spawn error banner */}
         {spawnError && (
-          <div className="flex items-start gap-2 border-b border-red-500/30 bg-red-950/20 px-4 py-3">
-            <AlertTriangle size={14} className="mt-0.5 shrink-0 text-red-400" />
+          <div className="flex items-start gap-2 border-b border-[color-mix(in_srgb,var(--status-red)_30%,transparent)] bg-[var(--ui-red-soft)] px-4 py-3">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--status-red)]" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-red-400">Failed to start</p>
-              <p className="mt-0.5 text-xs text-red-300/70">{spawnError}</p>
+              <p className="text-sm font-medium text-[var(--status-red)]">Failed to start</p>
+              <p className="mt-0.5 break-words text-xs text-[var(--text-secondary)]">{spawnError}</p>
             </div>
             <button
               onClick={() => setSpawnError(null)}
-              className="shrink-0 rounded p-1 text-red-400 hover:bg-red-500/10"
+              className="shrink-0 rounded p-1 text-[var(--status-red)] hover:bg-[var(--ui-red-soft)]"
             >
               <X size={12} />
             </button>

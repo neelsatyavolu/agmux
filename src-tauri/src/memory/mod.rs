@@ -2782,7 +2782,11 @@ pub fn session_instructions_with_project(
         }
         None => "--- BEGIN AGMUX MEMORY JSONL ---\n{\"unavailable\":true,\"hint\":\"call memory_list\"}\n--- END AGMUX MEMORY JSONL ---\n".to_string(),
     };
-    session_instructions_with_snapshot(project_id, repo_or_work_dir, snapshot)
+    let memory = session_instructions_with_snapshot(project_id, repo_or_work_dir, snapshot);
+    match crate::consult::session_instructions() {
+        Some(consult) => format!("{}\n\n{consult}\n", memory.trim_end()),
+        None => memory,
+    }
 }
 
 fn session_instructions_with_snapshot(

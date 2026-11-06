@@ -15,6 +15,14 @@ Run on a disposable macOS user account/test Mac, with test projects and provider
 
 Record failures and platform/provider coverage explicitly. Do not check off unperformed steps. Service changes (support schema and private attachment bucket) must be deployed before distributing a desktop that depends on them.
 
+## v4.3.6 — 2026-11-06
+
+Candidate from master `52458247` plus the Teams/Usage pricing fix (Claude Haiku 5.5 and its >100k-token rate, Claude Sonnet 5.5 cache reads, GPT-6.1 Terra), consult session instructions, the Gemini hook script fix, the light-mode "Failed to start" banner, and Claude Agent SDK 0.3.309 → 0.3.319 (release notes 0.3.310–0.3.319 reviewed: additive or parity-only; the removed `file_unchanged` Read output is not used). Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.5.
+
+Automated checks (pass): `npx tsc --noEmit`; `npm test` — 7196 passed, 14 skipped; `cd sidecar && npm test` — 323 passed; `cd src-tauri && cargo test -p xanom -- --test-threads=1` — 2518 passed, 27 ignored; analytics 29 and teams 423 tests and typechecks.
+
+Live checks: none. Installed-app fresh-install, provider conversations, upgrade/recovery, support and Intel acceptance were not exercised. Do not represent these automated checks as installed-app acceptance.
+
 ## v4.3.5 — 2026-11-04
 
 Candidate from `0679b6d8` (team sessions in agmux Teams and consult's team tools) on `2987fd17`, built in an isolated worktree to preserve unrelated local changes. Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.4.
