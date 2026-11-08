@@ -52,7 +52,13 @@ export function parseCookies(header: string | null): Record<string, string> {
   for (const part of header.split(";")) {
     const i = part.indexOf("=");
     if (i < 0) continue;
-    out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    const raw = part.slice(i + 1).trim();
+    // A malformed cookie (e.g. a stray `%` set by a sibling subdomain) must not 500 every request.
+    try {
+      out[part.slice(0, i).trim()] = decodeURIComponent(raw);
+    } catch {
+      out[part.slice(0, i).trim()] = raw;
+    }
   }
   return out;
 }

@@ -565,7 +565,12 @@ async function handleApi(req: Request, env: Env, path: string): Promise<Response
       methodMismatch = true;
       continue;
     }
-    const params = m.slice(1).map((v) => decodeURIComponent(v));
+    let params: string[];
+    try {
+      params = m.slice(1).map((v) => decodeURIComponent(v));
+    } catch {
+      throw new HttpError(400, "Malformed URL.", "bad_request");
+    }
     if (route.anonymous) return route.anonymous(req, env, params);
     const principal = await requirePrincipal(req, env);
     return route.handler(req, env, params, principal);

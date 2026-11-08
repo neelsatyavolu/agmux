@@ -133,13 +133,14 @@ export async function seedGithubUser(
   id: string,
   login: string,
   name = login,
+  githubId = `gh_${id}`,
 ): Promise<string> {
   await seedUser(env, id, name);
   await env.DB.prepare("UPDATE users SET handle = ? WHERE id = ?").bind(login, id).run();
   await env.DB.prepare(
     "INSERT INTO identities (provider, provider_user_id, user_id, created_at) VALUES ('github', ?, ?, ?)",
   )
-    .bind(`gh_${id}`, id, new Date().toISOString())
+    .bind(githubId, id, new Date().toISOString())
     .run();
   return id;
 }

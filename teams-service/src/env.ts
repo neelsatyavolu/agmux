@@ -24,6 +24,13 @@ export interface Env {
   GITHUB_APP_PRIVATE_KEY?: string;
   /** App slug for install URL: github.com/apps/{slug}/installations/new */
   GITHUB_APP_SLUG?: string;
+  /**
+   * GitHub App OAuth credentials. With "Request user authorization during
+   * installation" on, the install callback proves the installer owns the
+   * installation via `GET /user/installations`.
+   */
+  GITHUB_APP_CLIENT_ID?: string;
+  GITHUB_APP_CLIENT_SECRET?: string;
 
   /**
    * When "true", paywall/gates apply after trial. Default off until release.

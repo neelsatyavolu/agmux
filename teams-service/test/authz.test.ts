@@ -3,6 +3,7 @@ import { can, canViewMember, requireCapability, requireTeam, requireViewMember }
 import type { Role } from "../src/db";
 import { HttpError } from "../src/http";
 import { addMember, makeEnv, seedGithubUser, seedTeam, seedUser } from "./helpers/d1";
+const STAFF_GH_ID = "70348595";
 import { listTeams } from "../src/routes/teams";
 
 const ROLES: Role[] = ["owner", "manager", "employee"];
@@ -136,7 +137,7 @@ describe("platform staff preview", () => {
   it("lets the allowlisted GitHub login open a team they do not belong to", async () => {
     const env = makeEnv();
     await seedUser(env, "owner1");
-    await seedGithubUser(env, "neel", "neelsatyavolu");
+    await seedGithubUser(env, "neel", "neelsatyavolu", "neelsatyavolu", STAFF_GH_ID);
     await seedTeam(env, "tm1", "owner1", "Acme");
 
     const ctx = await requireTeam(env, "tm1", "neel", "cookie");
@@ -151,7 +152,7 @@ describe("platform staff preview", () => {
   it("does not widen desktop device tokens into other teams", async () => {
     const env = makeEnv();
     await seedUser(env, "owner1");
-    await seedGithubUser(env, "neel", "neelsatyavolu");
+    await seedGithubUser(env, "neel", "neelsatyavolu", "neelsatyavolu", STAFF_GH_ID);
     await seedTeam(env, "tm1", "owner1");
 
     await expect(requireTeam(env, "tm1", "neel", "device")).rejects.toMatchObject({ status: 404 });
@@ -169,9 +170,22 @@ describe("platform staff preview", () => {
     });
   });
 
+  it("does not grant any GitHub account whose handle was set to the staff login", async () => {
+    // A linked Google sign-in writes the email local part into users.handle,
+    // so handle equality must never confer staff access.
+    const env = makeEnv();
+    await seedUser(env, "owner1");
+    await seedGithubUser(env, "impostor", "neelsatyavolu", "Impostor", "99999999");
+    await seedTeam(env, "tm1", "owner1");
+
+    await expect(requireTeam(env, "tm1", "impostor", "cookie")).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+
   it("lists other teams for staff on the web, marked as preview", async () => {
     const env = makeEnv();
-    await seedGithubUser(env, "neel", "neelsatyavolu");
+    await seedGithubUser(env, "neel", "neelsatyavolu", "neelsatyavolu", STAFF_GH_ID);
     await seedUser(env, "owner1");
     await seedTeam(env, "tm-mine", "neel", "Mine");
     await seedTeam(env, "tm-other", "owner1", "Other Co");

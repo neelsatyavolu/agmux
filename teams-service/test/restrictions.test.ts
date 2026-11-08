@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { getPolicy, putPolicy } from "../src/routes/policy";
 import { addMember, makeEnv, seedGithubUser, seedTeam, seedUser } from "./helpers/d1";
+const STAFF_GH_ID = "70348595";
 
 const principal = (userId: string) => ({ userId, deviceId: null, via: "cookie" as const });
 const request = (body: unknown) => new Request("https://teams.test/api/teams/team/policy", { method: "PUT", body: JSON.stringify(body) });
@@ -75,7 +76,7 @@ it("does not apply manager restrictions to owners or peers explicitly assigned t
 
 it("rejects employee and staff writes and all owner-only fields from managers", async () => {
   const env = await fixture();
-  await seedGithubUser(env, "staff", "neelsatyavolu");
+  await seedGithubUser(env, "staff", "neelsatyavolu", "neelsatyavolu", STAFF_GH_ID);
   expect(await get(env, "staff")).toMatchObject({ canManage: false, editablePolicy: null });
   for (const id of ["employee", "staff"]) await expect(put(env, id, { allowedModes: [] })).rejects.toThrow();
   for (const key of ["spendHardStopUsd", "defaultPermissionMode", "mcpAllowlist"]) await expect(put(env, "manager", { [key]: null })).rejects.toThrow("Only owners");

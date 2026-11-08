@@ -129,7 +129,7 @@ export async function fetchProfile(
     providerUserId: u.sub,
     displayName: u.name || u.email || "agmux user",
     email: u.email_verified ? (u.email ?? null) : null,
-    handle: u.email ? u.email.split("@")[0]! : null,
+    handle: u.email && u.email_verified ? u.email.split("@")[0]! : null,
     avatarUrl: sanitizeAvatarUrl(u.picture),
   };
 }

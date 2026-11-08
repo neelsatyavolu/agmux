@@ -296,9 +296,9 @@ export async function applyUpload(
   const { allowed: teams, skipped: teamsSkipped } = await filterUploadTeamIds(env, allTeamIds);
 
   const existing = await env.DB.prepare(
-    "SELECT bucket_count, accepted_at FROM upload_receipts WHERE device_id = ? AND batch_id = ?",
+    "SELECT bucket_count, accepted_at FROM upload_receipts WHERE device_id = ? AND batch_id = ? AND user_id = ?",
   )
-    .bind(deviceId, payload.batchId)
+    .bind(deviceId, payload.batchId, userId)
     .first<{ bucket_count: number; accepted_at: string }>();
   if (existing) {
     // Already applied. Acknowledge so the desktop can drop it from the queue.

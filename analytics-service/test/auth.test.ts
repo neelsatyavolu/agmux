@@ -45,6 +45,31 @@ describe("auth", () => {
     expect(res.status).toBe(403);
   });
 
+  it("caps password attempts per IP per hour", async () => {
+    const env = makeEnv({ OWNER_PASSWORD: "hunter2" });
+    const attempt = (password: string) =>
+      worker.fetch(
+        new Request("https://owner.agmux.dev/api/auth/password", {
+          method: "POST",
+          headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.9" },
+          body: JSON.stringify({ password }),
+        }),
+        env,
+      );
+    for (let i = 0; i < 10; i++) expect((await attempt("nope")).status).toBe(403);
+    expect((await attempt("nope")).status).toBe(429);
+    expect((await attempt("hunter2")).status).toBe(429);
+  });
+
+  it("ignores a malformed cookie instead of failing the request", async () => {
+    const env = makeEnv({ OWNER_PASSWORD: "hunter2" });
+    const res = await worker.fetch(
+      new Request("https://owner.agmux.dev/api/auth/me", { headers: { cookie: "junk=%E0%A4%A; other=1" } }),
+      env,
+    );
+    expect(res.status).toBeLessThan(500);
+  });
+
   it("dev login is 404/400 when DEV_AUTH is off", async () => {
     const env = makeEnv();
     const res = await worker.fetch(
@@ -52,5 +77,16 @@ describe("auth", () => {
       env,
     );
     expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+});
+
+describe("safeNext", () => {
+  it("keeps same-origin paths and rejects off-origin redirects", async () => {
+    const { safeNext } = await import("../src/routes/auth");
+    expect(safeNext("/dashboard?x=1")).toBe("/dashboard?x=1");
+    expect(safeNext("//evil.example")).toBe("/");
+    expect(safeNext("/\\evil.example")).toBe("/");
+    expect(safeNext("https://evil.example")).toBe("/");
+    expect(safeNext(null)).toBe("/");
   });
 });

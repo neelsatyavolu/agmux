@@ -11,6 +11,14 @@ import type { Principal } from "../session";
 import { authenticate } from "../session";
 import { writeAudit } from "./audit";
 import {
+  checkInstallOwnership,
+  githubAppUserAuthConfigured,
+  userInstallationIds,
+  type GhInstallation,
+  type InstallProof,
+  type OwnershipError,
+} from "../leaderboard/installVerify";
+import {
   DEFAULT_THRESHOLDS,
   DEFAULT_WEIGHTS,
   isComplexityOrg,
@@ -255,7 +263,12 @@ export async function installCallback(req: Request, env: Env): Promise<Response>
     const ctx = await requireTeam(env, blob.teamId, principal.userId, principal.via);
     if (!can(ctx.role, "leaderboard.manage")) throw forbidden();
     await requirePaidPlanFeatures(env, ctx.team, "write");
+    if (!/^\d{1,20}$/.test(installationId)) throw badRequest("Invalid installation.");
     const inst = await getInstallation(env, installationId);
+    const failure = await verifyInstallOwnership(env, url, inst, ctx.team.id, principal.userId);
+    if (failure) {
+      return redirect(`${env.APP_ORIGIN}/#/teams?lb=${failure}`);
+    }
     await ensureSettings(env, ctx.team.id);
     await env.DB.prepare(
       `UPDATE team_leaderboard_settings
@@ -281,6 +294,42 @@ export async function installCallback(req: Request, env: Env): Promise<Response>
   } catch {
     return redirect(`${env.APP_ORIGIN}/#/teams?lb=install_failed`);
   }
+}
+
+async function verifyInstallOwnership(
+  env: Env,
+  callbackUrl: URL,
+  inst: GhInstallation,
+  teamId: string,
+  userId: string,
+): Promise<OwnershipError | null> {
+  let proof: InstallProof = { kind: "none" };
+  if (githubAppUserAuthConfigured(env)) {
+    const code = callbackUrl.searchParams.get("code");
+    if (!code) return "install_verify";
+    try {
+      proof = { kind: "user_installations", ids: await userInstallationIds(env, code) };
+    } catch {
+      return "install_verify";
+    }
+  }
+  const other = await env.DB.prepare(
+    "SELECT 1 AS hit FROM team_leaderboard_settings WHERE github_installation_id = ? AND team_id <> ? LIMIT 1",
+  )
+    .bind(String(inst.id), teamId)
+    .first<{ hit: number }>();
+  const { results } = await env.DB.prepare(
+    "SELECT provider_user_id FROM identities WHERE user_id = ? AND provider = 'github'",
+  )
+    .bind(userId)
+    .all<{ provider_user_id: string }>();
+  return checkInstallOwnership({
+    installation: inst,
+    proof,
+    principalGithubIds: (results ?? []).map((r) => String(r.provider_user_id)),
+    linkedToOtherTeam: Boolean(other),
+    nowMs: Date.now(),
+  });
 }
 
 export async function getRepos(

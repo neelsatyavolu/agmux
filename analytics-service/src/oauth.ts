@@ -28,7 +28,7 @@ export function authorizeUrl(env: Env, state: string): string {
   return `https://github.com/login/oauth/authorize?${p}`;
 }
 
-export async function fetchGithubLogin(env: Env, code: string): Promise<string> {
+export async function fetchGithubUser(env: Env, code: string): Promise<{ login: string; id: number }> {
   const { id, secret } = creds(env);
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
@@ -48,7 +48,7 @@ export async function fetchGithubLogin(env: Env, code: string): Promise<string> 
     headers: { authorization: `Bearer ${tokenBody.access_token}`, "user-agent": "agmux-owner" },
   });
   if (!userRes.ok) throw badRequest("Couldn't read your GitHub profile.");
-  const u = (await userRes.json()) as { login?: string };
-  if (!u.login) throw badRequest("GitHub profile had no login.");
-  return u.login;
+  const u = (await userRes.json()) as { login?: string; id?: number };
+  if (!u.login || typeof u.id !== "number") throw badRequest("GitHub profile had no login.");
+  return { login: u.login, id: u.id };
 }

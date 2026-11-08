@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import worker from "../src/index";
 import { makeEnv, seedUser, seedTeam, addMember, seedGithubUser } from "./helpers/d1";
+const STAFF_GH_ID = "70348595";
 import { createDeviceToken, createSession } from "../src/session";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
@@ -18,7 +19,7 @@ async function fixture() {
   for (const id of ["owner", "manager", "employee", "other", "peer"]) tokens[id] = await createDeviceToken(env, id, `${id}-device`, null);
   tokens.secondDevice = await createDeviceToken(env, "employee", "second-device", null);
   tokens.cookie = await createSession(env, "employee");
-  await seedGithubUser(env, "staff", "neelsatyavolu");
+  await seedGithubUser(env, "staff", "neelsatyavolu", "neelsatyavolu", STAFF_GH_ID);
   tokens.staff = await createSession(env, "staff");
   async function call(who: string, method = "GET", suffix = "", body?: unknown, team = "team") {
     const headers: Record<string, string> = who === "staff" || who === "cookie" ? { cookie: `__Host-agmux_teams=${tokens[who]}` } : { authorization: `Bearer ${tokens[who]}` };

@@ -6,6 +6,7 @@
  * instead of per-repo pagination or N+1 REST detail fetches.
  */
 import type { Env } from "../env";
+import type { GhInstallation } from "./installVerify";
 import { HttpError } from "../http";
 
 const b64url = (data: ArrayBuffer | Uint8Array | string): string => {
@@ -426,7 +427,7 @@ export async function listInstallationRepos(
 export async function getInstallation(
   env: Env,
   installationId: string,
-): Promise<{ id: number; account: { login: string; type: string } }> {
+): Promise<GhInstallation> {
   const jwt = await appJwt(env);
   const res = await fetch(`https://api.github.com/app/installations/${installationId}`, {
     headers: {
@@ -439,7 +440,7 @@ export async function getInstallation(
   if (!res.ok) {
     throw new HttpError(502, `GitHub installation lookup failed (${res.status}).`, "github_install_failed");
   }
-  return (await res.json()) as { id: number; account: { login: string; type: string } };
+  return (await res.json()) as GhInstallation;
 }
 
 export function isBotUser(user: { login: string; type?: string } | null): boolean {
