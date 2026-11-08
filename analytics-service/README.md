@@ -14,6 +14,25 @@ version, arch, release/dev channel.
 **Events (counters only):** `thread_created` `{provider, interactionMode}` and
 `app_mode` `{mode}`. Unknown names and extra props are dropped.
 
+**agterm** reports here too, with `"app": "agterm"` on every body (a body
+without `app` is agmux). Its heartbeat is the same shape; its events go in
+batches to `POST /v1/events` (`{install_id, app, events: [{name, props}]}`, at
+most 100): `agent_started` `{agent}` (an agterm AgentKind id) and
+`feature_used` `{feature}` (`split`, `command_bar`, `cloud_tab`,
+`phone_paired`, `update_installed`). Each app has its own event names, so
+counters never mix. `GET /api/summary?app=agterm` returns agterm's numbers;
+without `app` it returns agmux's, as before. Adding an agent or feature to
+agterm means adding it to `AGTERM_AGENTS` / `AGTERM_FEATURES` in
+`src/validate.ts`; until then the server drops it.
+
+To turn this on for an existing database:
+
+```sh
+npx wrangler d1 execute agmux-owner --remote --file=./migrations/0003_app.sql
+npm run typecheck && npm test
+npx wrangler deploy
+```
+
 ## Auth
 
 The dashboard is owner-only:

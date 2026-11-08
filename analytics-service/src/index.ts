@@ -3,6 +3,7 @@
  *
  *   POST /v1/heartbeat   anonymous install ping
  *   POST /v1/event       allowlisted product event
+ *   POST /v1/events      a batch of allowlisted events (agterm)
  *   GET  /api/summary    owner-only dashboard payload
  *   /api/auth/*          GitHub / password / dev sign-in
  *   /*                   SPA in ./web
@@ -16,6 +17,7 @@ import { requirePrincipal } from "./session";
 import * as auth from "./routes/auth";
 import { heartbeat } from "./routes/heartbeat";
 import { event } from "./routes/event";
+import { events } from "./routes/events";
 import { summary } from "./routes/summary";
 
 type Anon = (req: Request, env: Env) => Promise<Response>;
@@ -61,6 +63,7 @@ const ROUTES: Route[] = [
   },
   { method: "POST", pattern: /^\/v1\/heartbeat$/, anonymous: heartbeat },
   { method: "POST", pattern: /^\/v1\/event$/, anonymous: event },
+  { method: "POST", pattern: /^\/v1\/events$/, anonymous: events },
   { method: "GET", pattern: /^\/api\/summary$/, handler: summary },
 ];
 

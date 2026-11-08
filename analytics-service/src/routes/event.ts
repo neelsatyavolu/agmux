@@ -11,6 +11,6 @@ export async function event(req: Request, env: Env): Promise<Response> {
   } catch (e) {
     throw badRequest(e instanceof Error ? e.message : "Invalid event.");
   }
-  await recordEvent(env, payload.installId, payload.name, payload.dims);
+  await recordEvent(env, payload.installId, payload.name, payload.dims, payload.app);
   return empty(204);
 }

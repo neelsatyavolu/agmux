@@ -11,17 +11,20 @@ CREATE TABLE IF NOT EXISTS installs (
   os_name TEXT,
   os_version TEXT,
   arch TEXT,
-  channel TEXT
+  channel TEXT,
+  app TEXT NOT NULL DEFAULT 'agmux'
 );
 
 CREATE TABLE IF NOT EXISTS daily_active (
   day TEXT NOT NULL,
   install_id TEXT NOT NULL,
   app_version TEXT,
+  app TEXT NOT NULL DEFAULT 'agmux',
   PRIMARY KEY (day, install_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_daily_active_day ON daily_active(day);
+CREATE INDEX IF NOT EXISTS idx_daily_active_app_day ON daily_active(app, day);
 
 CREATE TABLE IF NOT EXISTS daily_events (
   day TEXT NOT NULL,

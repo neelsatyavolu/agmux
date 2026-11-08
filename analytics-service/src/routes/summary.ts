@@ -1,6 +1,6 @@
 import type { Env } from "../env";
 import { json } from "../http";
-import { utcDay } from "../validate";
+import { EVENT_NAMES_BY_APP, utcDay, type App } from "../validate";
 
 const ALLOWED_DAYS = new Set([7, 30, 90]);
 
@@ -19,6 +19,10 @@ export async function summary(req: Request, env: Env): Promise<Response> {
   const wauSince = daysAgo(7);
   const mauSince = daysAgo(28);
   const asOf = new Date().toISOString();
+  // ?app=agterm shows agterm; anything else (or nothing) shows agmux, as before.
+  const app: App = url.searchParams.get("app") === "agterm" ? "agterm" : "agmux";
+  const names = [...EVENT_NAMES_BY_APP[app]];
+  const inNames = names.map(() => "?").join(", ");
 
   const [
     installsTotal,
@@ -31,41 +35,53 @@ export async function summary(req: Request, env: Env): Promise<Response> {
     events,
     eventDims,
   ] = await Promise.all([
-    env.DB.prepare("SELECT COUNT(*) AS n FROM installs").first<{ n: number }>(),
-    env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM installs WHERE substr(first_seen_at, 1, 10) >= ?",
-    )
-      .bind(since)
+    env.DB.prepare("SELECT COUNT(*) AS n FROM installs WHERE app = ?")
+      .bind(app)
       .first<{ n: number }>(),
     env.DB.prepare(
-      "SELECT day, COUNT(*) AS count FROM daily_active WHERE day >= ? GROUP BY day ORDER BY day",
+      "SELECT COUNT(*) AS n FROM installs WHERE app = ? AND substr(first_seen_at, 1, 10) >= ?",
     )
-      .bind(since)
+      .bind(app, since)
+      .first<{ n: number }>(),
+    env.DB.prepare(
+      "SELECT day, COUNT(*) AS count FROM daily_active WHERE app = ? AND day >= ? GROUP BY day ORDER BY day",
+    )
+      .bind(app, since)
       .all<{ day: string; count: number }>(),
-    env.DB.prepare("SELECT COUNT(DISTINCT install_id) AS n FROM daily_active WHERE day >= ?")
-      .bind(wauSince)
+    env.DB.prepare(
+      "SELECT COUNT(DISTINCT install_id) AS n FROM daily_active WHERE app = ? AND day >= ?",
+    )
+      .bind(app, wauSince)
       .first<{ n: number }>(),
-    env.DB.prepare("SELECT COUNT(DISTINCT install_id) AS n FROM daily_active WHERE day >= ?")
-      .bind(mauSince)
+    env.DB.prepare(
+      "SELECT COUNT(DISTINCT install_id) AS n FROM daily_active WHERE app = ? AND day >= ?",
+    )
+      .bind(app, mauSince)
       .first<{ n: number }>(),
     env.DB.prepare(
       `SELECT last_app_version AS app_version, COUNT(*) AS count
-       FROM installs GROUP BY last_app_version ORDER BY count DESC LIMIT 20`,
-    ).all<{ app_version: string | null; count: number }>(),
+       FROM installs WHERE app = ? GROUP BY last_app_version ORDER BY count DESC LIMIT 20`,
+    )
+      .bind(app)
+      .all<{ app_version: string | null; count: number }>(),
     env.DB.prepare(
       `SELECT os_name, os_version, COUNT(*) AS count
-       FROM installs GROUP BY os_name, os_version ORDER BY count DESC LIMIT 20`,
-    ).all<{ os_name: string | null; os_version: string | null; count: number }>(),
-    env.DB.prepare(
-      "SELECT day, name, count FROM daily_events WHERE day >= ? ORDER BY day, name",
+       FROM installs WHERE app = ? GROUP BY os_name, os_version ORDER BY count DESC LIMIT 20`,
     )
-      .bind(since)
+      .bind(app)
+      .all<{ os_name: string | null; os_version: string | null; count: number }>(),
+    env.DB.prepare(
+      `SELECT day, name, count FROM daily_events
+       WHERE day >= ? AND name IN (${inNames}) ORDER BY day, name`,
+    )
+      .bind(since, ...names)
       .all<{ day: string; name: string; count: number }>(),
     env.DB.prepare(
       `SELECT day, name, dim_key, dim_value, count
-       FROM daily_event_dims WHERE day >= ? ORDER BY day, name, dim_key, count DESC`,
+       FROM daily_event_dims WHERE day >= ? AND name IN (${inNames})
+       ORDER BY day, name, dim_key, count DESC`,
     )
-      .bind(since)
+      .bind(since, ...names)
       .all<{ day: string; name: string; dim_key: string; dim_value: string; count: number }>(),
   ]);
 
@@ -78,6 +94,7 @@ export async function summary(req: Request, env: Env): Promise<Response> {
 
   return json({
     asOf,
+    app,
     days,
     installsTotal: Number(installsTotal?.n ?? 0),
     installsNew: Number(installsNew?.n ?? 0),
