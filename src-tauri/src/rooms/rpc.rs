@@ -19,7 +19,7 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Notify;
 
@@ -99,11 +99,21 @@ impl RoomRpcServer {
     }
 }
 
+/// Room/session RPC requests are small JSON objects (messages are capped well below this).
+const MAX_RPC_LINE_BYTES: usize = 8 * 1024 * 1024;
+
 async fn handle_connection(stream: UnixStream, app: AppHandle) {
     let (read_half, mut write_half) = stream.into_split();
-    let mut lines = BufReader::new(read_half).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
-        let line = line.trim().to_string();
+    let mut reader = BufReader::new(read_half);
+    loop {
+        let line = match crate::line_reader::read_bounded_line(&mut reader, MAX_RPC_LINE_BYTES).await {
+            Ok(crate::line_reader::BoundedLine::Line(line)) => line.trim().to_string(),
+            Ok(crate::line_reader::BoundedLine::TooLong) => {
+                tracing::warn!("Room RPC: dropping connection, request over {MAX_RPC_LINE_BYTES} bytes");
+                break;
+            }
+            Ok(crate::line_reader::BoundedLine::Eof) | Err(_) => break,
+        };
         if line.is_empty() {
             continue;
         }

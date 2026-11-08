@@ -3240,7 +3240,7 @@ mod live_sessions {
             .expect("timeline");
         eprintln!(
             "live_discovered: sid={} entries={}",
-            &sid[..8.min(sid.len())],
+            crate::text::byte_prefix(&sid, 8),
             entries.len()
         );
         assert!(
@@ -3311,7 +3311,7 @@ mod live_sessions {
             .expect("timeline");
         eprintln!(
             "live_discovered_codex: sid={} entries={}",
-            &sid[..8.min(sid.len())],
+            crate::text::byte_prefix(&sid, 8),
             entries.len()
         );
         assert!(
@@ -3522,7 +3522,7 @@ mod live_sessions {
                     reports.push(format!(
                         "OK {} id={} entries={} {}ms kinds={:?} sample={:?}",
                         spec.label,
-                        &thread.id[..8.min(thread.id.len())],
+                        crate::text::byte_prefix(&thread.id, 8),
                         entries.len(),
                         ms,
                         kinds.iter().take(8).collect::<Vec<_>>(),

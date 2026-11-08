@@ -464,7 +464,7 @@ pub async fn spawn_pty_session(
     crate::teams::policy::refresh_for_execution().await.map_err(anyhow::Error::msg)?;
     crate::teams::policy::enforce_session(policy_provider, "terminal").map_err(anyhow::Error::msg)?;
     let t_total = std::time::Instant::now();
-    let tid = &thread_id[..8.min(thread_id.len())];
+    let tid = crate::text::byte_prefix(&thread_id, 8);
 
     // Materialize project memory (JSON + MEMORY.md) so every PTY agent can
     // Read `.agmux/MEMORY.md` in the work dir / repo without MCP.
@@ -707,7 +707,7 @@ pub async fn spawn_pty_session(
                 } else {
                     tracing::warn!(
                         "[spawn-timing {tid}] Claude session {} has no conversation; skipping --resume",
-                        &session_id[..8.min(session_id.len())]
+                        crate::text::byte_prefix(&session_id, 8)
                     );
                 }
             }
@@ -836,12 +836,12 @@ pub async fn spawn_pty_session(
                         resuming_pi = true;
                         tracing::info!(
                             "[spawn-timing {tid}] Pi --session {}",
-                            &pi_session_id[..8.min(pi_session_id.len())]
+                            crate::text::byte_prefix(&pi_session_id, 8)
                         );
                     } else {
                         tracing::warn!(
                             "[spawn-timing {tid}] Stored Pi session {} no longer exists; skipping --session",
-                            &pi_session_id[..8.min(pi_session_id.len())]
+                            crate::text::byte_prefix(&pi_session_id, 8)
                         );
                         let _ = std::fs::remove_file(dir.join("pi-session-id.txt"));
                     }
@@ -899,12 +899,12 @@ pub async fn spawn_pty_session(
                         cmd.arg(&droid_session_id);
                         tracing::info!(
                             "[spawn-timing {tid}] Droid --resume {}",
-                            &droid_session_id[..8.min(droid_session_id.len())]
+                            crate::text::byte_prefix(&droid_session_id, 8)
                         );
                     } else {
                         tracing::warn!(
                             "[spawn-timing {tid}] Stored Droid session {} no longer exists on disk; skipping --resume",
-                            &droid_session_id[..8.min(droid_session_id.len())]
+                            crate::text::byte_prefix(&droid_session_id, 8)
                         );
                         let _ = std::fs::remove_file(dir.join("droid-session-id.txt"));
                     }
@@ -958,7 +958,7 @@ pub async fn spawn_pty_session(
                     cmd.arg(&sid);
                     tracing::info!(
                         "[spawn-timing {tid}] Cline --id {}",
-                        &sid[..8.min(sid.len())]
+                        crate::text::byte_prefix(&sid, 8)
                     );
                 } else {
                     return Err(anyhow::anyhow!("The saved Cline conversation is missing. Start a new thread to create another conversation."));
@@ -1016,7 +1016,7 @@ pub async fn spawn_pty_session(
             if let Some(ref sid) = resume {
                 tracing::info!(
                     "[spawn-timing {tid}] Gemini --conversation {}",
-                    &sid[..8.min(sid.len())]
+                    crate::text::byte_prefix(&sid, 8)
                 );
             } else {
                 agy_capture = Some((
@@ -1060,7 +1060,7 @@ pub async fn spawn_pty_session(
                     cmd.arg(&sid);
                     tracing::info!(
                         "[spawn-timing {tid}] Hermes --resume {}",
-                        &sid[..8.min(sid.len())]
+                        crate::text::byte_prefix(&sid, 8)
                     );
                 } else {
                     crate::process::hermes_session::remove_session_id(&thread_state_dir);
@@ -1087,7 +1087,7 @@ pub async fn spawn_pty_session(
                     cmd.arg(&sid);
                     tracing::info!(
                         "[spawn-timing {tid}] Muse resume {}",
-                        &sid[..8.min(sid.len())]
+                        crate::text::byte_prefix(&sid, 8)
                     );
                 } else {
                     crate::process::muse_session::remove_session_id(&thread_state_dir);
@@ -1134,12 +1134,12 @@ pub async fn spawn_pty_session(
                         cmd.arg(&kimi_session_id);
                         tracing::info!(
                             "[spawn-timing {tid}] Kimi -S {}",
-                            &kimi_session_id[..8.min(kimi_session_id.len())]
+                            crate::text::byte_prefix(&kimi_session_id, 8)
                         );
                     } else {
                         tracing::warn!(
                             "[spawn-timing {tid}] Stored Kimi session {} no longer exists on disk; skipping -S",
-                            &kimi_session_id[..8.min(kimi_session_id.len())]
+                            crate::text::byte_prefix(&kimi_session_id, 8)
                         );
                         let _ = std::fs::remove_file(dir.join("kimi-session-id.txt"));
                     }
@@ -1184,7 +1184,7 @@ pub async fn spawn_pty_session(
                     cmd.arg(&session_id);
                     tracing::info!(
                         "[spawn-timing {tid}] OpenCode --session {}",
-                        &session_id[..8.min(session_id.len())]
+                        crate::text::byte_prefix(&session_id, 8)
                     );
                 }
             }
@@ -1233,12 +1233,12 @@ pub async fn spawn_pty_session(
                     resuming_grok = true;
                     tracing::info!(
                         "[spawn-timing {tid}] Grok --resume {}",
-                        &session_id[..8.min(session_id.len())]
+                        crate::text::byte_prefix(&session_id, 8)
                     );
                 } else {
                     tracing::warn!(
                         "[spawn-timing {tid}] Grok session {} not found on disk; skipping --resume",
-                        &session_id[..8.min(session_id.len())]
+                        crate::text::byte_prefix(&session_id, 8)
                     );
                 }
             }

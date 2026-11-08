@@ -205,6 +205,11 @@ fn run_admin_shell(script: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(bytes))
+}
+
 fn shell_single_quote(s: &str) -> String {
     // Safe single-quote wrap for embedding in sh: 'foo'\''bar'
     format!("'{}'", s.replace('\'', "'\\''"))
@@ -286,26 +291,39 @@ pub async fn install_closed_lid_helper() -> Result<ClosedLidHelperStatus, String
          # Do not edit; reinstall or uninstall from agmux Settings.\n\
          {user} ALL=(root) NOPASSWD: {HELPER_PATH}\n"
     );
-    std::fs::write(&tmp_sudoers, sudoers_body)
+    std::fs::write(&tmp_sudoers, &sudoers_body)
         .map_err(|e| format!("failed to write temp sudoers: {e}"))?;
 
     let th = shell_single_quote(&tmp_helper.to_string_lossy());
     let ts = shell_single_quote(&tmp_sudoers.to_string_lossy());
     let hp = shell_single_quote(HELPER_PATH);
     let sp = shell_single_quote(SUDOERS_PATH);
+    // Staging names: sudo ignores sudoers.d files containing '.', and the
+    // helper is not reachable at HELPER_PATH until it has been verified.
+    let hp_new = shell_single_quote(&format!("{HELPER_PATH}.agmux-new"));
+    let sp_new = shell_single_quote(&format!("{SUDOERS_PATH}.agmux-new"));
+    // The temp files are user-writable while the admin prompt is open, so the
+    // root side re-checks the copied bytes against these hashes before
+    // anything becomes executable via NOPASSWD sudo.
+    let helper_sha = sha256_hex(HELPER_SCRIPT.as_bytes());
+    let sudoers_sha = sha256_hex(sudoers_body.as_bytes());
 
-    // Validate sudoers *before* installing so a bad file never lands in /etc.
     let install_script = format!(
         "set -euo pipefail; \
-         /usr/sbin/visudo -cf {ts}; \
          /bin/mkdir -p /Library/PrivilegedHelperTools; \
-         /bin/cp {th} {hp}; \
-         /usr/sbin/chown root:wheel {hp}; \
-         /bin/chmod 755 {hp}; \
-         /bin/cp {ts} {sp}; \
-         /usr/sbin/chown root:wheel {sp}; \
-         /bin/chmod 440 {sp}; \
-         /usr/sbin/visudo -cf {sp}; \
+         /bin/cp {th} {hp_new}; \
+         /usr/sbin/chown root:wheel {hp_new}; \
+         /bin/chmod 755 {hp_new}; \
+         /bin/cp {ts} {sp_new}; \
+         /usr/sbin/chown root:wheel {sp_new}; \
+         /bin/chmod 440 {sp_new}; \
+         if ! printf '%s  %s\\n' {helper_sha} {hp_new} | /usr/bin/shasum -a 256 -c - >/dev/null \
+            || ! printf '%s  %s\\n' {sudoers_sha} {sp_new} | /usr/bin/shasum -a 256 -c - >/dev/null; then \
+           /bin/rm -f {hp_new} {sp_new} {th} {ts}; echo 'helper files changed during install' >&2; exit 1; \
+         fi; \
+         /usr/sbin/visudo -cf {sp_new}; \
+         /bin/mv -f {hp_new} {hp}; \
+         /bin/mv -f {sp_new} {sp}; \
          /bin/rm -f {th} {ts}"
     );
 
@@ -499,6 +517,26 @@ mod tests {
     fn helper_script_mentions_disablesleep() {
         assert!(HELPER_SCRIPT.contains("disablesleep"));
         assert!(HELPER_SCRIPT.contains("enable-until"));
+    }
+
+    #[test]
+    fn install_hash_check_rejects_tampered_helper() {
+        let dir = std::env::temp_dir().join(format!("agmux-ka-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("helper.sh");
+        let check = |p: &std::path::Path| {
+            let script = format!(
+                "printf '%s  %s\\n' {} {} | /usr/bin/shasum -a 256 -c - >/dev/null",
+                sha256_hex(HELPER_SCRIPT.as_bytes()),
+                shell_single_quote(&p.to_string_lossy())
+            );
+            Command::new("/bin/sh").args(["-c", &script]).status().unwrap().success()
+        };
+        std::fs::write(&path, HELPER_SCRIPT).unwrap();
+        assert!(check(&path));
+        std::fs::write(&path, format!("{HELPER_SCRIPT}\nid\n")).unwrap();
+        assert!(!check(&path));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

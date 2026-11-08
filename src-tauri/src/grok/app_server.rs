@@ -322,7 +322,7 @@ impl GrokAppServer {
                         tracing::warn!(
                             "[grok] failed to parse stdout line: {} - {}",
                             e,
-                            &line[..line.len().min(200)]
+                            crate::text::byte_prefix(&line, 200)
                         );
                         continue;
                     }

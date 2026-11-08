@@ -30,6 +30,9 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 
+- **No more crash on unusual session names** — agmux no longer quits when a session or agent reports a name with accented or non-English characters.
+- **Your agmux data stays private to your Mac account** — other user accounts on the same Mac can no longer read your agmux history and settings.
+
 ## v4.3.7 — 2026-11-06
 
 ### New

@@ -944,7 +944,7 @@ pub async fn record_handoff_for_session_with_llm(
     } else if let Some(ref e) = existing {
         e.title.clone()
     } else {
-        format!("Session {}", &thread.id[..8.min(thread.id.len())])
+        format!("Session {}", crate::text::byte_prefix(&thread.id, 8))
     };
     if generic_session_title(&title) {
         let title_source = if summary.is_empty() {

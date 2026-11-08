@@ -97,8 +97,8 @@ async fn persist_thread_session_id(
         Err(e) => {
             tracing::warn!(
                 "[grok] failed to persist ACP session {} for thread {}: {}",
-                &session_id[..8.min(session_id.len())],
-                &thread_id[..8.min(thread_id.len())],
+                crate::text::byte_prefix(&session_id, 8),
+                crate::text::byte_prefix(&thread_id, 8),
                 e,
             );
         }
@@ -155,8 +155,8 @@ async fn resume_or_new_session(
             persist_thread_session_id(app, state, thread_id, &sid).await;
             tracing::info!(
                 "[grok] adopted live ACP session {} for thread {}",
-                &sid[..8.min(sid.len())],
-                &thread_id[..8.min(thread_id.len())]
+                crate::text::byte_prefix(&sid, 8),
+                crate::text::byte_prefix(&thread_id, 8)
             );
             return Ok(sid);
         }
@@ -220,8 +220,8 @@ async fn resume_or_new_session(
                 persist_thread_session_id(app, state, thread_id, &prev_session_id).await;
                 tracing::info!(
                     "[grok] resumed ACP session {} for thread {}",
-                    &prev_session_id[..8.min(prev_session_id.len())],
-                    &thread_id[..8.min(thread_id.len())]
+                    crate::text::byte_prefix(&prev_session_id, 8),
+                    crate::text::byte_prefix(&thread_id, 8)
                 );
                 return Ok(prev_session_id);
             }

@@ -157,7 +157,7 @@ fn header_and_scan(path: &Path) -> Option<(PiSessionMeta, PiPtyUsageSnapshot)> {
         .name
         .clone()
         .or(first_user)
-        .unwrap_or_else(|| format!("Session {}", &meta.id[..8.min(meta.id.len())]));
+        .unwrap_or_else(|| format!("Session {}", crate::text::byte_prefix(&meta.id, 8)));
     if meta.preview.chars().count() > 80 {
         let safe_end = meta
             .preview

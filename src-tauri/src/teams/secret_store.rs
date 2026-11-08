@@ -76,7 +76,28 @@ pub fn save(creds: &TeamsCredentials) -> Result<(), String> {
     fs::create_dir_all(&dir).map_err(|e| format!("create teams dir: {e}"))?;
     let path = dir.join("credentials.json");
     let json = serde_json::to_string_pretty(creds).map_err(|e| e.to_string())?;
-    fs::write(&path, json).map_err(|e| format!("write credentials: {e}"))?;
+    // Write a 0600 temp file and rename it into place: the token is never
+    // briefly world-readable, and a crash can't leave a truncated file.
+    let tmp = dir.join(format!(".credentials.{}.tmp", uuid::Uuid::new_v4()));
+    let result = (|| {
+        use std::io::Write;
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&tmp).map_err(|e| format!("write credentials: {e}"))?;
+        file.write_all(json.as_bytes())
+            .and_then(|_| file.sync_all())
+            .map_err(|e| format!("write credentials: {e}"))?;
+        fs::rename(&tmp, &path).map_err(|e| format!("write credentials: {e}"))
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    result?;
     restrict_permissions(&path).map_err(|e| format!("chmod credentials: {e}"))?;
     Ok(())
 }

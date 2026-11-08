@@ -692,7 +692,7 @@ fn spawn_prompt_title_upgrade(
             Err(e) => {
                 tracing::debug!(
                     "thread_turns prompt title update failed for {}: {}",
-                    &thread_id[..8.min(thread_id.len())],
+                    crate::text::byte_prefix(&thread_id, 8),
                     e
                 );
             }
@@ -735,7 +735,7 @@ fn spawn_close_summaries(
                 Err(e) => {
                     tracing::debug!(
                         "thread_turns llm summary update failed for {}: {}",
-                        &thread_id[..8.min(thread_id.len())],
+                        crate::text::byte_prefix(&thread_id, 8),
                         e
                     );
                 }
@@ -1074,7 +1074,7 @@ pub async fn on_hook_event(
         tracing::debug!(
             "thread_turns hook {} failed for {}: {}",
             event,
-            &thread_id[..8.min(thread_id.len())],
+            crate::text::byte_prefix(&thread_id, 8),
             e
         );
     }

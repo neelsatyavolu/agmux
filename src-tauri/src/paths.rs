@@ -30,6 +30,7 @@ pub fn agmux_home() -> PathBuf {
     migrate_once(&home);
     let dir = home.join(APP_DIR_NAME);
     let _ = std::fs::create_dir_all(&dir);
+    restrict_once(&dir);
     dir
 }
 
@@ -39,7 +40,29 @@ pub fn agmux_home_opt() -> Option<PathBuf> {
     migrate_once(&home);
     let dir = home.join(APP_DIR_NAME);
     let _ = std::fs::create_dir_all(&dir);
+    restrict_once(&dir);
     Some(dir)
+}
+
+static RESTRICT: Once = Once::new();
+
+/// `~/.agmux` holds the database, transcripts and tokens; keep it owner-only.
+/// The default umask leaves it world-readable on multi-account Macs.
+fn restrict_once(dir: &Path) {
+    RESTRICT.call_once(|| {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            // Never chmod through a symlink to somewhere unexpected.
+            let Ok(meta) = std::fs::symlink_metadata(dir) else { return };
+            if !meta.is_dir() || meta.permissions().mode() & 0o077 == 0 {
+                return;
+            }
+            if let Err(e) = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700)) {
+                eprintln!("[agmux] could not restrict {}: {e}", dir.display());
+            }
+        }
+    });
 }
 
 /// Path to the app SQLite database (`~/.agmux/agmux.db`).

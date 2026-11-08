@@ -66,7 +66,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::io::AsyncBufReadExt;
 use tokio::net::UnixListener;
 use tokio::sync::Notify;
 
@@ -701,15 +700,26 @@ fn hook_line_log_preview(line: &str) -> &str {
     crate::text::byte_prefix(line, 400)
 }
 
+/// Hook payloads can carry large tool output, so the cap is generous; it only
+/// stops a client that never sends a newline from growing memory forever.
+const MAX_HOOK_LINE_BYTES: usize = 64 * 1024 * 1024;
+
 async fn handle_connection(
     stream: tokio::net::UnixStream,
     app: AppHandle,
     dedup: Arc<Mutex<HookDedup>>,
 ) {
-    let reader = tokio::io::BufReader::new(stream);
-    let mut lines = reader.lines();
+    let mut reader = tokio::io::BufReader::new(stream);
 
-    while let Ok(Some(line)) = lines.next_line().await {
+    loop {
+        let line = match crate::line_reader::read_bounded_line(&mut reader, MAX_HOOK_LINE_BYTES).await {
+            Ok(crate::line_reader::BoundedLine::Line(line)) => line,
+            Ok(crate::line_reader::BoundedLine::TooLong) => {
+                tracing::warn!("[hook-socket] dropping connection: line over {MAX_HOOK_LINE_BYTES} bytes");
+                break;
+            }
+            Ok(crate::line_reader::BoundedLine::Eof) | Err(_) => break,
+        };
         if line.trim().is_empty() {
             continue;
         }
@@ -733,7 +743,7 @@ async fn handle_connection(
                 tracing::info!(
                     "[hook-socket] parsed event={} session={} provider={:?}",
                     event.event,
-                    &event.session_id[..8.min(event.session_id.len())],
+                    crate::text::byte_prefix(&event.session_id, 8),
                     event.provider,
                 );
                 // session_id is used as a filesystem path component
@@ -789,7 +799,7 @@ async fn handle_connection(
                                 ) {
                                     tracing::warn!(
                                         "Failed to persist pi session id for {}: {}",
-                                        &event.session_id[..8.min(event.session_id.len())],
+                                        crate::text::byte_prefix(&event.session_id, 8),
                                         e
                                     );
                                 }
@@ -816,7 +826,7 @@ async fn handle_connection(
                                 ) {
                                     tracing::warn!(
                                         "Failed to persist droid session id for {}: {}",
-                                        &event.session_id[..8.min(event.session_id.len())],
+                                        crate::text::byte_prefix(&event.session_id, 8),
                                         e
                                     );
                                 }
@@ -876,7 +886,7 @@ async fn handle_connection(
                                     tracing::warn!(
                                         "Failed to persist {} session id for {}: {}",
                                         event.provider.as_deref().unwrap_or("?"),
-                                        &event.session_id[..8.min(event.session_id.len())],
+                                        crate::text::byte_prefix(&event.session_id, 8),
                                         e
                                     );
                                 }
@@ -902,7 +912,7 @@ async fn handle_connection(
                                 {
                                     tracing::warn!(
                                         "Failed to persist Hermes model for {}: {}",
-                                        &thread_id[..8.min(thread_id.len())],
+                                        crate::text::byte_prefix(&thread_id, 8),
                                         e
                                     );
                                 }
@@ -932,7 +942,7 @@ async fn handle_connection(
                                 ) {
                                     tracing::warn!(
                                         "Failed to persist kimi session id for {}: {}",
-                                        &event.session_id[..8.min(event.session_id.len())],
+                                        crate::text::byte_prefix(&event.session_id, 8),
                                         e
                                     );
                                 }
@@ -993,7 +1003,7 @@ async fn handle_connection(
                                     Err(e) => {
                                         tracing::warn!(
                                             "Failed to load thread {} for grok backfill: {}",
-                                            &thread_id[..8.min(thread_id.len())],
+                                            crate::text::byte_prefix(&thread_id, 8),
                                             e
                                         );
                                         return;
@@ -1037,19 +1047,19 @@ async fn handle_connection(
                                     crate::commands::threads::GrokClaimDecision::SkipSubagent => {
                                         tracing::info!(
                                             "[hook-socket] grok skip subagent backfill thread={} session={}",
-                                            &thread_id[..8.min(thread_id.len())],
-                                            &persisted_sid[..8.min(persisted_sid.len())],
+                                            crate::text::byte_prefix(&thread_id, 8),
+                                            crate::text::byte_prefix(&persisted_sid, 8),
                                         );
                                         return;
                                     }
                                     crate::commands::threads::GrokClaimDecision::SkipStickyUnknown => {
                                         tracing::debug!(
                                             "[hook-socket] grok skip backfill thread={} already claimed {} (got {} kind=unknown)",
-                                            &thread_id[..8.min(thread_id.len())],
+                                            crate::text::byte_prefix(&thread_id, 8),
                                             thread.sdk_session_id.as_deref().unwrap_or("?")
                                                 .get(..8)
                                                 .unwrap_or("?"),
-                                            &persisted_sid[..8.min(persisted_sid.len())],
+                                            crate::text::byte_prefix(&persisted_sid, 8),
                                         );
                                         return;
                                     }
@@ -1064,14 +1074,14 @@ async fn handle_connection(
                                     .execute(&pool).await {
                                     tracing::warn!(
                                         "Failed to persist grok session/model for {}: {}",
-                                        &thread_id[..8.min(thread_id.len())],
+                                        crate::text::byte_prefix(&thread_id, 8),
                                         e
                                     );
                                 } else {
                                     tracing::info!(
                                         "[hook-socket] grok backfill thread={} session={} model={:?} kind={:?}",
-                                        &thread_id[..8.min(thread_id.len())],
-                                        &persisted_sid[..8.min(persisted_sid.len())],
+                                        crate::text::byte_prefix(&thread_id, 8),
+                                        crate::text::byte_prefix(&persisted_sid, 8),
                                         model_clone,
                                         kind,
                                     );
@@ -1117,7 +1127,7 @@ async fn handle_connection(
                                 ) {
                                     tracing::warn!(
                                         "Failed to persist opencode session id for {}: {}",
-                                        &event.session_id[..8.min(event.session_id.len())],
+                                        crate::text::byte_prefix(&event.session_id, 8),
                                         e
                                     );
                                 }
@@ -1136,13 +1146,13 @@ async fn handle_connection(
                     tracing::info!(
                         "[hook-socket] grok skip subagent {} thread={} session={:?}",
                         event.event,
-                        &event.session_id[..8.min(event.session_id.len())],
+                        crate::text::byte_prefix(&event.session_id, 8),
                         event
                             .payload
                             .get("sessionId")
                             .or_else(|| event.payload.get("session_id"))
                             .and_then(|v| v.as_str())
-                            .map(|s| &s[..8.min(s.len())]),
+                            .map(|s| crate::text::byte_prefix(&s, 8)),
                     );
                     continue;
                 }
@@ -1284,7 +1294,7 @@ async fn handle_connection(
                     tracing::debug!(
                         "Hook dedup: skipping redundant {} for session {}",
                         event.event,
-                        &event.session_id[..8.min(event.session_id.len())]
+                        crate::text::byte_prefix(&event.session_id, 8)
                     );
                     continue;
                 }
@@ -1350,7 +1360,7 @@ async fn handle_connection(
                     "Hook event: {} [{}] for session {}",
                     event.event,
                     provider,
-                    &event.session_id[..8.min(event.session_id.len())]
+                    crate::text::byte_prefix(&event.session_id, 8)
                 );
                 if let Err(e) = app.emit(channel, &payload) {
                     tracing::error!("Failed to emit hook event: {}", e);

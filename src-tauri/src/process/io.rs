@@ -307,7 +307,7 @@ pub fn start_stdout_reader(
         let mut read_count: u64 = 0;
         let mut emit_count: u64 = 0;
         let mut first_byte_logged = false;
-        let tid_short = &thread_id[..8.min(thread_id.len())];
+        let tid_short = crate::text::byte_prefix(&thread_id, 8);
         tracing::info!("[pty-timing {tid_short}] reader thread started, waiting for first byte...");
         loop {
             if is_shutting_down.load(Ordering::SeqCst) {
@@ -403,7 +403,7 @@ pub fn start_stdout_reader(
         let total_elapsed = reader_start.elapsed();
         tracing::info!(
             "[pty-reader {}] DONE: {:.1}KB in {:.2}s | {} reads, {} inline-emits | throughput={:.1}KB/s",
-            &thread_id[..8.min(thread_id.len())],
+            crate::text::byte_prefix(&thread_id, 8),
             total_bytes as f64 / 1024.0,
             total_elapsed.as_secs_f64(),
             read_count,

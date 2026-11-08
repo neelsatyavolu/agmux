@@ -1015,7 +1015,7 @@ pub async fn list_claude_sessions(
             }
 
             if preview.is_empty() {
-                preview = format!("Session {}", &session_id[..8.min(session_id.len())]);
+                preview = format!("Session {}", crate::text::byte_prefix(&session_id, 8));
             }
 
             let updated_at = if !last_timestamp.is_empty() {
@@ -1274,7 +1274,7 @@ pub async fn list_kimi_sessions(repo_path: String) -> Result<Vec<models::KimiSes
             }
         }
         if preview.is_empty() {
-            preview = format!("Session {}", &session_id[..8.min(session_id.len())]);
+            preview = format!("Session {}", crate::text::byte_prefix(&session_id, 8));
         }
         if last_timestamp.is_empty() {
             if let Some(ref sp) = state_path {
@@ -1646,7 +1646,7 @@ pub async fn delete_kimi_session(
 
     tracing::info!(
         "Deleted Kimi session {} from {}",
-        &session_id[..8.min(session_id.len())],
+        crate::text::byte_prefix(&session_id, 8),
         session_dir.display()
     );
     Ok(())
@@ -1685,7 +1685,7 @@ pub async fn delete_grok_session(
 
     tracing::info!(
         "Deleted Grok session {} from {}",
-        &session_id[..8.min(session_id.len())],
+        crate::text::byte_prefix(&session_id, 8),
         sessions_dir.display()
     );
     Ok(())
@@ -1721,7 +1721,7 @@ pub async fn delete_claude_session(
 
     tracing::info!(
         "Deleted Claude session {} from {}",
-        &session_id[..8.min(session_id.len())],
+        crate::text::byte_prefix(&session_id, 8),
         projects_dir.display()
     );
     Ok(())
@@ -1796,7 +1796,7 @@ pub async fn spawn_claude_resume(
 ) -> Result<(), String> {
     let prefs = preferences.unwrap_or_default();
     let t_cmd = std::time::Instant::now();
-    let tid = &session_id[..8.min(session_id.len())];
+    let tid = crate::text::byte_prefix(&session_id, 8);
     tracing::info!("[cmd-timing {tid}] spawn_claude_resume START");
 
     // Check if already running BEFORE validate_work_dir — the is_dir() stat
@@ -2721,8 +2721,8 @@ pub async fn list_threads(
                     if grok_session_dir_should_hide_from_sidebar(&session_dir) {
                         tracing::info!(
                             "list_threads: archiving Grok non-user session thread {} ({})",
-                            &thread.id[..8.min(thread.id.len())],
-                            &sid[..8.min(sid.len())]
+                            crate::text::byte_prefix(&thread.id, 8),
+                            crate::text::byte_prefix(&sid, 8)
                         );
                         let _ = queries::archive_thread(&state.db, &thread.id).await;
                         continue;
@@ -3144,7 +3144,7 @@ pub async fn ensure_pty_session(
 ) -> Result<(), String> {
     let prefs = preferences.unwrap_or_default();
     let t_cmd = std::time::Instant::now();
-    let tid = &thread_id[..8.min(thread_id.len())];
+    let tid = crate::text::byte_prefix(&thread_id, 8);
     tracing::info!("[cmd-timing {tid}] ensure_pty_session START");
 
     let t0 = std::time::Instant::now();
@@ -3272,7 +3272,7 @@ pub async fn spawn_thread(
     preferences: Option<crate::process::spawn::SpawnPreferences>,
 ) -> Result<(), String> {
     let t_cmd = std::time::Instant::now();
-    let tid = &thread_id[..8.min(thread_id.len())];
+    let tid = crate::text::byte_prefix(&thread_id, 8);
     // Already-alive case: UI used to get an error; keep that contract for explicit spawn.
     {
         let sessions = state.sessions.lock().await;
@@ -3362,13 +3362,13 @@ pub async fn list_grok_sessions(
             if grok_session_dir_should_hide_from_sidebar(&session_dir) {
                 tracing::info!(
                     "archiving Grok thread {} — sdk_session_id {} is a non-user session",
-                    &thread_id[..8.min(thread_id.len())],
-                    &s[..8.min(s.len())]
+                    crate::text::byte_prefix(&thread_id, 8),
+                    crate::text::byte_prefix(&s, 8)
                 );
                 if let Err(e) = queries::archive_thread(&state.db, &thread_id).await {
                     tracing::warn!(
                         "failed to archive non-user Grok thread {}: {}",
-                        &thread_id[..8.min(thread_id.len())],
+                        crate::text::byte_prefix(&thread_id, 8),
                         e
                     );
                 }

@@ -28,6 +28,7 @@ mod search;
 mod state;
 mod teams;
 mod text;
+mod line_reader;
 mod thread_turns;
 mod watcher;
 mod webcontent_watchdog;
