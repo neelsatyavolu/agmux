@@ -15,6 +15,7 @@ import { FocusIntroDialog } from "./components/sidebar/FocusIntroDialog";
 import { LocalModelUpgradeDialog } from "./components/sidebar/LocalModelUpgradeDialog";
 import { UpdateChecker } from "./components/UpdateChecker";
 import { WhatsNewDialog } from "./components/WhatsNewDialog";
+import { AgtermNoticeDialog } from "./components/AgtermNoticeDialog";
 import { ApprovalToast } from "./components/ApprovalToast";
 import { AgentCompleteToastLayer } from "./components/AgentCompleteToast";
 import { NotificationPromptDialog } from "./components/NotificationPromptDialog";
@@ -544,6 +545,7 @@ function App() {
       <LocalModelUpgradeDialog />
       <UpdateChecker />
       <WhatsNewDialog />
+      <AgtermNoticeDialog />
       <ApprovalToast />
       <AgentCompleteToastLayer />
       {accountNotices.notifications.length > 0 && (
