@@ -1,6 +1,6 @@
 # Release Notes
 
-User-facing delta since the **last public GitHub release** (currently v4.3.2). This is the source of truth for `/release` — not a session diary.
+User-facing delta since the **last public GitHub release** (currently v4.4.0). This is the source of truth for `/release` — not a session diary.
 
 **Audience (hard rule)**
 - Write for a **non-technical person who has never coded**. They only care what they **see or experience** in the app.
@@ -30,6 +30,12 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 
 ### Fixed
 
+## v4.4.0 — 2026-11-08
+
+### New
+- **A note about agmux's future** — agmux is no longer in active development. It keeps working as it does today, and a one-time message explains this and points you to agterm, the app where new features are going.
+
+### Fixed
 - **No more crash on unusual session names** — agmux no longer quits when a session or agent reports a name with accented or non-English characters.
 - **Your agmux data stays private to your Mac account** — other user accounts on the same Mac can no longer read your agmux history and settings.
 
