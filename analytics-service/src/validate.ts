@@ -19,9 +19,9 @@ export const EVENT_NAMES_BY_APP: Record<App, Set<string>> = {
 
 /** agterm's AgentKind ids (agterm Sources/AgTermCore/AgentKind.swift). */
 export const AGTERM_AGENTS = new Set([
-  "claude", "codex", "grok", "gemini", "agy", "cursor-agent", "opencode", "kimi", "aider",
-  "amp", "qwen", "crush", "copilot", "droid", "kilo", "cline", "goose", "auggie", "qodo",
-  "kiro", "continue", "pi",
+  "claude", "codex", "grok", "agl", "gemini", "agy", "cursor-agent", "opencode", "kimi", "aider",
+  "amp", "qwen", "crush", "copilot", "droid", "kilo", "cline", "goose", "auggie", "qodo", "kiro",
+  "continue", "pi",
 ]);
 
 /** agterm's AnalyticsFeature values (agterm Sources/AgTermCore/Analytics/AnalyticsEvent.swift). */
