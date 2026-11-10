@@ -15,6 +15,14 @@ Run on a disposable macOS user account/test Mac, with test projects and provider
 
 Record failures and platform/provider coverage explicitly. Do not check off unperformed steps. Service changes (support schema and private attachment bucket) must be deployed before distributing a desktop that depends on them.
 
+## v4.4.1 — 2026-11-10
+
+Candidate from master `cf3925b8` plus the version bump: Claude Fable 5.2 pricing and downloaded model prices, Teams counting Claude workflow agents and Codex subagents of agmux sessions, Usage no longer counting subagents as sessions (migration 048), and Claude Agent SDK 0.3.319 → 0.3.322 (release notes 0.3.321–0.3.322 reviewed: fixes and parity only, no breaking signals). Machine: macOS 27.2, Apple Silicon. Previous public version: v4.4.0.
+
+Automated checks (pass): `npx tsc --noEmit`; `npm test` — 7204 passed, 14 skipped (one timing-sensitive CodexSessionView test failed once under heavy machine load and passed on focused and full reruns); `cd sidecar && npm test` — 323 passed; `cd src-tauri && cargo test -p xanom` — 2542 passed, 27 ignored. Teams and analytics services unchanged.
+
+Live checks: none. Installed-app fresh-install, provider conversations, upgrade/recovery, support and Intel acceptance were not exercised. Do not represent these automated checks as installed-app acceptance.
+
 ## v4.3.6 — 2026-11-06
 
 Candidate from master `52458247` plus the Teams/Usage pricing fix (Claude Haiku 5.5 and its >100k-token rate, Claude Sonnet 5.5 cache reads, GPT-6.1 Terra), consult session instructions, the Gemini hook script fix, the light-mode "Failed to start" banner, and Claude Agent SDK 0.3.309 → 0.3.319 (release notes 0.3.310–0.3.319 reviewed: additive or parity-only; the removed `file_unchanged` Read output is not used). Machine: macOS 27.2, Apple Silicon. Previous public version: v4.3.5.

@@ -25,10 +25,16 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ## Unreleased
 
 ### New
-- **Claude Fable 5.2** — pick it in the model menu, and its cost now shows in usage and Teams.
-- **New model prices without an update** — agmux now downloads prices for new models, so their costs show without waiting for a new version.
 
 ### Improved
+
+### Fixed
+
+## v4.4.1 — 2026-11-10
+
+### New
+- **Claude Fable 5.2** — pick it in the model menu, and its cost now shows in usage and Teams.
+- **New model prices without an update** — agmux now downloads prices for new models, so their costs show without waiting for a new version.
 
 ### Fixed
 - **Subagents count in usage and Teams** — Claude Code workflow agents and Codex subagents now count toward the session that started them, and usage no longer counts subagents as extra sessions.
