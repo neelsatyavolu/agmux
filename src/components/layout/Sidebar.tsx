@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useOrderedProjects } from "../../hooks/useOrderedProjects";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { FolderPlus, RefreshCw, Settings, PanelLeftClose, PanelLeftOpen, Columns2, ChevronLeft, ChevronRight, Search, LayoutList } from "lucide-react";
 import { CoworkModeButton } from "./CoworkModeButton";
 import { listen } from "@tauri-apps/api/event";
@@ -119,7 +120,6 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
   const { threads: codexThreads, loading: codexLoading, fetchThreads: refreshCodex } = useCodexThreads();
   const openSettings = useSettingsStore((s) => s.openSettings);
   const multiViewEnabled = useSettingsStore((s) => s.settings.multiViewEnabled);
-  const projectOrder = useSettingsStore((s) => s.settings.projectOrder);
   const focusEnabled = useSettingsStore((s) => s.settings.focusEnabled ?? false);
   const focusWindowMinutes = useSettingsStore((s) => resolveFocusWindowMinutes(s.settings.focusWindowMinutes));
   const focusThreadsVisible = useSettingsStore((s) => resolveFocusThreadsVisible(s.settings.focusThreadsVisible));
@@ -614,17 +614,11 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
   const focusPortal = showFocus ? focusListEl : null;
   const focusSinceMs = showFocus ? focusSince(focusNow, focusWindowMinutes) : null;
 
-  // Sort projects by saved order (unordered projects appear at the end)
-  const sortedProjects = useMemo(() => {
-    if (appMode === "cowork") return coworkProjects;
-    if (projectOrder.length === 0) return projects;
-    const orderMap = new Map(projectOrder.map((id, i) => [id, i]));
-    return [...projects].sort((a, b) => {
-      const ai = orderMap.get(a.id) ?? Infinity;
-      const bi = orderMap.get(b.id) ?? Infinity;
-      return ai - bi;
-    });
-  }, [appMode, coworkProjects, projects, projectOrder]);
+  // Apply the chosen project order while keeping Cowork folders separate.
+  const orderedProjects = useOrderedProjects(projects, {
+    codexThreads, claudeSessions, kimiSessions, piSessions, grokSessions,
+  }, appMode !== "cowork");
+  const sortedProjects = appMode === "cowork" ? coworkProjects : orderedProjects;
 
   // Drag-and-drop state for project reordering (pointer-event based)
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
@@ -685,7 +679,7 @@ export function Sidebar({ onReady }: SidebarProps = {}) {
               m.reorderCoworkFolders(newOrder.map((id) => byId.get(id)).filter((p): p is string => !!p));
             });
           } else {
-            updateSettings({ projectOrder: newOrder });
+            updateSettings({ projectOrder: newOrder, projectSortMode: "manual" });
             import("../../lib/remoteSidebarPrefs").then(({ syncRemoteSidebarPrefs }) =>
               syncRemoteSidebarPrefs()
             ).catch(() => { /* remote optional */ });

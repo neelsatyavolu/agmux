@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { isQuickOpenAction, type QuickOpenAction } from "../lib/quickOpen";
 import type { Provider } from "../lib/types";
+import type { ProjectSortMode } from "../lib/projectOrder";
 
 export type { QuickOpenAction };
 export { QUICK_OPEN_OPTIONS, quickOpenLabel } from "../lib/quickOpen";
@@ -178,6 +179,8 @@ export interface AppSettings {
   commitMessageModel: CommitMessageModel;
   /** Ordered list of project IDs for sidebar display. */
   projectOrder: string[];
+  /** Recent activity changes the display order without replacing projectOrder. */
+  projectSortMode: ProjectSortMode;
 
   // ── Editor ──
   /** Whether the editor wraps long lines. */
@@ -440,6 +443,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   agenticProvider: "auto",
   commitMessageModel: "auto",
   projectOrder: [],
+  projectSortMode: "manual",
 
   // Editor
   editorWordWrap: false,
@@ -620,6 +624,7 @@ export function loadSettings(): AppSettings {
         llmProvider,
         cursorWorkMode,
         recentProviders,
+        projectSortMode: parsed.projectSortMode === "recent" ? "recent" : "manual",
         ...(defaultProvider !== undefined ? { defaultProvider } : {}),
         ...(sidebarOpacity !== undefined ? { sidebarOpacity } : {}),
         ...(migratedAccentColor !== undefined ? { accentColor: migratedAccentColor } : {}),

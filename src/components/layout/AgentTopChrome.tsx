@@ -50,6 +50,7 @@ import {
   getThreadsForProject,
   getThreadName,
 } from "../sidebar/CodexSessionsList";
+import { useOrderedProjects } from "../../hooks/useOrderedProjects";
 import { ProjectGroup } from "../sidebar/ProjectGroup";
 import { SidebarTabs } from "../sidebar/SidebarTabs";
 import { SearchDialog } from "../sidebar/SearchDialog";
@@ -103,7 +104,6 @@ export function AgentTopChrome({ onReady }: Props = {}) {
   const { threads: codexThreads, loading: codexLoading, fetchThreads: refreshCodex } = useCodexThreads();
   const openSettings = useSettingsStore((s) => s.openSettings);
   const multiViewEnabled = useSettingsStore((s) => s.settings.multiViewEnabled);
-  const projectOrder = useSettingsStore((s) => s.settings.projectOrder);
   const projectShowOnlyRunning = useSettingsStore((s) => s.settings.projectShowOnlyRunning ?? EMPTY_SHOW_ONLY_RUNNING);
   const updateSettings = useSettingsStore((s) => s.updateSettings);
   const appMode = useUiStore((s) => s.appMode);
@@ -368,16 +368,10 @@ export function AgentTopChrome({ onReady }: Props = {}) {
     if (selectedCodexSessionId) refreshCodex();
   }, [selectedCodexSessionId, refreshCodex]);
 
-  const sortedProjects = useMemo(() => {
-    if (appMode === "cowork") return coworkProjects;
-    if (projectOrder.length === 0) return projects;
-    const orderMap = new Map(projectOrder.map((id, i) => [id, i]));
-    return [...projects].sort((a, b) => {
-      const ai = orderMap.get(a.id) ?? Infinity;
-      const bi = orderMap.get(b.id) ?? Infinity;
-      return ai - bi;
-    });
-  }, [appMode, coworkProjects, projects, projectOrder]);
+  const orderedProjects = useOrderedProjects(projects, {
+    codexThreads, claudeSessions, kimiSessions, piSessions, grokSessions,
+  }, appMode !== "cowork");
+  const sortedProjects = appMode === "cowork" ? coworkProjects : orderedProjects;
 
   // Resolve which project owns the current selection
   const selectionProjectId = useMemo(() => {

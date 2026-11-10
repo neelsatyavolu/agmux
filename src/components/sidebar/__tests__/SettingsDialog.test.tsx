@@ -108,6 +108,18 @@ beforeEach(() => {
 });
 
 describe("SettingsDialog", () => {
+  it("offers Recent activity and restores Manual without changing the saved project order", () => {
+    useSettingsStore.getState().updateSettings({ projectSortMode: "manual", projectOrder: ["b", "a"] });
+    useSettingsStore.getState().openSettings("general");
+    render(<SettingsDialog />);
+    fireEvent.click(screen.getByRole("button", { name: "Recent activity" }));
+    expect(useSettingsStore.getState().settings.projectSortMode).toBe("recent");
+    expect(useSettingsStore.getState().settings.projectOrder).toEqual(["b", "a"]);
+    fireEvent.click(screen.getByRole("button", { name: "Manual" }));
+    expect(useSettingsStore.getState().settings.projectSortMode).toBe("manual");
+    expect(useSettingsStore.getState().settings.projectOrder).toEqual(["b", "a"]);
+  });
+
   it("renders nothing when closed", () => {
     const { container } = render(<SettingsDialog />);
     // AnimatePresence-wrapped content is gated by isOpen — no content rendered.

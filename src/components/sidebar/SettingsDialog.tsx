@@ -1218,6 +1218,28 @@ function GeneralPage({
 
       <SettingsCard eyebrow="General" title="Behavior" className="mb-6">
         <SettingsRow
+          label="Project order"
+          description="Keep your manual project order, or put recently active projects first. Switch back to Manual to restore your order. Dragging a project also switches to Manual. Applies to the sidebar and horizontal project tabs."
+        >
+          <div className="flex flex-wrap gap-1.5">
+            <SegButton
+              active={settings.projectSortMode !== "recent"}
+              color="indigo"
+              onClick={() => updateSettings({ projectSortMode: "manual" })}
+            >
+              Manual
+            </SegButton>
+            <SegButton
+              active={settings.projectSortMode === "recent"}
+              color="indigo"
+              onClick={() => updateSettings({ projectSortMode: "recent" })}
+            >
+              Recent activity
+            </SegButton>
+          </div>
+        </SettingsRow>
+
+        <SettingsRow
           label="Default threads shown"
           description="How many recent threads each project displays before the 'Show more' button. Right-click a project in the sidebar to override per project."
         >
