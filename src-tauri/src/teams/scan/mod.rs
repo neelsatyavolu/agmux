@@ -277,7 +277,7 @@ fn collect_file_events_in_roots(
     for path in &codex_paths {
         stats.files_seen += 1;
         let session = codex::session_id_from_path(path);
-        if claimed.is_external("Codex", &session) || (!claimed.contains("Codex", &session) && !codex_path_started_in_agmux(path)) {
+        if claimed.is_external("Codex", &session) || (!claimed.contains("Codex", &session) && !codex_path_admitted(path, claimed)) {
             continue;
         }
         stats.codex_sources += 1;
@@ -341,23 +341,31 @@ fn claimed_claude_identity(path: &Path, claimed: &SessionClaims) -> Option<Strin
     let session = claude::session_id_from_path(path);
     if claimed.is_external("ClaudeCode", &session) { return None; }
     if claimed.contains("ClaudeCode", &session) { return Some(session); }
-    // Claude stores children under {parent-id}/subagents/agent-*.jsonl. Exact
-    // parent ownership admits its children; a shared project directory does not.
-    let dir = path.parent()?;
-    if dir.file_name()?.to_str()? != "subagents" { return None; }
-    let parent = dir.parent()?.file_name()?.to_str()?;
+    // Claude stores children under {parent-id}/subagents/agent-*.jsonl, and a
+    // workflow's agents under {parent-id}/subagents/workflows/{run}/agent-*.jsonl.
+    // Exact parent ownership admits its children; a shared project directory does not.
+    let subagents = path.ancestors().skip(1).take(3)
+        .find(|dir| dir.file_name().and_then(|n| n.to_str()) == Some("subagents"))?;
+    let parent = subagents.parent()?.file_name()?.to_str()?;
     claimed.contains("ClaudeCode", parent).then(|| format!("{parent}:{session}"))
 }
 
-/// Inspect only the bounded header, not prompts or paths, to establish origin.
-fn codex_path_started_in_agmux(path: &Path) -> bool {
+/// The bounded header line only, not prompts or paths.
+fn codex_header(path: &Path) -> Option<String> {
     use std::io::{BufRead, BufReader, Read};
-    let Ok(file) = std::fs::File::open(path) else { return false };
+    let file = std::fs::File::open(path).ok()?;
     let mut header = String::new();
-    if BufReader::new(file.take(256 * 1024)).read_line(&mut header).is_err() {
-        return false;
-    }
-    codex::started_in_agmux(header.trim())
+    BufReader::new(file.take(256 * 1024)).read_line(&mut header).ok()?;
+    Some(header.trim().to_string())
+}
+
+/// A rollout counts when its header says agmux started it, or when it is a
+/// subagent or auto-review thread of a session agmux owns: those inherit the
+/// parent's originator, which is the CLI's own when agmux runs Codex in a PTY.
+fn codex_path_admitted(path: &Path, claimed: &SessionClaims) -> bool {
+    let Some(header) = codex_header(path) else { return false };
+    codex::started_in_agmux(&header)
+        || codex::owning_sessions(&header).iter().any(|id| claimed.contains("Codex", id))
 }
 
 /// Provider identity is part of ownership: an ID from one provider must never
@@ -488,6 +496,45 @@ mod tests {
         assert_eq!(events[0].tokens_in, 100);
         claims.add("ClaudeCode", "owned".into(), false);
         assert!(collect_file_events(&claims, home.path(), ScanMode::Full, &mut HashMap::new()).unwrap().0.is_empty());
+    }
+
+    #[test]
+    fn claude_workflow_agents_count_under_their_owned_parent() {
+        let home = tempfile::tempdir().unwrap();
+        let root = home.path().join(".claude/projects/repo");
+        let line = serde_json::json!({"type":"assistant","timestamp":Utc::now().to_rfc3339(),
+            "message":{"model":"claude-sonnet-4","usage":{"input_tokens":100,"output_tokens":10}}});
+        for parent in ["owned", "outside"] {
+            let run = root.join(format!("{parent}/subagents/workflows/wf_1"));
+            std::fs::create_dir_all(&run).unwrap();
+            std::fs::write(run.join("agent-two.jsonl"), format!("{line}\n")).unwrap();
+        }
+        let mut claims = SessionClaims::default();
+        claims.add("ClaudeCode", "owned".into(), true);
+        let (events, _) = collect_file_events(&claims, home.path(), ScanMode::Full, &mut HashMap::new()).unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].session_id, "owned:agent-two");
+        assert!(events[0].is_subagent_path, "not a session a person started");
+    }
+
+    #[test]
+    fn codex_subagents_of_owned_sessions_count_whatever_their_originator() {
+        let home = tempfile::tempdir().unwrap();
+        let root = home.path().join(".codex/sessions/2026/11/09");
+        std::fs::create_dir_all(&root).unwrap();
+        let usage = serde_json::json!({"timestamp":Utc::now().to_rfc3339(),"payload":{"info":{
+            "last_token_usage":{"input_tokens":10},"total_token_usage":{"input_tokens":10}}}});
+        let child = |id: &str, parent: &str, source: serde_json::Value| format!("{}\n{usage}\n", serde_json::json!({"type":"session_meta",
+            "payload":{"id":id,"session_id":parent,"parent_thread_id":parent,"originator":"codex-tui","source":source}}));
+        let spawn = |parent: &str| serde_json::json!({"subagent":{"thread_spawn":{"parent_thread_id":parent}}});
+        std::fs::write(root.join("rollout-a.jsonl"), child("a", "owned", spawn("owned"))).unwrap();
+        std::fs::write(root.join("rollout-b.jsonl"), child("b", "owned", serde_json::json!({"subagent":{"other":"guardian"}}))).unwrap();
+        std::fs::write(root.join("rollout-c.jsonl"), child("c", "outside", spawn("outside"))).unwrap();
+        let mut claims = SessionClaims::default();
+        claims.add("Codex", "owned".into(), true);
+        let (events, _) = collect_file_events(&claims, home.path(), ScanMode::Full, &mut HashMap::new()).unwrap();
+        assert_eq!(events.len(), 2);
+        assert!(events.iter().all(|e| e.subagent && e.parent_session_id.as_deref() == Some("owned")));
     }
 
     #[test]

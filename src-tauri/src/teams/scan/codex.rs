@@ -33,6 +33,24 @@ pub fn started_in_agmux(header: &str) -> bool {
         && matches!(v.pointer("/payload/originator").and_then(Value::as_str), Some("agmux" | "xanom"))
 }
 
+/// For a spawned subagent's or auto-review thread's `session_meta` header: the
+/// sessions it works for, nearest first (its parent thread, then the root
+/// session). Empty for a session a person started, a user fork, or any other line.
+pub fn owning_sessions(header: &str) -> Vec<String> {
+    let Ok(v) = serde_json::from_str::<Value>(header) else { return Vec::new() };
+    if v.get("type").and_then(Value::as_str) != Some("session_meta") { return Vec::new(); }
+    let Some(p) = v.get("payload") else { return Vec::new() };
+    if p.pointer("/source/subagent").is_none() { return Vec::new(); }
+    let own = p.get("id").and_then(Value::as_str).unwrap_or("");
+    let mut ids: Vec<String> = Vec::new();
+    for at in ["/source/subagent/thread_spawn/parent_thread_id", "/parent_thread_id", "/session_id"] {
+        if let Some(id) = p.pointer(at).and_then(Value::as_str) {
+            if !id.is_empty() && id != own && !ids.iter().any(|x| x == id) { ids.push(id.to_string()); }
+        }
+    }
+    ids
+}
+
 /// Parses one rollout file into usage events.
 pub fn parse_session(lines: &str, session_id: &str) -> Vec<UsageEvent> {
     parse_session_ex(lines, session_id, None).events
@@ -162,7 +180,9 @@ where I: IntoIterator<Item = S>, S: AsRef<str> {
                 }
                 // Spawned subagents and auto-review threads: `{"subagent": …}`.
                 subagent = p.pointer("/source/subagent").is_some();
+                // Auto-review threads name their parent only at the top level.
                 parent_session_id = p.pointer("/source/subagent/thread_spawn/parent_thread_id")
+                    .or_else(|| subagent.then(|| p.get("parent_thread_id")).flatten())
                     .and_then(Value::as_str).filter(|s| !s.is_empty()).map(ToOwned::to_owned);
                 history_boundary = CodexHistoryBoundary::from_meta(p);
             }
@@ -764,6 +784,23 @@ mod tests {
             "timestamp":"2026-07-29T14:01:00Z",
             "source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent"}}}
         }}).to_string()
+    }
+
+    #[test]
+    fn owning_sessions_name_parent_then_root_for_child_threads_only() {
+        let meta = |payload: Value| serde_json::json!({"type":"session_meta","payload":payload}).to_string();
+        assert_eq!(owning_sessions(&meta(serde_json::json!({"id":"c","session_id":"root","parent_thread_id":"mid",
+            "source":{"subagent":{"thread_spawn":{"parent_thread_id":"mid"}}}}))), vec!["mid", "root"]);
+        assert_eq!(owning_sessions(&meta(serde_json::json!({"id":"r","session_id":"root","parent_thread_id":"root",
+            "source":{"subagent":{"other":"guardian"}}}))), vec!["root"]);
+        assert!(owning_sessions(&meta(serde_json::json!({"id":"root","session_id":"root","source":"cli"}))).is_empty());
+        assert!(owning_sessions(&meta(serde_json::json!({"id":"f","forked_from_id":"root","source":"cli"}))).is_empty());
+        assert!(owning_sessions("not json").is_empty());
+        // An auto-review thread names its parent only at the top level.
+        let usage = serde_json::json!({"timestamp":"2026-07-29T14:02:00Z","payload":{"info":{
+            "last_token_usage":{"input_tokens":10},"total_token_usage":{"input_tokens":10}}}});
+        let review = meta(serde_json::json!({"id":"r","parent_thread_id":"root","source":{"subagent":{"other":"guardian"}}}));
+        assert_eq!(parse_session(&format!("{review}\n{usage}"), "r")[0].parent_session_id.as_deref(), Some("root"));
     }
 
     #[test]
