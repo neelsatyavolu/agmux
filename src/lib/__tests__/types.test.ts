@@ -226,7 +226,7 @@ describe("mergeClaudeModelOptions", () => {
       "claude-haiku-4-5",
     ]).map((m) => m.slug);
     expect(slugs).toEqual([
-      "claude-fable-5-1",
+      "claude-fable-5-2",
       "claude-opus-5-5",
       "claude-opus-5[1m]",
       "claude-sonnet-5-5",
@@ -303,8 +303,9 @@ describe("October 2026 model catalog", () => {
     expect(codexEffortsForModel("gpt-6-astra").map((e) => e.value)).toContain("ultra");
   });
 
-  it("offers Claude Fable 5.1 and Sonnet 5.5", () => {
+  it("offers Claude Fable 5.2, Fable 5.1 and Sonnet 5.5", () => {
     const slugs = CLAUDE_MODELS.map((m) => m.slug);
+    expect(slugs).toContain("claude-fable-5-2");
     expect(slugs).toContain("claude-fable-5-1");
     expect(slugs).toContain("claude-sonnet-5-5");
   });

@@ -18,6 +18,7 @@ mod handoff;
 mod memory;
 mod mlx;
 mod paths;
+mod price_list;
 mod pricing_catalog;
 mod product_analytics;
 mod provider_accounts;

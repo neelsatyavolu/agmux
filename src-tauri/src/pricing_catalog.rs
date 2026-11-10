@@ -70,6 +70,7 @@ fn now_secs() -> u64 {
 /// Ensure the in-memory catalog is loaded and younger than 24h.
 /// Loads disk cache first; fetches OpenRouter only when stale/missing.
 pub async fn ensure_fresh() {
+    crate::price_list::ensure_fresh().await;
     if catalog_is_fresh() {
         return;
     }

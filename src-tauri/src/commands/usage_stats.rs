@@ -101,7 +101,7 @@ struct ModelPricing {
     catalog: Option<crate::pricing_catalog::CatalogPricing>,
 }
 
-fn pricing_model_key(model: &str) -> String {
+pub(crate) fn pricing_model_key(model: &str) -> String {
     let lower = model.trim().to_lowercase();
     let bare = match lower.split_once('/') {
         Some(("openai", name)) if name.starts_with("gpt-") || name.starts_with('o') => name,
@@ -121,7 +121,8 @@ fn model_pricing(model: &str) -> ModelPricing {
     let key = pricing_model_key(model);
     // Exact IDs only. Family substrings accidentally priced pro/audio/unknown
     // variants and even Cursor Composer as Grok. Never infer those aliases.
-    let rates = match key.as_str() {
+    // agterm's downloaded price list wins, so new models need no agmux update.
+    let rates = crate::price_list::lookup(&key).or(match key.as_str() {
         // 4.7 matches 4.6: $2 / $0.50 / $6 below 200k (docs.x.ai, 2026-09-21).
         "grok-4.7" | "grok-4.6" => Some((2.0, 6.0, 0.50, 2.0)),
         // Grok Build only; xAI and the CLI catalog price it at 2x grok-4.7 (2026-10-05).
@@ -131,6 +132,7 @@ fn model_pricing(model: &str) -> ModelPricing {
         "grok-4.3" | "grok-4.20-multi-agent-0309" |
         "grok-4.20-0309-reasoning" | "grok-4.20-0309-non-reasoning" =>
             Some((1.25, 2.50, 0.20, 1.25)),
+        "claude-fable-5-2" | "claude-mythos-5-2" => Some((8.0, 40.0, 0.20, 10.0)),
         "claude-fable-5-1" | "claude-mythos-5-1" => Some((10.0, 50.0, 0.25, 12.50)),
         "claude-fable-5" | "claude-mythos-5" => Some((10.0, 50.0, 1.0, 12.50)),
         "claude-opus-5-5" => Some((4.0, 20.0, 0.20, 5.0)),
@@ -176,7 +178,7 @@ fn model_pricing(model: &str) -> ModelPricing {
         "gpt-4.1-nano" | "gpt-4.1-nano-2025-04-14" => Some((0.10, 0.40, 0.025, 0.10)),
         "gpt-4.1" | "gpt-4.1-2025-04-14" => Some((2.0, 8.0, 0.50, 2.0)),
         _ => None,
-    };
+    });
     if let Some((input, output, read, write)) = rates {
         return ModelPricing { input_per_mtok: input, output_per_mtok: output,
             cache_read_per_mtok: read, cache_write_per_mtok: write, known: true, catalog: None };

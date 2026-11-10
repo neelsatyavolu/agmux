@@ -583,6 +583,7 @@ export interface ClaudeModelOption {
 }
 
 export const CLAUDE_MODELS: ClaudeModelOption[] = [
+  { slug: "claude-fable-5-2", name: "Fable 5.2" },
   { slug: "claude-fable-5-1", name: "Fable 5.1" },
   { slug: "claude-fable-5", name: "Fable 5" },
   { slug: "claude-opus-5-5", name: "Opus 5.5" },

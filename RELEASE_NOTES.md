@@ -25,6 +25,8 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ## Unreleased
 
 ### New
+- **Claude Fable 5.2** — pick it in the model menu, and its cost now shows in usage and Teams.
+- **New model prices without an update** — agmux now downloads prices for new models, so their costs show without waiting for a new version.
 
 ### Improved
 
