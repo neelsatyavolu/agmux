@@ -31,6 +31,7 @@ See `/release` (`.claude/commands/release.md`) for how this file is consumed and
 ### Improved
 
 ### Fixed
+- **Subagents count in usage and Teams** — Claude Code workflow agents and Codex subagents now count toward the session that started them, and usage no longer counts subagents as extra sessions.
 
 ## v4.4.0 — 2026-11-08
 

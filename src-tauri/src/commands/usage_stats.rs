@@ -1,4 +1,4 @@
-use crate::db::queries::{accumulate_session_usage, record_session_usage};
+use crate::db::queries::{accumulate_session_usage, record_session_usage, set_session_usage_child};
 use crate::state::AppState;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use serde::Serialize;
@@ -712,7 +712,7 @@ async fn load_usage_summary(pool: &SqlitePool, provider: &str, days: i64) -> Res
             COALESCE(SUM(output_tokens), 0),
             COALESCE(SUM(cache_read_tokens), 0),
             COALESCE(SUM(cache_creation_tokens), 0),
-            COUNT(*),
+            COALESCE(SUM(is_child = 0), 0),
             COALESCE(SUM(active_ms), 0),
             COALESCE(SUM(total_cost_usd), 0)
          FROM session_usage
@@ -749,7 +749,7 @@ async fn load_usage_summary(pool: &SqlitePool, provider: &str, days: i64) -> Res
             COALESCE(SUM(output_tokens), 0),
             COALESCE(SUM(cache_read_tokens), 0),
             COALESCE(SUM(cache_creation_tokens), 0),
-            COUNT(*),
+            COALESCE(SUM(is_child = 0), 0),
             COALESCE(SUM(active_ms), 0),
             COALESCE(SUM(total_cost_usd), 0)
          FROM session_usage
@@ -1184,6 +1184,7 @@ async fn scan_claude_logs(pool: &SqlitePool, root: &Path, cutoff: DateTime<Utc>)
             &captured_at,
         )
         .await?;
+        set_session_usage_child(pool, &thread_id, file.acc.from_subagent_path).await?;
         upserted += 1;
     }
 
@@ -1281,6 +1282,7 @@ async fn scan_codex_logs(pool: &SqlitePool, roots: &[PathBuf]) -> anyhow::Result
             &captured_at,
         )
         .await?;
+        set_session_usage_child(pool, &thread_id, summary.subagent).await?;
         upserted += 1;
     }
 
@@ -1753,6 +1755,8 @@ impl ClaudeUsageAccumulator {
 #[derive(Default)]
 struct CodexUsageAccumulator {
     thread_id: Option<String>,
+    /// A spawned subagent or auto-review thread, not a session a person started.
+    subagent: bool,
     header_seen: bool,
     history_boundary: CodexHistoryBoundary,
     model_name: Option<String>,
@@ -1785,6 +1789,7 @@ impl CodexUsageAccumulator {
                         .map(ToOwned::to_owned);
                 }
                 self.history_boundary = CodexHistoryBoundary::from_meta(&value["payload"]);
+                self.subagent = payload.get("source").and_then(|source| source.get("subagent")).is_some();
             }
             Some("turn_context") => {
                 if let Some(model) = payload.get("model").and_then(Value::as_str) {
@@ -3337,6 +3342,37 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(count, 0);
+    }
+
+    #[tokio::test]
+    async fn subagents_and_workflow_agents_count_tokens_but_not_sessions() {
+        let pool = fresh_pool().await;
+        let dir = tempfile::tempdir().unwrap();
+        let now = Utc::now().to_rfc3339();
+        let claude = |id: &str| serde_json::json!({"type":"assistant","timestamp":now,"requestId":id,
+            "message":{"id":id,"model":"claude-sonnet-4","usage":{"input_tokens":100,"output_tokens":10}}}).to_string();
+        let run = dir.path().join("repo/s1/subagents/workflows/wf_1");
+        std::fs::create_dir_all(&run).unwrap();
+        std::fs::write(dir.path().join("repo/s1.jsonl"), claude("r1") + "\n").unwrap();
+        std::fs::write(dir.path().join("repo/s1/subagents/agent-a.jsonl"), claude("r2") + "\n").unwrap();
+        std::fs::write(run.join("agent-b.jsonl"), claude("r3") + "\n").unwrap();
+        scan_claude_logs(&pool, dir.path(), Utc::now() - Duration::days(30)).await.unwrap();
+        let claude_summary = super::load_usage_summary(&pool, "claude", 30).await.unwrap();
+        assert_eq!(claude_summary.session_count, 1);
+        assert_eq!(claude_summary.total_output_tokens, 30);
+
+        let codex = tempfile::tempdir().unwrap();
+        let usage = serde_json::json!({"timestamp":now,"type":"event_msg","payload":{"type":"token_count","info":{
+            "last_token_usage":{"input_tokens":10,"output_tokens":1},"total_token_usage":{"input_tokens":10,"output_tokens":1}}}});
+        let rollout = |id: &str, source: serde_json::Value| format!("{}\n{usage}\n",
+            serde_json::json!({"type":"session_meta","payload":{"id":id,"session_id":"root","source":source}}));
+        std::fs::write(codex.path().join("root.jsonl"), rollout("root", serde_json::json!("cli"))).unwrap();
+        std::fs::write(codex.path().join("child.jsonl"),
+            rollout("child", serde_json::json!({"subagent":{"thread_spawn":{"parent_thread_id":"root"}}}))).unwrap();
+        scan_codex_logs(&pool, &[codex.path().to_path_buf()]).await.unwrap();
+        let codex_summary = super::load_usage_summary(&pool, "codex", 30).await.unwrap();
+        assert_eq!(codex_summary.session_count, 1);
+        assert_eq!(codex_summary.total_output_tokens, 2);
     }
 
     #[tokio::test]

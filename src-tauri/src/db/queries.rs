@@ -1260,6 +1260,17 @@ pub async fn get_project_conventions(
 // -- Session Usage --
 
 #[allow(clippy::too_many_arguments)]
+/// Marks a Usage row as a subagent's or workflow agent's (or clears it): its
+/// tokens count, but it is not a session a person started.
+pub async fn set_session_usage_child(pool: &SqlitePool, thread_id: &str, is_child: bool) -> anyhow::Result<()> {
+    sqlx::query("UPDATE session_usage SET is_child = ? WHERE thread_id = ?")
+        .bind(is_child)
+        .bind(thread_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn record_session_usage(
     pool: &SqlitePool,
     thread_id: &str,
