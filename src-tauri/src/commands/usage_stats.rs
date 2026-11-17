@@ -150,6 +150,8 @@ fn model_pricing(model: &str) -> ModelPricing {
         "claude-haiku-4-5" => Some((1.0, 5.0, 0.10, 1.25)),
         "claude-3-5-haiku" => Some((0.80, 4.0, 0.08, 1.0)),
         // OpenAI documents explicit cache writes only for GPT-5.6 and later.
+        "gpt-6.2-astra" => Some((8.0, 40.0, 0.40, 10.0)),
+        "gpt-6.2-sol" => Some((2.0, 10.0, 0.10, 2.50)),
         "gpt-6-astra" => Some((10.0, 50.0, 1.0, 12.50)),
         // 6.1 Sol halves 6 Sol's cache-read rate; everything else matches.
         "gpt-6.1-sol" => Some((2.0, 10.0, 0.10, 2.50)),
@@ -256,7 +258,7 @@ fn long_context_step(model: &str) -> Option<(i64, f64, f64)> {
     match pricing_model_key(model).as_str() {
         "gpt-5.4" | "gpt-5.4-2026-03-05" | "gpt-5.5" | "gpt-5.6" |
         "gpt-5.6-sol" | "gpt-daybreak-blue-latest" | "gpt-5.6-terra" |
-        "gpt-5.6-luna" | "gpt-6-astra" | "gpt-6.1-sol" | "gpt-6.1-terra" | "gpt-6-sol" |
+        "gpt-5.6-luna" | "gpt-6.2-astra" | "gpt-6.2-sol" | "gpt-6-astra" | "gpt-6.1-sol" | "gpt-6.1-terra" | "gpt-6-sol" |
         "gpt-6-luna" =>
             Some((272_000, 2.0, 1.5)),
         "grok-4.7" | "grok-4.6" | "grok-4.5" | "grok-build-0.1" | "grok-4.3" |
@@ -2019,6 +2021,8 @@ mod tests {
     fn pricing_audit_verified_standard_rates() {
         // Independent official rate checks; tuple is input/output/cache read/cache write.
         for (model, expected) in [
+            ("gpt-6.2-astra", (8.0, 40.0, 0.4, 10.0)),
+            ("gpt-6.2-sol", (2.0, 10.0, 0.1, 2.5)),
             ("gpt-6-astra", (10.0, 50.0, 1.0, 12.5)),
             ("gpt-6.1-sol", (2.0, 10.0, 0.1, 2.5)),
             ("openai/gpt-6.1-sol", (2.0, 10.0, 0.1, 2.5)),

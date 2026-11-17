@@ -1713,6 +1713,8 @@ const MODEL_NAMES = {
   'grok-build': 'Grok Build',
   'composer-2.5': 'Composer 2.5',
   'grok-composer-2.5-fast': 'Composer 2.5',
+  'gpt-6.2-astra': 'GPT-6.2 Astra',
+  'gpt-6.2-sol': 'GPT-6.2 Sol',
   'gpt-6.1-sol': 'GPT-6.1 Sol',
   'gpt-6-astra': 'GPT-6 Astra',
   'gpt-6-sol': 'GPT-6 Sol',
@@ -4287,8 +4289,8 @@ const PROVIDER_MODELS = {
   ],
   Codex: [
     ['gpt-5.6-sol', 'GPT-5.6 Sol', 'OpenAI flagship', true],
-    ['gpt-6.1-sol', 'GPT-6.1 Sol', 'OpenAI latest workhorse', false],
-    ['gpt-6-astra', 'GPT-6 Astra', 'OpenAI frontier', false],
+    ['gpt-6.2-sol', 'GPT-6.2 Sol', 'OpenAI latest workhorse', false],
+    ['gpt-6.2-astra', 'GPT-6.2 Astra', 'OpenAI frontier', false],
     ['gpt-6-sol', 'GPT-6 Sol', 'OpenAI flagship', false],
     ['gpt-6-luna', 'GPT-6 Luna', 'OpenAI fast · cheap', false],
     ['gpt-5.6-terra', 'GPT-5.6 Terra', 'OpenAI balanced', false],
@@ -4674,8 +4676,8 @@ function effortsFor(provider, model) {
     const live = dynamicModelEfforts[provider]?.[model];
     if (Array.isArray(live)) return live.map((v) => [v, CODEX_EFFORTS.find(([id]) => id === v)?.[1] || v]);
     const slug = (model || '').toLowerCase();
-    const supportsMax = slug.includes('gpt-5.6') || slug.includes('5.6-') || /gpt-6(\.1)?-(sol|luna|astra)/.test(slug);
-    const supportsUltra = /5\.6-(sol|terra)|gpt-6(\.1)?-(sol|astra)/.test(slug);
+    const supportsMax = slug.includes('gpt-5.6') || slug.includes('5.6-') || /gpt-6(\.[12])?-(sol|luna|astra)/.test(slug);
+    const supportsUltra = /5\.6-(sol|terra)|gpt-6(\.[12])?-(sol|astra)/.test(slug);
     return CODEX_EFFORTS.filter(([v]) => {
       if (v === 'max') return supportsMax;
       if (v === 'ultra') return supportsUltra;

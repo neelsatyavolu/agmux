@@ -393,6 +393,8 @@ export function prettifyOpenCodeSlug(slug: string | null | undefined): string {
   if (!slug) return "";
   const part = slug.includes("/") ? (slug.split("/")[1] ?? slug) : slug;
   const SPECIAL: Record<string, string> = {
+    "gpt-6.2-astra": "GPT 6.2 Astra",
+    "gpt-6.2-sol": "GPT 6.2 Sol",
     "gpt-6.1-sol": "GPT 6.1 Sol",
     "gpt-6-sol": "GPT 6 Sol",
     "gpt-6-luna": "GPT 6 Luna",
@@ -433,8 +435,8 @@ export function prettifyOpenCodeSlug(slug: string | null | undefined): string {
 
 export const CODEX_MODELS: CodexModelOption[] = [
   { slug: "gpt-5.6-sol", name: "GPT 5.6 Sol" },
-  { slug: "gpt-6.1-sol", name: "GPT 6.1 Sol" },
-  { slug: "gpt-6-astra", name: "GPT 6 Astra" },
+  { slug: "gpt-6.2-astra", name: "GPT 6.2 Astra" },
+  { slug: "gpt-6.2-sol", name: "GPT 6.2 Sol" },
   { slug: "gpt-6-sol", name: "GPT 6 Sol" },
   { slug: "gpt-6-luna", name: "GPT 6 Luna" },
   { slug: "gpt-5.6-terra", name: "GPT 5.6 Terra" },
@@ -1043,6 +1045,8 @@ const BASE_CONTEXT_WINDOWS: Record<string, number> = {
   "gemini-2.0-flash": 1_000_000,
   "gemini-1.5-pro": 2_000_000,
   // Codex / OpenAI models (context_window from Codex model catalog)
+  "gpt-6.2-astra": 272_000,
+  "gpt-6.2-sol": 272_000,
   "gpt-6.1-sol": 272_000,
   "gpt-6-astra": 272_000,
   "gpt-6-sol": 272_000,

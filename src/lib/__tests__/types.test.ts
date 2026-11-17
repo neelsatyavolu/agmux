@@ -294,13 +294,16 @@ describe("Sonnet 5 model wiring", () => {
 });
 
 describe("October 2026 model catalog", () => {
-  it("offers GPT-6.1 Sol and GPT-6 Astra without changing the Codex default", () => {
+  it("offers GPT-6.2 Sol and GPT-6.2 Astra in place of 6.1 Sol and 6 Astra, without changing the Codex default", () => {
     expect(CODEX_MODELS[0]?.slug).toBe("gpt-5.6-sol");
     const slugs = CODEX_MODELS.map((m) => m.slug);
-    expect(slugs).toContain("gpt-6.1-sol");
-    expect(slugs).toContain("gpt-6-astra");
+    expect(slugs).toContain("gpt-6.2-sol");
+    expect(slugs).toContain("gpt-6.2-astra");
+    expect(slugs).not.toContain("gpt-6.1-sol");
+    expect(slugs).not.toContain("gpt-6-astra");
     expect(prettifyOpenCodeSlug("openai/gpt-6-astra")).toBe("GPT 6 Astra");
-    expect(codexEffortsForModel("gpt-6-astra").map((e) => e.value)).toContain("ultra");
+    expect(prettifyOpenCodeSlug("openai/gpt-6.2-astra")).toBe("GPT 6.2 Astra");
+    expect(codexEffortsForModel("gpt-6.2-astra").map((e) => e.value)).toContain("ultra");
   });
 
   it("offers Claude Fable 5.2, Fable 5.1 and Sonnet 5.5", () => {
@@ -314,6 +317,8 @@ describe("October 2026 model catalog", () => {
     // Codex runs these at its catalog's 272K window, not the API's 1.05M.
     expect(getModelContextWindow("gpt-6.1-sol")).toBe(272_000);
     expect(getModelContextWindow("gpt-6-astra")).toBe(272_000);
+    expect(getModelContextWindow("gpt-6.2-astra")).toBe(272_000);
+    expect(getModelContextWindow("gpt-6.2-sol")).toBe(272_000);
     expect(getModelContextWindow("grok-4.7-build-fast")).toBe(500_000);
   });
 });
